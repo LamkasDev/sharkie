@@ -1,0 +1,136 @@
+//go:build windows && amd64
+
+#include "textflag.h"
+#include "funcdata.h"
+
+GLOBL ·GoStackSP(SB), NOPTR, $8
+GLOBL ·GoStackBP(SB), NOPTR, $8
+GLOBL ·SavedG(SB), NOPTR, $8
+GLOBL ·ReturnAddressAnchor(SB), NOPTR, $8
+GLOBL ·CallReturnAddress(SB), NOPTR, $8
+
+// This function switches to the game's stack and jumps to its entry point.
+// It does not return.
+// func Run(entry,   stackPtr, arg1,    arg2 uintptr)
+//          +0(FP)   +8(FP)    +16(FP)  +24(FP)
+TEXT ·Run(SB), NOSPLIT, $0-32
+    NO_LOCAL_POINTERS
+
+    // We fake call site in case we run into an exception handler.
+    BYTE $0xEB; BYTE $0x05  // JMP +5 bytes
+    CALL ·exceptionHandlerAsm(SB)
+
+    // Save fake caller address in case we run into an exception handler.
+    LEAQ ·Run(SB), R15
+    ADDQ $7, R15
+    MOVQ R15, ·ReturnAddressAnchor(SB)
+
+    MOVQ entry+0(FP), AX     // entry = AX
+    MOVQ stackPtr+8(FP), BX  // stackPtr = BX
+
+    // Save the current Go stack so we can restore it later.
+    MOVQ SP, ·GoStackSP(SB)
+    MOVQ BP, ·GoStackBP(SB)
+    MOVQ R14, ·SavedG(SB)
+
+    // Switch to the playstation stack.
+    ANDQ $-16, BX
+    BYTE $0x48; BYTE $0x89; BYTE $0xDC  // MOVQ BX, SP
+
+    // Clear our registers.
+    XORQ CX, CX
+    XORQ DX, DX
+    XORQ DI, DI
+    XORQ SI, SI
+    XORQ R8, R8
+    XORQ R9, R9
+    XORQ R10, R10
+    XORQ R11, R11
+    XORQ BP, BP
+
+    // Far jump to the entry point to set CS.
+    PUSHQ $0x33 // CS segment selector
+    PUSHQ AX    // Entry point address
+    RETFQ
+
+// This function switches to the game's stack, calls a function and returns.
+// func Call(entry,   stackPtr, arg1,    arg2 uintptr)
+//          +0(FP)   +8(FP)    +16(FP)  +24(FP)
+TEXT ·Call(SB), NOSPLIT, $48-32
+    NO_LOCAL_POINTERS
+
+    // We fake call site in case we run into an exception handler.
+    BYTE $0xEB; BYTE $0x05  // JMP +5 bytes
+    CALL ·exceptionHandlerAsm(SB)
+
+    // Save fake caller address in case we run into an exception handler.
+    LEAQ ·Call(SB), R15
+    ADDQ $7, R15
+    MOVQ R15, ·ReturnAddressAnchor(SB)
+
+    MOVQ entry+0(FP), AX     // entry = AX
+    MOVQ stackPtr+8(FP), DX  // stackPtr = BX (DX just for a bit)
+
+    // Save callee-saved registers.
+    MOVQ BP, 0(SP)
+    MOVQ BX, 8(SP)
+    MOVQ R12, 16(SP)
+    MOVQ R13, 24(SP)
+    MOVQ R14, 32(SP)
+    MOVQ R15, 40(SP)
+    MOVQ DX, BX
+
+    // Save the current Go stack so we can restore it later.
+    MOVQ SP, ·GoStackSP(SB)
+    MOVQ BP, ·GoStackBP(SB)
+    MOVQ R14, ·SavedG(SB)
+
+    // Prepare a return address for guest.
+    BYTE $0xE8; BYTE $0x05; BYTE $0x00; BYTE $0x00; BYTE $0x00
+    JMP CallRestoreRegisters
+    BYTE $0x90; BYTE $0x90; BYTE $0x90
+
+    // Save return address.
+    BYTE $0x5E
+    MOVQ SI, ·CallReturnAddress(SB)
+
+    // Switch to the playstation stack.
+    SUBQ $32, BX
+    SUBQ $24, BX
+    MOVQ $0, 16(BX)
+    MOVQ $0, 8(BX)
+    MOVQ $0, 0(BX)
+    ANDQ $-16, BX
+    BYTE $0x48; BYTE $0x89; BYTE $0xDC  // MOVQ BX, SP
+
+    // Call the entry function with empty registers.
+    BYTE $0x48; BYTE $0x83; BYTE $0xEC; BYTE $0x08  // SUBQ $8, SP
+    MOVQ SI, 0(SP)
+    XORQ CX, CX
+    XORQ DX, DX
+    XORQ DI, DI
+    XORQ SI, SI
+    XORQ R8, R8
+    XORQ R9, R9
+    XORQ R10, R10
+    XORQ R11, R11
+    JMP AX
+
+CallRestoreRegisters:
+    // Switch to the Go stack.
+    MOVQ ·GoStackSP(SB), BX
+    BYTE $0x48; BYTE $0x89; BYTE $0xDC  // MOVQ BX, SP
+
+    // Restore Go stack.
+    MOVQ ·GoStackBP(SB), BP
+    MOVQ ·SavedG(SB), R14
+
+    // Restore callee-saved registers.
+    MOVQ 40(SP), R15
+    MOVQ 32(SP), R14
+    MOVQ 24(SP), R13
+    MOVQ 16(SP), R12
+    MOVQ 8(SP), BX
+    MOVQ 0(SP), BP
+
+    RET

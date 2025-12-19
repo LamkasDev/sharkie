@@ -1,0 +1,41 @@
+package lib
+
+import "unsafe"
+
+// https://docs.particle.io/reference/device-os/api/debugging/posix-errors
+const EPERM = 1
+const ENOENT = 2
+const EAGAIN = 11
+const ENOMEM = 12
+const EFAULT = 14
+const EINVAL = 22
+const EDEADLK = 45
+
+// ResolveHandle converts a guest handle (double pointer) into a host struct pointer.
+// Returns the struct pointer and 0 on success, or nil and an error code (EINVAL).
+func ResolveHandle[T any](handlePtr uintptr) (*T, int32) {
+	if handlePtr == 0 {
+		return nil, EINVAL
+	}
+
+	ptr := *(*uint64)(unsafe.Pointer(handlePtr))
+	if ptr == 0 {
+		return nil, EINVAL
+	}
+
+	return (*T)(unsafe.Pointer(uintptr(ptr))), 0
+}
+
+// ReadCString reads a C-style string ended with a NULL terminator.
+func ReadCString(stringPtr uintptr) string {
+	stringSlice := unsafe.Slice((*byte)(unsafe.Pointer(stringPtr)), 256)
+	stringLength := 0
+	for i, b := range stringSlice {
+		if b == 0 {
+			stringLength = i
+			break
+		}
+	}
+
+	return string(stringSlice[:stringLength])
+}

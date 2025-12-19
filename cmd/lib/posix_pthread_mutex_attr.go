@@ -1,0 +1,100 @@
+package lib
+
+import (
+	"encoding/binary"
+	"fmt"
+	"unsafe"
+
+	"github.com/LamkasDev/sharkie/cmd/emu"
+	"github.com/LamkasDev/sharkie/cmd/mem"
+	"github.com/gookit/color"
+)
+
+type PthreadMutexAttr struct {
+	Type     PthreadMutexType
+	Protocol PthreadMutexProtocol
+	Ceiling  int32
+}
+
+// 0x0000000000009360
+// __int64 __fastcall pthread_mutexattr_init(__int64 *)
+func libKernel_pthread_mutexattr_init(attrHandlePtr uintptr) uintptr {
+	attrAddr := mem.AllocReadWriteMemory(unsafe.Sizeof(PthreadMutexAttr{}))
+	if attrAddr == 0 {
+		return ENOMEM
+	}
+
+	// Initialize to defaults.
+	attr := (*PthreadMutexAttr)(unsafe.Pointer(attrAddr))
+	attr.Type = PthreadMutexTypeErrorCheck
+	attr.Protocol = PthreadMutexProtocolNone
+	attr.Ceiling = 0
+
+	// Copy the pointer back to attrHandlePtr.
+	attrHandlePtrSlice := unsafe.Slice((*byte)(unsafe.Pointer(attrHandlePtr)), 8)
+	binary.LittleEndian.PutUint64(attrHandlePtrSlice, uint64(attrAddr))
+	fmt.Printf("%-120s %s created struct at %s.\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("pthread_mutexattr_init"),
+		color.Yellow.Sprintf("0x%x", attrAddr),
+	)
+
+	return 0
+}
+
+// 0x0000000000009450
+// __int64 __fastcall pthread_mutexattr_settype(_DWORD **, int)
+func libKernel_pthread_mutexattr_settype(attrHandlePtr uintptr, attrType uintptr) uintptr {
+	if attrType < 1 || attrType > 4 {
+		return EINVAL
+	}
+
+	// Resolve the handle.
+	attr, err := ResolveHandle[PthreadMutexAttr](attrHandlePtr)
+	if err != 0 {
+		fmt.Printf("%-120s %s failed due to invalid attribute pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("pthread_mutexattr_settype"),
+		)
+		return uintptr(err)
+	}
+
+	// Set type.
+	attr.Type = PthreadMutexType(attrType)
+	fmt.Printf("%-120s %s set type to %d.\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("pthread_mutexattr_settype"),
+		attrType,
+	)
+
+	return 0
+}
+
+// 0x0000000000009490
+// __int64 __fastcall scePthreadMutexattrDestroy(__int64 *)
+func libKernel_pthread_mutexattr_destroy(attrHandlePtr uintptr) uintptr {
+	// Resolve the handle.
+	attr, err := ResolveHandle[PthreadMutexAttr](attrHandlePtr)
+	if err != 0 {
+		fmt.Printf("%-120s %s failed due to invalid attribute pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("pthread_mutexattr_destroy"),
+		)
+		return uintptr(err)
+	}
+
+	// Free the memory.
+	attrAddr := uintptr(unsafe.Pointer(attr))
+	mem.FreeReadWriteMemory(attrAddr)
+
+	// Copy NULL pointer to attrHandlePtr.
+	attrHandlePtrSlice := unsafe.Slice((*byte)(unsafe.Pointer(attrHandlePtr)), 8)
+	binary.LittleEndian.PutUint64(attrHandlePtrSlice, 0)
+	fmt.Printf("%-120s %s destroyed struct at %s.\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("pthread_mutexattr_destroy"),
+		color.Yellow.Sprintf("0x%x", attrAddr),
+	)
+
+	return 0
+}
