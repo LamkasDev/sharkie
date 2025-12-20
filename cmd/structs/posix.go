@@ -1,4 +1,4 @@
-package lib
+package structs
 
 import "unsafe"
 
@@ -11,8 +11,10 @@ const EFAULT = 14
 const EINVAL = 22
 const EDEADLK = 45
 
-// ResolveHandle converts a guest handle (double pointer) into a host struct pointer.
-// Returns the struct pointer and 0 on success, or nil and an error code (EINVAL).
+const ERR_PTR = ^uintptr(0)
+
+// ResolveHandle converts a guest handle (double pointer) into a host structs pointer.
+// Returns the structs pointer and 0 on success, or nil and an error code (EINVAL).
 func ResolveHandle[T any](handlePtr uintptr) (*T, int32) {
 	if handlePtr == 0 {
 		return nil, EINVAL

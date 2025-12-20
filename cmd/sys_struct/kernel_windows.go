@@ -11,6 +11,7 @@ var (
 	AddVectoredExceptionHandler = Kernel32.NewProc("AddVectoredExceptionHandler")
 	VirtualAlloc                = Kernel32.NewProc("VirtualAlloc")
 	VirtualFree                 = Kernel32.NewProc("VirtualFree")
+	VirtualProtect              = Kernel32.NewProc("VirtualProtect")
 	TlsAlloc                    = Kernel32.NewProc("TlsAlloc")
 	TlsSetValue                 = Kernel32.NewProc("TlsSetValue")
 	TlsGetValue                 = Kernel32.NewProc("TlsGetValue")

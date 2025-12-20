@@ -60,7 +60,7 @@ func ProcessRelocationTable(e *elf.Elf, table *elf.ElfRelocationTable, tableName
 					externalCount++
 				}
 			} else {
-				elf.FakeAddressMap[elf.FakeAddress] = symbol.HashIndex
+				elf.FakeAddressMap[elf.FakeAddress] = fmt.Sprintf("%s:%s", symbol.LibraryName, symbol.ReadableName)
 				newAddr := elf.FakeAddress + uint64(r.Addend)
 				if r.Addend != 0 {
 					color.Grayf("  Unhandled addend %d.\n", r.Addend)

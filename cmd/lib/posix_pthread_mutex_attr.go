@@ -6,20 +6,15 @@ import (
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
-	"github.com/LamkasDev/sharkie/cmd/mem"
+	. "github.com/LamkasDev/sharkie/cmd/structs"
+	"github.com/LamkasDev/sharkie/cmd/sys_struct"
 	"github.com/gookit/color"
 )
-
-type PthreadMutexAttr struct {
-	Type     PthreadMutexType
-	Protocol PthreadMutexProtocol
-	Ceiling  int32
-}
 
 // 0x0000000000009360
 // __int64 __fastcall pthread_mutexattr_init(__int64 *)
 func libKernel_pthread_mutexattr_init(attrHandlePtr uintptr) uintptr {
-	attrAddr := mem.AllocReadWriteMemory(unsafe.Sizeof(PthreadMutexAttr{}))
+	attrAddr, _ := sys_struct.AllocReadWriteMemory(unsafe.Sizeof(PthreadMutexAttr{}))
 	if attrAddr == 0 {
 		return ENOMEM
 	}
@@ -33,7 +28,7 @@ func libKernel_pthread_mutexattr_init(attrHandlePtr uintptr) uintptr {
 	// Copy the pointer back to attrHandlePtr.
 	attrHandlePtrSlice := unsafe.Slice((*byte)(unsafe.Pointer(attrHandlePtr)), 8)
 	binary.LittleEndian.PutUint64(attrHandlePtrSlice, uint64(attrAddr))
-	fmt.Printf("%-120s %s created struct at %s.\n",
+	fmt.Printf("%-120s %s created structs at %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("pthread_mutexattr_init"),
 		color.Yellow.Sprintf("0x%x", attrAddr),
@@ -61,10 +56,10 @@ func libKernel_pthread_mutexattr_settype(attrHandlePtr uintptr, attrType uintptr
 
 	// Set type.
 	attr.Type = PthreadMutexType(attrType)
-	fmt.Printf("%-120s %s set type to %d.\n",
+	fmt.Printf("%-120s %s set type to %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("pthread_mutexattr_settype"),
-		attrType,
+		color.Green.Sprintf("%d", attrType),
 	)
 
 	return 0
@@ -85,12 +80,12 @@ func libKernel_pthread_mutexattr_destroy(attrHandlePtr uintptr) uintptr {
 
 	// Free the memory.
 	attrAddr := uintptr(unsafe.Pointer(attr))
-	mem.FreeReadWriteMemory(attrAddr)
+	sys_struct.FreeReadWriteMemory(attrAddr)
 
 	// Copy NULL pointer to attrHandlePtr.
 	attrHandlePtrSlice := unsafe.Slice((*byte)(unsafe.Pointer(attrHandlePtr)), 8)
 	binary.LittleEndian.PutUint64(attrHandlePtrSlice, 0)
-	fmt.Printf("%-120s %s destroyed struct at %s.\n",
+	fmt.Printf("%-120s %s destroyed structs at %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("pthread_mutexattr_destroy"),
 		color.Yellow.Sprintf("0x%x", attrAddr),

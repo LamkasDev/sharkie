@@ -6,22 +6,13 @@ import (
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
-	"github.com/LamkasDev/sharkie/cmd/mem"
+	. "github.com/LamkasDev/sharkie/cmd/structs"
+	"github.com/LamkasDev/sharkie/cmd/sys_struct"
 	"github.com/gookit/color"
 )
 
-const (
-	PthreadCondInitializer = 0
-)
-
-type PthreadCond struct {
-	KernelId uintptr
-	Flags    uint32
-	_        [20]byte // Bigggg padding!
-}
-
 func libKernel_initStaticCond(condHandlePtr uintptr) uintptr {
-	condAddr := mem.AllocReadWriteMemory(unsafe.Sizeof(PthreadCond{}))
+	condAddr, _ := sys_struct.AllocReadWriteMemory(unsafe.Sizeof(PthreadCond{}))
 	if condAddr == 0 {
 		return ENOMEM
 	}
@@ -34,7 +25,7 @@ func libKernel_initStaticCond(condHandlePtr uintptr) uintptr {
 	// Copy the pointer back to condHandlePtr.
 	condHandlePtrSlice := unsafe.Slice((*byte)(unsafe.Pointer(uintptr(condHandlePtr))), 8)
 	binary.LittleEndian.PutUint64(condHandlePtrSlice, uint64(condAddr))
-	fmt.Printf("%-120s %s created struct at %s.\n",
+	fmt.Printf("%-120s %s created structs at %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("libKernel_initStaticCond"),
 		color.Yellow.Sprintf("0x%X", condAddr),

@@ -1,24 +1,27 @@
-//go:build windows
-
-package mem
+package structs
 
 import (
 	"encoding/binary"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/sys_struct"
-	"golang.org/x/sys/windows"
 )
+
+var StackDefaultSize = 2 * 1024 * 1024 // 2MB
+var StackArgumentsSize = uintptr(256)
+
+type Stack struct {
+	Address          uintptr
+	ArgumentsAddress uintptr
+	ArgumentsOffset  uintptr
+	Contents         []byte
+	CurrentPointer   uintptr
+}
 
 // NewStack creates a new stack with the defined size.
 func NewStack(stackSize uintptr) *Stack {
-	addr, _, err := sys_struct.VirtualAlloc.Call(
-		0,
-		stackSize,
-		windows.MEM_COMMIT|windows.MEM_RESERVE,
-		windows.PAGE_READWRITE,
-	)
-	if addr == 0 {
+	addr, err := sys_struct.AllocReadWriteMemory(stackSize)
+	if err != nil {
 		panic(err)
 	}
 

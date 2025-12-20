@@ -5,6 +5,7 @@ import (
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
+	. "github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/gookit/color"
 )
 

@@ -1,54 +1,51 @@
 //go:build windows
 
-package mem
+package sys_struct
 
 import (
-	"github.com/LamkasDev/sharkie/cmd/sys_struct"
 	"golang.org/x/sys/windows"
 )
 
 // AllocExecututableMemory allocates a chunk of executable memory with the defined size.
-func AllocExecututableMemory(size uintptr) uintptr {
-	addr, _, err := sys_struct.VirtualAlloc.Call(
+func AllocExecututableMemory(size uintptr) (uintptr, error) {
+	addr, _, err := VirtualAlloc.Call(
 		0,
 		size,
 		windows.MEM_COMMIT|windows.MEM_RESERVE,
 		windows.PAGE_EXECUTE_READWRITE,
 	)
 	if addr == 0 {
-		panic(err)
+		return 0, err
 	}
 
-	return addr
+	return addr, nil
 }
 
 // AllocReadWriteMemory allocates a chunk of read-write memory with the defined size.
-func AllocReadWriteMemory(size uintptr) uintptr {
-	addr, _, err := sys_struct.VirtualAlloc.Call(
+func AllocReadWriteMemory(size uintptr) (uintptr, error) {
+	addr, _, err := VirtualAlloc.Call(
 		0,
 		size,
 		windows.MEM_COMMIT|windows.MEM_RESERVE,
 		windows.PAGE_READWRITE,
 	)
 	if addr == 0 {
-		panic(err)
+		return 0, err
 	}
 
-	return addr
+	return addr, nil
 }
 
 // FreeReadWriteMemory releases memory allocated by AllocReadWriteMemory.
-func FreeReadWriteMemory(addr uintptr) {
-	if addr == 0 {
-		return
-	}
-
-	size, _, err := sys_struct.VirtualFree.Call(
+func FreeReadWriteMemory(addr uintptr) error {
+	size, _, err := VirtualFree.Call(
 		addr,
 		0,
 		windows.MEM_RELEASE,
 	)
 	if size == 0 {
-		panic(err)
+		return err
 	}
+
+	return nil
 }

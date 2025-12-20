@@ -5,8 +5,10 @@ import (
 )
 
 type StubInfo struct {
-	Address uintptr
-	NumArgs int
+	LibraryName string
+	SymbolName  string
+	Address     uintptr
+	NumArgs     int
 }
 
 var (
@@ -35,6 +37,7 @@ func stubGo() {
 	arg4 := ctx.CX
 	arg5 := ctx.R8
 	arg6 := ctx.R9
+	arg7 := ctx.R10
 
 	// Look up the stub info.
 	stubName, ok := StubsMap[fnPtr]
@@ -68,6 +71,9 @@ func stubGo() {
 	case 6:
 		targetFunc := *(*func(uintptr, uintptr, uintptr, uintptr, uintptr, uintptr) uintptr)(unsafe.Pointer(&ptrToFnPtr))
 		result = targetFunc(arg1, arg2, arg3, arg4, arg5, arg6)
+	case 7:
+		targetFunc := *(*func(uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr) uintptr)(unsafe.Pointer(&ptrToFnPtr))
+		result = targetFunc(arg1, arg2, arg3, arg4, arg5, arg6, arg7)
 	default:
 		panic("unsupported number of arguments")
 	}

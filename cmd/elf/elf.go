@@ -3,7 +3,9 @@ package elf
 import (
 	"encoding/binary"
 	"fmt"
+	"unsafe"
 
+	"github.com/LamkasDev/sharkie/cmd/sys_struct"
 	"github.com/gookit/color"
 )
 
@@ -32,6 +34,8 @@ type Elf struct {
 
 	// Temporary, used for mapping generic stub callers.
 	CallerToFunctionName map[uint64]uint64
+	Path                 string
+	Linked               bool
 }
 
 // NewElf creates a new instance of Elf based on file contents.
@@ -91,12 +95,27 @@ func NewElf(data []byte) *Elf {
 		}
 	}
 
+	// Load relocation tables.
 	e.RelaRelocationTable = NewRelocationTable(data, e.DynamicInfo.RelaOffset, e.DynamicInfo.RelaSize, e.DynamicInfo.RelaEnt)
 	if e.DynamicInfo.PltRelEnt == 0 {
 		e.DynamicInfo.PltRelEnt = e.DynamicInfo.RelaEnt
 	}
 	e.PltRelocationTable = NewRelocationTable(data, e.DynamicInfo.PltRelOffset, e.DynamicInfo.PltRelSize, e.DynamicInfo.PltRelEnt)
 	e.SymbolTable = e.NewSymbolTable(data)
+
+	// Allocate memory and load sections.
+	e.BaseAddress, _ = sys_struct.AllocExecututableMemory(uintptr(e.MemSize))
+	e.Memory = unsafe.Slice((*byte)(unsafe.Pointer(e.BaseAddress)), e.MemSize)
+	fmt.Printf(
+		"PT_LOAD data loaded into memory at %s (%s bytes).\n",
+		color.Yellow.Sprintf("0x%X", e.BaseAddress),
+		color.Gray.Sprintf("%d", len(e.Memory)),
+	)
+
+	for _, loadSection := range e.LoadSections {
+		ProcessLoadSection(e, loadSection, data)
+	}
+
 	fmt.Printf(
 		"Loaded module with %s imports & %s exports.\n",
 		color.Yellow.Sprintf("%d", e.DynamicInfo.ImportLibrariesCount),

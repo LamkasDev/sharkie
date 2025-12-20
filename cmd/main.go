@@ -18,6 +18,7 @@ func main() {
 	// a thread-local exception handler.
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
+	emu.StartProfiling()
 
 	fmt.Printf("hi from %s :3\n", color.Blue.Sprint("sharkie"))
 	asm.ExceptionHandler = emu.ExceptionHandlerGo
@@ -31,4 +32,5 @@ func main() {
 
 	emu.GlobalModuleManager.LoadModule("eboot.bin")
 	emu.GlobalModuleManager.RunModule("Minecraft.Client.sprx")
+	emu.StopProfiling()
 }

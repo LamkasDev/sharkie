@@ -11,8 +11,8 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/asm"
 	"github.com/LamkasDev/sharkie/cmd/elf"
 	"github.com/LamkasDev/sharkie/cmd/linker"
-	"github.com/LamkasDev/sharkie/cmd/mem"
 	"github.com/LamkasDev/sharkie/cmd/patcher"
+	"github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/gookit/color"
 )
 
@@ -26,8 +26,8 @@ type ModuleManager struct {
 	CurrentModule *elf.Elf
 	Modules       map[string]*elf.Elf
 
-	Stack *mem.Stack
-	Tcb   *Tcb
+	Stack *structs.Stack
+	Tcb   *structs.Tcb
 }
 
 // NewModuleManager creates a new instance of ModuleManager.
@@ -42,6 +42,36 @@ func NewModuleManager(linkPaths []string) *ModuleManager {
 
 // LoadModule loads & links module specified by name.
 func (m *ModuleManager) LoadModule(name string) {
+	// Only load the modules.
+	m._RecursiveLoadModule(name)
+
+	// Link & patch everything now.
+	for _, module := range m.Modules {
+		if !module.Linked {
+			fmt.Printf(
+				"\nLinking module %s from %s...\n",
+				color.Blue.Sprint(module.Name),
+				color.Blue.Sprint(module.Path),
+			)
+			linker.GlobalLinker.Link(module)
+			patcher.GlobalPatcher.Patch(module)
+			module.Linked = true
+		}
+	}
+}
+
+func GetBaseModuleName(name string) string {
+	name = strings.ReplaceAll(name, ".prx", "")
+	name = strings.ReplaceAll(name, ".sprx", "")
+	return name
+}
+
+// _RecursiveLoadModule loads a module and dependencies without linking.
+func (m *ModuleManager) _RecursiveLoadModule(name string) {
+	if m.Modules[name] != nil {
+		return
+	}
+
 	modulePath := m.GetModulePath(name)
 	if modulePath == nil {
 		log.Panicf("Could not find module %s!\n", name)
@@ -58,6 +88,7 @@ func (m *ModuleManager) LoadModule(name string) {
 	}
 
 	module := elf.NewElf(data)
+	module.Path = *modulePath
 	m.Modules[module.Name] = module
 
 	for _, needed := range module.DynamicInfo.Needed {
@@ -67,18 +98,8 @@ func (m *ModuleManager) LoadModule(name string) {
 			needed == "libSceDipsw.sprx" {
 			continue
 		}
-		if m.Modules[needed] == nil {
-			m.LoadModule(needed)
-		}
+		m._RecursiveLoadModule(needed)
 	}
-
-	fmt.Printf(
-		"\nLinking module %s from %s...\n",
-		color.Blue.Sprint(name),
-		color.Blue.Sprint(*modulePath),
-	)
-	linker.GlobalLinker.Link(module, data)
-	patcher.GlobalPatcher.Patch(module)
 }
 
 // RunModuleInitializers recursively executes init functions of modules.
@@ -182,7 +203,8 @@ func GetSymbolAddress(s *elf.ElfSymbol) (uint64, bool) {
 	}
 
 	// Let's use a generic stub for now, so we know which functions to patch.
-	if s.LibraryName == "libkernel" && s.Type == elf.STT_FUNC {
+	if s.LibraryName == "libkernel" && s.Type == elf.STT_FUNC &&
+		s.ReadableName != "scePthreadSelf" && s.ReadableName != "scePthreadSelf" {
 		return uint64(asm.Stubs[elf.GetSymbolHashIndex("", "__sharkie_generic_stub")].Address), true
 	}
 
@@ -223,7 +245,7 @@ func GetSymbolAddress(s *elf.ElfSymbol) (uint64, bool) {
 				}
 				/* fmt.Printf(
 					"Found symbol %s in module %s at %s.\n",
-					color.Blue.Sprint(fullName),
+					color.Blue.Sprintf("%s:%s", symbol.LibraryName, symbol.SymbolName),
 					color.Blue.Sprint(module.Name),
 					color.Yellow.Sprintf("0x%X", module.BaseAddress+uintptr(symbol.Address)),
 				) */
@@ -309,8 +331,9 @@ func (m *ModuleManager) GetCallSiteText() string {
 		hashIndex, ok = asm.StubsTrampolineMap[uintptr(callerAddress)]
 		if !ok {
 			return fmt.Sprintf(
-				"[%s called unknown function at %s]",
+				"[%s called %s at %s]",
 				color.Blue.Sprint(module.Name),
+				color.Magenta.Sprint("unknown function"),
 				color.Yellow.Sprintf("0x%X", returnAddr),
 			)
 		}

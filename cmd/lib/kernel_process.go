@@ -14,7 +14,7 @@ func libKernel_getpid() uintptr {
 	fmt.Printf("%-120s %s returned process id %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("getpid"),
-		color.Blue.Sprintf("0x%X", processId),
+		color.Green.Sprintf("%d", processId),
 	)
 
 	return processId

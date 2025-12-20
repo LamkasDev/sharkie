@@ -87,10 +87,10 @@ func (e *Elf) NewSymbolTable(data []byte) *ElfSymbolTable {
 
 	numSymbols := binary.LittleEndian.Uint32(data[e.DynamicInfo.HashOffset+4:])
 	symbolTable := &ElfSymbolTable{
-		Symbols:    make([]*ElfSymbol, numSymbols),
+		Symbols:    []*ElfSymbol{},
 		SymbolsMap: map[uint64]*ElfSymbol{},
 	}
-	for i := 0; i < len(symbolTable.Symbols); i++ {
+	for i := uint32(0); i < numSymbols; i++ {
 		symEntryOffset := e.DynamicInfo.SymTabOffset + (uint64(i) * e.DynamicInfo.SymEnt)
 		if symEntryOffset+24 > uint64(len(data)) {
 			break
@@ -110,9 +110,14 @@ func (e *Elf) NewSymbolTable(data []byte) *ElfSymbolTable {
 			Binding:      stInfo >> 4,
 		}
 		e.ResolveSymbolInfo(symbol, stShndx)
-		symbolTable.Symbols[i] = symbol
-		symbolTable.SymbolsMap[symbol.HashIndex] = symbol
+		symbolTable.RegisterSymbol(symbol)
 	}
 
 	return symbolTable
+}
+
+// RegisterSymbol adds a symbol to the symbol table.
+func (st *ElfSymbolTable) RegisterSymbol(s *ElfSymbol) {
+	st.Symbols = append(st.Symbols, s)
+	st.SymbolsMap[s.HashIndex] = s
 }

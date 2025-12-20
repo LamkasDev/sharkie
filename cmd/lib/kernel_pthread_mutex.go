@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"unsafe"
 
-	"github.com/LamkasDev/sharkie/cmd/mem"
+	. "github.com/LamkasDev/sharkie/cmd/structs"
+	"github.com/LamkasDev/sharkie/cmd/sys_struct"
 )
 
 // 0x0000000000013AA0
@@ -15,7 +16,7 @@ func libKernel_scePthreadMutexInit(mutexHandlePtr uintptr, attrPtr uintptr, name
 		return uintptr(uint32(err) - 0x7FFE0000)
 	}
 
-	// Retrieve struct back.
+	// Retrieve structs back.
 	mutexAddr := *(*uintptr)(unsafe.Pointer(mutexHandlePtr))
 	mutex := (*PthreadMutex)(unsafe.Pointer(mutexAddr))
 
@@ -25,7 +26,7 @@ func libKernel_scePthreadMutexInit(mutexHandlePtr uintptr, attrPtr uintptr, name
 		mutex.NamePtr = namePtr
 	} else {
 		nameStr := fmt.Sprintf("Mutex_%x", mutexAddr)
-		nameAddr := mem.AllocReadWriteMemory(uintptr(len(nameStr) + 1))
+		nameAddr, _ := sys_struct.AllocReadWriteMemory(uintptr(len(nameStr) + 1))
 		nameSlice := unsafe.Slice((*byte)(unsafe.Pointer(nameAddr)), len(nameStr)+1)
 		copy(nameSlice, nameStr)
 		nameSlice[len(nameStr)] = 0

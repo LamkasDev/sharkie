@@ -5,7 +5,7 @@ package emu
 import (
 	"fmt"
 
-	"github.com/LamkasDev/sharkie/cmd/mem"
+	"github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/LamkasDev/sharkie/cmd/sys_struct"
 )
 
@@ -15,7 +15,7 @@ func PrintStackTrace(ctx *sys_struct.CONTEXT) {
 	PrintAddress(uintptr(ctx.Rip))
 
 	stackPtr := uintptr(ctx.Rsp)
-	stackTop := GlobalModuleManager.Stack.Address + uintptr(mem.StackDefaultSize)
+	stackTop := GlobalModuleManager.Stack.Address + uintptr(structs.StackDefaultSize)
 	for i := 0; i < 20; i++ {
 		if stackPtr >= stackTop {
 			break

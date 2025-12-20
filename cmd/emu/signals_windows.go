@@ -24,10 +24,10 @@ func ExceptionHandlerGo() uintptr {
 
 	switch code {
 	case sys_struct.EXCEPTION_ACCESS_VIOLATION:
-		if stubName, ok := elf.FakeAddressMap[ctx.Rip]; ok {
+		if name, ok := elf.FakeAddressMap[ctx.Rip]; ok {
 			fmt.Printf(
 				"Called external symbol %s at %s...\n",
-				color.Blue.Sprintf("%s", stubName),
+				color.Blue.Sprint(name),
 				color.Yellow.Sprintf("0x%X", ctx.Rip),
 			)
 			PrintStackTrace(ctx)
@@ -49,6 +49,7 @@ func ExceptionHandlerGo() uintptr {
 		)
 		sys_struct.PrintContext(ctx)
 		PrintStackTrace(ctx)
+		StopProfiling()
 		os.Exit(1)
 	default:
 		fmt.Printf(
@@ -58,6 +59,7 @@ func ExceptionHandlerGo() uintptr {
 		)
 		sys_struct.PrintContext(ctx)
 		PrintStackTrace(ctx)
+		StopProfiling()
 		os.Exit(1)
 	}
 

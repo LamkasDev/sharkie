@@ -28,6 +28,6 @@ func SetErrno(err uintptr) {
 
 // 0x0000000000002C70
 // void *_error()
-func libKernel__error() uintptr {
-	return GetErrnoAddress()
+func libKernel___error() uintptr {
+	return GetErrno()
 }

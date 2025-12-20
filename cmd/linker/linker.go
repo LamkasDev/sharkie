@@ -3,11 +3,9 @@ package linker
 import (
 	"encoding/binary"
 	"fmt"
-	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/asm"
 	"github.com/LamkasDev/sharkie/cmd/elf"
-	"github.com/LamkasDev/sharkie/cmd/mem"
 	"github.com/gookit/color"
 )
 
@@ -27,20 +25,8 @@ func NewLinker() *Linker {
 	}
 }
 
-// Link loads the ELF file into memory and performs relocations.
-func (l *Linker) Link(e *elf.Elf, data []byte) {
-	e.BaseAddress = mem.AllocExecututableMemory(uintptr(e.MemSize))
-	e.Memory = unsafe.Slice((*byte)(unsafe.Pointer(e.BaseAddress)), e.MemSize)
-	fmt.Printf(
-		"PT_LOAD data loaded into memory at %s (%s bytes).\n",
-		color.Yellow.Sprintf("0x%X", e.BaseAddress),
-		color.Gray.Sprintf("%d", len(e.Memory)),
-	)
-
-	for _, loadSection := range e.LoadSections {
-		ProcessLoadSection(e, loadSection, data)
-	}
-
+// Link performs relocations and some patches.
+func (l *Linker) Link(e *elf.Elf) {
 	if e.TlsSection != nil {
 		l.GenerationCounter++
 		l.MaxTlsIndex++
@@ -55,6 +41,27 @@ func (l *Linker) Link(e *elf.Elf, data []byte) {
 		fmt.Println("Dynamic section size is 0, skipping relocations...")
 	}
 
+	// HACK: we need to stub these symbol, but they're private.
+	if e.Name == "libkernel.sprx" {
+		e.SymbolTable.RegisterSymbol(&elf.ElfSymbol{
+			HashIndex:    elf.GetSymbolHashIndex("libkernel", "sub_1590"),
+			LibraryName:  "libkernel",
+			ReadableName: "sub_1590",
+			Address:      0x0000000000001590,
+			Type:         elf.STT_FUNC,
+			Binding:      elf.STB_LOCAL,
+		})
+		e.SymbolTable.RegisterSymbol(&elf.ElfSymbol{
+			HashIndex:    elf.GetSymbolHashIndex("libkernel", "sub_2BA0"),
+			LibraryName:  "libkernel",
+			ReadableName: "sub_2BA0",
+			Address:      0x0000000000002BA0,
+			Type:         elf.STT_FUNC,
+			Binding:      elf.STB_LOCAL,
+		})
+	}
+
+	// Patch a module's own symbols to redirect to stubs.
 	for _, symbol := range e.SymbolTable.Symbols {
 		if symbol.Address == 0 || symbol.Type != elf.STT_FUNC {
 			continue

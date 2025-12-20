@@ -5,56 +5,38 @@ import (
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/linker"
-	"github.com/LamkasDev/sharkie/cmd/mem"
+	_struct "github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/LamkasDev/sharkie/cmd/sys_struct"
 	"github.com/gookit/color"
 )
 
-// DtvEntry represent an entry in a dynamic thread vector.
-// https://github.com/shadps4-emu/shadPS4/blob/9e287564ced1c7d84a5a165ce4ad6ba85d561ee1/src/core/tls.h#L22
-type DtvEntry struct {
-	Counter uintptr
-	Pointer uintptr
-}
-
-// Tcb represent the thread control block used by a thread.
-// https://github.com/shadps4-emu/shadPS4/blob/9e287564ced1c7d84a5a165ce4ad6ba85d561ee1/src/core/tls.h#L27
-type Tcb struct {
-	Self   *Tcb
-	Dtv    *DtvEntry
-	Thread uintptr
-	Fiber  uintptr
-}
-
 // NewTCB creates a new instance of Tcb based on passed Elf.
-func NewTCB(l *linker.Linker) *Tcb {
-	tcbSize := unsafe.Sizeof(Tcb{})
-	dtvSize := unsafe.Sizeof(DtvEntry{}) * (l.MaxTlsIndex + 2)
-	pthreadSize := unsafe.Sizeof(Pthread{})
+func NewTCB(l *linker.Linker) *_struct.Tcb {
+	tcbSize := unsafe.Sizeof(_struct.Tcb{})
+	dtvSize := unsafe.Sizeof(_struct.DtvEntry{}) * (l.MaxTlsIndex + 2)
+	threadSize := unsafe.Sizeof(_struct.Pthread{})
 	totalSize := l.StaticTlsSize + uint64(tcbSize)
 
-	addr := mem.AllocReadWriteMemory(uintptr(totalSize))
-	tcb := (*Tcb)(unsafe.Pointer(addr + uintptr(l.StaticTlsSize)))
-	dtv := (*DtvEntry)(unsafe.Pointer(mem.AllocReadWriteMemory(dtvSize)))
-	pthreadAddr := mem.AllocReadWriteMemory(pthreadSize)
-	pthread := (*Pthread)(unsafe.Pointer(pthreadAddr))
-
+	addr, _ := sys_struct.AllocReadWriteMemory(uintptr(totalSize))
+	tcb := (*_struct.Tcb)(unsafe.Pointer(addr + uintptr(l.StaticTlsSize)))
 	tcb.Self = tcb
-	tcb.Dtv = dtv
-	tcb.Thread = pthreadAddr
+
+	dtvAddr, _ := sys_struct.AllocReadWriteMemory(dtvSize)
+	tcb.Dtv = (*_struct.DtvEntry)(unsafe.Pointer(dtvAddr))
+	threadAddr, _ := sys_struct.AllocReadWriteMemory(threadSize)
+	tcb.Thread = (*_struct.Pthread)(unsafe.Pointer(threadAddr))
 	tcb.Fiber = 0
 
-	dtvSlice := unsafe.Slice(dtv, l.MaxTlsIndex+2)
+	dtvSlice := unsafe.Slice(tcb.Dtv, l.MaxTlsIndex+2)
 	dtvSlice[0].Counter = l.GenerationCounter
 	dtvSlice[1].Counter = l.MaxTlsIndex
 
-	pthread.Magic = PthreadMagic
-	pthread.ThreadId = 1337
-	pthread.Flags = 0
-	pthread.ReturnValue = 0
-	pthread.Error = 0
-	pthread.CleanupHandlerStack = 0
-	copy(pthread.Name[:], "MainThread")
+	tcb.Thread.ThreadId = 1337
+	tcb.Thread.Flags = 0
+	tcb.Thread.ReturnValue = 0
+	tcb.Thread.Error = 0
+	tcb.Thread.CleanupHandlerStack = 0
+	copy(tcb.Thread.Name[:], "MainThread")
 
 	for _, module := range GlobalModuleManager.Modules {
 		if module.TlsSection == nil || module.TlsSection.InitImageSize == 0 {
@@ -82,13 +64,13 @@ func NewTCB(l *linker.Linker) *Tcb {
 	return tcb
 }
 
-// GetCurrentThread returns pointer to the Pthread struct of the current thread.
+// GetCurrentThread returns pointer to the Pthread structs of the current thread.
 func GetCurrentThread() uintptr {
 	tcbAddr, _, _ := sys_struct.TlsGetValue.Call(sys_struct.TlsSlot)
 	if tcbAddr == 0 {
 		return 0
 	}
 
-	tcb := (*Tcb)(unsafe.Pointer(tcbAddr))
-	return tcb.Thread
+	tcb := (*_struct.Tcb)(unsafe.Pointer(tcbAddr))
+	return (uintptr)(unsafe.Pointer(tcb.Thread))
 }

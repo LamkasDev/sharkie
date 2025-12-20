@@ -6,7 +6,6 @@ import (
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/elf"
-	"github.com/LamkasDev/sharkie/cmd/mem"
 	"github.com/LamkasDev/sharkie/cmd/sys_struct"
 	"github.com/bpfsnoop/gapstone"
 	"github.com/gookit/color"
@@ -45,6 +44,10 @@ func (p *Patcher) Patch(e *elf.Elf) {
 	sys_struct.TlsOnce.Do(sys_struct.AllocTlsSlot)
 	if sys_struct.TlsSlot >= 64 {
 		panic("TLS slot is too high, cannot patch TCB access")
+	}
+	if e.Name != "libkernel.sprx" {
+		color.Gray.Printf("Skipping %s patching...\n", e.Name)
+		return
 	}
 
 	// Do a quick pass and patch instructions that we can, otherwise store them for later.
@@ -148,6 +151,11 @@ func (p *Patcher) PatchTcbAccess(instruction gapstone.Instruction, instructionBy
 		return true
 	}
 
+	/* fmt.Printf(
+		"Patched fs TCB access at %s.\n",
+		color.Yellow.Sprintf("0x%X", instruction.Address),
+	) */
+
 	return false
 }
 
@@ -169,7 +177,7 @@ func (p *Patcher) CreateTcbAccessTrampoline(e *elf.Elf, instruction gapstone.Ins
 	trampolineAsm.mov_r64_from_mem(dstReg, scratchReg, 0)
 	trampoline := trampolineAsm.bytes()
 	trampolineSize := len(trampoline) + 5 // 5 bytes for jmp rel32
-	trampolineAddr := mem.AllocExecututableMemory(uintptr(trampolineSize))
+	trampolineAddr, _ := sys_struct.AllocExecututableMemory(uintptr(trampolineSize))
 
 	jumpBackAsm := newAsmHelper()
 	jumpBackSourceAddr := uint64(trampolineAddr) + uint64(len(trampoline))

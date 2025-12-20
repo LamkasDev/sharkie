@@ -7,60 +7,15 @@ import (
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
-	"github.com/LamkasDev/sharkie/cmd/mem"
+	. "github.com/LamkasDev/sharkie/cmd/structs"
+	"github.com/LamkasDev/sharkie/cmd/sys_struct"
 	"github.com/gookit/color"
 )
-
-type PthreadMutexType uint32
-type PthreadMutexProtocol uint32
-
-const (
-	PthreadMutexTypeErrorCheck = PthreadMutexType(1)
-	PthreadMutexTypeRecursive  = PthreadMutexType(2)
-	PthreadMutexTypeNormal     = PthreadMutexType(3)
-	PthreadMutexTypeAdaptiveNp = PthreadMutexType(4)
-	PthreadMutexTypeMask       = 0xFF
-)
-
-const (
-	PthreadMutexProtocolNone    = PthreadMutexProtocol(0)
-	PthreadMutexProtocolInherit = PthreadMutexProtocol(1)
-	PthreadMutexProtocolProtect = PthreadMutexProtocol(2)
-)
-
-const (
-	ThrMutexInitializer         = 0
-	ThrAdaptiveMutexInitializer = 1
-	ThrMutexDestroyed           = 2
-)
-
-type PthreadMutex struct {
-	Lock       uintptr // TODO: TimedMutex
-	Flags      uint32
-	_          uint32  // Padding.
-	Owner      uintptr // TODO: *Pthread
-	Count      int32
-	SpinLoops  int32
-	YieldLoops int32
-	Protocol   PthreadMutexProtocol
-	_          [20]byte // More padding yay!
-	NamedObjId uint32
-	NamePtr    uintptr
-}
-
-func GetMutexNameText(m *PthreadMutex, addr uintptr) string {
-	if m.NamePtr == 0 {
-		return color.Yellow.Sprintf("0x%X", addr)
-	}
-
-	name := ReadCString(m.NamePtr)
-	return color.Blue.Sprint(name)
-}
 
 // 0x000000000002FDF0
 // __int64 __fastcall pthread_mutex_init(__int64, _QWORD *)
 func libKernel_pthread_mutex_init(mutexHandlePtr uintptr, attrHandlePtr uintptr) uintptr {
-	mutexAddr := mem.AllocReadWriteMemory(unsafe.Sizeof(PthreadMutex{}))
+	mutexAddr, _ := sys_struct.AllocReadWriteMemory(unsafe.Sizeof(PthreadMutex{}))
 	if mutexAddr == 0 {
 		return ENOMEM
 	}
@@ -98,7 +53,7 @@ func libKernel_pthread_mutex_init(mutexHandlePtr uintptr, attrHandlePtr uintptr)
 	// Copy the pointer back to mutexHandlePtr.
 	mutexHandlePtrSlice := unsafe.Slice((*byte)(unsafe.Pointer(mutexHandlePtr)), 8)
 	binary.LittleEndian.PutUint64(mutexHandlePtrSlice, uint64(mutexAddr))
-	fmt.Printf("%-120s %s created struct at %s.\n",
+	fmt.Printf("%-120s %s created structs at %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("pthread_mutex_init"),
 		color.Yellow.Sprintf("0x%x", mutexAddr),
@@ -108,7 +63,7 @@ func libKernel_pthread_mutex_init(mutexHandlePtr uintptr, attrHandlePtr uintptr)
 }
 
 func libKernel_initStaticMutex(mutexHandlePtr uintptr, initType uintptr) uintptr {
-	mutexAddr := mem.AllocReadWriteMemory(unsafe.Sizeof(PthreadMutex{}))
+	mutexAddr, _ := sys_struct.AllocReadWriteMemory(unsafe.Sizeof(PthreadMutex{}))
 	if mutexAddr == 0 {
 		return ENOMEM
 	}
@@ -131,7 +86,7 @@ func libKernel_initStaticMutex(mutexHandlePtr uintptr, initType uintptr) uintptr
 	// Copy the pointer back to mutexHandlePtr.
 	mutexHandlePtrSlice := unsafe.Slice((*byte)(unsafe.Pointer(mutexHandlePtr)), 8)
 	binary.LittleEndian.PutUint64(mutexHandlePtrSlice, uint64(mutexAddr))
-	fmt.Printf("%-120s %s created struct at %s.\n",
+	fmt.Printf("%-120s %s created structs at %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("libKernel_initStaticMutex"),
 		color.Yellow.Sprintf("0x%X", mutexAddr),
@@ -174,25 +129,25 @@ func libKernel_pthread_mutex_lock(mutexHandlePtr uintptr) uintptr {
 		case uint32(PthreadMutexTypeRecursive):
 			if mutex.Count+1 > 0 {
 				mutex.Count++
-				fmt.Printf("%-120s %s incrementing recursive mutex %s (thread %s, count %s).\n",
+				fmt.Printf("%-120s %s incrementing recursive mutex %s (thread=%s, count=%s).\n",
 					emu.GlobalModuleManager.GetCallSiteText(),
 					color.Magenta.Sprint("pthread_mutex_lock"),
 					GetMutexNameText(mutex, mutexAddr),
 					color.Yellow.Sprintf("0x%X", currentThread),
-					color.Gray.Sprintf("%d", mutex.Count),
+					color.Green.Sprintf("%d", mutex.Count),
 				)
 				return 0
 			}
-			fmt.Printf("%-120s %s incrementing invalid recursive mutex %s (thread %s, count %s).\n",
+			fmt.Printf("%-120s %s incrementing invalid recursive mutex %s (thread=%s, count=%s).\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("pthread_mutex_lock"),
 				GetMutexNameText(mutex, mutexAddr),
 				color.Yellow.Sprintf("0x%X", currentThread),
-				color.Gray.Sprintf("%d", mutex.Count),
+				color.Green.Sprintf("%d", mutex.Count),
 			)
 			return EAGAIN
 		case uint32(PthreadMutexTypeErrorCheck), uint32(PthreadMutexTypeAdaptiveNp):
-			fmt.Printf("%-120s %s tried to lock a mutex %s it already owns (thread %s).\n",
+			fmt.Printf("%-120s %s tried to lock a mutex %s it already owns (thread=%s).\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("pthread_mutex_lock"),
 				GetMutexNameText(mutex, mutexAddr),
@@ -201,7 +156,7 @@ func libKernel_pthread_mutex_lock(mutexHandlePtr uintptr) uintptr {
 			return EDEADLK
 		default:
 			// We should just deadlock here, but let's be nice.
-			fmt.Printf("%-120s %s tried to lock a mutex %s it already owns (thread %s).\n",
+			fmt.Printf("%-120s %s tried to lock a mutex %s it already owns (thread=%s).\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("pthread_mutex_lock"),
 				GetMutexNameText(mutex, mutexAddr),
@@ -219,7 +174,7 @@ func libKernel_pthread_mutex_lock(mutexHandlePtr uintptr) uintptr {
 		for spinCount > 0 {
 			if hostMutex.TryLock() {
 				mutex.Owner = currentThread
-				fmt.Printf("%-120s %s locked mutex %s (thread %s).\n",
+				fmt.Printf("%-120s %s locked mutex %s (thread=%s).\n",
 					emu.GlobalModuleManager.GetCallSiteText(),
 					color.Magenta.Sprint("pthread_mutex_lock"),
 					GetMutexNameText(mutex, mutexAddr),
@@ -235,7 +190,7 @@ func libKernel_pthread_mutex_lock(mutexHandlePtr uintptr) uintptr {
 			runtime.Gosched()
 			if hostMutex.TryLock() {
 				mutex.Owner = currentThread
-				fmt.Printf("%-120s %s locked mutex %s (thread %s).\n",
+				fmt.Printf("%-120s %s locked mutex %s (thread=%s).\n",
 					emu.GlobalModuleManager.GetCallSiteText(),
 					color.Magenta.Sprint("pthread_mutex_lock"),
 					GetMutexNameText(mutex, mutexAddr),
@@ -250,7 +205,7 @@ func libKernel_pthread_mutex_lock(mutexHandlePtr uintptr) uintptr {
 	// Fallback to a blocking lock.
 	hostMutex.Lock()
 	mutex.Owner = currentThread
-	fmt.Printf("%-120s %s locked mutex %s (thread %s).\n",
+	fmt.Printf("%-120s %s locked mutex %s (thread=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("pthread_mutex_lock"),
 		GetMutexNameText(mutex, mutexAddr),
@@ -272,14 +227,14 @@ func libKernel_pthread_mutex_unlock(mutexHandlePtr uintptr) uintptr {
 	mutexAddr := *(*uintptr)(unsafe.Pointer(mutexHandlePtr))
 	if mutexAddr <= ThrMutexDestroyed {
 		if mutexAddr == ThrMutexDestroyed {
-			fmt.Printf("%-120s %s failed trying to unlock destroyed mutex (thread %s).\n",
+			fmt.Printf("%-120s %s failed trying to unlock destroyed mutex (thread=%s).\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("pthread_mutex_unlock"),
 				color.Yellow.Sprintf("0x%X", currentThread),
 			)
 			return EINVAL
 		}
-		fmt.Printf("%-120s %s failed trying to unlock uninitialized mutex (thread %s).\n",
+		fmt.Printf("%-120s %s failed trying to unlock uninitialized mutex (thread=%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("pthread_mutex_unlock"),
 			color.Yellow.Sprintf("0x%X", currentThread),
@@ -290,7 +245,7 @@ func libKernel_pthread_mutex_unlock(mutexHandlePtr uintptr) uintptr {
 	// Check permissions.
 	mutex := (*PthreadMutex)(unsafe.Pointer(mutexAddr))
 	if mutex.Owner != currentThread {
-		fmt.Printf("%-120s %s failed trying to unlock unowned mutex (thread %s).\n",
+		fmt.Printf("%-120s %s failed trying to unlock unowned mutex (thread=%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("pthread_mutex_unlock"),
 			color.Yellow.Sprintf("0x%X", currentThread),
@@ -302,12 +257,12 @@ func libKernel_pthread_mutex_unlock(mutexHandlePtr uintptr) uintptr {
 	mutexType := mutex.Flags & PthreadMutexTypeMask
 	if mutexType == uint32(PthreadMutexTypeRecursive) && mutex.Count > 0 {
 		mutex.Count--
-		fmt.Printf("%-120s %s decremented recursive mutex %s (thread %s, count %s).\n",
+		fmt.Printf("%-120s %s decremented recursive mutex %s (thread=%s, count=%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("pthread_mutex_unlock"),
 			GetMutexNameText(mutex, mutexAddr),
 			color.Yellow.Sprintf("0x%X", currentThread),
-			color.Gray.Sprintf("%d", mutex.Count),
+			color.Green.Sprintf("%d", mutex.Count),
 		)
 		return 0
 	}
@@ -316,7 +271,7 @@ func libKernel_pthread_mutex_unlock(mutexHandlePtr uintptr) uintptr {
 	mutex.Owner = 0
 	hostMutex := GetMutex(mutexAddr)
 	hostMutex.Unlock()
-	fmt.Printf("%-120s %s unlocked mutex %s (thread %s).\n",
+	fmt.Printf("%-120s %s unlocked mutex %s (thread=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("pthread_mutex_unlock"),
 		GetMutexNameText(mutex, mutexAddr),

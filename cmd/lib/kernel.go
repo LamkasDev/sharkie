@@ -4,55 +4,53 @@ import (
 	"encoding/binary"
 	"unsafe"
 
-	"github.com/LamkasDev/sharkie/cmd/asm"
 	"github.com/LamkasDev/sharkie/cmd/elf"
-	"github.com/LamkasDev/sharkie/cmd/mem"
+	"github.com/LamkasDev/sharkie/cmd/sys_struct"
 )
 
 func RegisterKernelStubs() {
 	// Stack smashing protection.
 	// https://gcc.gnu.org/onlinedocs/gcc-4.1.2/gccint/Stack-Smashing-Protection.html
-	asm.Stubs[elf.GetSymbolHashIndex("libkernel", "__stack_chk_guard")] = asm.StubInfo{
-		Address: mem.AllocReadWriteMemory(8),
-	}
+	stackChkGuard := elf.RegisterVariableStub("libkernel", "__stack_chk_guard", 8)
 	binary.LittleEndian.PutUint64(
-		unsafe.Slice((*byte)(unsafe.Pointer(asm.Stubs[elf.GetSymbolHashIndex("libkernel", "__stack_chk_guard")].Address)), 8),
+		unsafe.Slice((*byte)(unsafe.Pointer(stackChkGuard.Address)), 8),
 		0xDEADBEEF,
 	)
 	elf.RegisterStub("libkernel", "__stack_chk_fail", StackChkFail)
 
 	// Environment variables.
-	asm.Stubs[elf.GetSymbolHashIndex("libkernel", "environ")] = asm.StubInfo{
-		Address: mem.AllocReadWriteMemory(8),
-	}
-	environList := mem.AllocReadWriteMemory(8)
+	environ := elf.RegisterVariableStub("libkernel", "environ", 8)
+	environList, _ := sys_struct.AllocReadWriteMemory(8)
 	binary.LittleEndian.PutUint64(
-		unsafe.Slice((*byte)(unsafe.Pointer(asm.Stubs[elf.GetSymbolHashIndex("libkernel", "environ")].Address)), 8),
+		unsafe.Slice((*byte)(unsafe.Pointer(environ.Address)), 8),
 		uint64(environList),
 	)
 
 	// Pointer to current program name.
-	asm.Stubs[elf.GetSymbolHashIndex("libkernel", "__progname")] = asm.StubInfo{
-		Address: mem.AllocReadWriteMemory(8),
-	}
-	prognameStr := mem.AllocReadWriteMemory(32)
+	progname := elf.RegisterVariableStub("libkernel", "__progname", 8)
+	prognameStr, _ := sys_struct.AllocReadWriteMemory(32)
 	copy(
 		unsafe.Slice((*byte)(unsafe.Pointer(prognameStr)), 32),
 		"eboot.bin\x00",
 	)
 	binary.LittleEndian.PutUint64(
-		unsafe.Slice((*byte)(unsafe.Pointer(asm.Stubs[elf.GetSymbolHashIndex("libkernel", "__progname")].Address)), 8),
+		unsafe.Slice((*byte)(unsafe.Pointer(progname.Address)), 8),
 		uint64(prognameStr),
 	)
 
 	// Flag used by libc to control signal interrupt behavior.
 	// https://www.gnu.org/software//libc/manual/2.23/html_node/Other-Safety-Remarks.html
-	asm.Stubs[elf.GetSymbolHashIndex("libkernel", "_sigintr")] = asm.StubInfo{
-		Address: mem.AllocReadWriteMemory(4),
-	}
+	elf.RegisterVariableStub("libkernel", "_sigintr", 4)
+
+	// Syscall functions.
+	elf.RegisterStub("libkernel", "sysctl", libKernel_sysctl)
+	elf.RegisterStub("libkernel", "sysarch", libKernel_sys_sysarch)
+	elf.RegisterStub("libkernel", "sub_1590", libKernel_sys_thr_self)
+	elf.RegisterStub("libkernel", "rtprio_thread", libKernel_rtprio_thread)
+	elf.RegisterStub("libkernel", "sub_2BA0", libKernel_sys_umtx_op)
 
 	// Error functions.
-	elf.RegisterStub("libkernel", "_error", libKernel__error)
+	elf.RegisterStub("libkernel", "__error", libKernel___error)
 
 	// Memory functions.
 	elf.RegisterStub("libkernel", "mmap", libKernel_mmap)
@@ -60,16 +58,30 @@ func RegisterKernelStubs() {
 	elf.RegisterStub("libkernel", "sceKernelMmap", libKernel_sceKernelMmap)
 	elf.RegisterStub("libkernel", "sub_1C90", libKernel_mname)
 	elf.RegisterStub("libkernel", "sceKernelMapNamedSystemFlexibleMemory", libKernel_sceKernelMapNamedSystemFlexibleMemory)
+	elf.RegisterStub("libkernel", "sceKernelAllocateDirectMemory", libKernel_sceKernelAllocateDirectMemory)
+	elf.RegisterStub("libkernel", "sceKernelMapNamedDirectMemory", libKernel_sceKernelMapNamedDirectMemory)
+	elf.RegisterStub("libkernel", "sceKernelGetDirectMemorySize", libKernel_sceKernelGetDirectMemorySize)
+	elf.RegisterStub("libkernel", "sceKernelMprotect", libKernel_sceKernelMprotect)
+
+	// TODO: i have no idea what this is, it's not anywhere.
+	elf.RegisterStub("libSceLibcInternal", "GG6441JdYkA#A#B", libKernel_fake)
 
 	// IO functions.
 	elf.RegisterStub("libkernel", "open", libKernel_open)
 	elf.RegisterStub("libkernel", "_open", libKernel__open)
+	elf.RegisterStub("libkernel", "sceKernelOpen", libKernel_sceKernelOpen)
+	elf.RegisterStub("libkernel", "write", libKernel_write)
 	elf.RegisterStub("libkernel", "_write", libKernel__write)
 	elf.RegisterStub("libkernel", "ioctl", libKernel_ioctl)
+	elf.RegisterStub("libkernel", "_ioctl", libKernel_ioctl) // TODO: this neither
 
 	// Process functions.
 	elf.RegisterStub("libkernel", "getpid", libKernel_getpid)
 	elf.RegisterStub("libkernel", "sceKernelGetProcessType", libKernel_sceKernelGetProcessType)
+
+	// Thread functions.
+	elf.RegisterStub("libkernel", "pthread_mutexattr_init", libKernel_pthread_mutexattr_init)
+	elf.RegisterStub("libkernel", "scePthreadAttrInit", libKernel_scePthreadAttrInit)
 
 	// Mutex functions.
 	elf.RegisterStub("libkernel", "pthread_mutexattr_init", libKernel_pthread_mutexattr_init)

@@ -7,24 +7,26 @@ import (
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/asm"
-	"github.com/LamkasDev/sharkie/cmd/mem"
+	"github.com/LamkasDev/sharkie/cmd/sys_struct"
 	"github.com/gookit/color"
 )
 
 var FakeAddressStart = uint64(0x40000000000)
 var FakeAddress = FakeAddressStart
-var FakeAddressMap = make(map[uint64]uint64)
+var FakeAddressMap = make(map[uint64]string)
 
 type GetSymbolAddressFunc func(s *ElfSymbol) (uint64, bool)
 
 var GetSymbolAddress GetSymbolAddressFunc
 
 // RegisterStub registers a new stub specified by library and symbol name pointing to function f.
-func RegisterStub(libraryName, symbolName string, f interface{}) {
+func RegisterStub(libraryName, symbolName string, f interface{}) asm.StubInfo {
 	fn := reflect.ValueOf(f)
 	stub := asm.StubInfo{
-		Address: CreateTrampoline(fn.Pointer()),
-		NumArgs: fn.Type().NumIn(),
+		LibraryName: libraryName,
+		SymbolName:  symbolName,
+		Address:     CreateTrampoline(fn.Pointer()),
+		NumArgs:     fn.Type().NumIn(),
 	}
 	hashIndex := GetSymbolHashIndex(libraryName, symbolName)
 	asm.Stubs[hashIndex] = stub
@@ -37,13 +39,29 @@ func RegisterStub(libraryName, symbolName string, f interface{}) {
 		color.Yellow.Sprintf("0x%X", fn.Pointer()),
 		stub.NumArgs,
 	)
+
+	return stub
+}
+
+// RegisterVariableStub registers a new variable stub specified by library and symbol name of size.
+func RegisterVariableStub(libraryName, symbolName string, size uintptr) asm.StubInfo {
+	addr, _ := sys_struct.AllocReadWriteMemory(size)
+	hashIndex := GetSymbolHashIndex(libraryName, symbolName)
+	stub := asm.StubInfo{
+		LibraryName: libraryName,
+		SymbolName:  symbolName,
+		Address:     addr,
+	}
+	asm.Stubs[hashIndex] = stub
+
+	return stub
 }
 
 // CreateTrampoline generates a trampoline for a given Go function.
 func CreateTrampoline(goFuncAddr uintptr) uintptr {
 	// Allocate executable memory for the trampoline.
 	trampolineSize := uintptr(22) // MOV to RAX (10), MOV to R11 (10), JMP RAX (2)
-	trampolineAddr := mem.AllocExecututableMemory(trampolineSize)
+	trampolineAddr, _ := sys_struct.AllocExecututableMemory(trampolineSize)
 
 	// MOV stubAsm, RAX
 	trampoline := []byte{0x48, 0xB8}

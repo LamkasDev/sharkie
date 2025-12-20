@@ -7,14 +7,14 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/asm"
 	"github.com/LamkasDev/sharkie/cmd/elf"
 	"github.com/LamkasDev/sharkie/cmd/linker"
-	"github.com/LamkasDev/sharkie/cmd/mem"
+	"github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/LamkasDev/sharkie/cmd/sys_struct"
 	"github.com/gookit/color"
 )
 
 // Prepare creates a new stack and TCB before any code runs.
 func (m *ModuleManager) Prepare(l *linker.Linker) {
-	m.Stack = mem.NewStack(uintptr(mem.StackDefaultSize))
+	m.Stack = structs.NewStack(uintptr(structs.StackDefaultSize))
 
 	// Clear a 128-byte red zone and align to 16-bytes.
 	// https://wiki.osdev.org/System_V_ABI
