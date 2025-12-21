@@ -48,6 +48,9 @@ func RegisterKernelStubs() {
 	elf.RegisterStub("libkernel", "sub_1590", libKernel_sys_thr_self)
 	elf.RegisterStub("libkernel", "rtprio_thread", libKernel_rtprio_thread)
 	elf.RegisterStub("libkernel", "sub_2BA0", libKernel_sys_umtx_op)
+	elf.RegisterStub("libkernel", "get_authinfo", libKernel_sys_get_authinfo)
+	elf.RegisterStub("libkernel", "__sys_regmgr_call", libKernel___sys_regmgr_call)
+	elf.RegisterStub("libkernel", "__sys_get_proc_type_info", libKernel___sys_get_proc_type_info)
 
 	// Error functions.
 	elf.RegisterStub("libkernel", "__error", libKernel___error)
@@ -57,11 +60,14 @@ func RegisterKernelStubs() {
 	elf.RegisterStub("libkernel", "mmap_0", libKernel_mmap_0)
 	elf.RegisterStub("libkernel", "sceKernelMmap", libKernel_sceKernelMmap)
 	elf.RegisterStub("libkernel", "sub_1C90", libKernel_mname)
-	elf.RegisterStub("libkernel", "sceKernelMapNamedSystemFlexibleMemory", libKernel_sceKernelMapNamedSystemFlexibleMemory)
 	elf.RegisterStub("libkernel", "sceKernelAllocateDirectMemory", libKernel_sceKernelAllocateDirectMemory)
 	elf.RegisterStub("libkernel", "sceKernelMapNamedDirectMemory", libKernel_sceKernelMapNamedDirectMemory)
 	elf.RegisterStub("libkernel", "sceKernelGetDirectMemorySize", libKernel_sceKernelGetDirectMemorySize)
 	elf.RegisterStub("libkernel", "sceKernelMprotect", libKernel_sceKernelMprotect)
+	elf.RegisterStub("libkernel", "sceKernelMapFlexibleMemory", libKernel_sceKernelMapFlexibleMemory)
+	elf.RegisterStub("libkernel", "sceKernelMapNamedFlexibleMemory", libKernel_sceKernelMapNamedFlexibleMemory)
+	elf.RegisterStub("libkernel", "sceKernelMapNamedSystemFlexibleMemory", libKernel_sceKernelMapNamedSystemFlexibleMemory)
+	elf.RegisterStub("libkernel", "sceKernelSetVirtualRangeName", libKernel_sceKernelSetVirtualRangeName)
 
 	// TODO: i have no idea what this is, it's not anywhere.
 	elf.RegisterStub("libSceLibcInternal", "GG6441JdYkA#A#B", libKernel_fake)

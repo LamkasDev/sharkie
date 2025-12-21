@@ -30,10 +30,10 @@ const (
 )
 
 const (
-	MAP_FAILED  = ERR_PTR
 	MAP_PRIVATE = 0x2
 	MAP_FIXED   = 0x10
 	MAP_ANON    = 0x1000
+	MAP_SYSTEM  = 0x2000
 )
 
 type Allocator struct {

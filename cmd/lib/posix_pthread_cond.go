@@ -34,8 +34,8 @@ func libKernel_initStaticCond(condHandlePtr uintptr) uintptr {
 	return 0
 }
 
-// 0x0000000000006360
-// __int64 __fastcall sub_6360(__int64 *, __int64, int, int, int, int)
+// 0x0000000000006150
+// __int64 __fastcall pthread_cond_broadcast(__int64 *, __int64, int, int, int, int)
 func libKernel_pthread_cond_broadcast(condHandlePtr uintptr) uintptr {
 	if condHandlePtr == 0 {
 		return EINVAL

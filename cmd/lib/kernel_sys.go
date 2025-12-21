@@ -30,6 +30,12 @@ const (
 	UMTX_OP_WAKE_PRIVATE      = 16
 )
 
+const (
+	REGMGR_GET_INT = 2
+	REGMGR_SET_INT = 6
+	REGMGR_GET_BIN = 25
+)
+
 const AMD64_SET_FSBASE = 129
 
 type RtPriority struct {
@@ -47,7 +53,7 @@ func libKernel_sysctl(namePtr uintptr, nameLen uint32, oldPtr uintptr, oldLenPtr
 			color.Magenta.Sprint("sysctl"),
 		)
 		SetErrno(EFAULT)
-		return ^uintptr(0)
+		return ERR_PTR
 	}
 
 	// Resolve MIBs, fancy name for string oooooofsadfasv.
@@ -76,11 +82,11 @@ func libKernel_sysctl(namePtr uintptr, nameLen uint32, oldPtr uintptr, oldLenPtr
 			mib,
 		)
 		SetErrno(ENOENT)
-		return ^uintptr(0)
+		return ERR_PTR
 	}
 	if err != 0 {
 		SetErrno(err)
-		return ^uintptr(0)
+		return ERR_PTR
 	}
 
 	return err
@@ -97,7 +103,7 @@ func libKernel_sys_sysarch(number uintptr, argsPtr uintptr) uintptr {
 				color.Magenta.Sprint("sys_sysarch"),
 			)
 			SetErrno(EFAULT)
-			return ^uintptr(0)
+			return ERR_PTR
 		}
 
 		argsPtrSlice := unsafe.Slice((*byte)(unsafe.Pointer(argsPtr)), 8)
@@ -111,7 +117,7 @@ func libKernel_sys_sysarch(number uintptr, argsPtr uintptr) uintptr {
 				color.Magenta.Sprint("sys_sysarch"),
 			)
 			SetErrno(EPERM)
-			return ^uintptr(0)
+			return ERR_PTR
 		}
 
 		fmt.Printf(
@@ -129,19 +135,19 @@ func libKernel_sys_sysarch(number uintptr, argsPtr uintptr) uintptr {
 		color.Yellow.Sprintf("0x%X", number),
 	)
 	SetErrno(EINVAL)
-	return ^uintptr(0)
+	return ERR_PTR
 }
 
 // 0x0000000000001590
 // __int64 __fastcall sub_1590()
 func libKernel_sys_thr_self(idPtr uintptr) uintptr {
 	if idPtr == 0 {
-		fmt.Printf("%-120s %s failed due to invalid ID pointer.\n",
+		fmt.Printf("%-120s %s failed due to invalid Id pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sys_thr_self"),
 		)
 		SetErrno(EFAULT)
-		return ^uintptr(0)
+		return ERR_PTR
 	}
 
 	thread := emu.GlobalModuleManager.Tcb.Thread
@@ -165,7 +171,7 @@ func libKernel_rtprio_thread(function, lwpid, rtpPtr uintptr) uintptr {
 			color.Magenta.Sprint("rtprio_thread"),
 		)
 		SetErrno(EFAULT)
-		return ^uintptr(0)
+		return ERR_PTR
 	}
 	if function != RTP_LOOKUP {
 		fmt.Printf("%-120s %s failed due to unknown function %s.\n",
@@ -174,14 +180,14 @@ func libKernel_rtprio_thread(function, lwpid, rtpPtr uintptr) uintptr {
 			color.Yellow.Sprintf("0x%X", function),
 		)
 		SetErrno(EINVAL)
-		return ^uintptr(0)
+		return ERR_PTR
 	}
 
 	rtpSlice := unsafe.Slice((*byte)(unsafe.Pointer(rtpPtr)), 4)
 	binary.LittleEndian.PutUint16(rtpSlice, RTP_PRIO_NORMAL)
 	binary.LittleEndian.PutUint16(rtpSlice[2:], 0)
 
-	fmt.Printf("%-120s %s requested rtp structs (type=%s, priority=%s).\n",
+	fmt.Printf("%-120s %s requested rtp struct (type=%s, priority=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("rtprio_thread"),
 		color.Yellow.Sprintf("0x%X", RTP_PRIO_NORMAL),
@@ -227,4 +233,100 @@ func libKernel_sys_umtx_op(objPtr, op, val, uaddr, uaddr2 uintptr) uintptr {
 		color.Yellow.Sprintf("0x%X", op),
 	)
 	return EINVAL
+}
+
+// 0x0000000000001C70
+// __int64 __fastcall get_authinfo()
+func libKernel_sys_get_authinfo(processId uintptr, infoPtr uintptr) uintptr {
+	if infoPtr == 0 {
+		fmt.Printf("%-120s %s failed due to invalid info pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sys_get_authinfo"),
+		)
+		SetErrno(EFAULT)
+		return ERR_PTR
+	}
+
+	if processId != 0 && processId != 1001 {
+		fmt.Printf("%-120s %s is requesting invalid process id %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sys_get_authinfo"),
+			color.Yellow.Sprintf("0x%X", processId),
+		)
+	}
+
+	infoSlice := unsafe.Slice((*byte)(unsafe.Pointer(infoPtr)), 136)
+	for i := 0; i < len(infoSlice); i += 8 {
+		binary.LittleEndian.PutUint64(infoSlice[i:], 0)
+	}
+	binary.LittleEndian.PutUint64(infoSlice[8:], 0x6000000000000000)
+
+	fmt.Printf("%-120s %s returning auth info for process id %s (infoPtr=%s).\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("sys_get_authinfo"),
+		color.Green.Sprintf("%d", processId),
+		color.Yellow.Sprintf("0x%X", infoPtr),
+	)
+	return 0
+}
+
+// 0x00000000000017F0
+// __int64 __fastcall _sys_regmgr_call()
+func libKernel___sys_regmgr_call(op, id, resultPtr, valuePtr, size uintptr) uintptr {
+	switch op {
+	case REGMGR_GET_INT:
+		if valuePtr == 0 || size < 4 {
+			fmt.Printf("%-120s %s failed due to invalid value pointer.\n",
+				emu.GlobalModuleManager.GetCallSiteText(),
+				color.Magenta.Sprint("__sys_regmgr_call"),
+			)
+			return EFAULT
+		}
+		valueSlice := unsafe.Slice((*byte)(unsafe.Pointer(valuePtr)), size)
+		for i := 0; i < len(valueSlice); i += 4 {
+			binary.LittleEndian.PutUint32(valueSlice[i:], 0)
+		}
+
+		fmt.Printf("%-120s %s requested integer (id=%s, resultPtr=%s, valuePtr=%s, size=%s).\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("__sys_regmgr_call"),
+			color.Yellow.Sprintf("0x%X", id),
+			color.Yellow.Sprintf("0x%X", resultPtr),
+			color.Yellow.Sprintf("0x%X", valuePtr),
+			color.Green.Sprintf("%d", size),
+		)
+		return 0
+	}
+
+	fmt.Printf("%-120s %s failed due to unknown operation %s.\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("__sys_regmgr_call"),
+		color.Green.Sprintf("%d", op),
+	)
+	return ENOENT
+}
+
+// 0x0000000000001F10
+// __int64 __fastcall _sys_get_proc_type_info()
+func libKernel___sys_get_proc_type_info(infoPtr uintptr) uintptr {
+	if infoPtr == 0 {
+		fmt.Printf("%-120s %s failed due to invalid info pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("__sys_get_proc_type_info"),
+		)
+		return EFAULT
+	}
+
+	infoSlice := unsafe.Slice((*byte)(unsafe.Pointer(infoPtr)), 12)
+	// size := uintptr(binary.LittleEndian.Uint32(infoSlice))
+	flags := uint32(0)
+	binary.LittleEndian.PutUint32(infoSlice[4:], PROC_TYPE_BIG_APP)
+	binary.LittleEndian.PutUint32(infoSlice[8:], flags)
+
+	fmt.Printf("%-120s %s returning process type info (infoPtr=%s).\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("__sys_get_proc_type_info"),
+		color.Yellow.Sprintf("0x%X", infoPtr),
+	)
+	return 0
 }

@@ -12,8 +12,8 @@ import (
 // __int64 __fastcall sceLibcMspaceCalloc(__int64, unsigned __int64, unsigned __int64, __int64)
 func libSceLibcInternal_sceLibcMspaceCalloc(mspace, nmemb, size uintptr) uintptr {
 	size *= nmemb
-	addr := libKernel_mmap(0, size, 3, 0x1002, ^uintptr(0), 0)
-	if addr == ^uintptr(0) {
+	addr := libKernel_mmap(0, size, PROT_READ|PROT_WRITE, MAP_ANON|MAP_PRIVATE, ERR_PTR, 0)
+	if addr == ERR_PTR {
 		return 0
 	}
 	GlobalAllocator.Allocations[addr] = size

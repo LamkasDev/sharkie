@@ -43,9 +43,8 @@ func libKernel_sys_sceKernelAllocateDirectMemory(searchStart, searchEnd, length,
 	}
 
 	// Allocate direct memory and perform alignment check.
-	allocatedAddr := libKernel_mmap(directAddr, length, PROT_READ|PROT_WRITE, MAP_ANON|MAP_PRIVATE|MAP_FIXED, ^uintptr(0), 0)
-	if allocatedAddr == ^uintptr(0) {
-		SetErrno(ENOMEM)
+	allocatedAddr := libKernel_mmap(directAddr, length, PROT_READ|PROT_WRITE, MAP_ANON|MAP_PRIVATE|MAP_FIXED, ERR_PTR, 0)
+	if allocatedAddr == ERR_PTR {
 		return ERR_PTR
 	}
 	if allocatedAddr%alignment != 0 {
