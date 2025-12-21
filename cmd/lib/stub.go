@@ -17,6 +17,16 @@ func RegisterStubs() {
 	RegisterLibcStubs()
 }
 
+func Abort() uintptr {
+	fmt.Printf(
+		"%-120s aborted :c\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+	)
+	os.Exit(0)
+
+	return 0
+}
+
 func GenericStub() uintptr {
 	fmt.Printf(
 		"%-120s hi from %s :3\n",
