@@ -5,31 +5,32 @@ import (
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/linker"
-	_struct "github.com/LamkasDev/sharkie/cmd/structs"
+	. "github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/LamkasDev/sharkie/cmd/sys_struct"
 	"github.com/gookit/color"
 )
 
 // NewTCB creates a new instance of Tcb based on passed Elf.
-func NewTCB(l *linker.Linker) *_struct.Tcb {
-	tcbSize := unsafe.Sizeof(_struct.Tcb{})
-	dtvSize := unsafe.Sizeof(_struct.DtvEntry{}) * (l.MaxTlsIndex + 2)
-	threadSize := unsafe.Sizeof(_struct.Pthread{})
+func NewTCB(l *linker.Linker) *Tcb {
+	maxTlsIndex := uintptr(len(GlobalModuleManager.Modules))
+	tcbSize := unsafe.Sizeof(Tcb{})
+	dtvSize := unsafe.Sizeof(DtvEntry{}) * (maxTlsIndex + 2)
+	threadSize := unsafe.Sizeof(Pthread{})
 	totalSize := l.StaticTlsSize + uint64(tcbSize)
 
 	addr, _ := sys_struct.AllocReadWriteMemory(uintptr(totalSize))
-	tcb := (*_struct.Tcb)(unsafe.Pointer(addr + uintptr(l.StaticTlsSize)))
+	tcb := (*Tcb)(unsafe.Pointer(addr + uintptr(l.StaticTlsSize)))
 	tcb.Self = tcb
 
 	dtvAddr, _ := sys_struct.AllocReadWriteMemory(dtvSize)
-	tcb.Dtv = (*_struct.DtvEntry)(unsafe.Pointer(dtvAddr))
+	tcb.Dtv = (*DtvEntry)(unsafe.Pointer(dtvAddr))
 	threadAddr, _ := sys_struct.AllocReadWriteMemory(threadSize)
-	tcb.Thread = (*_struct.Pthread)(unsafe.Pointer(threadAddr))
+	tcb.Thread = (*Pthread)(unsafe.Pointer(threadAddr))
 	tcb.Fiber = 0
 
-	dtvSlice := unsafe.Slice(tcb.Dtv, l.MaxTlsIndex+2)
+	dtvSlice := unsafe.Slice(tcb.Dtv, maxTlsIndex+2)
 	dtvSlice[0].Counter = l.GenerationCounter
-	dtvSlice[1].Counter = l.MaxTlsIndex
+	dtvSlice[1].Counter = maxTlsIndex
 
 	tcb.Thread.ThreadId = 1337
 	tcb.Thread.Flags = 0
@@ -48,9 +49,8 @@ func NewTCB(l *linker.Linker) *_struct.Tcb {
 			unsafe.Slice((*byte)(unsafe.Pointer(dest)), module.TlsSection.InitImageSize),
 			unsafe.Slice((*byte)(unsafe.Pointer(src)), module.TlsSection.InitImageSize),
 		)
-		if module.TlsSection.ModuleIndex > 0 && module.TlsSection.ModuleIndex <= uint64(l.MaxTlsIndex) {
-			dtvSlice[module.TlsSection.ModuleIndex+1].Pointer = dest
-		}
+		dtvSlice[module.ModuleIndex+1].Pointer = dest
+		TlsBaseRepo[module.ModuleIndex] = dest
 
 		fmt.Printf(
 			"%s's PT_TLS data from %s loaded into TCB at %s (%s bytes).\n",
@@ -71,6 +71,6 @@ func GetCurrentThread() uintptr {
 		return 0
 	}
 
-	tcb := (*_struct.Tcb)(unsafe.Pointer(tcbAddr))
+	tcb := (*Tcb)(unsafe.Pointer(tcbAddr))
 	return (uintptr)(unsafe.Pointer(tcb.Thread))
 }

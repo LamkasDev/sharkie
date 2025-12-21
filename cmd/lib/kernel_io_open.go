@@ -11,12 +11,12 @@ import (
 // 0x0000000000015990
 // __int64 __fastcall sceKernelOpen(__int64, __int16, __int64, __int64, __int64, __int64, __m128, __m128, __m128, __m128, __m128, __m128, __m128, __m128)
 func libKernel_sceKernelOpen(pathPtr uintptr, flags uintptr, mode uintptr) uintptr {
-	err := libKernel_open(pathPtr, flags, mode)
-	if err == ERR_PTR {
+	fd := libKernel_open(pathPtr, flags, mode)
+	if fd == ERR_PTR {
 		return GetErrno() - 0x7FFE0000
 	}
 
-	return 0
+	return fd
 }
 
 // 0x000000000000DD50

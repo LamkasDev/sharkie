@@ -15,3 +15,14 @@ type Tcb struct {
 	Thread *Pthread
 	Fiber  uintptr
 }
+
+// TlsIndex represents a request for a TLS base address.
+type TlsIndex struct {
+	ModuleId uint64
+	Offset   uintptr
+}
+
+var (
+	// TlsBaseRepo maps module indexes to host TLS base addresses.
+	TlsBaseRepo = map[uint64]uintptr{}
+)

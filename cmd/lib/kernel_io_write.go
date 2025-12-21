@@ -33,7 +33,7 @@ func libKernel_sys_write(fd uintptr, bufPtr uintptr, length uintptr) uintptr {
 			color.Magenta.Sprint("_write"),
 		)
 		SetErrno(EFAULT)
-		return ERR_PTR
+		return 0
 	}
 
 	buffSlice := unsafe.Slice((*byte)(unsafe.Pointer(bufPtr)), length)

@@ -51,6 +51,7 @@ func RegisterKernelStubs() {
 	elf.RegisterStub("libkernel", "get_authinfo", libKernel_sys_get_authinfo)
 	elf.RegisterStub("libkernel", "__sys_regmgr_call", libKernel___sys_regmgr_call)
 	elf.RegisterStub("libkernel", "__sys_get_proc_type_info", libKernel___sys_get_proc_type_info)
+	elf.RegisterStub("libkernel", "__tls_get_addr", libKernel___tls_get_addr)
 
 	// Error functions.
 	elf.RegisterStub("libkernel", "__error", libKernel___error)
@@ -106,4 +107,7 @@ func RegisterKernelStubs() {
 	// Cond functions.
 	elf.RegisterStub("libkernel", "pthread_cond_broadcast", libKernel_pthread_cond_broadcast)
 	elf.RegisterStub("libkernel", "scePthreadCondBroadcast", libKernel_scePthreadCondBroadcast)
+
+	// Event flag functions.
+	elf.RegisterStub("libkernel", "sceKernelCreateEventFlag", libKernel_sceKernelCreateEventFlag)
 }
