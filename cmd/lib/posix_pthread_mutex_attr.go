@@ -28,10 +28,10 @@ func libKernel_pthread_mutexattr_init(attrHandlePtr uintptr) uintptr {
 	// Copy the pointer back to attrHandlePtr.
 	attrHandlePtrSlice := unsafe.Slice((*byte)(unsafe.Pointer(attrHandlePtr)), 8)
 	binary.LittleEndian.PutUint64(attrHandlePtrSlice, uint64(attrAddr))
-	fmt.Printf("%-120s %s created structs at %s.\n",
+	fmt.Printf("%-120s %s created struct at %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("pthread_mutexattr_init"),
-		color.Yellow.Sprintf("0x%x", attrAddr),
+		color.Yellow.Sprintf("0x%X", attrAddr),
 	)
 
 	return 0
@@ -85,10 +85,10 @@ func libKernel_pthread_mutexattr_destroy(attrHandlePtr uintptr) uintptr {
 	// Copy NULL pointer to attrHandlePtr.
 	attrHandlePtrSlice := unsafe.Slice((*byte)(unsafe.Pointer(attrHandlePtr)), 8)
 	binary.LittleEndian.PutUint64(attrHandlePtrSlice, 0)
-	fmt.Printf("%-120s %s destroyed structs at %s.\n",
+	fmt.Printf("%-120s %s destroyed struct at %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("pthread_mutexattr_destroy"),
-		color.Yellow.Sprintf("0x%x", attrAddr),
+		color.Yellow.Sprintf("0x%X", attrAddr),
 	)
 
 	return 0

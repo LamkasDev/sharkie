@@ -53,10 +53,10 @@ func libKernel_pthread_mutex_init(mutexHandlePtr uintptr, attrHandlePtr uintptr)
 	// Copy the pointer back to mutexHandlePtr.
 	mutexHandlePtrSlice := unsafe.Slice((*byte)(unsafe.Pointer(mutexHandlePtr)), 8)
 	binary.LittleEndian.PutUint64(mutexHandlePtrSlice, uint64(mutexAddr))
-	fmt.Printf("%-120s %s created structs at %s.\n",
+	fmt.Printf("%-120s %s created struct at %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("pthread_mutex_init"),
-		color.Yellow.Sprintf("0x%x", mutexAddr),
+		color.Yellow.Sprintf("0x%X", mutexAddr),
 	)
 
 	return 0
@@ -86,7 +86,7 @@ func libKernel_initStaticMutex(mutexHandlePtr uintptr, initType uintptr) uintptr
 	// Copy the pointer back to mutexHandlePtr.
 	mutexHandlePtrSlice := unsafe.Slice((*byte)(unsafe.Pointer(mutexHandlePtr)), 8)
 	binary.LittleEndian.PutUint64(mutexHandlePtrSlice, uint64(mutexAddr))
-	fmt.Printf("%-120s %s created structs at %s.\n",
+	fmt.Printf("%-120s %s created struct at %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("libKernel_initStaticMutex"),
 		color.Yellow.Sprintf("0x%X", mutexAddr),

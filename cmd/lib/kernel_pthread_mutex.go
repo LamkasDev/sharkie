@@ -8,6 +8,8 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/sys_struct"
 )
 
+// TODO: fix name creation
+
 // 0x0000000000013AA0
 // __int64 __fastcall scePthreadMutexInit(_QWORD *a1, __int64 a2, __int64 a3)
 func libKernel_scePthreadMutexInit(mutexHandlePtr uintptr, attrPtr uintptr, namePtr uintptr) uintptr {
@@ -20,18 +22,16 @@ func libKernel_scePthreadMutexInit(mutexHandlePtr uintptr, attrPtr uintptr, name
 	mutexAddr := *(*uintptr)(unsafe.Pointer(mutexHandlePtr))
 	mutex := (*PthreadMutex)(unsafe.Pointer(mutexAddr))
 
-	// TODO: fix name creation
 	// Set name.
+	var name string
 	if namePtr != 0 {
-		mutex.NamePtr = namePtr
+		name = ReadCString(namePtr)
 	} else {
-		nameStr := fmt.Sprintf("Mutex_%x", mutexAddr)
-		nameAddr, _ := sys_struct.AllocReadWriteMemory(uintptr(len(nameStr) + 1))
-		nameSlice := unsafe.Slice((*byte)(unsafe.Pointer(nameAddr)), len(nameStr)+1)
-		copy(nameSlice, nameStr)
-		nameSlice[len(nameStr)] = 0
-		mutex.NamePtr = nameAddr
+		name = fmt.Sprintf("Mutex_%x", mutexAddr)
 	}
+	realNamePtr, _ := sys_struct.AllocReadWriteMemory(uintptr(len(name) + 1))
+	WriteCString(realNamePtr, name)
+	mutex.NamePtr = realNamePtr
 
 	// TODO: emulate __sys_namedobj_create?
 

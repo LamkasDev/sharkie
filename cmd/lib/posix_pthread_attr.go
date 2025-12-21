@@ -30,10 +30,10 @@ func libKernel_pthread_attr_init(attrHandlePtr uintptr) uintptr {
 	// Copy the pointer back to attrHandlePtr.
 	attrHandlePtrSlice := unsafe.Slice((*byte)(unsafe.Pointer(attrHandlePtr)), 8)
 	binary.LittleEndian.PutUint64(attrHandlePtrSlice, uint64(attrAddr))
-	fmt.Printf("%-120s %s created structs at %s.\n",
+	fmt.Printf("%-120s %s created struct at %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("pthread_attr_init"),
-		color.Yellow.Sprintf("0x%x", attrAddr),
+		color.Yellow.Sprintf("0x%X", attrAddr),
 	)
 
 	return 0

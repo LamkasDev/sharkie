@@ -25,7 +25,7 @@ func libKernel_initStaticCond(condHandlePtr uintptr) uintptr {
 	// Copy the pointer back to condHandlePtr.
 	condHandlePtrSlice := unsafe.Slice((*byte)(unsafe.Pointer(uintptr(condHandlePtr))), 8)
 	binary.LittleEndian.PutUint64(condHandlePtrSlice, uint64(condAddr))
-	fmt.Printf("%-120s %s created structs at %s.\n",
+	fmt.Printf("%-120s %s created struct at %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("libKernel_initStaticCond"),
 		color.Yellow.Sprintf("0x%X", condAddr),

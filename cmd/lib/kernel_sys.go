@@ -18,12 +18,6 @@ const (
 )
 
 const (
-	RTP_LOOKUP        = 0
-	RTP_PRIO_NORMAL   = 1
-	RTP_PRIO_REALTIME = 2
-)
-
-const (
 	UMTX_OP_WAIT              = 2
 	UMTX_OP_WAKE              = 3
 	UMTX_OP_WAIT_UINT_PRIVATE = 15
@@ -162,40 +156,6 @@ func libKernel_sys_thr_self(idPtr uintptr) uintptr {
 	return 0
 }
 
-// 0x0000000000001710
-// __int64 __fastcall rtprio_thread()
-func libKernel_rtprio_thread(function, lwpid, rtpPtr uintptr) uintptr {
-	if rtpPtr == 0 {
-		fmt.Printf("%-120s %s failed due to invalid structs pointer.\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("rtprio_thread"),
-		)
-		SetErrno(EFAULT)
-		return ERR_PTR
-	}
-	if function != RTP_LOOKUP {
-		fmt.Printf("%-120s %s failed due to unknown function %s.\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("rtprio_thread"),
-			color.Yellow.Sprintf("0x%X", function),
-		)
-		SetErrno(EINVAL)
-		return ERR_PTR
-	}
-
-	rtpSlice := unsafe.Slice((*byte)(unsafe.Pointer(rtpPtr)), 4)
-	binary.LittleEndian.PutUint16(rtpSlice, RTP_PRIO_NORMAL)
-	binary.LittleEndian.PutUint16(rtpSlice[2:], 0)
-
-	fmt.Printf("%-120s %s requested rtp struct (type=%s, priority=%s).\n",
-		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprint("rtprio_thread"),
-		color.Yellow.Sprintf("0x%X", RTP_PRIO_NORMAL),
-		color.Yellow.Sprintf("0x%X", 0),
-	)
-	return 0
-}
-
 // 0x0000000000002BA0
 // __int64 sub_2BA0()
 func libKernel_sys_umtx_op(objPtr, op, val, uaddr, uaddr2 uintptr) uintptr {
@@ -329,36 +289,4 @@ func libKernel___sys_get_proc_type_info(infoPtr uintptr) uintptr {
 		color.Yellow.Sprintf("0x%X", infoPtr),
 	)
 	return 0
-}
-
-// 0x00000000000289C0
-// __int64 __fastcall _tls_get_addr(_QWORD *, __int64, __int64, __int64, __int64, int)
-func libKernel___tls_get_addr(tlsIndexPtr uintptr) uintptr {
-	if tlsIndexPtr == 0 {
-		fmt.Printf("%-120s %s failed due to invalid tls index pointer.\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("__tls_get_addr"),
-		)
-		return EFAULT
-	}
-
-	tlsIndex := (*TlsIndex)(unsafe.Pointer(tlsIndexPtr))
-	address, ok := TlsBaseRepo[tlsIndex.ModuleId]
-	if !ok {
-		fmt.Printf("%-120s %s failed due to invalid module index %s.\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("__tls_get_addr"),
-			color.Green.Sprint(tlsIndex.ModuleId),
-		)
-		return 0
-	}
-
-	fmt.Printf("%-120s %s returning tls address %s for module %s (offset=%s).\n",
-		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprint("__tls_get_addr"),
-		color.Yellow.Sprintf("0x%X", address),
-		color.Green.Sprintf("%d", tlsIndex.ModuleId),
-		color.Yellow.Sprintf("0x%X", tlsIndex.Offset),
-	)
-	return address + tlsIndex.Offset
 }
