@@ -37,23 +37,31 @@ func NewStack(stackSize uintptr) *Stack {
 // PushUint32 pushes an uint32 argument onto the stack.
 // Next argument will also be aligned on 8-byte boundary as per System V ABI AMD64.
 // https://c9x.me/compile/doc/abi.html
-func (s *Stack) PushUint32(v uint32) {
+func (s *Stack) PushUint32(v uint32) uintptr {
+	addr := s.Address + s.ArgumentsOffset
 	binary.LittleEndian.PutUint32(s.Contents[s.ArgumentsOffset:], v)
 	s.ArgumentsOffset += 8
+	return addr
 }
 
 // PushUint64 pushes an uint64 argument onto the stack.
 // Next argument will also be aligned on 8-byte boundary as per System V ABI AMD64.
 // https://c9x.me/compile/doc/abi.html
-func (s *Stack) PushUint64(v uint64) {
+func (s *Stack) PushUint64(v uint64) uintptr {
+	addr := s.Address + s.ArgumentsOffset
 	binary.LittleEndian.PutUint64(s.Contents[s.ArgumentsOffset:], v)
 	s.ArgumentsOffset += 8
+	return addr
 }
 
 // PushString pushes a string argument onto the stack.
 // Next argument will also be aligned on 8-byte boundary as per System V ABI AMD64.
 // https://c9x.me/compile/doc/abi.html
-func (s *Stack) PushString(v string) {
+func (s *Stack) PushString(v string) uintptr {
+	addr := s.Address + s.ArgumentsOffset
 	copy(s.Contents[s.ArgumentsOffset:], v)
-	s.ArgumentsOffset += uintptr(len(v)) + uintptr(8-(len(v)%8))
+	vLength := uintptr(len(v))
+	padding := (8 - (vLength % 8)) % 8
+	s.ArgumentsOffset += vLength + padding
+	return addr
 }

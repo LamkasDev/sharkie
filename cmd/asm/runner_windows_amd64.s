@@ -11,7 +11,7 @@ GLOBL ·CallReturnAddress(SB), NOPTR, $8
 
 // This function switches to the game's stack and jumps to its entry point.
 // It does not return.
-// func Run(entry,   stackPtr, arg1,    arg2 uintptr)
+// func Run(entry,   stackPtr, argsPtr, arg2 uintptr)
 //          +0(FP)   +8(FP)    +16(FP)  +24(FP)
 TEXT ·Run(SB), NOSPLIT, $0-32
     NO_LOCAL_POINTERS
@@ -25,8 +25,9 @@ TEXT ·Run(SB), NOSPLIT, $0-32
     ADDQ $7, R15
     MOVQ R15, ·ReturnAddressAnchor(SB)
 
-    MOVQ entry+0(FP), AX     // entry = AX
-    MOVQ stackPtr+8(FP), BX  // stackPtr = BX
+    MOVQ entry+0(FP), AX        // entry = AX
+    MOVQ stackPtr+8(FP), BX     // stackPtr = BX
+    MOVQ argsPtr+16(FP), DI      // argsPtr = DI
 
     // Save the current Go stack so we can restore it later.
     MOVQ SP, ·GoStackSP(SB)
@@ -35,12 +36,12 @@ TEXT ·Run(SB), NOSPLIT, $0-32
 
     // Switch to the playstation stack.
     ANDQ $-16, BX
+    SUBQ $8, BX
     BYTE $0x48; BYTE $0x89; BYTE $0xDC  // MOVQ BX, SP
 
     // Clear our registers.
     XORQ CX, CX
     XORQ DX, DX
-    XORQ DI, DI
     XORQ SI, SI
     XORQ R8, R8
     XORQ R9, R9

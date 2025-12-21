@@ -52,9 +52,10 @@ func (m *ModuleManager) Call(funcAddr uintptr) {
 func (m *ModuleManager) Run(e *elf.Elf) {
 	// Push program arguments to the stack.
 	// int main(int argc, char* argv[])
-	m.Stack.PushUint32(1)
-	m.Stack.PushUint64(uint64(m.Stack.ArgumentsAddress + 16))
-	m.Stack.PushString(fmt.Sprintf("%s\x00", e.Name))
+	strAddr := m.Stack.PushString(fmt.Sprintf("%s\x00", e.Name))
+	argsPtr := m.Stack.PushUint32(1)
+	m.Stack.PushUint64(uint64(strAddr))
+	m.Stack.PushUint64(0)
 
 	// Clear a 128-byte red zone and align to 16-bytes.
 	// https://wiki.osdev.org/System_V_ABI
@@ -67,7 +68,7 @@ func (m *ModuleManager) Run(e *elf.Elf) {
 		"Jumping to entry point %s...\n",
 		color.Yellow.Sprintf("0x%X", entry),
 	)
-	asm.Run(entry, stackPtr, 0, 0)
+	asm.Run(entry, stackPtr, argsPtr, 0)
 
 	// This should not be reached.
 	fmt.Println("Returned from run - this should not happen.")

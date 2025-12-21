@@ -77,8 +77,8 @@ func libKernel_sceKernelGetModuleInfoForUnwind(addr uintptr, flags int32, infoPt
 	}
 	structs.WriteCString(infoPtr+0x08, module.Name)
 	binary.LittleEndian.PutUint64(infoSlice[0x108:], uint64(exceptionFrameSection.Address))
-	binary.LittleEndian.PutUint64(infoSlice[0x110:], uint64(exceptionFrameSection.Address))
-	binary.LittleEndian.PutUint64(infoSlice[0x118:], exceptionFrameSection.LoadedSize)
+	binary.LittleEndian.PutUint64(infoSlice[0x110:], uint64(module.ExceptionFrameDataAddress))
+	binary.LittleEndian.PutUint64(infoSlice[0x118:], module.ExceptionFrameDataSize)
 	binary.LittleEndian.PutUint64(infoSlice[0x120:], uint64(textSection.Address))
 	binary.LittleEndian.PutUint64(infoSlice[0x128:], textSection.LoadedSize)
 
@@ -126,7 +126,7 @@ func libKernel_sys_dynlib_get_info_ex(handle uint32, flags uint32, infoPtr uintp
 	binary.LittleEndian.PutUint64(infoSlice[0x11C:], uint64(dataSection.Address))
 	binary.LittleEndian.PutUint32(infoSlice[0x124:], uint32(dataSection.LoadedSize))
 	if exceptionFrameSection != nil {
-		binary.LittleEndian.PutUint64(infoSlice[0x128:], uint64(exceptionFrameSection.Address))
+		binary.LittleEndian.PutUint64(infoSlice[0x128:], uint64(module.ExceptionFrameDataAddress))
 		binary.LittleEndian.PutUint32(infoSlice[0x130:], uint32(exceptionFrameSection.LoadedSize))
 	} else {
 		binary.LittleEndian.PutUint64(infoSlice[0x128:], 0)

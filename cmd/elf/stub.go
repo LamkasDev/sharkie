@@ -11,7 +11,7 @@ import (
 	"github.com/gookit/color"
 )
 
-var FakeAddressStart = uint64(0x40000000000)
+var FakeAddressStart = uint64(0xDEAD00000000)
 var FakeAddress = FakeAddressStart
 var FakeAddressMap = make(map[uint64]string)
 
