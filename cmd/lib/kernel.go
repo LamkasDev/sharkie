@@ -114,4 +114,8 @@ func RegisterKernelStubs() {
 	// Module functions.
 	elf.RegisterStub("libkernel", "sceKernelGetModuleInfoForUnwind", libKernel_sceKernelGetModuleInfoForUnwind)
 	elf.RegisterStub("libkernel", "sub_1EB0", libKernel_sys_dynlib_get_info_ex)
+
+	// TSC functions.
+	elf.RegisterStub("libkernel", "sceKernelGetTscFrequency", libKernel_sceKernelGetTscFrequency)
+	elf.RegisterStub("libkernel", "sceKernelReadTsc", libKernel_sceKernelReadTsc)
 }
