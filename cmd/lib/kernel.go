@@ -118,4 +118,7 @@ func RegisterKernelStubs() {
 	// TSC functions.
 	elf.RegisterStub("libkernel", "sceKernelGetTscFrequency", libKernel_sceKernelGetTscFrequency)
 	elf.RegisterStub("libkernel", "sceKernelReadTsc", libKernel_sceKernelReadTsc)
+
+	// IPMI functions.
+	elf.RegisterStub("libkernel", "ipmimgr_call", libKernel_ipmimgr_call)
 }
