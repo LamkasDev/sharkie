@@ -22,10 +22,11 @@ var GlobalModuleManager = NewModuleManager(
 
 // ModuleManager keeps track of loaded modules.
 type ModuleManager struct {
-	LinkPaths       []string
-	CurrentModule   *elf.Elf
-	NextModuleIndex uint64
-	Modules         map[string]*elf.Elf
+	LinkPaths []string
+
+	CurrentModule *elf.Elf
+	Modules       []*elf.Elf
+	ModulesMap    map[string]*elf.Elf
 
 	Stack *structs.Stack
 	Tcb   *structs.Tcb
@@ -34,9 +35,9 @@ type ModuleManager struct {
 // NewModuleManager creates a new instance of ModuleManager.
 func NewModuleManager(linkPaths []string) *ModuleManager {
 	mm := &ModuleManager{
-		LinkPaths:       linkPaths,
-		NextModuleIndex: 1,
-		Modules:         map[string]*elf.Elf{},
+		LinkPaths:  linkPaths,
+		Modules:    make([]*elf.Elf, 1),
+		ModulesMap: map[string]*elf.Elf{},
 	}
 
 	return mm
@@ -48,7 +49,7 @@ func (m *ModuleManager) LoadModule(name string) {
 	m._RecursiveLoadModule(name)
 
 	// Link & patch everything now.
-	for _, module := range m.Modules {
+	for _, module := range m.ModulesMap {
 		if !module.Linked {
 			fmt.Printf(
 				"\nLinking module %s from %s...\n",
@@ -62,15 +63,9 @@ func (m *ModuleManager) LoadModule(name string) {
 	}
 }
 
-func GetBaseModuleName(name string) string {
-	name = strings.ReplaceAll(name, ".prx", "")
-	name = strings.ReplaceAll(name, ".sprx", "")
-	return name
-}
-
 // _RecursiveLoadModule loads a module and dependencies without linking.
 func (m *ModuleManager) _RecursiveLoadModule(name string) {
-	if m.Modules[name] != nil {
+	if m.ModulesMap[name] != nil {
 		return
 	}
 
@@ -79,7 +74,7 @@ func (m *ModuleManager) _RecursiveLoadModule(name string) {
 		log.Panicf("Could not find module %s!\n", name)
 	}
 
-	moduleIndex := m.NextModuleIndex
+	moduleIndex := uint64(len(m.Modules))
 	fmt.Printf(
 		"\nLoading module %s from %s...\n",
 		color.Green.Sprint(moduleIndex),
@@ -93,8 +88,8 @@ func (m *ModuleManager) _RecursiveLoadModule(name string) {
 	module := elf.NewElf(data)
 	module.ModuleIndex = moduleIndex
 	module.Path = *modulePath
-	m.Modules[name] = module
-	m.NextModuleIndex++
+	m.Modules = append(m.Modules, module)
+	m.ModulesMap[name] = module
 
 	for _, needed := range module.DynamicInfo.Needed {
 		needed = strings.ReplaceAll(needed, ".prx", ".sprx")
@@ -121,7 +116,7 @@ func (m *ModuleManager) RunModuleInitializers(module *elf.Elf, visited map[strin
 			needed == "libSceDipsw.sprx" {
 			continue
 		}
-		if dependency := m.Modules[needed]; dependency != nil {
+		if dependency := m.ModulesMap[needed]; dependency != nil {
 			m.RunModuleInitializers(dependency, visited, false)
 		}
 	}
@@ -167,7 +162,7 @@ func (m *ModuleManager) RunModuleInitializers(module *elf.Elf, visited map[strin
 
 // RunModule runs module specified by name.
 func (m *ModuleManager) RunModule(name string) {
-	m.CurrentModule = m.Modules[name]
+	m.CurrentModule = m.ModulesMap[name]
 	if m.CurrentModule == nil {
 		log.Panicf("Module %s is not loaded!\n", name)
 	}
@@ -213,7 +208,7 @@ func GetSymbolAddress(s *elf.ElfSymbol) (uint64, bool) {
 
 	if s.Type == elf.STT_OBJECT {
 		// TODO: add more priorities?
-		if module, ok := GlobalModuleManager.Modules["libSceLibcInternal.sprx"]; ok {
+		if module, ok := GlobalModuleManager.ModulesMap["libSceLibcInternal.sprx"]; ok {
 			if address, ok := TryGetSymbolAddress(s, module); ok {
 				return address, true
 			}
@@ -222,7 +217,7 @@ func GetSymbolAddress(s *elf.ElfSymbol) (uint64, bool) {
 
 	// libSceVideoOut:sceVideoOutSubmitEopFlip is at 0x0
 	// libSceVideoOut:sceVideoOutGetBufferLabelAddress is at 0x0
-	for _, module := range GlobalModuleManager.Modules {
+	for _, module := range GlobalModuleManager.ModulesMap {
 		if address, ok := TryGetSymbolAddress(s, module); ok {
 			return address, true
 		}
@@ -235,14 +230,14 @@ func GetSymbolAddress(s *elf.ElfSymbol) (uint64, bool) {
 // GetDefiningModule returns the module that actually defines given symbol.
 func GetDefiningModule(s *elf.ElfSymbol) *elf.Elf {
 	if s.LibraryName != "" {
-		if module, ok := GlobalModuleManager.Modules[s.LibraryName]; ok {
+		if module, ok := GlobalModuleManager.ModulesMap[s.LibraryName]; ok {
 			return module
 		}
 
 		return nil
 	}
 
-	for _, module := range GlobalModuleManager.Modules {
+	for _, module := range GlobalModuleManager.ModulesMap {
 		if _, found := TryGetSymbolAddress(s, module); found {
 			return module
 		}
@@ -294,7 +289,7 @@ func TryGetSymbolAddress(s *elf.ElfSymbol, module *elf.Elf) (uint64, bool) {
 
 // GetModuleForInstructionPointer return the module that's loaded within given address.
 func (m *ModuleManager) GetModuleForInstructionPointer(address uintptr) *elf.Elf {
-	for _, module := range m.Modules {
+	for _, module := range m.ModulesMap {
 		if address >= module.BaseAddress && address <= module.BaseAddress+uintptr(len(module.Memory)) {
 			return module
 		}

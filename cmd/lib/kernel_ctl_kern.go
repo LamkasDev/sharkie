@@ -31,11 +31,19 @@ func libKernel_ctl_kern(mib []uint32, namePtr uintptr, nameLen uint32, oldPtr ui
 }
 
 func libKernel_ctl_kern_proc(mib []uint32, namePtr uintptr, nameLen uint32, oldPtr uintptr, oldLenPtr uintptr, newPtr uintptr, newLen uintptr) uintptr {
-	if len(mib) < 3 {
-		return EINVAL
-	}
 	if oldLenPtr == 0 || oldPtr == 0 {
+		fmt.Printf("%-120s %s failed due to invalid pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sysctl"),
+		)
 		return 0
+	}
+	if len(mib) < 3 {
+		fmt.Printf("%-120s %s failed due to short MIBs.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sysctl"),
+		)
+		return EINVAL
 	}
 	oldLenSlice := unsafe.Slice((*byte)(unsafe.Pointer(oldLenPtr)), 8)
 	providedSize := uintptr(binary.LittleEndian.Uint64(oldLenSlice))
@@ -77,7 +85,7 @@ func libKernel_ctl_kern_proc(mib []uint32, namePtr uintptr, nameLen uint32, oldP
 		oldSlice := unsafe.Slice((*byte)(unsafe.Pointer(oldPtr)), requiredSize)
 
 		counter := uint64(0)
-		freq := uint64(1600000000)
+		freq := PTC_FREQUENCY
 		binary.LittleEndian.PutUint64(oldSlice, counter) // Current counter.
 		if providedSize >= 16 {
 			binary.LittleEndian.PutUint64(oldSlice[8:], freq) // Counter frequency.

@@ -24,7 +24,7 @@ func libSceLibcInternal_printErrAbort(message string) {
 // 0x00000000000CD8E0
 // void _cxa_guard_release(__guard *)
 func libSceLibcInternal___cxa_guard_release(guardPtr uintptr) uintptr {
-	module := emu.GlobalModuleManager.Modules["libSceLibcInternal.sprx"]
+	module := emu.GlobalModuleManager.ModulesMap["libSceLibcInternal.sprx"]
 	return cxaGuardRelease(
 		module.BaseAddress+LibSceLibcInternalCxaGuardMutexOffset,
 		module.BaseAddress+LibSceLibcInternalCxaGuardCondOffset,

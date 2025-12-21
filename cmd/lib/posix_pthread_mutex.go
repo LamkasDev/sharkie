@@ -129,7 +129,7 @@ func libKernel_pthread_mutex_lock(mutexHandlePtr uintptr) uintptr {
 		case uint32(PthreadMutexTypeRecursive):
 			if mutex.Count+1 > 0 {
 				mutex.Count++
-				fmt.Printf("%-120s %s incrementing recursive mutex %s (thread=%s, count=%s).\n",
+				fmt.Printf("%-120s %s incremented recursive mutex %s (thread=%s, count=%s).\n",
 					emu.GlobalModuleManager.GetCallSiteText(),
 					color.Magenta.Sprint("pthread_mutex_lock"),
 					GetMutexNameText(mutex, mutexAddr),
@@ -138,7 +138,7 @@ func libKernel_pthread_mutex_lock(mutexHandlePtr uintptr) uintptr {
 				)
 				return 0
 			}
-			fmt.Printf("%-120s %s incrementing invalid recursive mutex %s (thread=%s, count=%s).\n",
+			fmt.Printf("%-120s %s incremented invalid recursive mutex %s (thread=%s, count=%s).\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("pthread_mutex_lock"),
 				GetMutexNameText(mutex, mutexAddr),

@@ -54,7 +54,7 @@ func ExceptionHandlerGo() uintptr {
 	default:
 		fmt.Printf(
 			"Trapped exception code %s at %s...\n",
-			color.Red.Sprint("%d", code),
+			color.Red.Sprint(code),
 			color.Yellow.Sprintf("0x%X", ctx.Rip),
 		)
 		sys_struct.PrintContext(ctx)

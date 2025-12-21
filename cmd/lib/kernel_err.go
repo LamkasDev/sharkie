@@ -29,5 +29,5 @@ func SetErrno(err uintptr) {
 // 0x0000000000002C70
 // void *_error()
 func libKernel___error() uintptr {
-	return GetErrno()
+	return GetErrnoAddress()
 }

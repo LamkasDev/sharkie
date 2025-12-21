@@ -3,6 +3,7 @@ package structs
 var GlobalAllocator = NewAllocator()
 
 const (
+	SCE_KERNEL_ERROR_ENOENT       = 0x80020002
 	SCE_KERNEL_ERROR_EINVAL       = 0x80020016
 	SCE_KERNEL_ERROR_ENOMEM       = 0x8002000C
 	SCE_KERNEL_ERROR_EACCESS      = 0x8002000D

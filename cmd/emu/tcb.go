@@ -12,7 +12,7 @@ import (
 
 // NewTCB creates a new instance of Tcb based on passed Elf.
 func NewTCB(l *linker.Linker) *Tcb {
-	maxTlsIndex := uintptr(len(GlobalModuleManager.Modules))
+	maxTlsIndex := uintptr(len(GlobalModuleManager.ModulesMap))
 	tcbSize := unsafe.Sizeof(Tcb{})
 	dtvSize := unsafe.Sizeof(DtvEntry{}) * (maxTlsIndex + 2)
 	threadSize := unsafe.Sizeof(Pthread{})
@@ -39,7 +39,7 @@ func NewTCB(l *linker.Linker) *Tcb {
 	tcb.Thread.CleanupHandlerStack = 0
 	copy(tcb.Thread.Name[:], "MainThread")
 
-	for _, module := range GlobalModuleManager.Modules {
+	for _, module := range GlobalModuleManager.ModulesMap {
 		if module.TlsSection == nil || module.TlsSection.InitImageSize == 0 {
 			continue
 		}

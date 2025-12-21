@@ -15,6 +15,7 @@ const (
 	PT_DYNAMIC        = 2
 	PT_TLS            = 7
 	PT_SCE_DYNLIBDATA = 0x61000000
+	PT_GNU_EH_FRAME   = 0x6474e550
 )
 
 type Elf struct {
@@ -24,14 +25,15 @@ type Elf struct {
 	EntryAddress uint64
 	Memory       []byte
 
-	MemSize             uint64
-	DynLibDataOffset    uint64
-	LoadSections        []*ElfLoadSection
-	TlsSection          *ElfTlsSection
-	DynamicInfo         *ElfDynamicSection
-	SymbolTable         *ElfSymbolTable
-	RelaRelocationTable *ElfRelocationTable
-	PltRelocationTable  *ElfRelocationTable
+	MemSize               uint64
+	DynLibDataOffset      uint64
+	LoadSections          []*ElfLoadSection
+	ExceptionFrameSection *ElfLoadSection
+	TlsSection            *ElfTlsSection
+	DynamicInfo           *ElfDynamicSection
+	SymbolTable           *ElfSymbolTable
+	RelaRelocationTable   *ElfRelocationTable
+	PltRelocationTable    *ElfRelocationTable
 
 	// Temporary, used for mapping generic stub callers.
 	CallerToFunctionName map[uint64]uint64
@@ -77,6 +79,9 @@ func NewElf(data []byte) *Elf {
 			break
 		case PT_DYNAMIC:
 			break
+		case PT_GNU_EH_FRAME:
+			e.ExceptionFrameSection = e.NewLoadSection(data, uint64(offset))
+			break
 		default:
 			color.Grayf("  Unhandled ELF section type %d.\n", pType)
 			break
@@ -115,6 +120,10 @@ func NewElf(data []byte) *Elf {
 
 	for _, loadSection := range e.LoadSections {
 		ProcessLoadSection(e, loadSection, data)
+	}
+	if e.ExceptionFrameSection != nil {
+		e.ExceptionFrameSection.Address = e.BaseAddress + uintptr(e.ExceptionFrameSection.PVaddr)
+		e.ExceptionFrameSection.LoadedSize = e.ExceptionFrameSection.PMemsz
 	}
 
 	fmt.Printf(

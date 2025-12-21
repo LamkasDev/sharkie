@@ -29,7 +29,7 @@ func ResolveHandle[T any](handlePtr uintptr) (*T, int32) {
 	return (*T)(unsafe.Pointer(uintptr(ptr))), 0
 }
 
-// ReadCString reads a C-style string ended with a NULL terminator.
+// ReadCString reads a C-style string with a NULL terminator from stringPtr.
 func ReadCString(stringPtr uintptr) string {
 	stringSlice := unsafe.Slice((*byte)(unsafe.Pointer(stringPtr)), 256)
 	stringLength := 0
@@ -41,4 +41,13 @@ func ReadCString(stringPtr uintptr) string {
 	}
 
 	return string(stringSlice[:stringLength])
+}
+
+// WriteCString writes a C-style string with NULL terminator to stringPtr.
+func WriteCString(stringPtr uintptr, name string) {
+	stringSlice := unsafe.Slice((*byte)(unsafe.Pointer(stringPtr)), 256)
+	for i, b := range []byte(name) {
+		stringSlice[i] = b
+	}
+	stringSlice[len(name)] = 0
 }

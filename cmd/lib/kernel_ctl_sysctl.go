@@ -23,6 +23,10 @@ func libKernel_ctl_sysctl(mib []uint32, namePtr uintptr, nameLen uint32, oldPtr 
 
 func libKernel_ctl_sysctl_name(mib []uint32, namePtr uintptr, nameLen uint32, oldPtr uintptr, oldLenPtr uintptr, newPtr uintptr, newLen uintptr) uintptr {
 	if oldLenPtr == 0 || oldPtr == 0 {
+		fmt.Printf("%-120s %s failed due to invalid pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sysctl"),
+		)
 		return 0
 	}
 	if newPtr == 0 {

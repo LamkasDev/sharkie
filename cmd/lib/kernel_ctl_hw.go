@@ -23,6 +23,10 @@ func libKernel_ctl_hw(mib []uint32, namePtr uintptr, nameLen uint32, oldPtr uint
 
 func libKernel_ctl_hw_pagesize(mib []uint32, namePtr uintptr, nameLen uint32, oldPtr uintptr, oldLenPtr uintptr, newPtr uintptr, newLen uintptr) uintptr {
 	if oldLenPtr == 0 || oldPtr == 0 {
+		fmt.Printf("%-120s %s failed due to invalid pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sysctl"),
+		)
 		return 0
 	}
 	oldSlice := unsafe.Slice((*byte)(unsafe.Pointer(oldPtr)), 8)
