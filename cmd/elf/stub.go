@@ -16,8 +16,10 @@ var FakeAddress = FakeAddressStart
 var FakeAddressMap = make(map[uint64]string)
 
 type GetSymbolAddressFunc func(s *ElfSymbol) (uint64, bool)
+type GetDefiningModuleFunc func(s *ElfSymbol) *Elf
 
 var GetSymbolAddress GetSymbolAddressFunc
+var GetDefiningModule GetDefiningModuleFunc
 
 // RegisterStub registers a new stub specified by library and symbol name pointing to function f.
 func RegisterStub(libraryName, symbolName string, f interface{}) asm.StubInfo {

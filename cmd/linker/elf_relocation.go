@@ -73,7 +73,26 @@ func ProcessRelocationTable(e *elf.Elf, table *elf.ElfRelocationTable, tableName
 				elf.FakeAddress += 8
 			}
 			break
+		case elf.R_AMD64_DTPMOD64:
+			// TODO: handle symbols outside of current module (rewrite GetSymbolAddress to FindSymbol or smth).
+			if int(r.Symbol) >= len(e.SymbolTable.Symbols) {
+				break
+			}
+			symbol := e.SymbolTable.Symbols[r.Symbol]
+			moduleIndex := e.ModuleIndex
+			if symbol.Type != elf.STT_SECTION && symbol.OriginalName != "" {
+				if module := elf.GetDefiningModule(symbol); module != nil {
+					moduleIndex = module.ModuleIndex
+				} else {
+					color.Grayf("  Failed finding defining module for %s:%s.\n", symbol.LibraryName, symbol.ReadableName)
+				}
+			}
+			if r.Offset+8 <= uint64(len(e.Memory)) {
+				binary.LittleEndian.PutUint64(e.Memory[r.Offset:], moduleIndex)
+			}
+			break
 		case elf.R_AMD64_DTPOFF64:
+			// TODO: handle symbols outside of current module (rewrite GetSymbolAddress to FindSymbol or smth).
 			var symbolValue uint64
 			if r.Symbol != 0 && int(r.Symbol) < len(e.SymbolTable.Symbols) {
 				symbol := e.SymbolTable.Symbols[r.Symbol]

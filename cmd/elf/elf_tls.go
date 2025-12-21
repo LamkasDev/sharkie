@@ -8,8 +8,7 @@ type ElfTlsSection struct {
 	ImageSize           uint64
 	Align               uint64
 
-	Offset      uint64
-	ModuleIndex uint64
+	Offset uint64
 }
 
 // NewTlsSection loads the PT_TLS section at offset.

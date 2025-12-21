@@ -8,7 +8,8 @@ const (
 	R_AMD64_GLOB_DAT  = 6
 	R_AMD64_JUMP_SLOT = 7
 	R_AMD64_RELATIVE  = 8
-	R_AMD64_DTPOFF64  = 16
+	R_AMD64_DTPMOD64  = 16
+	R_AMD64_DTPOFF64  = 17
 )
 
 type ElfRelocation struct {

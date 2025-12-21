@@ -47,6 +47,10 @@ type ElfSymbol struct {
 
 // ResolveSymbolInfo resolves the library name, module index, and readable name for a symbol.
 func (e *Elf) ResolveSymbolInfo(s *ElfSymbol, stShndx uint16) {
+	if s.Type == STT_SECTION {
+		return
+	}
+
 	parts := strings.Split(s.OriginalName, "#")
 	if len(parts) >= 3 {
 		// For NID imports/exports, indexes are encoded inside characters between #.

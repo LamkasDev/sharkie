@@ -14,7 +14,6 @@ var GlobalLinker = NewLinker()
 // Linker keeps track of linking state.
 type Linker struct {
 	GenerationCounter uintptr
-	MaxTlsIndex       uintptr
 	StaticTlsSize     uint64
 }
 
@@ -29,8 +28,6 @@ func NewLinker() *Linker {
 func (l *Linker) Link(e *elf.Elf) {
 	if e.TlsSection != nil {
 		l.GenerationCounter++
-		l.MaxTlsIndex++
-		e.TlsSection.ModuleIndex = uint64(l.MaxTlsIndex)
 		e.TlsSection.Offset = l.StaticTlsSize
 		l.StaticTlsSize += e.TlsSection.ImageSize
 	}

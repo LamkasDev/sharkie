@@ -22,9 +22,10 @@ var GlobalModuleManager = NewModuleManager(
 
 // ModuleManager keeps track of loaded modules.
 type ModuleManager struct {
-	LinkPaths     []string
-	CurrentModule *elf.Elf
-	Modules       map[string]*elf.Elf
+	LinkPaths       []string
+	CurrentModule   *elf.Elf
+	NextModuleIndex uint64
+	Modules         map[string]*elf.Elf
 
 	Stack *structs.Stack
 	Tcb   *structs.Tcb
@@ -33,8 +34,9 @@ type ModuleManager struct {
 // NewModuleManager creates a new instance of ModuleManager.
 func NewModuleManager(linkPaths []string) *ModuleManager {
 	mm := &ModuleManager{
-		LinkPaths: linkPaths,
-		Modules:   map[string]*elf.Elf{},
+		LinkPaths:       linkPaths,
+		NextModuleIndex: 1,
+		Modules:         map[string]*elf.Elf{},
 	}
 
 	return mm
@@ -77,9 +79,10 @@ func (m *ModuleManager) _RecursiveLoadModule(name string) {
 		log.Panicf("Could not find module %s!\n", name)
 	}
 
+	moduleIndex := m.NextModuleIndex
 	fmt.Printf(
 		"\nLoading module %s from %s...\n",
-		color.Blue.Sprint(name),
+		color.Green.Sprint(moduleIndex),
 		color.Blue.Sprint(*modulePath),
 	)
 	data, err := os.ReadFile(*modulePath)
@@ -88,8 +91,10 @@ func (m *ModuleManager) _RecursiveLoadModule(name string) {
 	}
 
 	module := elf.NewElf(data)
+	module.ModuleIndex = moduleIndex
 	module.Path = *modulePath
-	m.Modules[module.Name] = module
+	m.Modules[name] = module
+	m.NextModuleIndex++
 
 	for _, needed := range module.DynamicInfo.Needed {
 		needed = strings.ReplaceAll(needed, ".prx", ".sprx")
@@ -189,9 +194,7 @@ func (m *ModuleManager) GetModulePath(name string) *string {
 	return nil
 }
 
-var tempPrintMap = map[string]bool{}
-
-// GetSymbolAddress returns the symbol address for given library & symbol name.
+// GetSymbolAddress returns the symbol address for given symbol.
 func GetSymbolAddress(s *elf.ElfSymbol) (uint64, bool) {
 	if stub, ok := asm.Stubs[s.HashIndex]; ok {
 		/* fmt.Printf(
@@ -204,27 +207,15 @@ func GetSymbolAddress(s *elf.ElfSymbol) (uint64, bool) {
 
 	// Let's use a generic stub for now, so we know which functions to patch.
 	if s.LibraryName == "libkernel" && s.Type == elf.STT_FUNC &&
-		s.ReadableName != "scePthreadSelf" && s.ReadableName != "scePthreadSelf" {
+		s.ReadableName != "scePthreadSelf" {
 		return uint64(asm.Stubs[elf.GetSymbolHashIndex("", "__sharkie_generic_stub")].Address), true
 	}
 
 	if s.Type == elf.STT_OBJECT {
-		for _, module := range GlobalModuleManager.Modules {
-			// TODO: add more priorities?
-			if module.Name != "libSceLibcInternal.sprx" {
-				continue
-			}
-			for _, symbol := range module.SymbolTable.Symbols {
-				if symbol.Address == 0 || symbol.ReadableName != s.ReadableName {
-					continue
-				}
-				/* fmt.Printf(
-					"Found symbol %s in module %s at %s.\n",
-					color.Blue.Sprint(fullName),
-					color.Blue.Sprint(module.Name),
-					color.Yellow.Sprintf("0x%X", module.BaseAddress+uintptr(symbol.Address)),
-				) */
-				return uint64(module.BaseAddress) + symbol.Address, true
+		// TODO: add more priorities?
+		if module, ok := GlobalModuleManager.Modules["libSceLibcInternal.sprx"]; ok {
+			if address, ok := TryGetSymbolAddress(s, module); ok {
+				return address, true
 			}
 		}
 	}
@@ -232,28 +223,71 @@ func GetSymbolAddress(s *elf.ElfSymbol) (uint64, bool) {
 	// libSceVideoOut:sceVideoOutSubmitEopFlip is at 0x0
 	// libSceVideoOut:sceVideoOutGetBufferLabelAddress is at 0x0
 	for _, module := range GlobalModuleManager.Modules {
-		if module.DynamicInfo == nil {
-			continue
-		}
-		for _, exportedLibrary := range module.DynamicInfo.ExportLibraries {
-			if s.LibraryName != exportedLibrary.Name {
-				continue
-			}
-			for _, symbol := range module.SymbolTable.Symbols {
-				if symbol.Address == 0 || symbol.ReadableName != s.ReadableName {
-					continue
-				}
-				/* fmt.Printf(
-					"Found symbol %s in module %s at %s.\n",
-					color.Blue.Sprintf("%s:%s", symbol.LibraryName, symbol.SymbolName),
-					color.Blue.Sprint(module.Name),
-					color.Yellow.Sprintf("0x%X", module.BaseAddress+uintptr(symbol.Address)),
-				) */
-				return uint64(module.BaseAddress) + symbol.Address, true
-			}
+		if address, ok := TryGetSymbolAddress(s, module); ok {
+			return address, true
 		}
 	}
 	// fmt.Printf("Failed search for symbol %s.\n", color.Red.Sprint(fullName))
+
+	return 0, false
+}
+
+// GetDefiningModule returns the module that actually defines given symbol.
+func GetDefiningModule(s *elf.ElfSymbol) *elf.Elf {
+	if s.LibraryName != "" {
+		if module, ok := GlobalModuleManager.Modules[s.LibraryName]; ok {
+			return module
+		}
+
+		return nil
+	}
+
+	for _, module := range GlobalModuleManager.Modules {
+		if _, found := TryGetSymbolAddress(s, module); found {
+			return module
+		}
+	}
+
+	return nil
+}
+
+// TryGetSymbolAddress tries returning the symbol address for given symbol from passed module.
+func TryGetSymbolAddress(s *elf.ElfSymbol, module *elf.Elf) (uint64, bool) {
+	if module.DynamicInfo == nil {
+		return 0, false
+	}
+	for _, exportedLibrary := range module.DynamicInfo.ExportLibraries {
+		if s.LibraryName != exportedLibrary.Name {
+			continue
+		}
+		for _, symbol := range module.SymbolTable.Symbols {
+			if symbol.Address == 0 {
+				continue
+			}
+			if symbol.ReadableName != s.ReadableName {
+				// Let's try skipping the #A#B suffix if they match without it and print warning.
+				if len(symbol.OriginalName) > 4 && len(s.OriginalName) > 4 &&
+					symbol.OriginalName[:len(symbol.OriginalName)-4] != s.OriginalName[:len(s.OriginalName)-4] {
+					continue
+				}
+				color.Gray.Printf(
+					"Resolving symbol %s:%s for %s:%s in module %s at 0x%X.\n",
+					symbol.LibraryName, symbol.ReadableName,
+					s.LibraryName, s.ReadableName,
+					module.Name,
+					module.BaseAddress+uintptr(symbol.Address),
+				)
+			}
+
+			/* fmt.Printf(
+				"Found symbol %s in module %s at %s.\n",
+				color.Blue.Sprintf("%s:%s", symbol.LibraryName, symbol.ReadableName),
+				color.Blue.Sprint(module.Name),
+				color.Yellow.Sprintf("0x%X", module.BaseAddress+uintptr(symbol.Address)),
+			) */
+			return uint64(module.BaseAddress) + symbol.Address, true
+		}
+	}
 
 	return 0, false
 }

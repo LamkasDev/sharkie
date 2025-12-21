@@ -23,6 +23,7 @@ func main() {
 	fmt.Printf("hi from %s :3\n", color.Blue.Sprint("sharkie"))
 	asm.ExceptionHandler = emu.ExceptionHandlerGo
 	elf.GetSymbolAddress = emu.GetSymbolAddress
+	elf.GetDefiningModule = emu.GetDefiningModule
 	asm.InitSignalsAddr()
 	asm.InitStubAddr()
 	emu.SetupSignalHandler()
@@ -31,6 +32,6 @@ func main() {
 	lib.RegisterStubs()
 
 	emu.GlobalModuleManager.LoadModule("eboot.bin")
-	emu.GlobalModuleManager.RunModule("Minecraft.Client.sprx")
+	emu.GlobalModuleManager.RunModule("eboot.bin")
 	emu.StopProfiling()
 }

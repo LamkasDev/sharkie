@@ -18,6 +18,7 @@ const (
 )
 
 type Elf struct {
+	ModuleIndex  uint64
 	Name         string
 	BaseAddress  uintptr
 	EntryAddress uint64
