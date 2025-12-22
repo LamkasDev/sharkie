@@ -37,6 +37,7 @@ type Elf struct {
 	ExceptionFrameSection     *ElfLoadSection
 	ExceptionFrameDataAddress uintptr
 	ExceptionFrameDataSize    uint64
+	ProcessParamSection       *ElfLoadSection
 	TlsSection                *ElfTlsSection
 	DynamicInfo               *ElfDynamicSection
 	SymbolTable               *ElfSymbolTable
@@ -89,6 +90,9 @@ func NewElf(data []byte) *Elf {
 			break
 		case PT_GNU_EH_FRAME:
 			e.ExceptionFrameSection = e.NewLoadSection(data, uint64(offset))
+			break
+		case PT_SCE_PROCPARAM:
+			e.ProcessParamSection = e.NewLoadSection(data, uint64(offset))
 			break
 		default:
 			color.Grayf("  Unhandled ELF section type %d.\n", pType)

@@ -32,3 +32,25 @@ func libKernel_sceKernelGetProcessType() uintptr {
 
 	return processType
 }
+
+// 0x000000000001A790
+// __int64 sceKernelGetProcParam()
+func libKernel_sceKernelGetProcParam() uintptr {
+	module := emu.GlobalModuleManager.CurrentModule
+	if module.ProcessParamSection != nil {
+		addr := module.BaseAddress + uintptr(module.ProcessParamSection.PVaddr)
+		fmt.Printf("%-120s %s returning process parameters %s (relative=%s).\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceKernelGetProcParam"),
+			color.Yellow.Sprintf("0x%X", addr),
+			color.Yellow.Sprintf("0x%X", module.ProcessParamSection.PVaddr),
+		)
+		return addr
+	}
+
+	fmt.Printf("%-120s %s failed to return process parameters.\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("sceKernelGetProcParam"),
+	)
+	return 0
+}

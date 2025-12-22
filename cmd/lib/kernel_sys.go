@@ -25,9 +25,8 @@ const (
 )
 
 const (
-	REGMGR_GET_INT = 2
-	REGMGR_SET_INT = 6
-	REGMGR_GET_BIN = 25
+	REGMGR_GET_INT = 25
+	REGMGR_GET_BIN = 27
 )
 
 const AMD64_SET_FSBASE = 129
@@ -242,12 +241,44 @@ func libKernel___sys_regmgr_call(op, id, resultPtr, valuePtr, size uintptr) uint
 			)
 			return EFAULT
 		}
-		valueSlice := unsafe.Slice((*byte)(unsafe.Pointer(valuePtr)), size)
-		for i := 0; i < len(valueSlice); i += 4 {
-			binary.LittleEndian.PutUint32(valueSlice[i:], 0)
+
+		valueSlice := unsafe.Slice((*byte)(unsafe.Pointer(valuePtr)), 16)
+		keyId := uintptr(binary.LittleEndian.Uint64(valueSlice))
+		// _ := uintptr(binary.LittleEndian.Uint32(valueSlice[8:]))
+		// value := uintptr(binary.LittleEndian.Uint32(valueSlice[12:]))
+
+		retVal := uint32(0)
+		keyName := fmt.Sprintf("UNKNOWN KEY 0x%X", keyId)
+		switch keyId {
+		case 0x78020500: // System Language (0 = Japanese, 1 = English, ...)
+			retVal = 1
+			keyName = "SYSTEM_LANGUAGE"
+			break
+		case 0x78020B00: // Enter Button Assignment (0 = Circle, 1 = Cross, ...)
+			retVal = 1
+			keyName = "ENTER_BUTTON_ASSIGNMENT"
+			break
 		}
 
-		fmt.Printf("%-120s %s requested integer (id=%s, resultPtr=%s, valuePtr=%s, size=%s).\n",
+		binary.LittleEndian.PutUint32(valueSlice[12:], retVal)
+		if resultPtr != 0 {
+			resultSlice := unsafe.Slice((*byte)(unsafe.Pointer(resultPtr)), 4)
+			binary.LittleEndian.PutUint32(resultSlice, 0)
+		}
+
+		fmt.Printf("%-120s %s returned %s for %s (id=%s, resultPtr=%s, valuePtr=%s, size=%s).\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("__sys_regmgr_call"),
+			color.Yellow.Sprintf("0x%X", retVal),
+			color.Blue.Sprint(keyName),
+			color.Yellow.Sprintf("0x%X", id),
+			color.Yellow.Sprintf("0x%X", resultPtr),
+			color.Yellow.Sprintf("0x%X", valuePtr),
+			color.Green.Sprintf("%d", size),
+		)
+		return 0
+	case REGMGR_GET_BIN:
+		fmt.Printf("%-120s %s requested binary data (id=%s, resultPtr=%s, valuePtr=%s, size=%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("__sys_regmgr_call"),
 			color.Yellow.Sprintf("0x%X", id),
