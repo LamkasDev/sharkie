@@ -29,7 +29,7 @@ func libKernel_sys_mprotect(addr, length, prot uintptr) uintptr {
 		return ERR_PTR
 	}
 
-	ret, err := libKernel_protect(addr, length, prot)
+	ret, err := ProtectKernelMemory(addr, length, prot)
 	if ret == 0 {
 		fmt.Printf("%-120s %s failed changing protection: %s\n",
 			emu.GlobalModuleManager.GetCallSiteText(),

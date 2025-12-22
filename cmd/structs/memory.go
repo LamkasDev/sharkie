@@ -1,5 +1,11 @@
 package structs
 
+import (
+	"fmt"
+
+	"github.com/gookit/color"
+)
+
 var GlobalAllocator = NewAllocator()
 
 const (
@@ -39,17 +45,34 @@ const (
 	MAP_SYSTEM  = 0x2000
 )
 
+const (
+	DirectMemoryDefaultSize = uintptr(0x100000000) // 4GB
+)
+
 type Allocator struct {
 	Allocations         map[uintptr]uintptr
 	DirectMemoryBase    uintptr
 	DirectMemoryCurrent uintptr
+	DirectMemorySize    uintptr
 }
 
 // NewAllocator creates a new instance of Allocator.
 func NewAllocator() *Allocator {
-	return &Allocator{
-		DirectMemoryBase:    0xFE0000000,
-		DirectMemoryCurrent: 0xFE0000000,
-		Allocations:         map[uintptr]uintptr{},
+	var err error
+	allocator := &Allocator{
+		DirectMemorySize: DirectMemoryDefaultSize,
+		Allocations:      map[uintptr]uintptr{},
 	}
+	allocator.DirectMemoryBase, err = ReserveKernelMemory(0, allocator.DirectMemorySize)
+	if allocator.DirectMemoryBase == 0 {
+		panic(err)
+	}
+	allocator.DirectMemoryCurrent = allocator.DirectMemoryBase
+	fmt.Printf(
+		"Reserved %s bytes for the global allocator at %s.\n",
+		color.Yellow.Sprintf("0x%X", allocator.DirectMemorySize),
+		color.Yellow.Sprintf("0x%X", allocator.DirectMemoryBase),
+	)
+
+	return allocator
 }

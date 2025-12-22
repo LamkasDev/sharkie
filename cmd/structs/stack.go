@@ -7,6 +7,8 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/sys_struct"
 )
 
+const StackAlignment = 8
+
 var StackDefaultSize = 2 * 1024 * 1024 // 2MB
 var StackArgumentsSize = uintptr(256)
 
@@ -61,7 +63,7 @@ func (s *Stack) PushString(v string) uintptr {
 	addr := s.Address + s.ArgumentsOffset
 	copy(s.Contents[s.ArgumentsOffset:], v)
 	vLength := uintptr(len(v))
-	padding := (8 - (vLength % 8)) % 8
+	padding := (StackAlignment - (vLength % StackAlignment)) % StackAlignment
 	s.ArgumentsOffset += vLength + padding
 	return addr
 }

@@ -97,7 +97,13 @@ func libSceLibcInternal_realloc(ptr, newSize uintptr) uintptr {
 	return newPtr
 }
 
-// 0x00000000000311F0
+// 0x0000000000033C20
+// __int64 __fastcall sceLibcMspaceMalloc(int *, char *, __m128, __int64, __int64, char *)
+func libSceLibcInternal_sceLibcMspaceMalloc(mspace, size uintptr) uintptr {
+	return libSceLibcInternal_malloc(size)
+}
+
+// 0x0000000000034200
 // __int64 __fastcall sceLibcMspaceCalloc(__int64, unsigned __int64, unsigned __int64, __int64)
 func libSceLibcInternal_sceLibcMspaceCalloc(mspace, nmemb, size uintptr) uintptr {
 	return libSceLibcInternal_calloc(nmemb, size)
@@ -105,6 +111,12 @@ func libSceLibcInternal_sceLibcMspaceCalloc(mspace, nmemb, size uintptr) uintptr
 
 // 0x0000000000033CF0
 // __int64 __fastcall sceLibcMspaceFree(__int64, __int64 *, __int64, __int64, __m128)
-func libSceLibcInternal_sceLibcMspaceFree(ptr uintptr) {
+func libSceLibcInternal_sceLibcMspaceFree(mspace, ptr uintptr) {
 	libSceLibcInternal_free(ptr)
+}
+
+// 0x0000000000034350
+// __int64 __fastcall sceLibcMspaceRealloc(__int64, __int64 *, unsigned __int64, __m128)
+func libSceLibcInternal_sceLibcMspaceRealloc(mspace, ptr, newSize uintptr) uintptr {
+	return libSceLibcInternal_realloc(ptr, newSize)
 }

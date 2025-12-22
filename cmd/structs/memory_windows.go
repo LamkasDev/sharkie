@@ -1,9 +1,8 @@
-package lib
+package structs
 
 import (
 	"unsafe"
 
-	. "github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/LamkasDev/sharkie/cmd/sys_struct"
 	"golang.org/x/sys/windows"
 )
@@ -30,18 +29,41 @@ func MemoryProtToWindowsProt(prot uintptr) uintptr {
 	}
 }
 
-func libKernel_alloc(addr, length, prot, flags uintptr) (uintptr, error) {
+func ReserveKernelMemory(addr, length uintptr) (uintptr, error) {
 	allocatedAddr, _, err := sys_struct.VirtualAlloc.Call(
 		addr,
 		length,
-		windows.MEM_RESERVE|windows.MEM_COMMIT,
-		MemoryProtToWindowsProt(prot),
+		windows.MEM_RESERVE,
+		windows.PAGE_NOACCESS,
 	)
+	if allocatedAddr == 0 {
+		return 0, err
+	}
 
-	return allocatedAddr, err
+	return allocatedAddr, nil
 }
 
-func libKernel_protect(addr, length, prot uintptr) (uintptr, error) {
+func AllocKernelMemory(addr, length, prot, flags uintptr) (uintptr, error) {
+	allocationType := uintptr(windows.MEM_RESERVE | windows.MEM_COMMIT)
+	if addr != 0 &&
+		addr >= GlobalAllocator.DirectMemoryBase &&
+		addr < GlobalAllocator.DirectMemoryBase+GlobalAllocator.DirectMemorySize {
+		allocationType = windows.MEM_COMMIT
+	}
+	allocatedAddr, _, err := sys_struct.VirtualAlloc.Call(
+		addr,
+		length,
+		allocationType,
+		MemoryProtToWindowsProt(prot),
+	)
+	if allocatedAddr == 0 {
+		return 0, err
+	}
+
+	return allocatedAddr, nil
+}
+
+func ProtectKernelMemory(addr, length, prot uintptr) (uintptr, error) {
 	var oldProt uint32
 	ret, _, err := sys_struct.VirtualProtect.Call(
 		addr,
@@ -49,6 +71,9 @@ func libKernel_protect(addr, length, prot uintptr) (uintptr, error) {
 		prot,
 		uintptr(unsafe.Pointer(&oldProt)),
 	)
+	if ret == 0 {
+		return 0, err
+	}
 
-	return ret, err
+	return ret, nil
 }

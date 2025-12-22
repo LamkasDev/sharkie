@@ -20,11 +20,11 @@ func libKernel_mmap(addr, length, prot, flags, fd, offset uintptr) uintptr {
 // __int64 __fastcall mmap_0()
 func libKernel_mmap_0(addr, length, prot, flags, fd, offset uintptr) uintptr {
 	// Allocate memory and check error.
-	allocatedAddr, err := libKernel_alloc(addr, length, prot, flags)
+	allocatedAddr, err := AllocKernelMemory(addr, length, prot, flags)
 	if allocatedAddr == 0 {
 		// If we're not required to return a fixed address, let's try again and let Windows choose.
 		if (flags&MAP_FIXED) == 0 && addr != 0 {
-			allocatedAddr, err = libKernel_alloc(0, length, prot, flags)
+			allocatedAddr, err = AllocKernelMemory(0, length, prot, flags)
 		}
 	}
 	if allocatedAddr == 0 {
