@@ -1,6 +1,8 @@
 package structs
 
-import "github.com/gookit/color"
+import (
+	"github.com/gookit/color"
+)
 
 const (
 	// Standard POSIX
@@ -13,6 +15,10 @@ const (
 	FD_TTY     = uintptr(11)
 	FD_GC      = uintptr(12)
 	FD_DIPSW   = uintptr(13)
+)
+
+const (
+	SCE_O_CREAT = 0x200
 )
 
 var FileDescriptors = map[string]uintptr{

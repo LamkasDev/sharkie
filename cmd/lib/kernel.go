@@ -82,6 +82,9 @@ func RegisterKernelStubs() {
 	elf.RegisterStub("libkernel", "ioctl", libKernel_ioctl)
 	elf.RegisterStub("libkernel", "_ioctl", libKernel_ioctl) // TODO: this neither
 
+	// Shared memory functions.
+	elf.RegisterStub("libkernel", "shm_open", libKernel_shm_open)
+
 	// Process functions.
 	elf.RegisterStub("libkernel", "getpid", libKernel_getpid)
 	elf.RegisterStub("libkernel", "sceKernelGetProcessType", libKernel_sceKernelGetProcessType)

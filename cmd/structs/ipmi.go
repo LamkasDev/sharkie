@@ -19,6 +19,8 @@ const (
 	IMPI_CONNECT     = 0x400
 )
 
+const ImpiBufferDefault = 4096
+
 type IpmiManager struct {
 	Clients          map[uint32]*IpmiClient
 	ClientsLock      sync.RWMutex
