@@ -15,6 +15,7 @@ const (
 	PT_DYNAMIC        = 2
 	PT_TLS            = 7
 	PT_SCE_DYNLIBDATA = 0x61000000
+	PT_SCE_PROCPARAM  = 0x61000001
 	PT_GNU_EH_FRAME   = 0x6474e550
 )
 
@@ -43,7 +44,7 @@ type Elf struct {
 	PltRelocationTable        *ElfRelocationTable
 
 	// Temporary, used for mapping generic stub callers.
-	CallerToFunctionName map[uint64]uint64
+	CallerToFunctionName map[uintptr]uint64
 	Path                 string
 	Linked               bool
 }
@@ -52,7 +53,7 @@ type Elf struct {
 func NewElf(data []byte) *Elf {
 	e := &Elf{
 		LoadSections:         []*ElfLoadSection{},
-		CallerToFunctionName: map[uint64]uint64{},
+		CallerToFunctionName: map[uintptr]uint64{},
 	}
 
 	// Check magic of the file.
@@ -187,13 +188,13 @@ func GetAlignedSize(memsz uint64, align uint64) uint64 {
 }
 
 // ReadInt32 reads an int32 at address belonging to the module (very silly).
-func (e *Elf) ReadInt32(addr uint64) int32 {
-	offset := addr - uint64(e.BaseAddress)
+func (e *Elf) ReadInt32(addr uintptr) int32 {
+	offset := addr - e.BaseAddress
 	return int32(binary.LittleEndian.Uint32(e.Memory[offset : offset+4]))
 }
 
 // ReadInt64 reads an int64 at address belonging to the module (very silly).
-func (e *Elf) ReadInt64(addr uint64) int64 {
-	offset := addr - uint64(e.BaseAddress)
+func (e *Elf) ReadInt64(addr uintptr) int64 {
+	offset := addr - e.BaseAddress
 	return int64(binary.LittleEndian.Uint64(e.Memory[offset : offset+8]))
 }

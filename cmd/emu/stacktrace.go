@@ -41,7 +41,7 @@ func PrintAddress(address uintptr) {
 		)
 	}
 
-	module := GlobalModuleManager.GetModuleForInstructionPointer(address)
+	module := GetModuleAtAddress(address)
 	if module != nil {
 		fmt.Printf(
 			"  %42s (relative %s)\n",

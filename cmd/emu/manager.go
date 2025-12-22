@@ -266,7 +266,7 @@ func TryGetSymbolAddress(s *elf.ElfSymbol, module *elf.Elf) (uint64, bool) {
 					continue
 				}
 				color.Gray.Printf(
-					"Resolving symbol %s:%s for %s:%s in module %s at 0x%X.\n",
+					"  Resolving symbol %s:%s for %s:%s in module %s at 0x%X.\n",
 					symbol.LibraryName, symbol.ReadableName,
 					s.LibraryName, s.ReadableName,
 					module.Name,
@@ -287,21 +287,49 @@ func TryGetSymbolAddress(s *elf.ElfSymbol, module *elf.Elf) (uint64, bool) {
 	return 0, false
 }
 
-// GetModuleForInstructionPointer return the module that's loaded within given address.
-func (m *ModuleManager) GetModuleForInstructionPointer(address uintptr) *elf.Elf {
-	for _, module := range m.ModulesMap {
-		if address >= module.BaseAddress && address <= module.BaseAddress+uintptr(len(module.Memory)) {
-			return module
+func GetModuleAtAddress(address uintptr) *elf.Elf {
+	for _, module := range GlobalModuleManager.ModulesMap {
+		for _, section := range module.LoadSections {
+			if address >= section.Address && address < section.Address+uintptr(section.LoadedSize) {
+				return module
+			}
 		}
 	}
 
 	return nil
 }
 
+func GetModuleSections(module *elf.Elf) (*elf.ElfLoadSection, *elf.ElfLoadSection, *elf.ElfLoadSection) {
+	var textSection, dataSection *elf.ElfLoadSection
+	for _, section := range module.LoadSections {
+		if textSection == nil && (section.PFlags&elf.PF_X) != 0 {
+			textSection = section
+		}
+		if dataSection == nil && (section.PFlags&elf.PF_W) != 0 {
+			dataSection = section
+		}
+	}
+	if textSection == nil && len(module.LoadSections) > 0 {
+		fmt.Printf("%-120s %s failed to find TEXT section.\n",
+			GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("GetModuleSections"),
+		)
+	}
+	if dataSection == nil {
+		fmt.Printf("%-120s %s failed to find DATA section.\n",
+			GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("GetModuleSections"),
+		)
+		dataSection = textSection
+	}
+
+	return textSection, dataSection, module.ExceptionFrameSection
+}
+
 // GetRealCallerAddress return the real caller address for a return address, bypassing any stubs.
-func GetRealCallerAddress(e *elf.Elf, returnAddr uint64) uint64 {
-	base := uint64(e.BaseAddress)
-	if returnAddr < base || returnAddr-base >= uint64(len(e.Memory)) {
+func GetRealCallerAddress(e *elf.Elf, returnAddr uintptr) uintptr {
+	base := e.BaseAddress
+	if returnAddr < base || returnAddr-base >= uintptr(len(e.Memory)) {
 		return 0
 	}
 
@@ -311,13 +339,13 @@ func GetRealCallerAddress(e *elf.Elf, returnAddr uint64) uint64 {
 
 		// Resolve target of the CALL (PLT Stub)
 		rel32 := e.ReadInt32(callInstAddr + 1) // Skip opcode E8
-		pltStubAddr := returnAddr + uint64(rel32)
+		pltStubAddr := returnAddr + uintptr(rel32)
 		pltOffset := pltStubAddr - base
 
 		// HACK: this is to handle our own's module patch inside linker.go
 		if e.Memory[pltOffset] == 0x48 && e.Memory[pltOffset+1] == 0xB8 &&
 			e.Memory[pltOffset+10] == 0xFF && e.Memory[pltOffset+11] == 0xE0 {
-			return uint64(e.ReadInt64(pltStubAddr + 2))
+			return uintptr(e.ReadInt64(pltStubAddr + 2))
 		}
 
 		// Read the PLT Stub instruction
@@ -330,14 +358,14 @@ func GetRealCallerAddress(e *elf.Elf, returnAddr uint64) uint64 {
 		// Target = RIP (next instruction) + disp
 		// RIP for this instruction is pltStubAddr + 6
 		disp32 := e.ReadInt32(pltStubAddr + 2) // Skip opcode FF 25
-		return pltStubAddr + 6 + uint64(disp32)
+		return pltStubAddr + 6 + uintptr(disp32)
 	} else if e.Memory[(returnAddr-6)-base] == 0xFF &&
 		e.Memory[(returnAddr-5)-base] == 0x15 {
 		// Check for Indirect Call (FF 15) - Direct GOT
 		callInstAddr := returnAddr - 6
 
 		disp32 := e.ReadInt32(callInstAddr + 2)
-		return returnAddr + uint64(disp32)
+		return returnAddr + uintptr(disp32)
 	}
 
 	return 0
@@ -347,23 +375,23 @@ func GetRealCallerAddress(e *elf.Elf, returnAddr uint64) uint64 {
 func (m *ModuleManager) GetCallSiteText() string {
 	ctx := (*asm.RegContext)(unsafe.Pointer(asm.GlobalStubContext))
 	returnAddr := *(*uintptr)(unsafe.Pointer(ctx.BP + 8))
-	module := m.GetModuleForInstructionPointer(returnAddr)
+	module := GetModuleAtAddress(returnAddr)
 	if module == nil {
 		return fmt.Sprintf("[unknown address %s]",
 			color.Yellow.Sprintf("0x%X", returnAddr),
 		)
 	}
 
-	callerAddress := GetRealCallerAddress(module, uint64(returnAddr))
-	hashIndex, ok := module.CallerToFunctionName[callerAddress-uint64(module.BaseAddress)]
+	callerAddress := GetRealCallerAddress(module, returnAddr)
+	hashIndex, ok := module.CallerToFunctionName[callerAddress-module.BaseAddress]
 	if !ok {
-		hashIndex, ok = asm.StubsTrampolineMap[uintptr(callerAddress)]
+		hashIndex, ok = asm.StubsTrampolineMap[callerAddress]
 		if !ok {
 			return fmt.Sprintf(
 				"[%s called %s at %s]",
 				color.Blue.Sprint(module.Name),
 				color.Magenta.Sprint("unknown function"),
-				color.Yellow.Sprintf("0x%X", returnAddr),
+				color.Yellow.Sprintf("0x%X", returnAddr-module.BaseAddress),
 			)
 		}
 	}
@@ -373,6 +401,6 @@ func (m *ModuleManager) GetCallSiteText() string {
 		"[%s called %s at %s]",
 		color.Blue.Sprint(module.Name),
 		color.Magenta.Sprintf("%s:%s", symbol.LibraryName, symbol.ReadableName),
-		color.Yellow.Sprintf("0x%X", (returnAddr-5)-module.BaseAddress),
+		color.Yellow.Sprintf("0x%X", callerAddress-module.BaseAddress),
 	)
 }

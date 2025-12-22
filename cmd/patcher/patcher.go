@@ -45,7 +45,9 @@ func (p *Patcher) Patch(e *elf.Elf) {
 	if sys_struct.TlsSlot >= 64 {
 		panic("TLS slot is too high, cannot patch TCB access")
 	}
-	if e.Name != "libkernel.sprx" {
+	// TODO: replace this with a better system.
+	if e.Name != "libkernel.sprx" && e.Name != "libSceFiber.sprx" &&
+		e.Name != "libSceRazorCpu.sprx" && e.Name != "Minecraft.Client.sprx" {
 		color.Gray.Printf("Skipping %s patching...\n", e.Name)
 		return
 	}
@@ -63,32 +65,34 @@ func (p *Patcher) Patch(e *elf.Elf) {
 		if sectionEnd > uint64(len(e.Memory)) {
 			sectionEnd = uint64(len(e.Memory))
 		}
+		sectionOffset := uint64(0)
+		sectionSize := sectionEnd - sectionStart
 		sectionData := e.Memory[int(sectionStart):int(sectionEnd)]
 
-		instructions, err := p.FastDisassembler.Disasm(sectionData, sectionStart, 0)
-		if err != nil {
-			fmt.Printf(
-				"Failed to disassemble %s: %v\n",
-				color.Red.Sprint(e.Name),
-				color.Red.Sprint(err.Error()),
-			)
-			continue
-		}
-		for _, instruction := range instructions {
-			if instruction.Mnemonic != "mov" {
+		for sectionOffset < sectionSize {
+			// We try only 512 at a time, so if we error out we can advance over the bad bytes (probably headers).
+			instructions, err := p.FastDisassembler.Disasm(sectionData[sectionOffset:], sectionStart+sectionOffset, 512)
+			if err != nil || len(instructions) == 0 {
+				sectionOffset++
 				continue
 			}
-			instructionData := e.Memory[int(instruction.Address) : int(instruction.Address)+len(instruction.Bytes)]
-			detailedInstruction, err := p.DetailedDisassembler.Disasm(instructionData, uint64(instruction.Address), 1)
-			if err != nil {
-				fmt.Printf(
-					"Failed to disassemble %s: %v\n",
-					color.Red.Sprint(e.Name),
-					color.Red.Sprint(err.Error()),
-				)
-			}
-			if p.PatchTcbAccess(detailedInstruction[0], instructionData) {
-				patchCount++
+			for _, instruction := range instructions {
+				sectionOffset += uint64(len(instruction.Bytes))
+				if instruction.Mnemonic != "mov" {
+					continue
+				}
+				instructionData := e.Memory[int(instruction.Address) : int(instruction.Address)+len(instruction.Bytes)]
+				detailedInstruction, err := p.DetailedDisassembler.Disasm(instructionData, uint64(instruction.Address), 1)
+				if err != nil {
+					fmt.Printf(
+						"Failed to disassemble %s: %v\n",
+						color.Red.Sprint(e.Name),
+						color.Red.Sprint(err.Error()),
+					)
+				}
+				if p.FilterTcbAccess(detailedInstruction[0], instructionData) && p.PatchTcbAccess(detailedInstruction[0], instructionData) {
+					patchCount++
+				}
 			}
 		}
 	}
@@ -100,11 +104,15 @@ func (p *Patcher) Patch(e *elf.Elf) {
 		}
 	}
 
-	fmt.Printf("Patched %s instructions.\n", color.Yellow.Sprintf("%d", patchCount))
+	if patchCount > 0 {
+		fmt.Printf("Patched %s instructions.\n", color.Yellow.Sprintf("%d", patchCount))
+	} else {
+		color.Gray.Printf("Didn't patch any instructions...\n")
+	}
 }
 
-// PatchTcbAccess patches a TCB access instruction or adds it to trampoline list if unable to.
-func (p *Patcher) PatchTcbAccess(instruction gapstone.Instruction, instructionBytes []byte) bool {
+// FilterTcbAccess checks if instruction is TCB access and optionally adds it to trampoline list.
+func (p *Patcher) FilterTcbAccess(instruction gapstone.Instruction, instructionBytes []byte) bool {
 	// We are on Windows, so we need to patch fs to gs.
 	// The instruction is mov ?, fs:[?].
 	if instruction.Mnemonic != "mov" || len(instruction.X86.Operands) != 2 {
@@ -115,16 +123,31 @@ func (p *Patcher) PatchTcbAccess(instruction gapstone.Instruction, instructionBy
 		return false
 	}
 	if len(instruction.Bytes) < 5 {
-		fmt.Printf("Failed to patch %s-byte TCB access.\n", color.Red.Sprintf("%d", len(instruction.Bytes)))
+		fmt.Printf(
+			"Failed to patch %s-byte TCB access.\n",
+			color.Red.Sprintf("%d", len(instruction.Bytes)),
+		)
 		return false
 	}
 
 	// Only patch if displacement is 0, otherwise use a trampoline.
 	if op.Mem.Disp != 0 {
+		if op.Mem.Disp != 0x10 {
+			color.Grayf(
+				"Unknown displacement 0x%X for TCB access at 0x%X, skipping...\n",
+				op.Mem.Disp, instruction.Address,
+			)
+			return false
+		}
 		p.NeededTcbAccessTrampolines = append(p.NeededTcbAccessTrampolines, instruction)
 		return false
 	}
 
+	return true
+}
+
+// PatchTcbAccess patches a TCB access instruction with 0 displacement.
+func (p *Patcher) PatchTcbAccess(instruction gapstone.Instruction, instructionBytes []byte) bool {
 	// Find the prefix 0x64 (FS)
 	prefixOffset := -1
 	for j := 0; j < len(instruction.Bytes); j++ {
@@ -134,7 +157,10 @@ func (p *Patcher) PatchTcbAccess(instruction gapstone.Instruction, instructionBy
 		}
 	}
 	if prefixOffset == -1 {
-		fmt.Printf("Failed to find %s prefix for TCB access.\n", color.Red.Sprint("FS"))
+		fmt.Printf(
+			"Failed to find %s prefix for TCB access.\n",
+			color.Red.Sprint("FS"),
+		)
 		return false
 	}
 
@@ -148,18 +174,16 @@ func (p *Patcher) PatchTcbAccess(instruction gapstone.Instruction, instructionBy
 	if len(instruction.Bytes) >= 5 {
 		displacementOffset := len(instruction.Bytes) - 4
 		binary.LittleEndian.PutUint32(instructionBytes[displacementOffset:], newDisplacement)
-		return true
 	}
 
 	/* fmt.Printf(
 		"Patched fs TCB access at %s.\n",
 		color.Yellow.Sprintf("0x%X", instruction.Address),
 	) */
-
-	return false
+	return true
 }
 
-// CreateTcbAccessTrampoline creates trampoline for a TCB access instruction, when displacement is not 0.
+// CreateTcbAccessTrampoline creates trampoline for a TCB access instruction with non-zero displacement.
 func (p *Patcher) CreateTcbAccessTrampoline(e *elf.Elf, instruction gapstone.Instruction) bool {
 	dstReg := instruction.X86.Operands[0].Reg
 	displacement := instruction.X86.Operands[1].Mem.Disp
@@ -206,6 +230,5 @@ func (p *Patcher) CreateTcbAccessTrampoline(e *elf.Elf, instruction gapstone.Ins
 		color.Yellow.Sprintf("0x%X", instruction.Address),
 		color.Yellow.Sprintf("0x%X", trampolineAddr),
 	) */
-
 	return true
 }

@@ -16,7 +16,7 @@ func PrintStackTrace(ctx *sys_struct.CONTEXT) {
 
 	stackPtr := uintptr(ctx.Rsp)
 	stackTop := GlobalModuleManager.Stack.Address + uintptr(structs.StackDefaultSize)
-	for i := 0; i < 20; i++ {
+	for i := 0; i < 40; i++ {
 		if stackPtr >= stackTop {
 			break
 		}

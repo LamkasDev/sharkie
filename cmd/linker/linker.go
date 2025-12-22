@@ -6,7 +6,6 @@ import (
 
 	"github.com/LamkasDev/sharkie/cmd/asm"
 	"github.com/LamkasDev/sharkie/cmd/elf"
-	"github.com/gookit/color"
 )
 
 var GlobalLinker = NewLinker()
@@ -73,12 +72,12 @@ func (l *Linker) Link(e *elf.Elf) {
 			patch = append(patch, 0xFF, 0xE0)
 
 			copy(e.Memory[symbol.Address:], patch)
-			fmt.Printf(
-				"Patched stubbed symbol %s inside %s at %s.\n",
+			/* fmt.Printf(
+				"Replaced stubbed symbol %s inside %s at %s.\n",
 				color.Blue.Sprintf("%s:%s", symbol.LibraryName, symbol.ReadableName),
 				color.Blue.Sprintf(e.Name),
 				color.Yellow.Sprintf("0x%X", symbol.Address),
-			)
+			) */
 		}
 	}
 

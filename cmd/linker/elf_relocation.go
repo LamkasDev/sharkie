@@ -53,9 +53,9 @@ func ProcessRelocationTable(e *elf.Elf, table *elf.ElfRelocationTable, tableName
 			}
 			symbol := e.SymbolTable.Symbols[r.Symbol]
 			if addr, ok := elf.GetSymbolAddress(symbol); ok {
-				e.CallerToFunctionName[r.Offset] = symbol.HashIndex
 				newAddr := addr + uint64(r.Addend)
 				if r.Offset+8 <= uint64(len(e.Memory)) {
+					e.CallerToFunctionName[uintptr(r.Offset)] = symbol.HashIndex
 					binary.LittleEndian.PutUint64(e.Memory[r.Offset:], newAddr)
 					externalCount++
 				}
@@ -93,14 +93,14 @@ func ProcessRelocationTable(e *elf.Elf, table *elf.ElfRelocationTable, tableName
 			break
 		case elf.R_AMD64_DTPOFF64:
 			// TODO: handle symbols outside of current module (rewrite GetSymbolAddress to FindSymbol or smth).
-			var symbolValue uint64
-			if r.Symbol != 0 && int(r.Symbol) < len(e.SymbolTable.Symbols) {
-				symbol := e.SymbolTable.Symbols[r.Symbol]
-				symbolValue = symbol.Address
+			if int(r.Symbol) >= len(e.SymbolTable.Symbols) {
+				break
 			}
+			symbol := e.SymbolTable.Symbols[r.Symbol]
 
-			newAddr := symbolValue + uint64(r.Addend)
+			newAddr := symbol.Address + uint64(r.Addend)
 			if r.Offset+8 <= uint64(len(e.Memory)) {
+				e.CallerToFunctionName[uintptr(r.Offset)] = symbol.HashIndex
 				binary.LittleEndian.PutUint64(e.Memory[r.Offset:], newAddr)
 			}
 			break

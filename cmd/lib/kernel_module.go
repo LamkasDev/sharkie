@@ -5,50 +5,10 @@ import (
 	"fmt"
 	"unsafe"
 
-	"github.com/LamkasDev/sharkie/cmd/elf"
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	"github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/gookit/color"
 )
-
-func GetModuleAtAddress(address uintptr) *elf.Elf {
-	for _, module := range emu.GlobalModuleManager.ModulesMap {
-		for _, section := range module.LoadSections {
-			if address >= section.Address && address < section.Address+uintptr(section.LoadedSize) {
-				return module
-			}
-		}
-	}
-
-	return nil
-}
-
-func GetModuleSections(module *elf.Elf) (*elf.ElfLoadSection, *elf.ElfLoadSection, *elf.ElfLoadSection) {
-	var textSection, dataSection *elf.ElfLoadSection
-	for _, section := range module.LoadSections {
-		if textSection == nil && (section.PFlags&elf.PF_X) != 0 {
-			textSection = section
-		}
-		if dataSection == nil && (section.PFlags&elf.PF_W) != 0 {
-			dataSection = section
-		}
-	}
-	if textSection == nil && len(module.LoadSections) > 0 {
-		fmt.Printf("%-120s %s failed to find TEXT section.\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("GetModuleSections"),
-		)
-	}
-	if dataSection == nil {
-		fmt.Printf("%-120s %s failed to find DATA section.\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("GetModuleSections"),
-		)
-		dataSection = textSection
-	}
-
-	return textSection, dataSection, module.ExceptionFrameSection
-}
 
 // 0x000000000002CD00
 // __int64 __fastcall sceKernelGetModuleInfoForUnwind(unsigned __int64, int, _QWORD *, __m128 _XMM0)
@@ -61,7 +21,7 @@ func libKernel_sceKernelGetModuleInfoForUnwind(addr uintptr, flags int32, infoPt
 		return structs.SCE_KERNEL_ERROR_EINVAL
 	}
 
-	module := GetModuleAtAddress(addr)
+	module := emu.GetModuleAtAddress(addr)
 	if module == nil {
 		fmt.Printf("%-120s %s failed to find module loaded at %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -70,7 +30,7 @@ func libKernel_sceKernelGetModuleInfoForUnwind(addr uintptr, flags int32, infoPt
 		)
 		return structs.SCE_KERNEL_ERROR_ENOENT
 	}
-	textSection, _, exceptionFrameSection := GetModuleSections(module)
+	textSection, _, exceptionFrameSection := emu.GetModuleSections(module)
 	infoSlice := unsafe.Slice((*byte)(unsafe.Pointer(infoPtr)), 304)
 	for i := range infoSlice {
 		infoSlice[i] = 0
@@ -113,7 +73,7 @@ func libKernel_sys_dynlib_get_info_ex(handle uint32, flags uint32, infoPtr uintp
 	}
 
 	module := emu.GlobalModuleManager.Modules[handle]
-	textSection, dataSection, exceptionFrameSection := GetModuleSections(module)
+	textSection, dataSection, exceptionFrameSection := emu.GetModuleSections(module)
 	infoSlice := unsafe.Slice((*byte)(unsafe.Pointer(infoPtr)), 352)
 	for i := range infoSlice {
 		infoSlice[i] = 0
