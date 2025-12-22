@@ -32,7 +32,9 @@ func main() {
 	symbol.LoadSymbolMap("data/aerolib.csv")
 	lib.RegisterStubs()
 
-	emu.GlobalModuleManager.LoadModule("eboot.bin")
+	if err := emu.GlobalModuleManager.LoadModule("eboot.bin"); err != nil {
+		panic(err)
+	}
 	emu.GlobalModuleManager.RunModule("eboot.bin")
 	emu.StopProfiling()
 }

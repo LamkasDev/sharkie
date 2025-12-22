@@ -3,10 +3,12 @@ package lib
 import (
 	"encoding/binary"
 	"fmt"
+	"path/filepath"
+	"strings"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
-	"github.com/LamkasDev/sharkie/cmd/structs"
+	. "github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/gookit/color"
 )
 
@@ -18,7 +20,7 @@ func libKernel_sceKernelGetModuleInfoForUnwind(addr uintptr, flags int32, infoPt
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceKernelGetModuleInfoForUnwind"),
 		)
-		return structs.SCE_KERNEL_ERROR_EINVAL
+		return SCE_KERNEL_ERROR_EINVAL
 	}
 
 	module := emu.GetModuleAtAddress(addr)
@@ -28,15 +30,15 @@ func libKernel_sceKernelGetModuleInfoForUnwind(addr uintptr, flags int32, infoPt
 			color.Magenta.Sprint("sceKernelGetModuleInfoForUnwind"),
 			color.Yellow.Sprintf("0x%X", addr),
 		)
-		return structs.SCE_KERNEL_ERROR_ENOENT
+		return SCE_KERNEL_ERROR_ENOENT
 	}
-	textSection, _, exceptionFrameSection := emu.GetModuleSections(module)
+	textSection, _ := emu.GetModuleSections(module)
 	infoSlice := unsafe.Slice((*byte)(unsafe.Pointer(infoPtr)), 304)
 	for i := range infoSlice {
 		infoSlice[i] = 0
 	}
-	structs.WriteCString(infoPtr+0x08, module.Name)
-	binary.LittleEndian.PutUint64(infoSlice[0x108:], uint64(exceptionFrameSection.Address))
+	WriteCString(infoPtr+0x08, module.Name)
+	binary.LittleEndian.PutUint64(infoSlice[0x108:], uint64(module.ExceptionFrameSection.Address))
 	binary.LittleEndian.PutUint64(infoSlice[0x110:], uint64(module.ExceptionFrameDataAddress))
 	binary.LittleEndian.PutUint64(infoSlice[0x118:], module.ExceptionFrameDataSize)
 	binary.LittleEndian.PutUint64(infoSlice[0x120:], uint64(textSection.Address))
@@ -61,7 +63,7 @@ func libKernel_sys_dynlib_get_info_ex(handle uint32, flags uint32, infoPtr uintp
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sys_dynlib_get_info_ex"),
 		)
-		return structs.SCE_KERNEL_ERROR_EINVAL
+		return SCE_KERNEL_ERROR_EINVAL
 	}
 	if handle >= uint32(len(emu.GlobalModuleManager.Modules)) {
 		fmt.Printf("%-120s %s failed to find module with id %s.\n",
@@ -69,25 +71,25 @@ func libKernel_sys_dynlib_get_info_ex(handle uint32, flags uint32, infoPtr uintp
 			color.Magenta.Sprint("sys_dynlib_get_info_ex"),
 			color.Green.Sprint(handle),
 		)
-		return structs.SCE_KERNEL_ERROR_ENOENT
+		return SCE_KERNEL_ERROR_ENOENT
 	}
 
 	module := emu.GlobalModuleManager.Modules[handle]
-	textSection, dataSection, exceptionFrameSection := emu.GetModuleSections(module)
+	textSection, dataSection := emu.GetModuleSections(module)
 	infoSlice := unsafe.Slice((*byte)(unsafe.Pointer(infoPtr)), 352)
 	for i := range infoSlice {
 		infoSlice[i] = 0
 	}
 	binary.LittleEndian.PutUint32(infoSlice[0x8:], uint32(module.ModuleIndex))
 	binary.LittleEndian.PutUint32(infoSlice[0xC:], 0)
-	structs.WriteCString(infoPtr+0x10, module.Name)
+	WriteCString(infoPtr+0x10, module.Name)
 	binary.LittleEndian.PutUint64(infoSlice[0x110:], uint64(textSection.Address))
 	binary.LittleEndian.PutUint32(infoSlice[0x118:], uint32(textSection.LoadedSize))
 	binary.LittleEndian.PutUint64(infoSlice[0x11C:], uint64(dataSection.Address))
 	binary.LittleEndian.PutUint32(infoSlice[0x124:], uint32(dataSection.LoadedSize))
-	if exceptionFrameSection != nil {
+	if module.ExceptionFrameSection != nil {
 		binary.LittleEndian.PutUint64(infoSlice[0x128:], uint64(module.ExceptionFrameDataAddress))
-		binary.LittleEndian.PutUint32(infoSlice[0x130:], uint32(exceptionFrameSection.LoadedSize))
+		binary.LittleEndian.PutUint32(infoSlice[0x130:], uint32(module.ExceptionFrameSection.LoadedSize))
 	} else {
 		binary.LittleEndian.PutUint64(infoSlice[0x128:], 0)
 		binary.LittleEndian.PutUint32(infoSlice[0x130:], 0)
@@ -101,4 +103,90 @@ func libKernel_sys_dynlib_get_info_ex(handle uint32, flags uint32, infoPtr uintp
 		color.Yellow.Sprintf("0x%X", flags),
 	)
 	return 0
+}
+
+// 0x0000000000016BE0
+// __int64 sceKernelIsInSandbox()
+func libKernel_sceKernelIsInSandbox() uintptr {
+	fmt.Printf("%-120s %s returning false.\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("sceKernelIsInSandbox"),
+	)
+	return 0
+}
+
+// 0x000000000001A920
+// __int64 sceKernelGetCompiledSdkVersion()
+func libKernel_sceKernelGetCompiledSdkVersion(versionPtr uintptr) uintptr {
+	sdkVersion := uint32(0x11000000)
+	if versionPtr != 0 {
+		versionSlice := unsafe.Slice((*byte)(unsafe.Pointer(versionPtr)), 4)
+		binary.LittleEndian.PutUint32(versionSlice, sdkVersion)
+	}
+
+	fmt.Printf("%-120s %s returning %s.\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("sceKernelGetCompiledSdkVersion"),
+		color.Yellow.Sprintf("0x%X", sdkVersion),
+	)
+	return 0
+}
+
+// 0x000000000002C370
+// void sceKernelLoadStartModuleForSysmodule()
+func libKernel_sceKernelLoadStartModuleForSysmodule(namePtr uintptr, argc uintptr, argvPtr uintptr, flags uintptr, optionPtr uintptr, statusPtr uintptr) uintptr {
+	return libKernel_sys_sceKernelLoadStartModule(namePtr, argc, argvPtr, flags, optionPtr, statusPtr)
+}
+
+// 0x000000000002BB00
+// __int64 __fastcall sceKernelLoadStartModule(__int64, __int64, __int64, int, __int64, int *, __m128, __m128, __m128, __m128, double, double, __m128, __m128)
+func libKernel_sceKernelLoadStartModule(namePtr uintptr, argc uintptr, argvPtr uintptr, flags uintptr, optionPtr uintptr, statusPtr uintptr) uintptr {
+	// TODO: this does a check, but not sure about the signature
+	return libKernel_sys_sceKernelLoadStartModule(namePtr, argc, argvPtr, flags, optionPtr, statusPtr)
+}
+
+func libKernel_sys_sceKernelLoadStartModule(namePtr uintptr, argc uintptr, argvPtr uintptr, flags uintptr, optionPtr uintptr, statusPtr uintptr) uintptr {
+	if namePtr == 0 {
+		fmt.Printf("%-120s %s failed due to invalid name pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceKernelLoadStartModule"),
+		)
+		return SCE_KERNEL_ERROR_EINVAL
+	}
+
+	name := filepath.Base(ReadCString(namePtr))
+	name = strings.ReplaceAll(name, ".prx", ".sprx")
+
+	if emu.GlobalModuleManager.ModulesMap[name] != nil {
+		fmt.Printf("%-120s %s skipping already loaded module %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceKernelLoadStartModule"),
+			color.Blue.Sprint(name),
+		)
+		return 0
+	}
+	if err := emu.GlobalModuleManager.LoadModule(name); err != nil {
+		fmt.Printf("%-120s %s failed loading module %s: %+v\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceKernelLoadStartModule"),
+			color.Blue.Sprint(name),
+			err.Error(),
+		)
+		return 0
+	}
+
+	module := emu.GlobalModuleManager.ModulesMap[name]
+	handle := uintptr(0x100 + module.ModuleIndex)
+	if statusPtr != 0 {
+		statusSlice := unsafe.Slice((*byte)(unsafe.Pointer(statusPtr)), 4)
+		binary.LittleEndian.PutUint32(statusSlice, 0)
+	}
+
+	fmt.Printf("%-120s %s loaded module %s (name=%s).\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("sceKernelLoadStartModule"),
+		color.Yellow.Sprintf("0x%X", handle),
+		color.Blue.Sprint(name),
+	)
+	return handle
 }

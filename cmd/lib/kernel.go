@@ -118,6 +118,10 @@ func RegisterKernelStubs() {
 	// Module functions.
 	elf.RegisterStub("libkernel", "sceKernelGetModuleInfoForUnwind", libKernel_sceKernelGetModuleInfoForUnwind)
 	elf.RegisterStub("libkernel", "sub_1EB0", libKernel_sys_dynlib_get_info_ex)
+	elf.RegisterStub("libkernel", "sceKernelIsInSandbox", libKernel_sceKernelIsInSandbox)
+	elf.RegisterStub("libkernel", "sceKernelGetCompiledSdkVersion", libKernel_sceKernelGetCompiledSdkVersion)
+	elf.RegisterStub("libkernel", "sceKernelLoadStartModuleForSysmodule", libKernel_sceKernelLoadStartModuleForSysmodule)
+	elf.RegisterStub("libkernel", "sceKernelLoadStartModule", libKernel_sceKernelLoadStartModule)
 
 	// TSC functions.
 	elf.RegisterStub("libkernel", "sceKernelGetTscFrequency", libKernel_sceKernelGetTscFrequency)

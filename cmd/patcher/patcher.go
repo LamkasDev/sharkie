@@ -2,6 +2,7 @@ package patcher
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"unsafe"
 
@@ -40,16 +41,16 @@ func NewPatcher() *Patcher {
 }
 
 // Patch patches the ELF file.
-func (p *Patcher) Patch(e *elf.Elf) {
+func (p *Patcher) Patch(e *elf.Elf) error {
 	sys_struct.TlsOnce.Do(sys_struct.AllocTlsSlot)
 	if sys_struct.TlsSlot >= 64 {
-		panic("TLS slot is too high, cannot patch TCB access")
+		return errors.New("tls slot is too high, cannot patch tcb access")
 	}
 	// TODO: replace this with a better system.
 	if e.Name != "libkernel.sprx" && e.Name != "libSceFiber.sprx" &&
 		e.Name != "libSceRazorCpu.sprx" && e.Name != "Minecraft.Client.sprx" {
 		color.Gray.Printf("Skipping %s patching...\n", e.Name)
-		return
+		return nil
 	}
 
 	// Do a quick pass and patch instructions that we can, otherwise store them for later.
@@ -84,11 +85,7 @@ func (p *Patcher) Patch(e *elf.Elf) {
 				instructionData := e.Memory[int(instruction.Address) : int(instruction.Address)+len(instruction.Bytes)]
 				detailedInstruction, err := p.DetailedDisassembler.Disasm(instructionData, uint64(instruction.Address), 1)
 				if err != nil {
-					fmt.Printf(
-						"Failed to disassemble %s: %v\n",
-						color.Red.Sprint(e.Name),
-						color.Red.Sprint(err.Error()),
-					)
+					return err
 				}
 				if p.FilterTcbAccess(detailedInstruction[0], instructionData) && p.PatchTcbAccess(detailedInstruction[0], instructionData) {
 					patchCount++
@@ -109,6 +106,8 @@ func (p *Patcher) Patch(e *elf.Elf) {
 	} else {
 		color.Gray.Printf("Didn't patch any instructions...\n")
 	}
+
+	return nil
 }
 
 // FilterTcbAccess checks if instruction is TCB access and optionally adds it to trampoline list.

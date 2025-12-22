@@ -24,7 +24,7 @@ func NewLinker() *Linker {
 }
 
 // Link performs relocations and some patches.
-func (l *Linker) Link(e *elf.Elf) {
+func (l *Linker) Link(e *elf.Elf) error {
 	if e.TlsSection != nil {
 		l.GenerationCounter++
 		e.TlsSection.Offset = l.StaticTlsSize
@@ -107,4 +107,6 @@ func (l *Linker) Link(e *elf.Elf) {
 			offset += 8
 		}
 	}
+
+	return nil
 }
