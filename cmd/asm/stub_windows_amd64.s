@@ -3,15 +3,6 @@
 #include "reg_amd64.s"
 #include "funcdata.h"
 
-GLOBL ·GlobalStubContext(SB), NOPTR, $8
-GLOBL ·PlaystationStackSP(SB), NOPTR, $8
-GLOBL ·StubAddr(SB), NOPTR, $8
-GLOBL ·GoStackSP(SB), NOPTR, $8
-GLOBL ·GoStackBP(SB), NOPTR, $8
-GLOBL ·SavedG(SB), NOPTR, $8
-GLOBL ·ReturnAddressAnchor(SB), NOPTR, $8
-GLOBL ·CallReturnAddress(SB), NOPTR, $8
-
 // InitStubAddr is called from Go's init function.
 // It gets the address of our assembly handler and stores it in a Go variable.
 TEXT ·InitStubAddr(SB), NOSPLIT, $0
@@ -61,7 +52,11 @@ TEXT ·stubAsm(SB), NOSPLIT, $0-0
     BYTE $0x48; BYTE $0x89; BYTE $0xDC  // MOVQ BX, SP
 
     // Call the Go trampoline function.
+    // MOVQ ·ProcExitsyscall(SB), AX
+    // CALL AX
     CALL ·stubGo(SB)
+    // MOVQ ·ProcEntersyscall(SB), AX
+    // CALL AX
 
     // Clean up fake call frame.
     MOVQ 0(SP), BP

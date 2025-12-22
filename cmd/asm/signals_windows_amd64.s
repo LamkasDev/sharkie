@@ -3,14 +3,6 @@
 #include "textflag.h"
 #include "funcdata.h"
 
-GLOBL ·ExceptionHandlerAddr(SB), NOPTR, $8
-GLOBL ·GlobalExceptionInfo(SB), NOPTR, $8
-GLOBL ·WindowsStackSP(SB), NOPTR, $8
-GLOBL ·GoStackSP(SB), NOPTR, $8
-GLOBL ·GoStackBP(SB), NOPTR, $8
-GLOBL ·SavedG(SB), NOPTR, $8
-GLOBL ·ReturnAddressAnchor(SB), NOPTR, $8
-
 // InitSignalsAddr is called from Go's init function.
 // It gets the address of our assembly handler and stores it in a Go variable.
 TEXT ·InitSignalsAddr(SB), NOSPLIT, $0
@@ -55,7 +47,11 @@ TEXT ·exceptionHandlerAsm(SB), NOSPLIT, $8-0
     BYTE $0x48; BYTE $0x89; BYTE $0xDC  // MOVQ BX, SP
 
     // Call the Go exception handler.
+    // MOVQ ·ProcExitsyscall(SB), AX
+    // CALL AX
     CALL ·exceptionHandlerGo(SB)
+    // MOVQ ·ProcEntersyscall(SB), AX
+    // CALL AX
 
     // Save Go stack pointer.
     MOVQ SP, BX

@@ -26,6 +26,7 @@ func main() {
 	elf.GetDefiningModule = emu.GetDefiningModule
 	asm.InitSignalsAddr()
 	asm.InitStubAddr()
+	asm.SetupCooperativeGC()
 	emu.SetupSignalHandler()
 
 	symbol.LoadSymbolMap("data/aerolib.csv")

@@ -3,12 +3,6 @@
 #include "textflag.h"
 #include "funcdata.h"
 
-GLOBL ·GoStackSP(SB), NOPTR, $8
-GLOBL ·GoStackBP(SB), NOPTR, $8
-GLOBL ·SavedG(SB), NOPTR, $8
-GLOBL ·ReturnAddressAnchor(SB), NOPTR, $8
-GLOBL ·CallReturnAddress(SB), NOPTR, $8
-
 // This function switches to the game's stack and jumps to its entry point.
 // It does not return.
 // func Run(entry,   stackPtr, argsPtr, arg2 uintptr)
@@ -25,14 +19,17 @@ TEXT ·Run(SB), NOSPLIT, $0-32
     ADDQ $7, R15
     MOVQ R15, ·ReturnAddressAnchor(SB)
 
-    MOVQ entry+0(FP), AX        // entry = AX
-    MOVQ stackPtr+8(FP), BX     // stackPtr = BX
-    MOVQ argsPtr+16(FP), DI      // argsPtr = DI
-
     // Save the current Go stack so we can restore it later.
     MOVQ SP, ·GoStackSP(SB)
     MOVQ BP, ·GoStackBP(SB)
     MOVQ R14, ·SavedG(SB)
+
+    // MOVQ ·ProcEntersyscall(SB), AX
+    // CALL AX
+
+    MOVQ entry+0(FP), AX        // entry = AX
+    MOVQ stackPtr+8(FP), BX     // stackPtr = BX
+    MOVQ argsPtr+16(FP), DI      // argsPtr = DI
 
     // Switch to the playstation stack.
     ANDQ $-16, BX
@@ -69,9 +66,6 @@ TEXT ·Call(SB), NOSPLIT, $48-32
     ADDQ $7, R15
     MOVQ R15, ·ReturnAddressAnchor(SB)
 
-    MOVQ entry+0(FP), AX     // entry = AX
-    MOVQ stackPtr+8(FP), DX  // stackPtr = BX (DX just for a bit)
-
     // Save callee-saved registers.
     MOVQ BP, 0(SP)
     MOVQ BX, 8(SP)
@@ -79,12 +73,17 @@ TEXT ·Call(SB), NOSPLIT, $48-32
     MOVQ R13, 24(SP)
     MOVQ R14, 32(SP)
     MOVQ R15, 40(SP)
-    MOVQ DX, BX
 
     // Save the current Go stack so we can restore it later.
     MOVQ SP, ·GoStackSP(SB)
     MOVQ BP, ·GoStackBP(SB)
     MOVQ R14, ·SavedG(SB)
+
+    // MOVQ ·ProcEntersyscall(SB), AX
+    // CALL AX
+
+    MOVQ entry+0(FP), AX     // entry = AX
+    MOVQ stackPtr+8(FP), BX  // stackPtr = BX
 
     // Prepare a return address for guest.
     BYTE $0xE8; BYTE $0x05; BYTE $0x00; BYTE $0x00; BYTE $0x00
@@ -125,6 +124,9 @@ CallRestoreRegisters:
     // Restore Go stack.
     MOVQ ·GoStackBP(SB), BP
     MOVQ ·SavedG(SB), R14
+
+    // MOVQ ·ProcExitsyscall(SB), AX
+    // CALL AX
 
     // Restore callee-saved registers.
     MOVQ 40(SP), R15

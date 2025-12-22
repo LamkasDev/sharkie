@@ -11,14 +11,6 @@ type StubInfo struct {
 	NumArgs     int
 }
 
-var (
-	// StubAddr holds address of the assembly stub.
-	StubAddr uintptr
-
-	// GlobalStubContext holds address of the RegContext struct.
-	GlobalStubContext uintptr
-)
-
 var Stubs = make(map[uint64]StubInfo)
 var StubsMap = make(map[uintptr]uint64)
 var StubsTrampolineMap = make(map[uintptr]uint64)
@@ -28,6 +20,8 @@ func InitStubAddr()
 // stubGo is a Go function that acts as a trampoline to call the target function.
 // It is called from stubAsm.
 func stubGo() {
+	CheckAndRunGC()
+
 	// Extract arguments and function pointer from RegSaveArea.
 	ctx := (*RegContext)(unsafe.Pointer(GlobalStubContext))
 	fnPtr := ctx.R11
