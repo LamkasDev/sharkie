@@ -16,10 +16,14 @@ func NewTCB(l *linker.Linker) *Tcb {
 	tcbSize := unsafe.Sizeof(Tcb{})
 	dtvSize := unsafe.Sizeof(DtvEntry{}) * (maxTlsIndex + 2)
 	threadSize := unsafe.Sizeof(Pthread{})
-	totalSize := l.StaticTlsSize + uint64(tcbSize)
 
-	addr, _ := sys_struct.AllocReadWriteMemory(uintptr(totalSize))
-	tcb := (*Tcb)(unsafe.Pointer(addr + uintptr(l.StaticTlsSize)))
+	tlsSize := uintptr(l.StaticTlsSize)
+	padding := (TcbAlignment - (tlsSize % TcbAlignment)) % TcbAlignment
+	tcbOffset := tlsSize + padding
+	totalSize := tcbOffset + tcbSize
+
+	addr, _ := sys_struct.AllocReadWriteMemory(totalSize)
+	tcb := (*Tcb)(unsafe.Pointer(addr + tcbOffset))
 	tcb.Self = tcb
 
 	dtvAddr, _ := sys_struct.AllocReadWriteMemory(dtvSize)

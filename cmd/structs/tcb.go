@@ -22,6 +22,8 @@ type TlsIndex struct {
 	Offset   uintptr
 }
 
+const TcbAlignment = 64
+
 var (
 	// TlsBaseRepo maps module indexes to host TLS base addresses.
 	TlsBaseRepo = map[uint64]uintptr{}
