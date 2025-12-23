@@ -14,7 +14,7 @@ import (
 
 // Prepare creates a new stack and TCB before any code runs.
 func (m *ModuleManager) Prepare(l *linker.Linker) {
-	m.Stack = NewStack(uintptr(StackDefaultSize))
+	m.Stack = NewStack(StackDefaultSize)
 
 	// Clear a 128-byte red zone and align to 16-bytes.
 	// https://wiki.osdev.org/System_V_ABI

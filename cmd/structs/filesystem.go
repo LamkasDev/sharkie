@@ -30,11 +30,11 @@ type SharkieFilesystem struct {
 	Lock           sync.Mutex
 }
 
-func (shFs *SharkieFilesystem) Open(path string, oflag int32, mode int32) (*SharkieFile, error) {
+func (shFs *SharkieFilesystem) Open(path string, oflag uintptr, mode uintptr) (*SharkieFile, error) {
 	file, ok := shFs.Files[path]
 	if !ok {
 		if (oflag & SCE_O_CREAT) != 0 {
-			return shFs.CreateFile(path)
+			return shFs.Create(path)
 		}
 		return nil, errors.New("file not found")
 	}
@@ -42,7 +42,7 @@ func (shFs *SharkieFilesystem) Open(path string, oflag int32, mode int32) (*Shar
 	return file, nil
 }
 
-func (shFs *SharkieFilesystem) CreateFile(path string) (*SharkieFile, error) {
+func (shFs *SharkieFilesystem) Create(path string) (*SharkieFile, error) {
 	err := shFs.Fs.MkdirAll(filepath.Dir(GetUsablePath(path)), 0777)
 	if err != nil {
 		return nil, err
@@ -67,7 +67,7 @@ func (shFs *SharkieFilesystem) CreateFile(path string) (*SharkieFile, error) {
 	return shmFile, nil
 }
 
-func (shFs *SharkieFilesystem) WriteFile(path string, data []byte) (int, error) {
+func (shFs *SharkieFilesystem) Write(path string, data []byte) (int, error) {
 	_, err := shFs.Open(path, SCE_O_CREAT, 0)
 	if err != nil {
 		return 0, err
@@ -75,7 +75,7 @@ func (shFs *SharkieFilesystem) WriteFile(path string, data []byte) (int, error) 
 	return len(data), shFs.Fs.WriteFile(GetUsablePath(path), data, 0777)
 }
 
-func (shFs *SharkieFilesystem) ReadFullFile(path string) ([]byte, error) {
+func (shFs *SharkieFilesystem) ReadFull(path string) ([]byte, error) {
 	_, err := shFs.Open(path, 0, 0)
 	if err != nil {
 		return []byte{}, err
@@ -83,12 +83,27 @@ func (shFs *SharkieFilesystem) ReadFullFile(path string) ([]byte, error) {
 	return fs.ReadFile(shFs.Fs, GetUsablePath(path))
 }
 
-func (shFs *SharkieFilesystem) ReadFile(path string, data []byte) (int, error) {
+func (shFs *SharkieFilesystem) Read(path string, data []byte) (int, error) {
 	file, err := shFs.Open(path, 0, 0)
 	if err != nil {
 		return 0, err
 	}
 	return file.Read(data)
+}
+
+func (shFs *SharkieFilesystem) Delete(path string) error {
+	file, ok := shFs.Files[path]
+	if !ok {
+		return errors.New("file not found")
+	}
+	// I'm not sure if it can be reopened after closing, let's leave it be.
+	/* if err := file.Close(); err != nil {
+		return err
+	} */
+	delete(shFs.Files, path)
+	delete(shFs.Descriptors, file.Descriptor)
+
+	return nil
 }
 
 func NewFilesystem() *SharkieFilesystem {
@@ -99,28 +114,43 @@ func NewFilesystem() *SharkieFilesystem {
 		Fs:             memfs.New(),
 		Lock:           sync.Mutex{},
 	}
-	if _, err := fs.CreateFile("stdin"); err != nil {
+	if _, err := fs.Create("stdin"); err != nil {
 		panic(err)
 	}
-	if _, err := fs.CreateFile("stdout"); err != nil {
+	if _, err := fs.Create("stdout"); err != nil {
 		panic(err)
 	}
-	if _, err := fs.CreateFile("stderr"); err != nil {
+	if _, err := fs.Create("stderr"); err != nil {
 		panic(err)
 	}
-	if _, err := fs.CreateFile("/dev/console"); err != nil {
+	if _, err := fs.Create("/dev/console"); err != nil {
 		panic(err)
 	}
-	if _, err := fs.CreateFile("/dev/deci_tty6"); err != nil {
+	if _, err := fs.Create("/dev/deci_tty6"); err != nil {
 		panic(err)
 	}
-	if _, err := fs.CreateFile("/dev/gc"); err != nil {
+	if _, err := fs.Create("/dev/gc"); err != nil {
 		panic(err)
 	}
-	if _, err := fs.CreateFile("/dev/dipsw"); err != nil {
+	if _, err := fs.Create("/dev/dipsw"); err != nil {
 		panic(err)
 	}
-	if _, err := fs.WriteFile(AudioInBufferName, make([]byte, AudioInBufferDefault)); err != nil {
+	if _, err := fs.Create("/dev/hmd_cmd"); err != nil {
+		panic(err)
+	}
+	if _, err := fs.Create("/dev/hmd_snsr"); err != nil {
+		panic(err)
+	}
+	if _, err := fs.Create("/dev/hmd_3da"); err != nil {
+		panic(err)
+	}
+	if _, err := fs.Create("/dev/hmd_dist"); err != nil {
+		panic(err)
+	}
+	if _, err := fs.Create("/dev/sbl_srv"); err != nil {
+		panic(err)
+	}
+	if _, err := fs.Write(AudioInBufferName, make([]byte, AudioInBufferDefault)); err != nil {
 		panic(err)
 	}
 

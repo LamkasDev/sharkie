@@ -63,6 +63,19 @@ func AllocKernelMemory(addr, length, prot, flags uintptr) (uintptr, error) {
 	return allocatedAddr, nil
 }
 
+func FreeKernelMemory(addr, length uintptr) (uintptr, error) {
+	ret, _, err := sys_struct.VirtualFree.Call(
+		addr,
+		length,
+		windows.MEM_DECOMMIT,
+	)
+	if ret == 0 {
+		return 0, err
+	}
+
+	return ret, nil
+}
+
 func ProtectKernelMemory(addr, length, prot uintptr) (uintptr, error) {
 	var oldProt uint32
 	ret, _, err := sys_struct.VirtualProtect.Call(

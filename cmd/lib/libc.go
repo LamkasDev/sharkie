@@ -12,6 +12,9 @@ func RegisterLibcStubs() {
 	elf.RegisterStub("libc", "sceLibcMspaceCalloc", libc_sceLibcMspaceCalloc)
 	elf.RegisterStub("libc", "sceLibcMspaceFree", libc_sceLibcMspaceFree)
 	elf.RegisterStub("libc", "sceLibcMspaceRealloc", libc_sceLibcMspaceRealloc)
+	elf.RegisterStub("libc", "sceLibcMspaceMemalign", libc_sceLibcMspaceMemalign)
+	elf.RegisterStub("libc", "sceLibcMspaceCreate", libc_sceLibcMspaceCreate)
+	elf.RegisterStub("libc", "sceLibcMspaceDestroy", libc_sceLibcMspaceDestroy)
 
 	// CXA guard functions.
 	elf.RegisterStub("libc", "__cxa_guard_release", libLibc___cxa_guard_release)

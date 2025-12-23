@@ -10,6 +10,8 @@ const (
 	SCE_O_CREAT = 0x200
 )
 
+const MinFileMmapSize = 0x10000
+
 type SharkieFile struct {
 	Path       string
 	Descriptor int32

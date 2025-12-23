@@ -18,8 +18,7 @@ func GetSymbolAddress(s *elf.ElfSymbol) (uint64, bool) {
 	}
 
 	// Let's use a generic stub for now, so we know which functions to patch.
-	if s.LibraryName == "libkernel" && s.Type == elf.STT_FUNC &&
-		s.ReadableName != "scePthreadSelf" {
+	if s.LibraryName == "libkernel" && s.Type == elf.STT_FUNC {
 		return uint64(asm.Stubs[elf.GetSymbolHashIndex("", "__sharkie_generic_stub")].Address), true
 	}
 

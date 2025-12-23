@@ -2,9 +2,12 @@ package lib
 
 import (
 	"encoding/binary"
+	"fmt"
+	"os"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
+	"github.com/gookit/color"
 )
 
 const ErrnoTcbOffset = 0x188
@@ -30,4 +33,32 @@ func SetErrno(err uintptr) {
 // void *_error()
 func libKernel___error() uintptr {
 	return GetErrnoAddress()
+}
+
+// 0x0000000000014E50
+// __int64 __fastcall sceKernelError(int)
+func libKernel_sceKernelError(err uintptr) uintptr {
+	if err != 0 {
+		err = err - 0x7FFE0000
+		fmt.Printf("%-120s %s returning %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceKernelError"),
+			color.Red.Sprintf("0x%X", err),
+		)
+		return err
+	}
+
+	return 0
+}
+
+// 0x0000000000022D40
+// __int64 __fastcall sceKernelDebugRaiseException(__int64, __int64)
+func libKernel_sceKernelDebugRaiseException(err, argsPtr uintptr) uintptr {
+	fmt.Printf("%-120s %s called with %s, exiting...\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("sceKernelDebugRaiseException"),
+		color.Red.Sprintf("0x%X", err),
+	)
+	os.Exit(1)
+	return 0
 }

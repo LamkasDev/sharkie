@@ -32,7 +32,7 @@ func libKernel_ctl_hw_pagesize(mib []uint32, namePtr uintptr, nameLen uint32, ol
 	oldSlice := unsafe.Slice((*byte)(unsafe.Pointer(oldPtr)), 8)
 	oldLenSlice := unsafe.Slice((*byte)(unsafe.Pointer(oldLenPtr)), 8)
 
-	memoryPageSize := uint32(0x4000) // 16KB
+	memoryPageSize := uint32(MemoryPageSize)
 	binary.LittleEndian.PutUint32(oldSlice, memoryPageSize)
 	binary.LittleEndian.PutUint64(oldLenSlice, uint64(4))
 

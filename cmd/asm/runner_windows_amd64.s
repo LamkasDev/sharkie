@@ -24,9 +24,6 @@ TEXT ·Run(SB), NOSPLIT, $0-32
     MOVQ BP, ·GoStackBP(SB)
     MOVQ R14, ·SavedG(SB)
 
-    // MOVQ ·ProcEntersyscall(SB), AX
-    // CALL AX
-
     MOVQ entry+0(FP), AX        // entry = AX
     MOVQ stackPtr+8(FP), BX     // stackPtr = BX
     MOVQ argsPtr+16(FP), DI      // argsPtr = DI
@@ -79,9 +76,6 @@ TEXT ·Call(SB), NOSPLIT, $48-32
     MOVQ BP, ·GoStackBP(SB)
     MOVQ R14, ·SavedG(SB)
 
-    // MOVQ ·ProcEntersyscall(SB), AX
-    // CALL AX
-
     MOVQ entry+0(FP), AX     // entry = AX
     MOVQ stackPtr+8(FP), BX  // stackPtr = BX
 
@@ -124,9 +118,6 @@ CallRestoreRegisters:
     // Restore Go stack.
     MOVQ ·GoStackBP(SB), BP
     MOVQ ·SavedG(SB), R14
-
-    // MOVQ ·ProcExitsyscall(SB), AX
-    // CALL AX
 
     // Restore callee-saved registers.
     MOVQ 40(SP), R15

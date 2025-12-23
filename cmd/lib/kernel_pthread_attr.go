@@ -23,7 +23,33 @@ func libKernel_scePthreadAttrInit(attrHandlePtr uintptr) uintptr {
 
 // 0x0000000000014480
 // __int64 __fastcall scePthreadAttrGet(volatile signed __int32 *, __int64 *)
-func libKernel_scePthreadAttrGet(attrPtr uintptr, addrPtr uintptr, sizePtr uintptr) uintptr {
+func libKernel_scePthreadAttrGet(threadPtr uintptr, attrHandlePtr uintptr) uintptr {
+	// Resolve the handle.
+	attr, err := ResolveHandle[PthreadAttr](attrHandlePtr)
+	if err != 0 {
+		fmt.Printf("%-120s %s failed due to invalid attribute pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("scePthreadAttrGet"),
+		)
+		return uintptr(err)
+	}
+
+	attr.StackAddress = emu.GlobalModuleManager.Stack.Address
+	attr.StackSize = StackDefaultSize
+	attr.GuardSize = GuardPageSize
+
+	fmt.Printf("%-120s %s assigned thread attributes (threadPtr=%s, attrHandlePtr=%s).\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("scePthreadAttrGet"),
+		color.Yellow.Sprintf("0x%X", threadPtr),
+		color.Yellow.Sprintf("0x%X", attrHandlePtr),
+	)
+	return 0
+}
+
+// 0x0000000000013400
+// __int64 scePthreadAttrGetstack()
+func libKernel_scePthreadAttrGetstack(attrPtr uintptr, addrPtr uintptr, sizePtr uintptr) uintptr {
 	if addrPtr != 0 {
 		addrSlice := unsafe.Slice((*byte)(unsafe.Pointer(addrPtr)), 8)
 		binary.LittleEndian.PutUint64(addrSlice, uint64(emu.GlobalModuleManager.Stack.Address))
@@ -36,7 +62,7 @@ func libKernel_scePthreadAttrGet(attrPtr uintptr, addrPtr uintptr, sizePtr uintp
 
 	fmt.Printf("%-120s %s returned thread attributes (attrPtr=%s, addrPtr=%s, sizePtr=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprint("scePthreadAttrGet"),
+		color.Magenta.Sprint("scePthreadAttrGetstack"),
 		color.Yellow.Sprintf("0x%X", attrPtr),
 		color.Yellow.Sprintf("0x%X", addrPtr),
 		color.Yellow.Sprintf("0x%X", sizePtr),

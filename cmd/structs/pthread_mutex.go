@@ -51,5 +51,9 @@ func GetMutexNameText(m *PthreadMutex, addr uintptr) string {
 	}
 
 	name := ReadCString(m.NamePtr)
+	if name == "" {
+		return color.Yellow.Sprintf("0x%X", addr)
+	}
+
 	return color.Blue.Sprint(name)
 }

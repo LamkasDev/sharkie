@@ -23,7 +23,7 @@ func libKernel_pthread_mutex_init(mutexHandlePtr uintptr, attrHandlePtr uintptr)
 	// Initialize to defaults.
 	mutex := (*PthreadMutex)(unsafe.Pointer(mutexAddr))
 	mutex.Lock = 0
-	mutex.Flags = uint32(PthreadMutexTypeErrorCheck)
+	mutex.Flags = uint32(PthreadMutexTypeRecursive)
 	mutex.Owner = 0
 	mutex.Count = 0
 	mutex.SpinLoops = 0
@@ -75,7 +75,7 @@ func libKernel_initStaticMutex(mutexHandlePtr uintptr, initType uintptr) uintptr
 		mutex.Flags = uint32(PthreadMutexTypeAdaptiveNp)
 		mutex.SpinLoops = 2000
 	} else {
-		mutex.Flags = uint32(PthreadMutexTypeErrorCheck)
+		mutex.Flags = uint32(PthreadMutexTypeRecursive)
 		mutex.SpinLoops = 0
 	}
 	mutex.Owner = 0
@@ -92,6 +92,28 @@ func libKernel_initStaticMutex(mutexHandlePtr uintptr, initType uintptr) uintptr
 		color.Yellow.Sprintf("0x%X", mutexAddr),
 	)
 
+	return 0
+}
+
+// 0x0000000000030CB0
+// __int64 __fastcall pthread_mutex_destroy(__int64 *)
+func libKernel_pthread_mutex_destroy(mutexHandlePtr uintptr) uintptr {
+	if mutexHandlePtr == 0 {
+		return EINVAL
+	}
+
+	mutexAddr := *(*uintptr)(unsafe.Pointer(mutexHandlePtr))
+	if mutexAddr <= ThrMutexDestroyed {
+		return 0
+	}
+
+	// TODO: actually destroy it.
+
+	fmt.Printf("%-120s %s destroyed mutex %s.\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("pthread_mutex_destroy"),
+		color.Yellow.Sprintf("0x%X", mutexAddr),
+	)
 	return 0
 }
 
@@ -126,6 +148,26 @@ func libKernel_pthread_mutex_lock(mutexHandlePtr uintptr) uintptr {
 	if mutex.Owner == currentThread {
 		mutexType := mutex.Flags & PthreadMutexTypeMask
 		switch mutexType {
+		case uint32(PthreadMutexTypeAdaptiveNp):
+			if mutex.Count+1 > 0 {
+				mutex.Count++
+				fmt.Printf("%-120s %s incremented adaptive mutex %s (thread=%s, count=%s).\n",
+					emu.GlobalModuleManager.GetCallSiteText(),
+					color.Magenta.Sprint("pthread_mutex_lock"),
+					GetMutexNameText(mutex, mutexAddr),
+					color.Yellow.Sprintf("0x%X", currentThread),
+					color.Green.Sprintf("%d", mutex.Count),
+				)
+				return 0
+			}
+			fmt.Printf("%-120s %s incremented invalid adaptive mutex %s (thread=%s, count=%s).\n",
+				emu.GlobalModuleManager.GetCallSiteText(),
+				color.Magenta.Sprint("pthread_mutex_lock"),
+				GetMutexNameText(mutex, mutexAddr),
+				color.Yellow.Sprintf("0x%X", currentThread),
+				color.Green.Sprintf("%d", mutex.Count),
+			)
+			return EAGAIN
 		case uint32(PthreadMutexTypeRecursive):
 			if mutex.Count+1 > 0 {
 				mutex.Count++
@@ -146,7 +188,7 @@ func libKernel_pthread_mutex_lock(mutexHandlePtr uintptr) uintptr {
 				color.Green.Sprintf("%d", mutex.Count),
 			)
 			return EAGAIN
-		case uint32(PthreadMutexTypeErrorCheck), uint32(PthreadMutexTypeAdaptiveNp):
+		case uint32(PthreadMutexTypeErrorCheck):
 			fmt.Printf("%-120s %s tried to lock a mutex %s it already owns (thread=%s).\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("pthread_mutex_lock"),
@@ -255,6 +297,17 @@ func libKernel_pthread_mutex_unlock(mutexHandlePtr uintptr) uintptr {
 
 	// Handle special mutex types.
 	mutexType := mutex.Flags & PthreadMutexTypeMask
+	if mutexType == uint32(PthreadMutexTypeAdaptiveNp) && mutex.Count > 0 {
+		mutex.Count--
+		fmt.Printf("%-120s %s decremented adaptive mutex %s (thread=%s, count=%s).\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("pthread_mutex_unlock"),
+			GetMutexNameText(mutex, mutexAddr),
+			color.Yellow.Sprintf("0x%X", currentThread),
+			color.Green.Sprintf("%d", mutex.Count),
+		)
+		return 0
+	}
 	if mutexType == uint32(PthreadMutexTypeRecursive) && mutex.Count > 0 {
 		mutex.Count--
 		fmt.Printf("%-120s %s decremented recursive mutex %s (thread=%s, count=%s).\n",

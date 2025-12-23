@@ -20,25 +20,26 @@ const (
 type Pthread struct {
 	ThreadId            int32
 	Flags               uint32
-	_                   uint32 // Padding.
+	_                   [4]byte // Padding.
 	ReturnValue         uintptr
 	Error               int32
-	_                   int32     // More padding yippee!
+	_                   [4]byte   // More padding yippee!
 	_                   [452]byte // Biggg padding uwu!
 	CleanupHandlerStack uintptr
 	Name                [32]byte
 }
 
 type PthreadAttr struct {
-	SchedulingPolicy      PthreadSchedulingPolicy
-	SchedulingInherit     int32
-	Priority              int32
-	Suspend               int32
-	_                     [4]byte // Padding yay!
-	Flags                 PthreadAttrFlags
-	StackAddressAttribute uintptr
-	StackSizeAttribute    uintptr
-	GuardSizeAttribute    uintptr
-	CpuSetSize            uintptr
-	CpuSet                uintptr
+	SchedulingPolicy  PthreadSchedulingPolicy
+	SchedulingInherit int32
+	Priority          int32
+	Suspend           int32
+	_                 [4]byte // Padding yay!
+	Flags             PthreadAttrFlags
+	_                 [4]byte // More padding yippee!
+	StackAddress      uintptr
+	StackSize         uintptr
+	GuardSize         uintptr
+	CpuSetSize        uintptr
+	CpuSet            uintptr
 }

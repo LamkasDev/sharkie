@@ -28,18 +28,18 @@ func RegisterStub(libraryName, symbolName string, f interface{}) asm.StubInfo {
 		LibraryName: libraryName,
 		SymbolName:  symbolName,
 		Address:     CreateTrampoline(fn.Pointer()),
-		NumArgs:     fn.Type().NumIn(),
+		FuncValue:   fn,
+		FuncType:    fn.Type(),
 	}
 	hashIndex := GetSymbolHashIndex(libraryName, symbolName)
 	asm.Stubs[hashIndex] = stub
 	asm.StubsMap[fn.Pointer()] = hashIndex
 	asm.StubsTrampolineMap[stub.Address] = hashIndex
 	fmt.Printf(
-		"Registered %s assembly trampoline at %s to Go function at %s (%d arguments)...\n",
+		"Registered %s assembly trampoline at %s to Go function at %s...\n",
 		color.Blue.Sprintf("%s:%s", libraryName, symbolName),
 		color.Yellow.Sprintf("0x%X", stub.Address),
 		color.Yellow.Sprintf("0x%X", fn.Pointer()),
-		stub.NumArgs,
 	)
 
 	return stub

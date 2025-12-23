@@ -55,13 +55,18 @@ func RegisterKernelStubs() {
 
 	// Error functions.
 	elf.RegisterStub("libkernel", "__error", libKernel___error)
+	elf.RegisterStub("libkernel", "sceKernelError", libKernel_sceKernelError)
+	elf.RegisterStub("libkernel", "sceKernelDebugRaiseException", libKernel_sceKernelDebugRaiseException)
 
 	// Memory functions.
 	elf.RegisterStub("libkernel", "mmap", libKernel_mmap)
 	elf.RegisterStub("libkernel", "mmap_0", libKernel_mmap_0)
 	elf.RegisterStub("libkernel", "sceKernelMmap", libKernel_sceKernelMmap)
+	elf.RegisterStub("libkernel", "munmap", libKernel_munmap)
+	elf.RegisterStub("libkernel", "sceKernelMunmap", libKernel_sceKernelMunmap)
 	elf.RegisterStub("libkernel", "sub_1C90", libKernel_mname)
 	elf.RegisterStub("libkernel", "sceKernelAllocateDirectMemory", libKernel_sceKernelAllocateDirectMemory)
+	elf.RegisterStub("libkernel", "sceKernelMapDirectMemory", libKernel_sceKernelMapDirectMemory)
 	elf.RegisterStub("libkernel", "sceKernelMapNamedDirectMemory", libKernel_sceKernelMapNamedDirectMemory)
 	elf.RegisterStub("libkernel", "sceKernelGetDirectMemorySize", libKernel_sceKernelGetDirectMemorySize)
 	elf.RegisterStub("libkernel", "sceKernelMprotect", libKernel_sceKernelMprotect)
@@ -81,6 +86,8 @@ func RegisterKernelStubs() {
 	elf.RegisterStub("libkernel", "_write", libKernel__write)
 	elf.RegisterStub("libkernel", "ioctl", libKernel_ioctl)
 	elf.RegisterStub("libkernel", "_ioctl", libKernel_ioctl) // TODO: this neither
+	elf.RegisterStub("libkernel", "ftruncate", libKernel_ftruncate)
+	elf.RegisterStub("libkernel", "ftruncate_0", libKernel_ftruncate_0)
 
 	// Shared memory functions.
 	elf.RegisterStub("libkernel", "shm_open", libKernel_shm_open)
@@ -94,26 +101,39 @@ func RegisterKernelStubs() {
 	elf.RegisterStub("libkernel", "pthread_mutexattr_init", libKernel_pthread_mutexattr_init)
 	elf.RegisterStub("libkernel", "scePthreadAttrInit", libKernel_scePthreadAttrInit)
 	elf.RegisterStub("libkernel", "scePthreadAttrGet", libKernel_scePthreadAttrGet)
+	elf.RegisterStub("libkernel", "scePthreadAttrGetstack", libKernel_scePthreadAttrGetstack)
 	elf.RegisterStub("libkernel", "scePthreadAttrGetaffinity", libKernel_scePthreadAttrGetaffinity)
 	elf.RegisterStub("libkernel", "scePthreadGetthreadid", libKernel_scePthreadGetthreadid)
+	elf.RegisterStub("libkernel", "pthread_self", libKernel_pthread_self)
+	elf.RegisterStub("libkernel", "scePthreadSelf", libKernel_scePthreadSelf)
 
 	// Mutex functions.
 	elf.RegisterStub("libkernel", "pthread_mutexattr_init", libKernel_pthread_mutexattr_init)
 	elf.RegisterStub("libkernel", "scePthreadMutexattrInit", libKernel_scePthreadMutexattrInit)
+	elf.RegisterStub("libkernel", "pthread_mutexattr_destroy", libKernel_pthread_mutexattr_destroy)
+	elf.RegisterStub("libkernel", "scePthreadMutexattrDestroy", libKernel_scePthreadMutexattrDestroy)
 	elf.RegisterStub("libkernel", "pthread_mutexattr_settype", libKernel_pthread_mutexattr_settype)
 	elf.RegisterStub("libkernel", "scePthreadMutexattrSettype", libKernel_scePthreadMutexattrSettype)
 	elf.RegisterStub("libkernel", "pthread_mutex_init", libKernel_pthread_mutex_init)
 	elf.RegisterStub("libkernel", "scePthreadMutexInit", libKernel_scePthreadMutexInit)
-	elf.RegisterStub("libkernel", "pthread_mutexattr_destroy", libKernel_pthread_mutexattr_destroy)
-	elf.RegisterStub("libkernel", "scePthreadMutexattrDestroy", libKernel_scePthreadMutexattrDestroy)
+	elf.RegisterStub("libkernel", "pthread_mutex_destroy", libKernel_pthread_mutex_destroy)
+	elf.RegisterStub("libkernel", "scePthreadMutexDestroy", libKernel_scePthreadMutexDestroy)
 	elf.RegisterStub("libkernel", "pthread_mutex_lock", libKernel_pthread_mutex_lock)
 	elf.RegisterStub("libkernel", "scePthreadMutexLock", libKernel_scePthreadMutexLock)
 	elf.RegisterStub("libkernel", "pthread_mutex_unlock", libKernel_pthread_mutex_unlock)
 	elf.RegisterStub("libkernel", "scePthreadMutexUnlock", libKernel_scePthreadMutexUnlock)
 
 	// Cond functions.
+	elf.RegisterStub("libkernel", "pthread_cond_init", libKernel_pthread_cond_init)
+	elf.RegisterStub("libkernel", "scePthreadCondInit", libKernel_scePthreadCondInit)
+	elf.RegisterStub("libkernel", "pthread_cond_destroy", libKernel_pthread_cond_destroy)
+	elf.RegisterStub("libkernel", "scePthreadCondDestroy", libKernel_scePthreadCondDestroy)
 	elf.RegisterStub("libkernel", "pthread_cond_broadcast", libKernel_pthread_cond_broadcast)
 	elf.RegisterStub("libkernel", "scePthreadCondBroadcast", libKernel_scePthreadCondBroadcast)
+	elf.RegisterStub("libkernel", "pthread_cond_signal", libKernel_pthread_cond_signal)
+	elf.RegisterStub("libkernel", "scePthreadCondSignal", libKernel_scePthreadCondSignal)
+	elf.RegisterStub("libkernel", "pthread_cond_wait", libKernel_pthread_cond_wait)
+	elf.RegisterStub("libkernel", "scePthreadCondWait", libKernel_scePthreadCondWait)
 
 	// Event flag functions.
 	elf.RegisterStub("libkernel", "sceKernelCreateEventFlag", libKernel_sceKernelCreateEventFlag)

@@ -47,11 +47,7 @@ TEXT ·exceptionHandlerAsm(SB), NOSPLIT, $8-0
     BYTE $0x48; BYTE $0x89; BYTE $0xDC  // MOVQ BX, SP
 
     // Call the Go exception handler.
-    // MOVQ ·ProcExitsyscall(SB), AX
-    // CALL AX
     CALL ·exceptionHandlerGo(SB)
-    // MOVQ ·ProcEntersyscall(SB), AX
-    // CALL AX
 
     // Save Go stack pointer.
     MOVQ SP, BX

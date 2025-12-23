@@ -19,3 +19,9 @@ func libKernel_scePthreadGetthreadid() uintptr {
 	)
 	return threadId
 }
+
+// 0x00000000000146E0
+// __int64 scePthreadSelf()
+func libKernel_scePthreadSelf() uintptr {
+	return libKernel_pthread_self()
+}

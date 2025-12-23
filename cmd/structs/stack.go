@@ -9,7 +9,7 @@ import (
 
 const StackAlignment = 8
 
-var StackDefaultSize = 2 * 1024 * 1024 // 2MB
+var StackDefaultSize = uintptr(2 * 1024 * 1024) // 2MB
 var StackArgumentsSize = uintptr(256)
 
 type Stack struct {

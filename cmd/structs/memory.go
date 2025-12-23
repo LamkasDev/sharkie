@@ -2,6 +2,7 @@ package structs
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/gookit/color"
 )
@@ -22,11 +23,13 @@ const (
 )
 
 const (
-	SCE_KERNEL_MTYPE_C_SHARED = 0xC // Onion (CPU/GPU shared)
+	SCE_KERNEL_MTYPE_WB_ONION = 0x0 // Onion Bus (CPU/GPU shared)
+	SCE_KERNEL_MTYPE_C_SHARED = 0xC // Onion (CPU optimized)
 	SCE_KERNEL_MTYPE_C        = 0x3 // Garlic (GPU optimized)
 )
 
 var MemoryTypeNames = map[uintptr]string{
+	SCE_KERNEL_MTYPE_WB_ONION: "SCE_KERNEL_MTYPE_WB_ONION",
 	SCE_KERNEL_MTYPE_C_SHARED: "SCE_KERNEL_MTYPE_C_SHARED",
 	SCE_KERNEL_MTYPE_C:        "SCE_KERNEL_MTYPE_C",
 }
@@ -47,6 +50,8 @@ const (
 
 const (
 	DirectMemoryDefaultSize = uintptr(0x100000000) // 4GB
+	MemoryPageSize          = uintptr(0x4000)      // 16KB
+	GuardPageSize           = uintptr(4096)        // 4KB
 )
 
 type Allocator struct {
@@ -54,6 +59,7 @@ type Allocator struct {
 	DirectMemoryBase    uintptr
 	DirectMemoryCurrent uintptr
 	DirectMemorySize    uintptr
+	Lock                sync.Mutex
 }
 
 // NewAllocator creates a new instance of Allocator.
@@ -62,6 +68,7 @@ func NewAllocator() *Allocator {
 	allocator := &Allocator{
 		DirectMemorySize: DirectMemoryDefaultSize,
 		Allocations:      map[uintptr]uintptr{},
+		Lock:             sync.Mutex{},
 	}
 	allocator.DirectMemoryBase, err = ReserveKernelMemory(0, allocator.DirectMemorySize)
 	if allocator.DirectMemoryBase == 0 {

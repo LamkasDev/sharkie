@@ -25,7 +25,7 @@ func libKernel_pthread_attr_init(attrHandlePtr uintptr) uintptr {
 	attr.SchedulingInherit = int32(PthreadFlagsInheritSched)
 	attr.Priority = 700
 	attr.Flags = PthreadFlagsScopeSystem
-	attr.StackSizeAttribute = 0x100000
+	attr.StackSize = 0x100000
 
 	// Copy the pointer back to attrHandlePtr.
 	attrHandlePtrSlice := unsafe.Slice((*byte)(unsafe.Pointer(attrHandlePtr)), 8)

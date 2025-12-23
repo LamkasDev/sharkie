@@ -52,3 +52,7 @@ func WriteCString(stringPtr uintptr, name string) {
 	}
 	stringSlice[len(name)] = 0
 }
+
+func IsPowerOfTwo(v uintptr) bool {
+	return v != 0 && (v&(v-1)) == 0
+}

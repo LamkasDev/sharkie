@@ -68,7 +68,12 @@ func NewTCB(l *linker.Linker) *Tcb {
 	return tcb
 }
 
-// GetCurrentThread returns pointer to the Pthread structs of the current thread.
+// GetMainThread returns pointer to the Pthread struct of the main thread.
+func GetMainThread() uintptr {
+	return uintptr(unsafe.Pointer(GlobalModuleManager.Tcb.Thread))
+}
+
+// GetCurrentThread returns pointer to the Pthread struct of the current thread.
 func GetCurrentThread() uintptr {
 	tcbAddr, _, _ := sys_struct.TlsGetValue.Call(sys_struct.TlsSlot)
 	if tcbAddr == 0 {

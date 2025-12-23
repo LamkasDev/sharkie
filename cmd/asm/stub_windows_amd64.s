@@ -52,11 +52,7 @@ TEXT ·stubAsm(SB), NOSPLIT, $0-0
     BYTE $0x48; BYTE $0x89; BYTE $0xDC  // MOVQ BX, SP
 
     // Call the Go trampoline function.
-    // MOVQ ·ProcExitsyscall(SB), AX
-    // CALL AX
     CALL ·stubGo(SB)
-    // MOVQ ·ProcEntersyscall(SB), AX
-    // CALL AX
 
     // Clean up fake call frame.
     MOVQ 0(SP), BP

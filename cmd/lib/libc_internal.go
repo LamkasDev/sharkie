@@ -14,6 +14,9 @@ func RegisterSceLibcInternalStubs() {
 	elf.RegisterStub("libSceLibcInternal", "sceLibcMspaceCalloc", libSceLibcInternal_sceLibcMspaceCalloc)
 	elf.RegisterStub("libSceLibcInternal", "sceLibcMspaceFree", libSceLibcInternal_sceLibcMspaceFree)
 	elf.RegisterStub("libSceLibcInternal", "sceLibcMspaceRealloc", libSceLibcInternal_sceLibcMspaceRealloc)
+	elf.RegisterStub("libSceLibcInternal", "sceLibcMspaceMemalign", libSceLibcInternal_sceLibcMspaceMemalign)
+	elf.RegisterStub("libSceLibcInternal", "sceLibcMspaceCreate", libSceLibcInternal_sceLibcMspaceCreate)
+	elf.RegisterStub("libSceLibcInternal", "sceLibcMspaceDestroy", libSceLibcInternal_sceLibcMspaceDestroy)
 
 	// Guard functions.
 	elf.RegisterStub("libSceLibcInternal", "__cxa_guard_release", libSceLibcInternal___cxa_guard_release)

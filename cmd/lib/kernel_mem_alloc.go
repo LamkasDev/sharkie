@@ -48,11 +48,14 @@ func libKernel_sys_sceKernelAllocateDirectMemory(searchStart, searchEnd, length,
 		return ERR_PTR
 	}
 	if allocatedAddr%alignment != 0 {
-		fmt.Printf("%-120s %s allocation is not properly aligned to %s.\n",
+		fmt.Printf("%-120s %s failed due to ignored alignment of %s (got=%s, wanted=%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceKernelAllocateDirectMemory"),
 			color.Yellow.Sprintf("0x%X", alignment),
+			color.Yellow.Sprintf("0x%X", allocatedAddr),
+			color.Yellow.Sprintf("0x%X", directAddr),
 		)
+		return ERR_PTR
 	}
 
 	// Write back pointer.

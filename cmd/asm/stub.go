@@ -1,14 +1,18 @@
 package asm
 
 import (
+	"reflect"
 	"unsafe"
 )
+
+const RegContextSize = 384
 
 type StubInfo struct {
 	LibraryName string
 	SymbolName  string
 	Address     uintptr
-	NumArgs     int
+	FuncValue   reflect.Value
+	FuncType    reflect.Type
 }
 
 var Stubs = make(map[uint64]StubInfo)
@@ -25,13 +29,6 @@ func stubGo() {
 	// Extract arguments and function pointer from RegSaveArea.
 	ctx := (*RegContext)(unsafe.Pointer(GlobalStubContext))
 	fnPtr := ctx.R11
-	arg1 := ctx.DI
-	arg2 := ctx.SI
-	arg3 := ctx.DX
-	arg4 := ctx.CX
-	arg5 := ctx.R8
-	arg6 := ctx.R9
-	arg7 := ctx.R10
 
 	// Look up the stub info.
 	stubName, ok := StubsMap[fnPtr]
@@ -40,38 +37,44 @@ func stubGo() {
 	}
 	stubInfo := Stubs[stubName]
 
-	// Call the function with the correct number of arguments.
-	var result uintptr
-	ptrToFnPtr := &fnPtr
-	switch stubInfo.NumArgs {
-	case 0:
-		targetFunc := *(*func() uintptr)(unsafe.Pointer(&ptrToFnPtr))
-		result = targetFunc()
-	case 1:
-		targetFunc := *(*func(uintptr) uintptr)(unsafe.Pointer(&ptrToFnPtr))
-		result = targetFunc(arg1)
-	case 2:
-		targetFunc := *(*func(uintptr, uintptr) uintptr)(unsafe.Pointer(&ptrToFnPtr))
-		result = targetFunc(arg1, arg2)
-	case 3:
-		targetFunc := *(*func(uintptr, uintptr, uintptr) uintptr)(unsafe.Pointer(&ptrToFnPtr))
-		result = targetFunc(arg1, arg2, arg3)
-	case 4:
-		targetFunc := *(*func(uintptr, uintptr, uintptr, uintptr) uintptr)(unsafe.Pointer(&ptrToFnPtr))
-		result = targetFunc(arg1, arg2, arg3, arg4)
-	case 5:
-		targetFunc := *(*func(uintptr, uintptr, uintptr, uintptr, uintptr) uintptr)(unsafe.Pointer(&ptrToFnPtr))
-		result = targetFunc(arg1, arg2, arg3, arg4, arg5)
-	case 6:
-		targetFunc := *(*func(uintptr, uintptr, uintptr, uintptr, uintptr, uintptr) uintptr)(unsafe.Pointer(&ptrToFnPtr))
-		result = targetFunc(arg1, arg2, arg3, arg4, arg5, arg6)
-	case 7:
-		targetFunc := *(*func(uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr) uintptr)(unsafe.Pointer(&ptrToFnPtr))
-		result = targetFunc(arg1, arg2, arg3, arg4, arg5, arg6, arg7)
-	default:
-		panic("unsupported number of arguments")
+	// Prepare arguments.
+	arguments := make([]reflect.Value, stubInfo.FuncType.NumIn())
+	for i := 0; i < len(arguments); i++ {
+		argType := stubInfo.FuncType.In(i)
+		argVal := reflect.New(argType).Elem()
+		switch i {
+		case 0:
+			argVal.SetUint(uint64(ctx.DI))
+			break
+		case 1:
+			argVal.SetUint(uint64(ctx.SI))
+			break
+		case 2:
+			argVal.SetUint(uint64(ctx.DX))
+			break
+		case 3:
+			argVal.SetUint(uint64(ctx.CX))
+			break
+		case 4:
+			argVal.SetUint(uint64(ctx.R8))
+			break
+		case 5:
+			argVal.SetUint(uint64(ctx.R9))
+			break
+		default:
+			// RegContextSize + stubAsm return address + original return address + offset.
+			stackOffset := RegContextSize + 16 + uintptr((i-6)*8)
+			addr := (*uint64)(unsafe.Pointer(uintptr(unsafe.Pointer(ctx)) + stackOffset))
+			argVal.SetUint(*addr)
+		}
+		arguments[i] = argVal
 	}
 
+	// Call the function.
+	results := stubInfo.FuncValue.Call(arguments)
+
 	// Return the result.
-	ctx.AX = result
+	if len(results) > 0 {
+		ctx.AX = uintptr(results[0].Uint())
+	}
 }

@@ -38,6 +38,17 @@ func libKernel_scePthreadMutexInit(mutexHandlePtr uintptr, attrPtr uintptr, name
 	return 0
 }
 
+// 0x0000000000013C50
+// __int64 scePthreadMutexDestroy()
+func libKernel_scePthreadMutexDestroy(mutexHandlePtr uintptr) uintptr {
+	err := libKernel_pthread_mutex_destroy(mutexHandlePtr)
+	if err != 0 {
+		return uintptr(uint32(err) - 0x7FFE0000)
+	}
+
+	return 0
+}
+
 // 0x0000000000013C70
 // __int64 __fastcall scePthreadMutexLock(__int64 *, __int64, int, int, int, int)
 func libKernel_scePthreadMutexLock(mutexHandlePtr uintptr) uintptr {
