@@ -44,21 +44,29 @@ func libKernel_sys_open(pathPtr uintptr, flags uintptr, mode uintptr) uintptr {
 		SetErrno(EFAULT)
 		return ERR_PTR
 	}
+	GlobalFilesystem.Lock.Lock()
+	defer GlobalFilesystem.Lock.Unlock()
 
 	path := ReadCString(pathPtr)
-	fmt.Printf("%-120s %s opened file %s (flags=%s, mode=%s).\n",
-		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprint("_open"),
-		color.Blue.Sprint(path),
-		color.Yellow.Sprintf("0x%X", flags),
-		color.Yellow.Sprintf("0x%X", mode),
-	)
-
-	fd, ok := FileDescriptors[path]
-	if !ok {
+	file, err := GlobalFilesystem.Open(path, 0, int32(mode))
+	if err != nil {
+		fmt.Printf("%-120s %s failed due to unknown file %s (%s).\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("_open"),
+			color.Blue.Sprint(path),
+			err.Error(),
+		)
 		SetErrno(ENOENT)
 		return ERR_PTR
 	}
 
-	return fd
+	fmt.Printf("%-120s %s opened file %s (path=%s, flags=%s, mode=%s).\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("_open"),
+		color.Yellow.Sprintf("0x%X", file.Descriptor),
+		color.Blue.Sprint(path),
+		color.Yellow.Sprintf("0x%X", flags),
+		color.Yellow.Sprintf("0x%X", mode),
+	)
+	return uintptr(file.Descriptor)
 }

@@ -68,7 +68,7 @@ func ProtectKernelMemory(addr, length, prot uintptr) (uintptr, error) {
 	ret, _, err := sys_struct.VirtualProtect.Call(
 		addr,
 		length,
-		prot,
+		MemoryProtToWindowsProt(prot),
 		uintptr(unsafe.Pointer(&oldProt)),
 	)
 	if ret == 0 {

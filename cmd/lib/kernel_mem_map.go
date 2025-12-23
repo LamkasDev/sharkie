@@ -19,12 +19,18 @@ func libKernel_mmap(addr, length, prot, flags, fd, offset uintptr) uintptr {
 // 0x0000000000002990
 // __int64 __fastcall mmap_0()
 func libKernel_mmap_0(addr, length, prot, flags, fd, offset uintptr) uintptr {
+	// If we need to write into the block, we need to set the flag it for a bit.
+	tempProt := prot
+	if fd != ERR_PTR && uint32(fd) != ERR_HANDLE {
+		tempProt |= PROT_WRITE
+	}
+
 	// Allocate memory and check error.
-	allocatedAddr, err := AllocKernelMemory(addr, length, prot, flags)
+	allocatedAddr, err := AllocKernelMemory(addr, length, tempProt, flags)
 	if allocatedAddr == 0 {
 		// If we're not required to return a fixed address, let's try again and let Windows choose.
 		if (flags&MAP_FIXED) == 0 && addr != 0 {
-			allocatedAddr, err = AllocKernelMemory(0, length, prot, flags)
+			allocatedAddr, err = AllocKernelMemory(0, length, tempProt, flags)
 		}
 	}
 	if allocatedAddr == 0 {
@@ -45,7 +51,45 @@ func libKernel_mmap_0(addr, length, prot, flags, fd, offset uintptr) uintptr {
 		)
 	}
 
-	// TODO: zero memory?
+	// Handle file descriptor copy.
+	if fd != ERR_PTR && uint32(fd) != ERR_HANDLE {
+		file, ok := GlobalFilesystem.Descriptors[int32(fd)]
+		if !ok {
+			fmt.Printf("%-120s %s failed due to unknown file %s.\n",
+				emu.GlobalModuleManager.GetCallSiteText(),
+				color.Magenta.Sprint("mmap_0"),
+				color.Yellow.Sprintf("0x%X", fd),
+			)
+			SetErrno(ENOENT)
+			return ERR_PTR
+		}
+
+		// Copy file data into the memory block.
+		fileData, _ := GlobalFilesystem.ReadFullFile(file.Path)
+		if int(offset) < len(fileData) {
+			end := int(offset) + int(length)
+			if end > len(fileData) {
+				end = len(fileData)
+			}
+			fileChunk := fileData[int(offset):end]
+
+			memorySlice := unsafe.Slice((*byte)(unsafe.Pointer(allocatedAddr)), len(fileChunk))
+			copy(memorySlice, fileChunk)
+		}
+
+		// Protect the memory block again.
+		if tempProt != prot {
+			if _, err = ProtectKernelMemory(allocatedAddr, length, prot); err != nil {
+				fmt.Printf("%-120s %s failed to protect memory (%s).\n",
+					emu.GlobalModuleManager.GetCallSiteText(),
+					color.Magenta.Sprint("mmap_0"),
+					err.Error(),
+				)
+				SetErrno(EFAULT)
+				return ERR_PTR
+			}
+		}
+	}
 
 	fmt.Printf("%-120s %s allocated %s bytes at %s (addr=%s, prot=%s, flags=%s, fd=%s, offset=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),

@@ -106,17 +106,8 @@ func libKernel_ipmimgr_call(op uint64, handle uint32, resultPtr uintptr, paramsP
 		return 0
 
 	case IMPI_CONNECT:
-		shmFile, err := GlobalShmFilesystem.CreateFile(fmt.Sprintf("/%s", client.Name))
-		if err != nil {
-			fmt.Printf("%-120s %s failed creating shared memory shmFile: %+v\n",
-				emu.GlobalModuleManager.GetCallSiteText(),
-				color.Magenta.Sprint("ipmimgr_call"),
-				err.Error(),
-			)
-			return SCE_KERNEL_ERROR_EINVAL
-		}
-		if _, err = shmFile.Write(make([]byte, ImpiBufferDefault)); err != nil {
-			fmt.Printf("%-120s %s failed writing into shared memory shmFile: %+v\n",
+		if _, err := GlobalFilesystem.WriteFile(fmt.Sprintf("/%s", client.Name), make([]byte, ImpiBufferDefault)); err != nil {
+			fmt.Printf("%-120s %s failed creating shared memory file: %+v\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("ipmimgr_call"),
 				err.Error(),
@@ -129,11 +120,10 @@ func libKernel_ipmimgr_call(op uint64, handle uint32, resultPtr uintptr, paramsP
 			binary.LittleEndian.PutUint32(resultSlice, 0)
 		}
 
-		fmt.Printf("%-120s %s connected %s (shmDescriptor=%s).\n",
+		fmt.Printf("%-120s %s connected %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("ipmimgr_call"),
 			color.Yellow.Sprintf("0x%X", handle),
-			color.Yellow.Sprintf("0x%X", shmFile.Descriptor),
 		)
 		return 0
 	}

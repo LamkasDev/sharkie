@@ -35,26 +35,31 @@ func libKernel_sys_write(fd uintptr, bufPtr uintptr, length uintptr) uintptr {
 		SetErrno(EFAULT)
 		return 0
 	}
+	GlobalFilesystem.Lock.Lock()
+	defer GlobalFilesystem.Lock.Unlock()
+
+	file, ok := GlobalFilesystem.Descriptors[int32(fd)]
+	if !ok {
+		fmt.Printf("%-120s %s failed due to unknown file %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("_write"),
+			color.Yellow.Sprintf("0x%X", fd),
+		)
+		SetErrno(ENOENT)
+		return ERR_PTR
+	}
 
 	buffSlice := unsafe.Slice((*byte)(unsafe.Pointer(bufPtr)), length)
 	message := string(buffSlice)
-	name, ok := FileDescriptorNames[fd]
+	outputColor, ok := FileDescriptorColors[file.Path]
 	if !ok {
-		fmt.Printf("%-120s %s %s",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprintf("[write on unknown %d]", fd),
-			FileDescriptorColors[fd].Sprint(message),
-		)
-		if !strings.HasSuffix(message, "\n") {
-			fmt.Println("")
-		}
-		return 0
+		outputColor = color.White
 	}
 
 	fmt.Printf("%-120s %s %s",
 		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprintf("[write on %s]", name),
-		message,
+		color.Magenta.Sprintf("[write on %s]", file.Path),
+		outputColor.Sprint(message),
 	)
 	if !strings.HasSuffix(message, "\n") {
 		fmt.Println("")

@@ -13,6 +13,7 @@ const EDEADLK = 45
 const ENAMETOOLONG = 63
 
 const ERR_PTR = ^uintptr(0)
+const ERR_HANDLE = ^uint32(0)
 
 // ResolveHandle converts a guest handle (double pointer) into a host structs pointer.
 // Returns the structs pointer and 0 on success, or nil and an error code (EINVAL).

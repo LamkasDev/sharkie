@@ -1,52 +1,41 @@
 package structs
 
 import (
-	"github.com/gookit/color"
-)
-
-const (
-	// Standard POSIX
-	FD_STDIN  = uintptr(0)
-	FD_STDOUT = uintptr(1)
-	FD_STDERR = uintptr(2)
-
-	// PS4 Specific
-	FD_CONSOLE = uintptr(10)
-	FD_TTY     = uintptr(11)
-	FD_GC      = uintptr(12)
-	FD_DIPSW   = uintptr(13)
+	"io"
+	"io/fs"
+	"strings"
 )
 
 const (
 	SCE_O_CREAT = 0x200
 )
 
-var FileDescriptors = map[string]uintptr{
-	"stdin":          FD_STDIN,
-	"stdout":         FD_STDOUT,
-	"stderr":         FD_STDERR,
-	"/dev/console":   FD_CONSOLE,
-	"/dev/deci_tty6": FD_TTY,
-	"/dev/gc":        FD_GC,
-	"/dev/dipsw":     FD_DIPSW,
+type SharkieFile struct {
+	Path       string
+	Descriptor int32
+	File       fs.File
 }
 
-var FileDescriptorNames = map[uintptr]string{
-	FD_STDIN:   "stdin",
-	FD_STDOUT:  "stdout",
-	FD_STDERR:  "stderr",
-	FD_CONSOLE: "/dev/console",
-	FD_TTY:     "/dev/deci_tty6",
-	FD_GC:      "/dev/gc",
-	FD_DIPSW:   "/dev/dipsw",
+func GetUsablePath(path string) string {
+	path = strings.TrimLeft(path, "/")
+	if path == "" {
+		return "unnamed"
+	}
+
+	return path
 }
 
-var FileDescriptorColors = map[uintptr]color.Color{
-	FD_STDIN:   color.White,
-	FD_STDOUT:  color.White,
-	FD_STDERR:  color.Red,
-	FD_CONSOLE: color.Cyan,
-	FD_TTY:     color.Cyan,
-	FD_GC:      color.Cyan,
-	FD_DIPSW:   color.Cyan,
+func (shFile *SharkieFile) Read(data []byte) (int, error) {
+	return shFile.File.Read(data)
+}
+
+func (shFile *SharkieFile) Seek(offset int64, whence int) (int64, error) {
+	if seeker, ok := shFile.File.(io.Seeker); ok {
+		return seeker.Seek(offset, whence)
+	}
+	panic("failed shared memory file seek!")
+}
+
+func (shFile *SharkieFile) Close() error {
+	return shFile.File.Close()
 }
