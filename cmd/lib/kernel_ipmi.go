@@ -122,7 +122,7 @@ func libKernel_ipmimgr_call(op, handle, resultPtr, paramsPtr, paramsSize, magic,
 		return 0
 
 	case IMPI_CONNECT:
-		if _, err := GlobalFilesystem.Write(fmt.Sprintf("/%s", client.Name), make([]byte, ImpiBufferDefault)); err != nil {
+		if _, err := GlobalFilesystem.Write(fmt.Sprintf("/%s", client.Name), make([]byte, FileBlockSize)); err != nil {
 			fmt.Printf("%-120s %s failed creating shared memory file (%s).\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("ipmimgr_call"),

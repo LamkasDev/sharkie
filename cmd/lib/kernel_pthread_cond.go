@@ -5,7 +5,7 @@ package lib
 func libKernel_scePthreadCondInit(condHandlePtr, attrHandlePtr uintptr) uintptr {
 	err := libKernel_pthread_cond_init(condHandlePtr, attrHandlePtr)
 	if err != 0 {
-		return uintptr(uint32(err) - 0x7FFE0000)
+		return err - 0x7FFE0000
 	}
 
 	return 0
@@ -16,7 +16,7 @@ func libKernel_scePthreadCondInit(condHandlePtr, attrHandlePtr uintptr) uintptr 
 func libKernel_scePthreadCondDestroy(condHandlePtr uintptr) uintptr {
 	err := libKernel_pthread_cond_destroy(condHandlePtr)
 	if err != 0 {
-		return uintptr(uint32(err) - 0x7FFE0000)
+		return err - 0x7FFE0000
 	}
 
 	return 0
@@ -27,7 +27,7 @@ func libKernel_scePthreadCondDestroy(condHandlePtr uintptr) uintptr {
 func libKernel_scePthreadCondBroadcast(condHandlePtr uintptr) uintptr {
 	err := libKernel_pthread_cond_broadcast(condHandlePtr)
 	if err != 0 {
-		return uintptr(uint32(err) - 0x7FFE0000)
+		return err - 0x7FFE0000
 	}
 
 	return 0
@@ -38,7 +38,7 @@ func libKernel_scePthreadCondBroadcast(condHandlePtr uintptr) uintptr {
 func libKernel_scePthreadCondSignal(condHandlePtr uintptr) uintptr {
 	err := libKernel_pthread_cond_signal(condHandlePtr)
 	if err != 0 {
-		return uintptr(uint32(err) - 0x7FFE0000)
+		return err - 0x7FFE0000
 	}
 
 	return 0
@@ -49,7 +49,7 @@ func libKernel_scePthreadCondSignal(condHandlePtr uintptr) uintptr {
 func libKernel_scePthreadCondWait(condHandlePtr uintptr) uintptr {
 	err := libKernel_pthread_cond_wait(condHandlePtr)
 	if err != 0 {
-		return uintptr(uint32(err) - 0x7FFE0000)
+		return err - 0x7FFE0000
 	}
 
 	return 0

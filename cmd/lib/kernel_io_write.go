@@ -10,6 +10,17 @@ import (
 	"github.com/gookit/color"
 )
 
+// 0x0000000000015960
+// __int64 __fastcall sceKernelWrite(__int64, __int64, __int64)
+func libKernel_sceKernelWrite(fd uintptr, bufPtr uintptr, length uintptr) uintptr {
+	err := libKernel_write(fd, bufPtr, length)
+	if err != 0 {
+		return GetErrno() - 0x7FFE0000
+	}
+
+	return 0
+}
+
 // 0x000000000000E610
 // __int64 __fastcall write()
 func libKernel_write(fd uintptr, bufPtr uintptr, length uintptr) uintptr {
@@ -38,7 +49,7 @@ func libKernel_sys_write(fd uintptr, bufPtr uintptr, length uintptr) uintptr {
 	GlobalFilesystem.Lock.Lock()
 	defer GlobalFilesystem.Lock.Unlock()
 
-	file, ok := GlobalFilesystem.Descriptors[int32(fd)]
+	file, ok := GlobalFilesystem.Descriptors[FileDescriptor(fd)]
 	if !ok {
 		fmt.Printf("%-120s %s failed due to unknown file %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -48,23 +59,57 @@ func libKernel_sys_write(fd uintptr, bufPtr uintptr, length uintptr) uintptr {
 		SetErrno(ENOENT)
 		return ERR_PTR
 	}
-
-	buffSlice := unsafe.Slice((*byte)(unsafe.Pointer(bufPtr)), length)
-	message := string(buffSlice)
-	outputColor, ok := FileDescriptorColors[file.Path]
-	if !ok {
-		outputColor = color.White
+	fileData, err := GlobalFilesystem.ReadFull(file.Path)
+	if err != nil {
+		fmt.Printf("%-120s %s failed due to read error on %s (%s).\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("_write"),
+			color.Blue.Sprint(file.Path),
+			err.Error(),
+		)
+		SetErrno(EFAULT)
+		return ERR_PTR
 	}
 
-	fmt.Printf("%-120s %s %s",
+	buffer := unsafe.Slice((*byte)(unsafe.Pointer(bufPtr)), length)
+	wroteBytes := uintptr(len(buffer))
+	if file.Path == "stdout" || file.Path == "stderr" || file.Path == "/dev/console" || file.Path == "/dev/deci_tty6" {
+		message := string(buffer)
+		outputColor, ok := FileDescriptorColors[file.Path]
+		if !ok {
+			outputColor = color.White
+		}
+		fmt.Printf("%-120s %s %s",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprintf("[write on %s]", file.Path),
+			outputColor.Sprint(message),
+		)
+		if !strings.HasSuffix(message, "\n") {
+			fmt.Println("")
+		}
+		return wroteBytes
+	}
+	fileData = append(fileData, buffer...)
+	if _, err = GlobalFilesystem.Write(file.Path, fileData); err != nil {
+		fmt.Printf("%-120s %s failed due to write error on %s (%s).\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("_write"),
+			color.Blue.Sprint(file.Path),
+			err.Error(),
+		)
+		SetErrno(EFAULT)
+		return ERR_PTR
+	}
+	file.Cursor += wroteBytes
+
+	fmt.Printf("%-120s %s wrote %s bytes to file %s (length=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprintf("[write on %s]", file.Path),
-		outputColor.Sprint(message),
+		color.Magenta.Sprint("_write"),
+		color.Yellow.Sprintf("0x%X", wroteBytes),
+		color.Blue.Sprint(file.Path),
+		color.Yellow.Sprintf("0x%X", length),
 	)
-	if !strings.HasSuffix(message, "\n") {
-		fmt.Println("")
-	}
-	return length
+	return wroteBytes
 }
 
 // 0x0000000000012580
@@ -76,7 +121,7 @@ func libKernel_ftruncate(fd uintptr, length uintptr) uintptr {
 // 0x0000000000002950
 // __int64 ftruncate_0()
 func libKernel_ftruncate_0(fd uintptr, length uintptr) uintptr {
-	file, ok := GlobalFilesystem.Descriptors[int32(fd)]
+	file, ok := GlobalFilesystem.Descriptors[FileDescriptor(fd)]
 	if !ok {
 		fmt.Printf("%-120s %s failed due to unknown file %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),

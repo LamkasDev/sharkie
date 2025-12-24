@@ -30,7 +30,7 @@ func libKernel_shm_open(pathPtr uintptr, oflag uintptr, mode uintptr) uintptr {
 			color.Blue.Sprint(path),
 			err.Error(),
 		)
-		SetErrno(ENOENT)
+		SetErrno(EFAULT)
 		return ERR_PTR
 	}
 

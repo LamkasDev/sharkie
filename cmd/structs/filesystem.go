@@ -2,7 +2,9 @@ package structs
 
 import (
 	"errors"
+	"fmt"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"sync"
 
@@ -18,14 +20,12 @@ var FileDescriptorColors = map[string]color.Color{
 	"stderr":         color.Red,
 	"/dev/console":   color.Cyan,
 	"/dev/deci_tty6": color.Cyan,
-	"/dev/gc":        color.Cyan,
-	"/dev/dipsw":     color.Cyan,
 }
 
 type SharkieFilesystem struct {
 	Files          map[string]*SharkieFile
-	Descriptors    map[int32]*SharkieFile
-	NextDescriptor int32
+	Descriptors    map[FileDescriptor]*SharkieFile
+	NextDescriptor FileDescriptor
 	Fs             *memfs.FS
 	Lock           sync.Mutex
 }
@@ -43,7 +43,7 @@ func (shFs *SharkieFilesystem) Open(path string, oflag uintptr, mode uintptr) (*
 }
 
 func (shFs *SharkieFilesystem) Create(path string) (*SharkieFile, error) {
-	err := shFs.Fs.MkdirAll(filepath.Dir(GetUsablePath(path)), 0777)
+	err := shFs.Fs.MkdirAll(filepath.ToSlash(filepath.Dir(GetUsablePath(path))), 0777)
 	if err != nil {
 		return nil, err
 	}
@@ -107,52 +107,96 @@ func (shFs *SharkieFilesystem) Delete(path string) error {
 }
 
 func NewFilesystem() *SharkieFilesystem {
-	fs := &SharkieFilesystem{
+	shFs := &SharkieFilesystem{
 		Files:          map[string]*SharkieFile{},
-		Descriptors:    map[int32]*SharkieFile{},
+		Descriptors:    map[FileDescriptor]*SharkieFile{},
 		NextDescriptor: 0x0,
 		Fs:             memfs.New(),
 		Lock:           sync.Mutex{},
 	}
-	if _, err := fs.Create("stdin"); err != nil {
+	if err := shFs.InitializeSystemFiles(); err != nil {
 		panic(err)
 	}
-	if _, err := fs.Create("stdout"); err != nil {
-		panic(err)
-	}
-	if _, err := fs.Create("stderr"); err != nil {
-		panic(err)
-	}
-	if _, err := fs.Create("/dev/console"); err != nil {
-		panic(err)
-	}
-	if _, err := fs.Create("/dev/deci_tty6"); err != nil {
-		panic(err)
-	}
-	if _, err := fs.Create("/dev/gc"); err != nil {
-		panic(err)
-	}
-	if _, err := fs.Create("/dev/dipsw"); err != nil {
-		panic(err)
-	}
-	if _, err := fs.Create("/dev/hmd_cmd"); err != nil {
-		panic(err)
-	}
-	if _, err := fs.Create("/dev/hmd_snsr"); err != nil {
-		panic(err)
-	}
-	if _, err := fs.Create("/dev/hmd_3da"); err != nil {
-		panic(err)
-	}
-	if _, err := fs.Create("/dev/hmd_dist"); err != nil {
-		panic(err)
-	}
-	if _, err := fs.Create("/dev/sbl_srv"); err != nil {
-		panic(err)
-	}
-	if _, err := fs.Write(AudioInBufferName, make([]byte, AudioInBufferDefault)); err != nil {
+	if err := shFs.InitializeAppFiles(); err != nil {
 		panic(err)
 	}
 
-	return fs
+	return shFs
+}
+
+func (shFs *SharkieFilesystem) InitializeSystemFiles() error {
+	if _, err := shFs.Create("stdin"); err != nil {
+		return err
+	}
+	if _, err := shFs.Create("stdout"); err != nil {
+		return err
+	}
+	if _, err := shFs.Create("stderr"); err != nil {
+		return err
+	}
+	if _, err := shFs.Create("/dev/console"); err != nil {
+		return err
+	}
+	if _, err := shFs.Create("/dev/deci_tty6"); err != nil {
+		return err
+	}
+	if _, err := shFs.Create("/dev/gc"); err != nil {
+		return err
+	}
+	if _, err := shFs.Create("/dev/dipsw"); err != nil {
+		return err
+	}
+	if _, err := shFs.Create("/dev/hmd_cmd"); err != nil {
+		return err
+	}
+	if _, err := shFs.Create("/dev/hmd_snsr"); err != nil {
+		return err
+	}
+	if _, err := shFs.Create("/dev/hmd_3da"); err != nil {
+		return err
+	}
+	if _, err := shFs.Create("/dev/hmd_dist"); err != nil {
+		return err
+	}
+	if _, err := shFs.Create("/dev/sbl_srv"); err != nil {
+		return err
+	}
+	if _, err := shFs.Write(AudioInBufferName, make([]byte, AudioInBufferDefault)); err != nil {
+		panic(err)
+	}
+
+	return nil
+}
+
+func (shFs *SharkieFilesystem) InitializeAppFiles() error {
+	err := filepath.WalkDir(filepath.Join("fs", "app0"), func(path string, d fs.DirEntry, err error) error {
+		if d.IsDir() {
+			return nil
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		fsPath, err := filepath.Rel("fs", path)
+		if err != nil {
+			return err
+		}
+		fsPath = fmt.Sprintf("/%s", filepath.ToSlash(fsPath))
+		_, err = shFs.Write(fsPath, data)
+		if err != nil {
+			return err
+		}
+		fmt.Printf(
+			"Loaded file %s as %s.\n",
+			color.Blue.Sprint(path),
+			color.Blue.Sprint(fsPath),
+		)
+
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

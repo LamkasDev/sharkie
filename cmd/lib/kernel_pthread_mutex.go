@@ -14,7 +14,7 @@ import (
 func libKernel_scePthreadMutexInit(mutexHandlePtr uintptr, attrPtr uintptr, namePtr uintptr) uintptr {
 	err := libKernel_pthread_mutex_init(mutexHandlePtr, attrPtr)
 	if err != 0 {
-		return uintptr(uint32(err) - 0x7FFE0000)
+		return err - 0x7FFE0000
 	}
 
 	// Retrieve structs back.
@@ -42,7 +42,7 @@ func libKernel_scePthreadMutexInit(mutexHandlePtr uintptr, attrPtr uintptr, name
 func libKernel_scePthreadMutexDestroy(mutexHandlePtr uintptr) uintptr {
 	err := libKernel_pthread_mutex_destroy(mutexHandlePtr)
 	if err != 0 {
-		return uintptr(uint32(err) - 0x7FFE0000)
+		return err - 0x7FFE0000
 	}
 
 	return 0
@@ -53,7 +53,7 @@ func libKernel_scePthreadMutexDestroy(mutexHandlePtr uintptr) uintptr {
 func libKernel_scePthreadMutexLock(mutexHandlePtr uintptr) uintptr {
 	err := libKernel_pthread_mutex_lock(mutexHandlePtr)
 	if err != 0 {
-		return uintptr(uint32(err) - 0x7FFE0000)
+		return err - 0x7FFE0000
 	}
 
 	return 0
@@ -64,7 +64,7 @@ func libKernel_scePthreadMutexLock(mutexHandlePtr uintptr) uintptr {
 func libKernel_scePthreadMutexUnlock(mutexHandlePtr uintptr) uintptr {
 	err := libKernel_pthread_mutex_unlock(mutexHandlePtr)
 	if err != 0 {
-		return uintptr(uint32(err) - 0x7FFE0000)
+		return err - 0x7FFE0000
 	}
 
 	return 0

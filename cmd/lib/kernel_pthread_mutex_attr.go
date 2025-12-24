@@ -5,7 +5,7 @@ package lib
 func libKernel_scePthreadMutexattrInit(attrHandlePtr uintptr) uintptr {
 	err := libKernel_pthread_mutexattr_init(attrHandlePtr)
 	if err != 0 {
-		return uintptr(uint32(err) - 0x7FFE0000)
+		return err - 0x7FFE0000
 	}
 
 	return 0
@@ -16,7 +16,7 @@ func libKernel_scePthreadMutexattrInit(attrHandlePtr uintptr) uintptr {
 func libKernel_scePthreadMutexattrSettype(attrHandlePtr uintptr, attrType uintptr) uintptr {
 	err := libKernel_pthread_mutexattr_settype(attrHandlePtr, attrType)
 	if err != 0 {
-		return uintptr(uint32(err) - 0x7FFE0000)
+		return err - 0x7FFE0000
 	}
 
 	return 0
@@ -27,7 +27,7 @@ func libKernel_scePthreadMutexattrSettype(attrHandlePtr uintptr, attrType uintpt
 func libKernel_scePthreadMutexattrDestroy(attrHandlePtr uintptr) uintptr {
 	err := libKernel_pthread_mutexattr_destroy(attrHandlePtr)
 	if err != 0 {
-		return uintptr(uint32(err) - 0x7FFE0000)
+		return err - 0x7FFE0000
 	}
 
 	return 0

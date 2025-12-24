@@ -4,18 +4,6 @@ import "sync"
 
 var GlobalIpmiManager = NewIpmiManager()
 
-type IpmiClient struct {
-	Handle uint32
-	Name   string
-	ObjPtr uintptr
-}
-
-type IpmiServer struct {
-	Handle uint32
-	Name   string
-	ObjPtr uintptr
-}
-
 const IPMI_MAGIC = 0xDEADBADECAFEBEAF
 
 const (
@@ -26,8 +14,6 @@ const (
 	IMPI_INVOKE_SYNC   = 0x320
 	IMPI_CONNECT       = 0x400
 )
-
-const ImpiBufferDefault = 4096
 
 type IpmiManager struct {
 	Clients    map[uint32]*IpmiClient
@@ -42,44 +28,4 @@ func NewIpmiManager() *IpmiManager {
 		Servers:    map[uint32]*IpmiServer{},
 		NextHandle: 0x40000001,
 	}
-}
-
-func CreateImpiClient(name string, userPtr uintptr) *IpmiClient {
-	GlobalIpmiManager.Lock.Lock()
-	defer GlobalIpmiManager.Lock.Unlock()
-
-	client := &IpmiClient{
-		Handle: GlobalIpmiManager.NextHandle,
-		Name:   name,
-		ObjPtr: userPtr,
-	}
-	GlobalIpmiManager.Clients[client.Handle] = client
-	GlobalIpmiManager.NextHandle++
-	return client
-}
-
-func GetImpiClient(handle uint32) *IpmiClient {
-	GlobalIpmiManager.Lock.RLock()
-	defer GlobalIpmiManager.Lock.RUnlock()
-	return GlobalIpmiManager.Clients[handle]
-}
-
-func CreateImpiServer(name string, userPtr uintptr) *IpmiServer {
-	GlobalIpmiManager.Lock.Lock()
-	defer GlobalIpmiManager.Lock.Unlock()
-
-	server := &IpmiServer{
-		Handle: GlobalIpmiManager.NextHandle,
-		Name:   name,
-		ObjPtr: userPtr,
-	}
-	GlobalIpmiManager.Servers[server.Handle] = server
-	GlobalIpmiManager.NextHandle++
-	return server
-}
-
-func GetImpiServer(handle uint32) *IpmiServer {
-	GlobalIpmiManager.Lock.RLock()
-	defer GlobalIpmiManager.Lock.RUnlock()
-	return GlobalIpmiManager.Servers[handle]
 }

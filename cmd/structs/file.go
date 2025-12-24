@@ -11,10 +11,14 @@ const (
 )
 
 const MinFileMmapSize = 0x10000
+const FileBlockSize = 4096
+
+type FileDescriptor int32
 
 type SharkieFile struct {
 	Path       string
-	Descriptor int32
+	Descriptor FileDescriptor
+	Cursor     uintptr
 	File       fs.File
 }
 

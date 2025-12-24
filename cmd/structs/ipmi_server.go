@@ -1,0 +1,27 @@
+package structs
+
+type IpmiServer struct {
+	Handle uint32
+	Name   string
+	ObjPtr uintptr
+}
+
+func CreateImpiServer(name string, userPtr uintptr) *IpmiServer {
+	GlobalIpmiManager.Lock.Lock()
+	defer GlobalIpmiManager.Lock.Unlock()
+
+	server := &IpmiServer{
+		Handle: GlobalIpmiManager.NextHandle,
+		Name:   name,
+		ObjPtr: userPtr,
+	}
+	GlobalIpmiManager.Servers[server.Handle] = server
+	GlobalIpmiManager.NextHandle++
+	return server
+}
+
+func GetImpiServer(handle uint32) *IpmiServer {
+	GlobalIpmiManager.Lock.RLock()
+	defer GlobalIpmiManager.Lock.RUnlock()
+	return GlobalIpmiManager.Servers[handle]
+}

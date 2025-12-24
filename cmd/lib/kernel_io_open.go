@@ -50,7 +50,7 @@ func libKernel_sys_open(pathPtr uintptr, flags uintptr, mode uintptr) uintptr {
 	path := ReadCString(pathPtr)
 	file, err := GlobalFilesystem.Open(path, 0, mode)
 	if err != nil {
-		fmt.Printf("%-120s %s failed due to unknown file %s (%s).\n",
+		fmt.Printf("%-120s %s failed due to open error on %s (%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("_open"),
 			color.Blue.Sprint(path),

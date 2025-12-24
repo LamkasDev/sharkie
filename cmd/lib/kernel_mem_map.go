@@ -84,7 +84,7 @@ func libKernel_mmap_0(addr, length, prot, flags, fd, offset uintptr) uintptr {
 
 	// Handle file descriptor copy.
 	if fd != ERR_PTR && uint32(fd) != ERR_HANDLE {
-		file, ok := GlobalFilesystem.Descriptors[int32(fd)]
+		file, ok := GlobalFilesystem.Descriptors[FileDescriptor(fd)]
 		if !ok {
 			fmt.Printf("%-120s %s failed due to unknown file %s.\n",
 				emu.GlobalModuleManager.GetCallSiteText(),

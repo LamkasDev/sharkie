@@ -82,12 +82,18 @@ func RegisterKernelStubs() {
 	elf.RegisterStub("libkernel", "open", libKernel_open)
 	elf.RegisterStub("libkernel", "_open", libKernel__open)
 	elf.RegisterStub("libkernel", "sceKernelOpen", libKernel_sceKernelOpen)
+	elf.RegisterStub("libkernel", "read", libKernel_read)
+	elf.RegisterStub("libkernel", "_read", libKernel__read)
+	elf.RegisterStub("libkernel", "sceKernelRead", libKernel_sceKernelRead)
 	elf.RegisterStub("libkernel", "write", libKernel_write)
 	elf.RegisterStub("libkernel", "_write", libKernel__write)
+	elf.RegisterStub("libkernel", "sceKernelWrite", libKernel_sceKernelWrite)
 	elf.RegisterStub("libkernel", "ioctl", libKernel_ioctl)
 	elf.RegisterStub("libkernel", "_ioctl", libKernel_ioctl) // TODO: this neither
 	elf.RegisterStub("libkernel", "ftruncate", libKernel_ftruncate)
 	elf.RegisterStub("libkernel", "ftruncate_0", libKernel_ftruncate_0)
+	elf.RegisterStub("libkernel", "fstat", libKernel_fstat)
+	elf.RegisterStub("libkernel", "sceKernelFstat", libKernel_sceKernelFstat)
 
 	// Shared memory functions.
 	elf.RegisterStub("libkernel", "shm_open", libKernel_shm_open)
