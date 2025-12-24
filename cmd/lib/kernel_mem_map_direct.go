@@ -2,10 +2,10 @@ package lib
 
 import (
 	"encoding/binary"
-	"fmt"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
+	"github.com/LamkasDev/sharkie/cmd/logger"
 	. "github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/gookit/color"
 )
@@ -45,7 +45,7 @@ func libKernel_sys_sceKernelMapDirectMemory(addrPtr, length, prot, flags, offset
 	// Perform initial pointer checks.
 	if alignment != 0 {
 		if !IsPowerOfTwo(alignment) {
-			fmt.Printf("%-120s %s failed due to invalid alignment %s.\n",
+			logger.Printf("%-120s %s failed due to invalid alignment %s.\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("sceKernelMapDirectMemory"),
 				color.Yellow.Sprintf("0x%X", alignment),
@@ -54,7 +54,7 @@ func libKernel_sys_sceKernelMapDirectMemory(addrPtr, length, prot, flags, offset
 			return ERR_PTR
 		}
 		if (offset & (alignment - 1)) != 0 {
-			fmt.Printf("%-120s %s failed due to invalid offset %s.\n",
+			logger.Printf("%-120s %s failed due to invalid offset %s.\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("sceKernelMapDirectMemory"),
 				color.Yellow.Sprintf("0x%X", offset),
@@ -64,7 +64,7 @@ func libKernel_sys_sceKernelMapDirectMemory(addrPtr, length, prot, flags, offset
 		}
 	}
 	if length < MEMORY_ALIGN || (length&(MEMORY_ALIGN-1)) != 0 {
-		fmt.Printf("%-120s %s failed due to invalid size %s.\n",
+		logger.Printf("%-120s %s failed due to invalid size %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceKernelMapDirectMemory"),
 			color.Yellow.Sprintf("0x%X", length),
@@ -73,7 +73,7 @@ func libKernel_sys_sceKernelMapDirectMemory(addrPtr, length, prot, flags, offset
 		return ERR_PTR
 	}
 	if addrPtr == 0 {
-		fmt.Printf("%-120s %s failed due to invalid pointer.\n",
+		logger.Printf("%-120s %s failed due to invalid pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceKernelMapDirectMemory"),
 		)
@@ -86,15 +86,16 @@ func libKernel_sys_sceKernelMapDirectMemory(addrPtr, length, prot, flags, offset
 	binary.LittleEndian.PutUint64(addrPtrSlice, uint64(offset))
 
 	if _, err := ProtectKernelMemory(offset, length, prot); err != nil {
-		fmt.Printf("%-120s %s failed due to memory protection error (%s).\n",
+		logger.Printf("%-120s %s failed due to memory protection error (%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceKernelMapDirectMemory"),
+			err.Error(),
 		)
 		SetErrno(EFAULT)
 		return ERR_PTR
 	}
 
-	fmt.Printf("%-120s %s mapped %s bytes at %s (addrPtr=%s, prot=%s, flags=%s, alignment=%s).\n",
+	logger.Printf("%-120s %s mapped %s bytes at %s (addrPtr=%s, prot=%s, flags=%s, alignment=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sceKernelMapDirectMemory"),
 		color.Yellow.Sprintf("0x%X", length),

@@ -1,9 +1,8 @@
 package lib
 
 import (
-	"fmt"
-
 	"github.com/LamkasDev/sharkie/cmd/emu"
+	"github.com/LamkasDev/sharkie/cmd/logger"
 	. "github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/gookit/color"
 )
@@ -21,7 +20,7 @@ func libKernel_sceKernelMprotect(addr, length, prot uintptr) uintptr {
 
 func libKernel_sys_mprotect(addr, length, prot uintptr) uintptr {
 	if addr == 0 {
-		fmt.Printf("%-120s %s failed due to invalid address.\n",
+		logger.Printf("%-120s %s failed due to invalid address.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceKernelMprotect"),
 		)
@@ -31,7 +30,7 @@ func libKernel_sys_mprotect(addr, length, prot uintptr) uintptr {
 
 	ret, err := ProtectKernelMemory(addr, length, prot)
 	if ret == 0 {
-		fmt.Printf("%-120s %s failed changing protection: %s\n",
+		logger.Printf("%-120s %s failed changing protection: %s\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceKernelMprotect"),
 			err.Error(),
@@ -40,7 +39,7 @@ func libKernel_sys_mprotect(addr, length, prot uintptr) uintptr {
 		return ERR_PTR
 	}
 
-	fmt.Printf("%-120s %s changed protection of %s bytes at %s to %s.\n",
+	logger.Printf("%-120s %s changed protection of %s bytes at %s to %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sceKernelMprotect"),
 		color.Yellow.Sprintf("0x%X", length),

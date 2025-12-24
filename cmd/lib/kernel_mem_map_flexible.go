@@ -2,10 +2,10 @@ package lib
 
 import (
 	"encoding/binary"
-	"fmt"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
+	"github.com/LamkasDev/sharkie/cmd/logger"
 	. "github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/gookit/color"
 )
@@ -34,14 +34,14 @@ func libKernel_sceKernelMapNamedFlexibleMemory(addrPtr, length, prot, flags, nam
 func libKernel_sceKernelMapFlexibleMemory(addrPtr, length, prot, flags uintptr) uintptr {
 	// Perform initial alignment and pointer checks.
 	if length < MEMORY_ALIGN || (length&MEMORY_ALIGN_MASK) != 0 {
-		fmt.Printf("%-120s %s failed due to invalid alignment or size.\n",
+		logger.Printf("%-120s %s failed due to invalid alignment or size.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceKernelMapFlexibleMemory"),
 		)
 		return SCE_KERNEL_ERROR_EINVAL
 	}
 	if addrPtr == 0 {
-		fmt.Printf("%-120s %s failed due to address pointer.\n",
+		logger.Printf("%-120s %s failed due to address pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceKernelMapFlexibleMemory"),
 		)
@@ -52,7 +52,7 @@ func libKernel_sceKernelMapFlexibleMemory(addrPtr, length, prot, flags uintptr) 
 	addr := uintptr(binary.LittleEndian.Uint64(addrPtrSlice))
 
 	if (flags&MAP_FIXED) != 0 && addr == 0 {
-		fmt.Printf("%-120s %s cleared incorrect MAP_FIXED flag.\n",
+		logger.Printf("%-120s %s cleared incorrect MAP_FIXED flag.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceKernelMapFlexibleMemory"),
 		)
@@ -69,7 +69,7 @@ func libKernel_sceKernelMapFlexibleMemory(addrPtr, length, prot, flags uintptr) 
 	}
 
 	binary.LittleEndian.PutUint64(addrPtrSlice, uint64(allocatedAddr))
-	fmt.Printf("%-120s %s stored pointer at %s.\n",
+	logger.Printf("%-120s %s stored pointer at %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sceKernelMapFlexibleMemory"),
 		color.Yellow.Sprintf("0x%X", addrPtr),
@@ -84,14 +84,14 @@ func libKernel_sceKernelMapFlexibleMemory(addrPtr, length, prot, flags uintptr) 
 func libKernel_sceKernelMapNamedSystemFlexibleMemory(addrPtr, length, prot, flags, namePtr uintptr) uintptr {
 	// Perform initial alignment and pointer checks.
 	if length < MEMORY_ALIGN || (length&MEMORY_ALIGN_MASK) != 0 {
-		fmt.Printf("%-120s %s failed due to invalid alignment or size.\n",
+		logger.Printf("%-120s %s failed due to invalid alignment or size.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceKernelMapNamedSystemFlexibleMemory"),
 		)
 		return SCE_KERNEL_ERROR_EINVAL
 	}
 	if addrPtr == 0 {
-		fmt.Printf("%-120s %s failed due to address pointer.\n",
+		logger.Printf("%-120s %s failed due to address pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceKernelMapNamedSystemFlexibleMemory"),
 		)
@@ -102,7 +102,7 @@ func libKernel_sceKernelMapNamedSystemFlexibleMemory(addrPtr, length, prot, flag
 	addr := uintptr(binary.LittleEndian.Uint64(addrPtrSlice))
 
 	if (flags&MAP_FIXED) != 0 && addr == 0 {
-		fmt.Printf("%-120s %s cleared incorrect MAP_FIXED flag.\n",
+		logger.Printf("%-120s %s cleared incorrect MAP_FIXED flag.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceKernelMapNamedSystemFlexibleMemory"),
 		)
@@ -118,7 +118,7 @@ func libKernel_sceKernelMapNamedSystemFlexibleMemory(addrPtr, length, prot, flag
 	if libKernel_mname(allocatedAddr, length, namePtr) == ERR_PTR {
 		return GetErrno() - 0x7FFE0000
 	}
-	fmt.Printf("%-120s %s stored pointer at %s.\n",
+	logger.Printf("%-120s %s stored pointer at %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sceKernelMapNamedSystemFlexibleMemory"),
 		color.Yellow.Sprintf("0x%X", addrPtr),

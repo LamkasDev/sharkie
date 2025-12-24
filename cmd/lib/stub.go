@@ -1,11 +1,9 @@
 package lib
 
 import (
-	"fmt"
-	"os"
-
 	"github.com/LamkasDev/sharkie/cmd/elf"
 	"github.com/LamkasDev/sharkie/cmd/emu"
+	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
 )
 
@@ -18,17 +16,17 @@ func RegisterStubs() {
 }
 
 func Abort() uintptr {
-	fmt.Printf(
+	logger.Printf(
 		"%-120s aborted :c\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 	)
-	os.Exit(0)
+	logger.CleanupAndExit()
 
 	return 0
 }
 
 func GenericStub() uintptr {
-	fmt.Printf(
+	logger.Printf(
 		"%-120s hi from %s :3\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprintf("generic stub"),
@@ -39,7 +37,7 @@ func GenericStub() uintptr {
 
 func StackChkFail() uintptr {
 	color.Red.Sprint("Stack Corruption Detected!\n")
-	os.Exit(1)
+	logger.CleanupAndExit()
 
 	return 0
 }

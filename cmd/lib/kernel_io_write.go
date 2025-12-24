@@ -1,11 +1,11 @@
 package lib
 
 import (
-	"fmt"
 	"strings"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
+	"github.com/LamkasDev/sharkie/cmd/logger"
 	. "github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/gookit/color"
 )
@@ -39,7 +39,7 @@ func libKernel__write(fd uintptr, bufPtr uintptr, length uintptr) uintptr {
 
 func libKernel_sys_write(fd uintptr, bufPtr uintptr, length uintptr) uintptr {
 	if bufPtr == 0 {
-		fmt.Printf("%-120s %s failed due to invalid buffer pointer.\n",
+		logger.Printf("%-120s %s failed due to invalid buffer pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("_write"),
 		)
@@ -51,7 +51,7 @@ func libKernel_sys_write(fd uintptr, bufPtr uintptr, length uintptr) uintptr {
 
 	file, ok := GlobalFilesystem.Descriptors[FileDescriptor(fd)]
 	if !ok {
-		fmt.Printf("%-120s %s failed due to unknown file %s.\n",
+		logger.Printf("%-120s %s failed due to unknown file %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("_write"),
 			color.Yellow.Sprintf("0x%X", fd),
@@ -61,7 +61,7 @@ func libKernel_sys_write(fd uintptr, bufPtr uintptr, length uintptr) uintptr {
 	}
 	fileData, err := GlobalFilesystem.ReadFull(file.Path)
 	if err != nil {
-		fmt.Printf("%-120s %s failed due to read error on %s (%s).\n",
+		logger.Printf("%-120s %s failed due to read error on %s (%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("_write"),
 			color.Blue.Sprint(file.Path),
@@ -79,19 +79,19 @@ func libKernel_sys_write(fd uintptr, bufPtr uintptr, length uintptr) uintptr {
 		if !ok {
 			outputColor = color.White
 		}
-		fmt.Printf("%-120s %s %s",
+		logger.Printf("%-120s %s %s",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprintf("[write on %s]", file.Path),
 			outputColor.Sprint(message),
 		)
 		if !strings.HasSuffix(message, "\n") {
-			fmt.Println("")
+			logger.Println()
 		}
 		return wroteBytes
 	}
 	fileData = append(fileData, buffer...)
 	if _, err = GlobalFilesystem.Write(file.Path, fileData); err != nil {
-		fmt.Printf("%-120s %s failed due to write error on %s (%s).\n",
+		logger.Printf("%-120s %s failed due to write error on %s (%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("_write"),
 			color.Blue.Sprint(file.Path),
@@ -102,7 +102,7 @@ func libKernel_sys_write(fd uintptr, bufPtr uintptr, length uintptr) uintptr {
 	}
 	file.Cursor += wroteBytes
 
-	fmt.Printf("%-120s %s wrote %s bytes to file %s (length=%s).\n",
+	logger.Printf("%-120s %s wrote %s bytes to file %s (length=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("_write"),
 		color.Yellow.Sprintf("0x%X", wroteBytes),
@@ -123,7 +123,7 @@ func libKernel_ftruncate(fd uintptr, length uintptr) uintptr {
 func libKernel_ftruncate_0(fd uintptr, length uintptr) uintptr {
 	file, ok := GlobalFilesystem.Descriptors[FileDescriptor(fd)]
 	if !ok {
-		fmt.Printf("%-120s %s failed due to unknown file %s.\n",
+		logger.Printf("%-120s %s failed due to unknown file %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("ftruncate_0"),
 			color.Yellow.Sprintf("0x%X", fd),
@@ -136,7 +136,7 @@ func libKernel_ftruncate_0(fd uintptr, length uintptr) uintptr {
 
 	fileData, err := GlobalFilesystem.ReadFull(file.Path)
 	if err != nil {
-		fmt.Printf("%-120s %s failed due to read error on %s (%s).\n",
+		logger.Printf("%-120s %s failed due to read error on %s (%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("ftruncate_0"),
 			color.Blue.Sprint(file.Path),
@@ -159,7 +159,7 @@ func libKernel_ftruncate_0(fd uintptr, length uintptr) uintptr {
 
 	_, err = GlobalFilesystem.Write(file.Path, fileChunk)
 	if err != nil {
-		fmt.Printf("%-120s %s failed due to write error on %s (%s).\n",
+		logger.Printf("%-120s %s failed due to write error on %s (%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("ftruncate_0"),
 			color.Blue.Sprint(file.Path),
@@ -169,7 +169,7 @@ func libKernel_ftruncate_0(fd uintptr, length uintptr) uintptr {
 		return ERR_PTR
 	}
 
-	fmt.Printf("%-120s %s truncated file %s from %s to %s bytes.\n",
+	logger.Printf("%-120s %s truncated file %s from %s to %s bytes.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("ftruncate_0"),
 		color.Blue.Sprint(file.Path),

@@ -2,10 +2,11 @@ package linker
 
 import (
 	"encoding/binary"
-	"fmt"
 
 	"github.com/LamkasDev/sharkie/cmd/asm"
 	"github.com/LamkasDev/sharkie/cmd/elf"
+	"github.com/LamkasDev/sharkie/cmd/logger"
+	"github.com/gookit/color"
 )
 
 var GlobalLinker = NewLinker()
@@ -34,7 +35,7 @@ func (l *Linker) Link(e *elf.Elf) error {
 	if e.DynamicInfo != nil {
 		ProcessRelocations(e)
 	} else {
-		fmt.Println("Dynamic section size is 0, skipping relocations...")
+		logger.Print(color.Gray.Sprintf("Dynamic section size is 0, skipping relocations..."))
 	}
 
 	// HACK: we need to stub these symbol, but they're private.
@@ -72,7 +73,7 @@ func (l *Linker) Link(e *elf.Elf) error {
 			patch = append(patch, 0xFF, 0xE0)
 
 			copy(e.Memory[symbol.Address:], patch)
-			/* fmt.Printf(
+			/* logger.Printf(
 				"Replaced stubbed symbol %s inside %s at %s.\n",
 				color.Blue.Sprintf("%s:%s", symbol.LibraryName, symbol.ReadableName),
 				color.Blue.Sprintf(e.Name),

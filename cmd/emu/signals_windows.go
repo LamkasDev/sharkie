@@ -4,11 +4,11 @@ package emu
 
 import (
 	"fmt"
-	"os"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/asm"
 	"github.com/LamkasDev/sharkie/cmd/elf"
+	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/LamkasDev/sharkie/cmd/sys_struct"
 	"github.com/gookit/color"
 )
@@ -25,7 +25,7 @@ func ExceptionHandlerGo() uintptr {
 	switch code {
 	case sys_struct.EXCEPTION_ACCESS_VIOLATION:
 		if name, ok := elf.FakeAddressMap[ctx.Rip]; ok {
-			fmt.Printf(
+			logger.Printf(
 				"Called external symbol %s at %s...\n",
 				color.Blue.Sprint(name),
 				color.Yellow.Sprintf("0x%X", ctx.Rip),
@@ -41,7 +41,7 @@ func ExceptionHandlerGo() uintptr {
 			return sys_struct.EXCEPTION_CONTINUE_EXECUTION
 		}
 
-		fmt.Printf(
+		logger.Printf(
 			"Trapped %s at %s...\nAttempted to access address: %s\n",
 			color.Red.Sprint("EXCEPTION_ACCESS_VIOLATION"),
 			color.Yellow.Sprintf("0x%X", ctx.Rip),
@@ -49,18 +49,16 @@ func ExceptionHandlerGo() uintptr {
 		)
 		sys_struct.PrintContext(ctx)
 		PrintStackTrace(ctx)
-		StopProfiling()
-		os.Exit(1)
+		logger.CleanupAndExit()
 	default:
-		fmt.Printf(
+		logger.Printf(
 			"Trapped exception code %s at %s...\n",
 			color.Red.Sprint(code),
 			color.Yellow.Sprintf("0x%X", ctx.Rip),
 		)
 		sys_struct.PrintContext(ctx)
 		PrintStackTrace(ctx)
-		StopProfiling()
-		os.Exit(1)
+		logger.CleanupAndExit()
 	}
 
 	return sys_struct.EXCEPTION_CONTINUE_SEARCH
@@ -73,7 +71,7 @@ func SetupSignalHandler() {
 		panic(fmt.Sprintf("Failed to add vectored exception handler: %v", err))
 	}
 
-	fmt.Printf(
+	logger.Printf(
 		"Vectored Exception Handler registered at %s.\n",
 		color.Yellow.Sprintf("0x%X", asm.ExceptionHandlerAddr),
 	)

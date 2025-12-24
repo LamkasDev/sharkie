@@ -1,10 +1,10 @@
 package lib
 
 import (
-	"fmt"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
+	"github.com/LamkasDev/sharkie/cmd/logger"
 	. "github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/gookit/color"
 )
@@ -13,7 +13,7 @@ import (
 // __int64 __fastcall _tls_get_addr(_QWORD *, __int64, __int64, __int64, __int64, int)
 func libKernel___tls_get_addr(tlsIndexPtr uintptr) uintptr {
 	if tlsIndexPtr == 0 {
-		fmt.Printf("%-120s %s failed due to invalid tls index pointer.\n",
+		logger.Printf("%-120s %s failed due to invalid tls index pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("__tls_get_addr"),
 		)
@@ -23,7 +23,7 @@ func libKernel___tls_get_addr(tlsIndexPtr uintptr) uintptr {
 	tlsIndex := (*TlsIndex)(unsafe.Pointer(tlsIndexPtr))
 	address, ok := TlsBaseRepo[tlsIndex.ModuleId]
 	if !ok {
-		fmt.Printf("%-120s %s failed due to invalid module index %s.\n",
+		logger.Printf("%-120s %s failed due to invalid module index %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("__tls_get_addr"),
 			color.Green.Sprint(tlsIndex.ModuleId),
@@ -31,7 +31,7 @@ func libKernel___tls_get_addr(tlsIndexPtr uintptr) uintptr {
 		return 0
 	}
 
-	fmt.Printf("%-120s %s returning tls address %s for module %s (offset=%s).\n",
+	logger.Printf("%-120s %s returning tls address %s for module %s (offset=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("__tls_get_addr"),
 		color.Yellow.Sprintf("0x%X", address),

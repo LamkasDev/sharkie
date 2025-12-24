@@ -2,11 +2,11 @@ package elf
 
 import (
 	"encoding/binary"
-	"fmt"
 	"reflect"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/asm"
+	"github.com/LamkasDev/sharkie/cmd/logger"
 	. "github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/LamkasDev/sharkie/cmd/sys_struct"
 	"github.com/gookit/color"
@@ -36,7 +36,7 @@ func RegisterStub(libraryName, symbolName string, f interface{}) asm.StubInfo {
 	asm.Stubs[hashIndex] = stub
 	asm.StubsMap[fn.Pointer()] = hashIndex
 	asm.StubsTrampolineMap[stub.Address] = hashIndex
-	fmt.Printf(
+	logger.Printf(
 		"Registered %s assembly trampoline at %s to Go function at %s...\n",
 		color.Blue.Sprintf("%s:%s", libraryName, symbolName),
 		color.Yellow.Sprintf("0x%X", stub.Address),

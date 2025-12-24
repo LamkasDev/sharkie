@@ -1,9 +1,8 @@
 package lib
 
 import (
-	"fmt"
-
 	"github.com/LamkasDev/sharkie/cmd/emu"
+	"github.com/LamkasDev/sharkie/cmd/logger"
 	. "github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/gookit/color"
 )
@@ -41,7 +40,7 @@ func libKernel_sys_mname(addr, length, namePtr uintptr) uintptr {
 	}
 
 	// TODO: actually name the regions.
-	fmt.Printf("%-120s %s marked %s bytes at %s as %s.\n",
+	logger.Printf("%-120s %s marked %s bytes at %s as %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("mname"),
 		color.Yellow.Sprintf("0x%X", length),
@@ -58,7 +57,7 @@ func libKernel_sceKernelGetDirectMemorySize() uintptr {
 	// TODO: pthread_once
 	size := uintptr(0x100000000) // 4GB
 
-	fmt.Printf("%-120s %s returned %s.\n",
+	logger.Printf("%-120s %s returned %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sceKernelGetDirectMemorySize"),
 		color.Yellow.Sprintf("0x%X", size),

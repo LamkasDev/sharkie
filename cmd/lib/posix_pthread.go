@@ -2,10 +2,10 @@ package lib
 
 import (
 	"encoding/binary"
-	"fmt"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
+	"github.com/LamkasDev/sharkie/cmd/logger"
 	. "github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/gookit/color"
 )
@@ -51,7 +51,7 @@ func libKernel_sys_pthread_self() {
 	binary.LittleEndian.PutUint32(smpFlagSlice, 1)
 
 	MainThreadInitialized = true
-	fmt.Printf("%-120s %s initialized thread %s.\n",
+	logger.Printf("%-120s %s initialized thread %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("pthread_self"),
 		color.Yellow.Sprintf("0x%X", mainThread),

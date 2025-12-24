@@ -2,12 +2,12 @@ package lib
 
 import (
 	"encoding/binary"
-	"fmt"
 	"path/filepath"
 	"strings"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
+	"github.com/LamkasDev/sharkie/cmd/logger"
 	. "github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/gookit/color"
 )
@@ -16,7 +16,7 @@ import (
 // __int64 __fastcall sceKernelGetModuleInfoForUnwind(unsigned __int64, int, _QWORD *, __m128 _XMM0)
 func libKernel_sceKernelGetModuleInfoForUnwind(addr uintptr, flags int32, infoPtr uintptr) uintptr {
 	if infoPtr == 0 {
-		fmt.Printf("%-120s %s failed due to invalid info pointer.\n",
+		logger.Printf("%-120s %s failed due to invalid info pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceKernelGetModuleInfoForUnwind"),
 		)
@@ -25,7 +25,7 @@ func libKernel_sceKernelGetModuleInfoForUnwind(addr uintptr, flags int32, infoPt
 
 	module := emu.GetModuleAtAddress(addr)
 	if module == nil {
-		fmt.Printf("%-120s %s failed to find module loaded at %s.\n",
+		logger.Printf("%-120s %s failed to find module loaded at %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceKernelGetModuleInfoForUnwind"),
 			color.Yellow.Sprintf("0x%X", addr),
@@ -44,7 +44,7 @@ func libKernel_sceKernelGetModuleInfoForUnwind(addr uintptr, flags int32, infoPt
 	binary.LittleEndian.PutUint64(infoSlice[0x120:], uint64(textSection.Address))
 	binary.LittleEndian.PutUint64(infoSlice[0x128:], textSection.LoadedSize)
 
-	fmt.Printf("%-120s %s returned module info for %s (addr=%s, flags=%s).\n",
+	logger.Printf("%-120s %s returned module info for %s (addr=%s, flags=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sceKernelGetModuleInfoForUnwind"),
 		color.Blue.Sprint(module.Name),
@@ -59,14 +59,14 @@ func libKernel_sceKernelGetModuleInfoForUnwind(addr uintptr, flags int32, infoPt
 // __int64 __fastcall sub_1EB0()
 func libKernel_sys_dynlib_get_info_ex(handle uint32, flags uint32, infoPtr uintptr) uintptr {
 	if infoPtr == 0 {
-		fmt.Printf("%-120s %s failed due to invalid info pointer.\n",
+		logger.Printf("%-120s %s failed due to invalid info pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sys_dynlib_get_info_ex"),
 		)
 		return SCE_KERNEL_ERROR_EINVAL
 	}
 	if handle >= uint32(len(emu.GlobalModuleManager.Modules)) {
-		fmt.Printf("%-120s %s failed to find module with id %s.\n",
+		logger.Printf("%-120s %s failed to find module with id %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sys_dynlib_get_info_ex"),
 			color.Green.Sprint(handle),
@@ -95,7 +95,7 @@ func libKernel_sys_dynlib_get_info_ex(handle uint32, flags uint32, infoPtr uintp
 		binary.LittleEndian.PutUint32(infoSlice[0x130:], 0)
 	}
 
-	fmt.Printf("%-120s %s returned module info for %s (handle=%s, flags=%s).\n",
+	logger.Printf("%-120s %s returned module info for %s (handle=%s, flags=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sys_dynlib_get_info_ex"),
 		color.Blue.Sprint(module.Name),
@@ -108,7 +108,7 @@ func libKernel_sys_dynlib_get_info_ex(handle uint32, flags uint32, infoPtr uintp
 // 0x0000000000016BE0
 // __int64 sceKernelIsInSandbox()
 func libKernel_sceKernelIsInSandbox() uintptr {
-	fmt.Printf("%-120s %s returning false.\n",
+	logger.Printf("%-120s %s returning false.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sceKernelIsInSandbox"),
 	)
@@ -124,7 +124,7 @@ func libKernel_sceKernelGetCompiledSdkVersion(versionPtr uintptr) uintptr {
 		binary.LittleEndian.PutUint32(versionSlice, sdkVersion)
 	}
 
-	fmt.Printf("%-120s %s returning %s.\n",
+	logger.Printf("%-120s %s returning %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sceKernelGetCompiledSdkVersion"),
 		color.Yellow.Sprintf("0x%X", sdkVersion),
@@ -147,7 +147,7 @@ func libKernel_sceKernelLoadStartModule(namePtr uintptr, argc uintptr, argvPtr u
 
 func libKernel_sys_sceKernelLoadStartModule(namePtr uintptr, argc uintptr, argvPtr uintptr, flags uintptr, optionPtr uintptr, statusPtr uintptr) uintptr {
 	if namePtr == 0 {
-		fmt.Printf("%-120s %s failed due to invalid name pointer.\n",
+		logger.Printf("%-120s %s failed due to invalid name pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceKernelLoadStartModule"),
 		)
@@ -158,7 +158,7 @@ func libKernel_sys_sceKernelLoadStartModule(namePtr uintptr, argc uintptr, argvP
 	name = strings.ReplaceAll(name, ".prx", ".sprx")
 
 	if emu.GlobalModuleManager.ModulesMap[name] != nil {
-		fmt.Printf("%-120s %s skipping already loaded module %s.\n",
+		logger.Printf("%-120s %s skipping already loaded module %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceKernelLoadStartModule"),
 			color.Blue.Sprint(name),
@@ -166,7 +166,7 @@ func libKernel_sys_sceKernelLoadStartModule(namePtr uintptr, argc uintptr, argvP
 		return 0
 	}
 	if err := emu.GlobalModuleManager.LoadModule(name); err != nil {
-		fmt.Printf("%-120s %s failed loading module %s: %+v\n",
+		logger.Printf("%-120s %s failed loading module %s: %+v\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceKernelLoadStartModule"),
 			color.Blue.Sprint(name),
@@ -182,7 +182,7 @@ func libKernel_sys_sceKernelLoadStartModule(namePtr uintptr, argc uintptr, argvP
 		binary.LittleEndian.PutUint32(statusSlice, 0)
 	}
 
-	fmt.Printf("%-120s %s loaded module %s (name=%s).\n",
+	logger.Printf("%-120s %s loaded module %s (name=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sceKernelLoadStartModule"),
 		color.Yellow.Sprintf("0x%X", handle),

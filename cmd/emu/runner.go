@@ -7,6 +7,7 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/asm"
 	"github.com/LamkasDev/sharkie/cmd/elf"
 	"github.com/LamkasDev/sharkie/cmd/linker"
+	"github.com/LamkasDev/sharkie/cmd/logger"
 	. "github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/LamkasDev/sharkie/cmd/sys_struct"
 	"github.com/gookit/color"
@@ -20,7 +21,7 @@ func (m *ModuleManager) Prepare(l *linker.Linker) {
 	// https://wiki.osdev.org/System_V_ABI
 	stackPtr := m.Stack.ArgumentsAddress - 128
 	stackPtr &^= 15
-	fmt.Printf(
+	logger.Printf(
 		"Stack allocated at %s (top %s).\n",
 		color.Yellow.Sprintf("0x%X", m.Stack.Address),
 		color.Yellow.Sprintf("0x%X", stackPtr),
@@ -31,7 +32,7 @@ func (m *ModuleManager) Prepare(l *linker.Linker) {
 	m.Tcb = NewTCB(l)
 	tcbAddr := uintptr(unsafe.Pointer(m.Tcb))
 	sys_struct.TlsSetValue.Call(sys_struct.TlsSlot, tcbAddr)
-	fmt.Printf(
+	logger.Printf(
 		"TCB allocated at %s (TLS at %s, %s bytes).\n",
 		color.Yellow.Sprintf("0x%X", tcbAddr),
 		color.Yellow.Sprintf("0x%X", uint64(tcbAddr)-l.StaticTlsSize),
@@ -64,12 +65,12 @@ func (m *ModuleManager) Run(e *elf.Elf) {
 
 	// Call the assembly trampoline and jump into game code.
 	entry := e.BaseAddress + uintptr(e.EntryAddress)
-	fmt.Printf(
+	logger.Printf(
 		"Jumping to entry point %s...\n",
 		color.Yellow.Sprintf("0x%X", entry),
 	)
 	asm.Run(entry, stackPtr, argsPtr, 0)
 
 	// This should not be reached.
-	fmt.Println("Returned from run - this should not happen.")
+	logger.Println("Returned from run - this should not happen.")
 }

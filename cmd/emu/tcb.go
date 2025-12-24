@@ -1,10 +1,10 @@
 package emu
 
 import (
-	"fmt"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/linker"
+	"github.com/LamkasDev/sharkie/cmd/logger"
 	. "github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/LamkasDev/sharkie/cmd/sys_struct"
 	"github.com/gookit/color"
@@ -56,7 +56,7 @@ func NewTCB(l *linker.Linker) *Tcb {
 		dtvSlice[module.ModuleIndex+1].Pointer = dest
 		TlsBaseRepo[module.ModuleIndex] = dest
 
-		fmt.Printf(
+		logger.Printf(
 			"%s's PT_TLS data from %s loaded into TCB at %s (%s bytes).\n",
 			color.Blue.Sprint(module.Name),
 			color.Yellow.Sprintf("0x%X", module.TlsSection.ImageVirtualAddress),

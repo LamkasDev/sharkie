@@ -9,13 +9,14 @@ import (
 
 	"github.com/LamkasDev/sharkie/cmd/elf"
 	"github.com/LamkasDev/sharkie/cmd/linker"
+	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/LamkasDev/sharkie/cmd/patcher"
 	"github.com/gookit/color"
 )
 
 // LoadModule loads & links module specified by name.
 func (m *ModuleManager) LoadModule(name string) error {
-	fmt.Println()
+	logger.Println()
 
 	// Only load the modules.
 	if err := m._RecursiveLoadModule(name); err != nil {
@@ -25,7 +26,7 @@ func (m *ModuleManager) LoadModule(name string) error {
 	// Link & patch everything now.
 	for _, module := range m.ModulesMap {
 		if !module.Linked {
-			fmt.Printf(
+			logger.Printf(
 				"Linking module %s from %s...\n",
 				color.Blue.Sprint(module.Name),
 				color.Blue.Sprint(module.Path),
@@ -37,7 +38,7 @@ func (m *ModuleManager) LoadModule(name string) error {
 				return err
 			}
 			module.Linked = true
-			fmt.Println()
+			logger.Println()
 		}
 	}
 
@@ -56,7 +57,7 @@ func (m *ModuleManager) _RecursiveLoadModule(name string) error {
 	}
 
 	moduleIndex := uint64(len(m.Modules))
-	fmt.Printf(
+	logger.Printf(
 		"Loading module %s from %s...\n",
 		color.Green.Sprint(moduleIndex),
 		color.Blue.Sprint(*modulePath),
@@ -71,7 +72,7 @@ func (m *ModuleManager) _RecursiveLoadModule(name string) error {
 	module.Path = *modulePath
 	m.Modules = append(m.Modules, module)
 	m.ModulesMap[name] = module
-	fmt.Println()
+	logger.Println()
 
 	for _, needed := range module.DynamicInfo.Needed {
 		needed = strings.ReplaceAll(needed, ".prx", ".sprx")
@@ -115,7 +116,7 @@ func (m *ModuleManager) RunModuleInitializers(module *elf.Elf, visited map[strin
 	// Call initialization functions.
 	if !isSelfContained {
 		for _, funcAddr := range module.DynamicInfo.PreInitArray {
-			fmt.Printf(
+			logger.Printf(
 				"Calling %s's %s function at %s...\n",
 				color.Blue.Sprint(module.Name),
 				color.Magenta.Sprint("DT_PREINIT_ARRAY"),
@@ -125,7 +126,7 @@ func (m *ModuleManager) RunModuleInitializers(module *elf.Elf, visited map[strin
 		}
 	}
 	if module.DynamicInfo.InitFunc != nil {
-		fmt.Printf(
+		logger.Printf(
 			"Calling %s's %s function at %s...\n",
 			color.Blue.Sprint(module.Name),
 			color.Magenta.Sprint("DT_INIT"),
@@ -135,7 +136,7 @@ func (m *ModuleManager) RunModuleInitializers(module *elf.Elf, visited map[strin
 	}
 	if !isSelfContained {
 		for _, funcAddr := range module.DynamicInfo.InitArray {
-			fmt.Printf(
+			logger.Printf(
 				"Calling %s's %s function at %s...\n",
 				color.Blue.Sprint(module.Name),
 				color.Magenta.Sprint("DT_INIT_ARRAY"),
@@ -153,7 +154,7 @@ func (m *ModuleManager) RunModule(name string) {
 		log.Panicf("Module %s is not loaded!\n", name)
 	}
 
-	fmt.Printf(
+	logger.Printf(
 		"Running module %s...\n",
 		color.Blue.Sprint(name),
 	)

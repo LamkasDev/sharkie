@@ -2,10 +2,10 @@ package lib
 
 import (
 	"encoding/binary"
-	"fmt"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
+	"github.com/LamkasDev/sharkie/cmd/logger"
 	. "github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/gookit/color"
 )
@@ -15,7 +15,7 @@ import (
 func libKernel_sceKernelCreateEventFlag(efHandlePtr, namePtr, attr, initPattern, optParamPtr uintptr) uintptr {
 	// This is correct, btw.
 	if efHandlePtr == 0 || optParamPtr != 0 {
-		fmt.Printf("%-120s %s failed due to invalid pointer.\n",
+		logger.Printf("%-120s %s failed due to invalid pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceKernelCreateEventFlag"),
 		)
@@ -39,7 +39,7 @@ func libKernel_sys_evf_create(namePtr uintptr, attr uint32, initPattern uint64) 
 		name = ReadCString(namePtr)
 	}
 	if len(name) >= EVF_NAME_MAX {
-		fmt.Printf("%-120s %s failed due to too long name.\n",
+		logger.Printf("%-120s %s failed due to too long name.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sys_evf_create"),
 		)
@@ -49,7 +49,7 @@ func libKernel_sys_evf_create(namePtr uintptr, attr uint32, initPattern uint64) 
 
 	queueMode := attr & 0xF
 	if queueMode != EVF_ATTR_TH_FIFO && queueMode != 0 {
-		fmt.Printf("%-120s %s requesting unknown queue mode %s.\n",
+		logger.Printf("%-120s %s requesting unknown queue mode %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sys_evf_create"),
 			color.Yellow.Sprintf("0x%X", queueMode),
@@ -64,7 +64,7 @@ func libKernel_sys_evf_create(namePtr uintptr, attr uint32, initPattern uint64) 
 	}
 	efHandle := AddEventFlag(ef)
 
-	fmt.Printf("%-120s %s created an event flag %s (name=%s, attr=%s, initPattern=%s).\n",
+	logger.Printf("%-120s %s created an event flag %s (name=%s, attr=%s, initPattern=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sys_evf_create"),
 		color.Green.Sprintf("%d", efHandle),

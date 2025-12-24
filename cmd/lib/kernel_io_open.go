@@ -1,9 +1,8 @@
 package lib
 
 import (
-	"fmt"
-
 	"github.com/LamkasDev/sharkie/cmd/emu"
+	"github.com/LamkasDev/sharkie/cmd/logger"
 	. "github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/gookit/color"
 )
@@ -37,7 +36,7 @@ func libKernel__open(pathPtr uintptr, flags uintptr, mode uintptr) uintptr {
 
 func libKernel_sys_open(pathPtr uintptr, flags uintptr, mode uintptr) uintptr {
 	if pathPtr == 0 {
-		fmt.Printf("%-120s %s failed due to invalid path pointer.\n",
+		logger.Printf("%-120s %s failed due to invalid path pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("_open"),
 		)
@@ -50,7 +49,7 @@ func libKernel_sys_open(pathPtr uintptr, flags uintptr, mode uintptr) uintptr {
 	path := ReadCString(pathPtr)
 	file, err := GlobalFilesystem.Open(path, 0, mode)
 	if err != nil {
-		fmt.Printf("%-120s %s failed due to open error on %s (%s).\n",
+		logger.Printf("%-120s %s failed due to open error on %s (%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("_open"),
 			color.Blue.Sprint(path),
@@ -60,7 +59,7 @@ func libKernel_sys_open(pathPtr uintptr, flags uintptr, mode uintptr) uintptr {
 		return ERR_PTR
 	}
 
-	fmt.Printf("%-120s %s opened file %s (path=%s, flags=%s, mode=%s).\n",
+	logger.Printf("%-120s %s opened file %s (path=%s, flags=%s, mode=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("_open"),
 		color.Yellow.Sprintf("0x%X", file.Descriptor),

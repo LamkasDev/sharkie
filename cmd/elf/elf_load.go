@@ -3,6 +3,7 @@ package elf
 import (
 	"encoding/binary"
 
+	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
 )
 
@@ -52,10 +53,10 @@ func ProcessLoadSection(e *Elf, s *ElfLoadSection, data []byte) {
 	s.Address = e.BaseAddress + uintptr(s.PVaddr)
 	s.LoadedSize = s.PFilesz
 	if s.POffset+s.LoadedSize > uint64(len(data)) {
-		color.Red.Printf("Loaded only %d bytes of section sized %d.\n",
+		logger.Print(color.Red.Sprintf("Loaded only %d bytes of section sized %d.\n",
 			uint64(len(data))-s.POffset,
 			s.LoadedSize,
-		)
+		))
 		s.LoadedSize = uint64(len(data)) - s.POffset
 	}
 	copy(e.Memory[s.PVaddr:], data[s.POffset:s.POffset+s.LoadedSize])

@@ -2,10 +2,10 @@ package lib
 
 import (
 	"encoding/binary"
-	"fmt"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
+	"github.com/LamkasDev/sharkie/cmd/logger"
 	. "github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/gookit/color"
 )
@@ -32,14 +32,14 @@ func libKernel_ctl_kern(mib []uint32, namePtr uintptr, nameLen uint32, oldPtr ui
 
 func libKernel_ctl_kern_proc(mib []uint32, namePtr uintptr, nameLen uint32, oldPtr uintptr, oldLenPtr uintptr, newPtr uintptr, newLen uintptr) uintptr {
 	if oldLenPtr == 0 || oldPtr == 0 {
-		fmt.Printf("%-120s %s failed due to invalid pointer.\n",
+		logger.Printf("%-120s %s failed due to invalid pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sysctl"),
 		)
 		return 0
 	}
 	if len(mib) < 3 {
-		fmt.Printf("%-120s %s failed due to short MIBs.\n",
+		logger.Printf("%-120s %s failed due to short MIBs.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sysctl"),
 		)
@@ -52,7 +52,7 @@ func libKernel_ctl_kern_proc(mib []uint32, namePtr uintptr, nameLen uint32, oldP
 	case KERN_PROC_APPINFO:
 		requiredSize := uintptr(72)
 		if providedSize < requiredSize {
-			fmt.Printf("%-120s %s failed due to insufficient pointer size.\n",
+			logger.Printf("%-120s %s failed due to insufficient pointer size.\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("sysctl"),
 			)
@@ -66,7 +66,7 @@ func libKernel_ctl_kern_proc(mib []uint32, namePtr uintptr, nameLen uint32, oldP
 		binary.LittleEndian.PutUint32(oldSlice, mib[3])
 		binary.LittleEndian.PutUint64(oldLenSlice, uint64(requiredSize))
 
-		fmt.Printf("%-120s %s requested app info for process %s (oldPtr=%s).\n",
+		logger.Printf("%-120s %s requested app info for process %s (oldPtr=%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sysctl"),
 			color.Yellow.Sprintf("0x%X", mib[3]),
@@ -76,7 +76,7 @@ func libKernel_ctl_kern_proc(mib []uint32, namePtr uintptr, nameLen uint32, oldP
 	case KERN_PROC_PTC:
 		requiredSize := uintptr(16)
 		if providedSize < 8 {
-			fmt.Printf("%-120s %s failed due to insufficient pointer size.\n",
+			logger.Printf("%-120s %s failed due to insufficient pointer size.\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("sysctl"),
 			)
@@ -92,7 +92,7 @@ func libKernel_ctl_kern_proc(mib []uint32, namePtr uintptr, nameLen uint32, oldP
 		}
 		binary.LittleEndian.PutUint64(oldLenSlice, uint64(requiredSize))
 
-		fmt.Printf("%-120s %s requested process time counter %s with frequency %s (oldPtr=%s).\n",
+		logger.Printf("%-120s %s requested process time counter %s with frequency %s (oldPtr=%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sysctl"),
 			color.Green.Sprintf("%d", counter),
@@ -102,7 +102,7 @@ func libKernel_ctl_kern_proc(mib []uint32, namePtr uintptr, nameLen uint32, oldP
 		return 0
 	}
 
-	fmt.Printf("%-120s %s failed due to unknown OIDs %+v.\n",
+	logger.Printf("%-120s %s failed due to unknown OIDs %+v.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sysctl"),
 		mib,
@@ -119,7 +119,7 @@ func libKernel_ctl_kern_smp(mib []uint32, namePtr uintptr, nameLen uint32, oldPt
 
 	requiredSize := uintptr(4)
 	if providedSize < requiredSize {
-		fmt.Printf("%-120s %s failed due to insufficient pointer size.\n",
+		logger.Printf("%-120s %s failed due to insufficient pointer size.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sysctl"),
 		)
@@ -131,7 +131,7 @@ func libKernel_ctl_kern_smp(mib []uint32, namePtr uintptr, nameLen uint32, oldPt
 	binary.LittleEndian.PutUint32(oldSlice, uint32(cpus))
 	binary.LittleEndian.PutUint64(oldLenSlice, uint64(requiredSize))
 
-	fmt.Printf("%-120s %s requested number of cores %s (oldPtr=%s).\n",
+	logger.Printf("%-120s %s requested number of cores %s (oldPtr=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sysctl"),
 		color.Green.Sprintf("%d", cpus),
@@ -149,7 +149,7 @@ func libKernel_ctl_usrstack(mib []uint32, namePtr uintptr, nameLen uint32, oldPt
 
 	requiredSize := uintptr(8)
 	if providedSize < requiredSize {
-		fmt.Printf("%-120s %s failed due to insufficient pointer size.\n",
+		logger.Printf("%-120s %s failed due to insufficient pointer size.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sysctl"),
 		)
@@ -161,7 +161,7 @@ func libKernel_ctl_usrstack(mib []uint32, namePtr uintptr, nameLen uint32, oldPt
 	binary.LittleEndian.PutUint64(oldSlice, uint64(stackTop))
 	binary.LittleEndian.PutUint64(oldLenSlice, uint64(requiredSize))
 
-	fmt.Printf("%-120s %s requested stack top %s (oldPtr=%s).\n",
+	logger.Printf("%-120s %s requested stack top %s (oldPtr=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sysctl"),
 		color.Yellow.Sprintf("0x%X", stackTop),

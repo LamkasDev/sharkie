@@ -3,14 +3,13 @@
 package sys_struct
 
 import (
-	"fmt"
-
+	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
 )
 
 // PrintContext prints the given context.
 func PrintContext(ctx *CONTEXT) {
-	fmt.Println("Context:")
+	logger.Println("Context:")
 	PrintRegister("RAX", ctx.Rax)
 	PrintRegister("RBX", ctx.Rbx)
 	PrintRegister("RCX", ctx.Rcx)
@@ -27,7 +26,7 @@ func PrintContext(ctx *CONTEXT) {
 	PrintRegister("R13", ctx.R13)
 	PrintRegister("R14", ctx.R14)
 	PrintRegister("R15", ctx.R15)
-	fmt.Printf(
+	logger.Printf(
 		"  %42s = [%s = %s, %s = %s, %s = %s, %s = %s, %s = %s, %s = %s]\n",
 		color.Blue.Sprint("Segments"),
 		color.Blue.Sprint("CS"),
@@ -47,7 +46,7 @@ func PrintContext(ctx *CONTEXT) {
 
 // PrintRegister prints the given register and it's value.
 func PrintRegister(register string, value uint64) {
-	fmt.Printf(
+	logger.Printf(
 		"  %42s = %s (%s)\n",
 		color.Blue.Sprint(register),
 		color.Yellow.Sprintf("0x%016X", value),

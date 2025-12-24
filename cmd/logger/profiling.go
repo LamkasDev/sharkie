@@ -1,4 +1,4 @@
-package emu
+package logger
 
 import (
 	"os"
@@ -20,6 +20,12 @@ func StartProfiling() {
 }
 
 func StopProfiling() {
+	if ProfilerFile == nil {
+		return
+	}
 	pprof.StopCPUProfile()
-	ProfilerFile.Close()
+	if err := ProfilerFile.Close(); err != nil {
+		panic(err)
+	}
+	ProfilerFile = nil
 }

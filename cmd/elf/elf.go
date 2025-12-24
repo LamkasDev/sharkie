@@ -2,9 +2,9 @@ package elf
 
 import (
 	"encoding/binary"
-	"fmt"
 	"unsafe"
 
+	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/LamkasDev/sharkie/cmd/sys_struct"
 	"github.com/gookit/color"
 )
@@ -95,7 +95,7 @@ func NewElf(data []byte) *Elf {
 			e.ProcessParamSection = e.NewLoadSection(data, uint64(offset))
 			break
 		default:
-			color.Grayf("  Unhandled ELF section type %d.\n", pType)
+			logger.Print(color.Gray.Sprintf("  Unhandled ELF section type %d.\n", pType))
 			break
 		}
 	}
@@ -124,7 +124,7 @@ func NewElf(data []byte) *Elf {
 	// Allocate memory and load sections.
 	e.BaseAddress, _ = sys_struct.AllocExecututableMemory(uintptr(e.MemSize))
 	e.Memory = unsafe.Slice((*byte)(unsafe.Pointer(e.BaseAddress)), e.MemSize)
-	fmt.Printf(
+	logger.Printf(
 		"PT_LOAD data loaded into memory at %s (%s bytes).\n",
 		color.Yellow.Sprintf("0x%X", e.BaseAddress),
 		color.Gray.Sprintf("%d", len(e.Memory)),
@@ -158,7 +158,7 @@ func NewElf(data []byte) *Elf {
 					}
 				}
 
-				fmt.Printf("Resolved %s data via header (headerAddr=%s, dataAddr=%s, size=%s).\n",
+				logger.Printf("Resolved %s data via header (headerAddr=%s, dataAddr=%s, size=%s).\n",
 					color.Blue.Sprint(".eh_frame"),
 					color.Yellow.Sprintf("0x%X", headerAddr),
 					color.Yellow.Sprintf("0x%X", dataAddr),
@@ -166,14 +166,17 @@ func NewElf(data []byte) *Elf {
 				)
 				break
 			default:
-				color.Grayf("Unknown .eh_frame_hdr encoding 0x%X, assuming data follows header.\n", encoding)
+				logger.Print(color.Gray.Sprintf(
+					"Unknown .eh_frame_hdr encoding 0x%X, assuming data follows header.\n",
+					encoding,
+				))
 				e.ExceptionFrameDataAddress = headerAddr + uintptr(e.ExceptionFrameSection.PMemsz)
 				break
 			}
 		}
 	}
 
-	fmt.Printf(
+	logger.Printf(
 		"Loaded module with %s imports & %s exports.\n",
 		color.Yellow.Sprintf("%d", e.DynamicInfo.ImportLibrariesCount),
 		color.Yellow.Sprintf("%d", e.DynamicInfo.ExportLibrariesCount),

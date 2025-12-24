@@ -5,6 +5,7 @@ import (
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
+	"github.com/LamkasDev/sharkie/cmd/logger"
 	. "github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/gookit/color"
 )
@@ -34,7 +35,7 @@ func libSceLibcInternal__Mtxinit(mutexHandlePtr uintptr, nameSuffixPtr uintptr) 
 	destroyErr := libKernel_scePthreadMutexattrDestroy(attrHandlePtr)
 	if initErr == 0 {
 		// TODO: move print to libKernel_scePthreadMutexInit.
-		fmt.Printf("%-120s %s created mutex named %s.\n",
+		logger.Printf("%-120s %s created mutex named %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("_Mtxinit"),
 			color.Blue.Sprint(name),

@@ -1,10 +1,10 @@
 package lib
 
 import (
-	"fmt"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
+	"github.com/LamkasDev/sharkie/cmd/logger"
 	. "github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/gookit/color"
 )
@@ -24,7 +24,7 @@ func libKernel_sceKernelFstat(fd uintptr, statPtr uintptr) uintptr {
 // __int64 __fastcall fstat()
 func libKernel_fstat(fd uintptr, statPtr uintptr) uintptr {
 	if statPtr == 0 {
-		fmt.Printf("%-120s %s failed due to invalid stat pointer.\n",
+		logger.Printf("%-120s %s failed due to invalid stat pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("fstat"),
 		)
@@ -36,7 +36,7 @@ func libKernel_fstat(fd uintptr, statPtr uintptr) uintptr {
 
 	file, ok := GlobalFilesystem.Descriptors[FileDescriptor(fd)]
 	if !ok {
-		fmt.Printf("%-120s %s failed due to unknown file %s.\n",
+		logger.Printf("%-120s %s failed due to unknown file %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("fstat"),
 			color.Yellow.Sprintf("0x%X", fd),
@@ -46,7 +46,7 @@ func libKernel_fstat(fd uintptr, statPtr uintptr) uintptr {
 	}
 	fileStat, err := file.File.Stat()
 	if err != nil {
-		fmt.Printf("%-120s %s failed due to stat error on %s (%s).\n",
+		logger.Printf("%-120s %s failed due to stat error on %s (%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("fstat"),
 			color.Blue.Sprint(file.Path),
@@ -75,7 +75,7 @@ func libKernel_fstat(fd uintptr, statPtr uintptr) uintptr {
 	stat.ImplementationDetails = 0
 	stat.CreateTime = Timestamp{Seconds: 0, NanoSeconds: 0}
 
-	fmt.Printf("%-120s %s returned file stat for %s.\n",
+	logger.Printf("%-120s %s returned file stat for %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("fstat"),
 		color.Yellow.Sprintf("0x%X", file.Descriptor),

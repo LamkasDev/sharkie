@@ -1,9 +1,8 @@
 package lib
 
 import (
-	"fmt"
-
 	"github.com/LamkasDev/sharkie/cmd/emu"
+	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
 )
 
@@ -12,7 +11,7 @@ import (
 func libKernel_scePthreadGetthreadid() uintptr {
 	threadId := uintptr(emu.GlobalModuleManager.Tcb.Thread.ThreadId)
 
-	fmt.Printf("%-120s %s returned thread id %s.\n",
+	logger.Printf("%-120s %s returned thread id %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("scePthreadGetthreadid"),
 		color.Yellow.Sprintf("%d", threadId),

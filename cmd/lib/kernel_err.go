@@ -2,11 +2,10 @@ package lib
 
 import (
 	"encoding/binary"
-	"fmt"
-	"os"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
+	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
 )
 
@@ -40,7 +39,7 @@ func libKernel___error() uintptr {
 func libKernel_sceKernelError(err uintptr) uintptr {
 	if err != 0 {
 		err = err - 0x7FFE0000
-		fmt.Printf("%-120s %s returning %s.\n",
+		logger.Printf("%-120s %s returning %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceKernelError"),
 			color.Red.Sprintf("0x%X", err),
@@ -54,11 +53,12 @@ func libKernel_sceKernelError(err uintptr) uintptr {
 // 0x0000000000022D40
 // __int64 __fastcall sceKernelDebugRaiseException(__int64, __int64)
 func libKernel_sceKernelDebugRaiseException(err, argsPtr uintptr) uintptr {
-	fmt.Printf("%-120s %s called with %s, exiting...\n",
+	logger.Printf("%-120s %s called with %s, exiting...\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sceKernelDebugRaiseException"),
 		color.Red.Sprintf("0x%X", err),
 	)
-	os.Exit(1)
+	logger.CleanupAndExit()
+
 	return 0
 }

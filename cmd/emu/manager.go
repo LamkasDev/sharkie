@@ -8,6 +8,7 @@ import (
 
 	"github.com/LamkasDev/sharkie/cmd/asm"
 	"github.com/LamkasDev/sharkie/cmd/elf"
+	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/gookit/color"
 )
@@ -76,13 +77,13 @@ func GetModuleSections(module *elf.Elf) (*elf.ElfLoadSection, *elf.ElfLoadSectio
 		}
 	}
 	if textSection == nil && len(module.LoadSections) > 0 {
-		fmt.Printf("%-120s %s failed to find TEXT section.\n",
+		logger.Printf("%-120s %s failed to find TEXT section.\n",
 			GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("GetModuleSections"),
 		)
 	}
 	if dataSection == nil {
-		fmt.Printf("%-120s %s failed to find DATA section.\n",
+		logger.Printf("%-120s %s failed to find DATA section.\n",
 			GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("GetModuleSections"),
 		)

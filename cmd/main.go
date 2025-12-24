@@ -1,13 +1,14 @@
 package main
 
 import (
-	"fmt"
 	"runtime"
 
 	"github.com/LamkasDev/sharkie/cmd/asm"
 	"github.com/LamkasDev/sharkie/cmd/elf"
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	"github.com/LamkasDev/sharkie/cmd/lib"
+	"github.com/LamkasDev/sharkie/cmd/logger"
+	"github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/LamkasDev/sharkie/cmd/symbol"
 	"github.com/gookit/color"
 )
@@ -18,9 +19,10 @@ func main() {
 	// a thread-local exception handler.
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
-	emu.StartProfiling()
+	logger.StartLogging()
+	logger.StartProfiling()
 
-	fmt.Printf("hi from %s :3\n", color.Blue.Sprint("sharkie"))
+	logger.Printf("hi from %s :3\n", color.Blue.Sprint("sharkie"))
 	asm.ExceptionHandler = emu.ExceptionHandlerGo
 	elf.GetSymbolAddress = emu.GetSymbolAddress
 	elf.GetDefiningModule = emu.GetDefiningModule
@@ -28,6 +30,8 @@ func main() {
 	asm.InitStubAddr()
 	asm.SetupCooperativeGC()
 	emu.SetupSignalHandler()
+	structs.SetupFilesystem()
+	structs.SetupAllocator()
 
 	symbol.LoadSymbolMap("data/aerolib.csv")
 	lib.RegisterStubs()
@@ -36,5 +40,6 @@ func main() {
 		panic(err)
 	}
 	emu.GlobalModuleManager.RunModule("eboot.bin")
-	emu.StopProfiling()
+	logger.StopProfiling()
+	logger.StopLogging()
 }

@@ -1,19 +1,19 @@
 package structs
 
 import (
-	"fmt"
 	"sync"
 	"unsafe"
 
+	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
 	"github.com/langhuihui/gomem"
 )
 
 // GlobalAllocator should be used for explicit allocations (mmap, etc.)
-var GlobalAllocator = NewAllocator()
+var GlobalAllocator *Allocator
 
 // GlobalGoAllocator should be used for implicit allocations (inside init stubs, etc.)
-var GlobalGoAllocator = NewGoAllocator()
+var GlobalGoAllocator *GoAllocator
 
 const (
 	SCE_KERNEL_ERROR_ENOTSUP      = 0x80020001
@@ -74,6 +74,11 @@ type GoAllocator struct {
 	Allocator *gomem.ScalableMemoryAllocator
 }
 
+func SetupAllocator() {
+	GlobalAllocator = NewAllocator()
+	GlobalGoAllocator = NewGoAllocator()
+}
+
 // NewAllocator creates a new instance of Allocator.
 func NewAllocator() *Allocator {
 	var err error
@@ -87,7 +92,7 @@ func NewAllocator() *Allocator {
 		panic(err)
 	}
 	allocator.DirectMemoryCurrent = allocator.DirectMemoryBase
-	fmt.Printf(
+	logger.Printf(
 		"Reserved %s bytes for the global allocator at %s.\n",
 		color.Yellow.Sprintf("0x%X", allocator.DirectMemorySize),
 		color.Yellow.Sprintf("0x%X", allocator.DirectMemoryBase),

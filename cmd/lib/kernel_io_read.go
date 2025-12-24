@@ -1,10 +1,10 @@
 package lib
 
 import (
-	"fmt"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
+	"github.com/LamkasDev/sharkie/cmd/logger"
 	. "github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/gookit/color"
 )
@@ -38,7 +38,7 @@ func libKernel__read(fd uintptr, bufPtr uintptr, length uintptr) uintptr {
 
 func libKernel_sys_read(fd uintptr, bufPtr uintptr, length uintptr) uintptr {
 	if bufPtr == 0 {
-		fmt.Printf("%-120s %s failed due to invalid buffer pointer.\n",
+		logger.Printf("%-120s %s failed due to invalid buffer pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("_read"),
 		)
@@ -50,7 +50,7 @@ func libKernel_sys_read(fd uintptr, bufPtr uintptr, length uintptr) uintptr {
 
 	file, ok := GlobalFilesystem.Descriptors[FileDescriptor(fd)]
 	if !ok {
-		fmt.Printf("%-120s %s failed due to unknown file %s.\n",
+		logger.Printf("%-120s %s failed due to unknown file %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("_read"),
 			color.Yellow.Sprintf("0x%X", fd),
@@ -60,7 +60,7 @@ func libKernel_sys_read(fd uintptr, bufPtr uintptr, length uintptr) uintptr {
 	}
 	fileData, err := GlobalFilesystem.ReadFull(file.Path)
 	if err != nil {
-		fmt.Printf("%-120s %s failed due to read error on %s (%s).\n",
+		logger.Printf("%-120s %s failed due to read error on %s (%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("_read"),
 			color.Blue.Sprint(file.Path),
@@ -70,7 +70,7 @@ func libKernel_sys_read(fd uintptr, bufPtr uintptr, length uintptr) uintptr {
 		return ERR_PTR
 	}
 	if file.Cursor >= uintptr(len(fileData)) {
-		fmt.Printf("%-120s %s ignored read of %s bytes from file %s (cursor EOF).\n",
+		logger.Printf("%-120s %s ignored read of %s bytes from file %s (cursor EOF).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("_read"),
 			color.Yellow.Sprintf("0x%X", length),
@@ -88,7 +88,7 @@ func libKernel_sys_read(fd uintptr, bufPtr uintptr, length uintptr) uintptr {
 	copy(buffer, fileData[file.Cursor:file.Cursor+readBytes])
 	file.Cursor += readBytes
 
-	fmt.Printf("%-120s %s read %s bytes from file %s (length=%s).\n",
+	logger.Printf("%-120s %s read %s bytes from file %s (length=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("_read"),
 		color.Yellow.Sprintf("0x%X", readBytes),

@@ -10,6 +10,7 @@ import (
 	"strconv"
 
 	"github.com/LamkasDev/sharkie/cmd/elf"
+	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/LamkasDev/sharkie/cmd/sys_struct"
 	"github.com/bpfsnoop/gapstone"
 	"github.com/gookit/color"
@@ -59,7 +60,7 @@ func (p *Patcher) Patch(e *elf.Elf) error {
 	patchPath := filepath.Join(p.PatchesDirectory, fmt.Sprintf("%s.patch", e.Name))
 	if !p.ForceGenerate {
 		if _, err := os.Stat(patchPath); err != nil {
-			color.Gray.Printf("Didn't patch any instructions...\n")
+			logger.Print(color.Gray.Sprintf("Didn't patch any instructions...\n"))
 			return nil
 		}
 		return p.PatchFast(e, patchPath)
@@ -70,7 +71,7 @@ func (p *Patcher) Patch(e *elf.Elf) error {
 
 // PatchFast loads instruction offsets from a file and patches them.
 func (p *Patcher) PatchFast(e *elf.Elf, patchPath string) error {
-	fmt.Printf(
+	logger.Printf(
 		"Loading patches for %s from %s...\n",
 		color.Blue.Sprint(e.Name),
 		color.Blue.Sprint(patchPath),
@@ -91,7 +92,7 @@ func (p *Patcher) PatchFast(e *elf.Elf, patchPath string) error {
 
 		offset, err := strconv.ParseUint(offsetStr, 10, 64)
 		if err != nil {
-			color.Warn.Printf("Invalid offset in patch file %s.\n", offsetStr)
+			logger.Print(color.Warn.Sprintf("Invalid offset in patch file %s.\n", offsetStr))
 			continue
 		}
 
@@ -109,7 +110,7 @@ func (p *Patcher) PatchFast(e *elf.Elf, patchPath string) error {
 		p.CreateTcbAccessTrampoline(e, inst)
 	}
 
-	fmt.Printf(
+	logger.Printf(
 		"Patched %s instructions.\n",
 		color.Green.Sprintf("%d", patchCount),
 	)
@@ -118,7 +119,7 @@ func (p *Patcher) PatchFast(e *elf.Elf, patchPath string) error {
 
 // PatchSlow scans the entire binary, applies patches and saves the offsets to a file.
 func (p *Patcher) PatchSlow(e *elf.Elf, patchPath string) error {
-	fmt.Printf(
+	logger.Printf(
 		"Scanning %s for patches...\n",
 		color.Blue.Sprint(e.Name),
 	)
@@ -168,10 +169,10 @@ func (p *Patcher) PatchSlow(e *elf.Elf, patchPath string) error {
 	}
 
 	if len(patchOffsets) == 0 {
-		color.Gray.Printf("Didn't patch any instructions...\n")
+		logger.Print(color.Gray.Sprintf("Didn't patch any instructions...\n"))
 		return nil
 	}
-	fmt.Printf(
+	logger.Printf(
 		"Patched %s instructions.\n",
 		color.Green.Sprintf("%d", len(patchOffsets)),
 	)
@@ -189,7 +190,7 @@ func (p *Patcher) PatchSlow(e *elf.Elf, patchPath string) error {
 		file.WriteString(fmt.Sprintf("%d\n", offset))
 	}
 
-	fmt.Printf(
+	logger.Printf(
 		"Saved %s patches to %s.\n",
 		color.Green.Sprintf("%d", len(patchOffsets)),
 		color.Blue.Sprint(patchPath),

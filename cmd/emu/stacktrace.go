@@ -1,11 +1,11 @@
 package emu
 
 import (
-	"fmt"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/asm"
 	"github.com/LamkasDev/sharkie/cmd/elf"
+	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
 )
 
@@ -34,7 +34,7 @@ func SafeReadUint64(address uintptr) (uint64, bool) {
 func PrintAddress(address uintptr) {
 	hashIndex, ok := asm.StubsMap[address]
 	if ok {
-		fmt.Printf(
+		logger.Printf(
 			"  %42s (%s)\n",
 			color.Blue.Sprintf("%s:%s", asm.Stubs[hashIndex].LibraryName, asm.Stubs[hashIndex].SymbolName),
 			color.Yellow.Sprintf("0x%X", address),
@@ -43,13 +43,13 @@ func PrintAddress(address uintptr) {
 
 	module := GetModuleAtAddress(address)
 	if module != nil {
-		fmt.Printf(
+		logger.Printf(
 			"  %42s (relative %s)\n",
 			color.Blue.Sprint(module.Name),
 			color.Yellow.Sprintf("0x%X", address-module.BaseAddress),
 		)
 	} else {
-		fmt.Printf(
+		logger.Printf(
 			"  %42s\n",
 			color.Yellow.Sprintf("0x%X", address),
 		)

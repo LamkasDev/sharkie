@@ -3,13 +3,14 @@ package emu
 import (
 	"github.com/LamkasDev/sharkie/cmd/asm"
 	"github.com/LamkasDev/sharkie/cmd/elf"
+	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
 )
 
 // GetSymbolAddress returns the symbol address for given symbol.
 func GetSymbolAddress(s *elf.ElfSymbol) (uint64, bool) {
 	if stub, ok := asm.Stubs[s.HashIndex]; ok {
-		/* fmt.Printf(
+		/* logger.Printf(
 			"Found stubbed symbol %s at %s.\n",
 			color.Blue.Sprint(fullName),
 			color.Yellow.Sprintf("0x%X", stub.Address),
@@ -38,7 +39,7 @@ func GetSymbolAddress(s *elf.ElfSymbol) (uint64, bool) {
 			return address, true
 		}
 	}
-	// fmt.Printf("Failed search for symbol %s.\n", color.Red.Sprint(fullName))
+	// logger.Printf("Failed search for symbol %s.\n", color.Red.Sprint(fullName))
 
 	return 0, false
 }
@@ -81,16 +82,18 @@ func TryGetSymbolAddress(s *elf.ElfSymbol, module *elf.Elf) (uint64, bool) {
 					symbol.OriginalName[:len(symbol.OriginalName)-4] != s.OriginalName[:len(s.OriginalName)-4] {
 					continue
 				}
-				color.Gray.Printf(
+				logger.Print(color.Gray.Sprintf(
 					"  Resolving symbol %s:%s for %s:%s in module %s at 0x%X.\n",
-					symbol.LibraryName, symbol.ReadableName,
-					s.LibraryName, s.ReadableName,
+					symbol.LibraryName,
+					symbol.ReadableName,
+					s.LibraryName,
+					s.ReadableName,
 					module.Name,
 					module.BaseAddress+uintptr(symbol.Address),
-				)
+				))
 			}
 
-			/* fmt.Printf(
+			/* logger.Printf(
 				"Found symbol %s in module %s at %s.\n",
 				color.Blue.Sprintf("%s:%s", symbol.LibraryName, symbol.ReadableName),
 				color.Blue.Sprint(module.Name),

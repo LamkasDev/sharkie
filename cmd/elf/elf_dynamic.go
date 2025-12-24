@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 
+	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
 )
 
@@ -217,7 +218,7 @@ func (e *Elf) NewDynamicSection(data []byte, dynOffset, dynSize uint64) *ElfDyna
 			break
 		case DT_PLTREL, DT_SCE_PLTREL:
 			if value != DT_RELA {
-				color.Grayf("  DT_SCE_PLTREL doesn't match DT_RELA!\n")
+				logger.Print(color.Gray.Sprintf("  DT_SCE_PLTREL doesn't match DT_RELA!\n"))
 			}
 			break
 		case DT_SYMTAB, DT_SCE_SYMTAB:

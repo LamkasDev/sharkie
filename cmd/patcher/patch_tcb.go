@@ -2,10 +2,10 @@ package patcher
 
 import (
 	"encoding/binary"
-	"fmt"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/elf"
+	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/LamkasDev/sharkie/cmd/sys_struct"
 	"github.com/bpfsnoop/gapstone"
 	"github.com/gookit/color"
@@ -27,7 +27,7 @@ func (p *Patcher) FilterTcbAccess(instruction gapstone.Instruction) int {
 		return TcbAccessNoPatch
 	}
 	if len(instruction.Bytes) < 5 {
-		fmt.Printf(
+		logger.Printf(
 			"Failed to patch %s-byte TCB access.\n",
 			color.Red.Sprintf("%d", len(instruction.Bytes)),
 		)
@@ -37,10 +37,11 @@ func (p *Patcher) FilterTcbAccess(instruction gapstone.Instruction) int {
 	// Only patch if displacement is 0, otherwise use a trampoline.
 	if op.Mem.Disp != 0 {
 		if op.Mem.Disp != 0x10 {
-			color.Grayf(
+			logger.Print(color.Gray.Sprintf(
 				"Unknown displacement 0x%X for TCB access at 0x%X, skipping...\n",
-				op.Mem.Disp, instruction.Address,
-			)
+				op.Mem.Disp,
+				instruction.Address,
+			))
 			return TcbAccessNoPatch
 		}
 		return TcbAccessTrampoline
@@ -60,7 +61,7 @@ func (p *Patcher) PatchTcbAccess(instruction gapstone.Instruction, instructionBy
 		}
 	}
 	if prefixOffset == -1 {
-		fmt.Printf(
+		logger.Printf(
 			"Failed to find %s prefix for TCB access.\n",
 			color.Red.Sprint("FS"),
 		)
@@ -79,7 +80,7 @@ func (p *Patcher) PatchTcbAccess(instruction gapstone.Instruction, instructionBy
 		binary.LittleEndian.PutUint32(instructionBytes[displacementOffset:], newDisplacement)
 	}
 
-	/* fmt.Printf(
+	/* logger.Printf(
 		"Patched fs TCB access at %s.\n",
 		color.Yellow.Sprintf("0x%X", instruction.Address),
 	) */
@@ -127,7 +128,7 @@ func (p *Patcher) CreateTcbAccessTrampoline(e *elf.Elf, instruction gapstone.Ins
 	binary.LittleEndian.PutUint32(patch[1:], uint32(rel32Jump))
 	copy(e.Memory[instruction.Address:], patch)
 
-	/* fmt.Printf(
+	/* logger.Printf(
 		"Patched fs:%s TCB access at %s (trampolined to %s).\n",
 		color.Yellow.Sprintf("0x%X", displacement),
 		color.Yellow.Sprintf("0x%X", instruction.Address),

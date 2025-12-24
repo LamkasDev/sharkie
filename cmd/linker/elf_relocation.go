@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/LamkasDev/sharkie/cmd/elf"
+	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
 )
 
@@ -20,7 +21,7 @@ func ProcessRelocationTable(e *elf.Elf, table *elf.ElfRelocationTable, tableName
 		return
 	}
 
-	fmt.Printf(
+	logger.Printf(
 		"Processing %s relocation section (%s entries)...\n",
 		color.Blue.Sprint(tableName),
 		color.Gray.Sprintf("%d", len(table.Relocations)),
@@ -63,13 +64,13 @@ func ProcessRelocationTable(e *elf.Elf, table *elf.ElfRelocationTable, tableName
 				elf.FakeAddressMap[elf.FakeAddress] = fmt.Sprintf("%s:%s", symbol.LibraryName, symbol.ReadableName)
 				newAddr := elf.FakeAddress + uint64(r.Addend)
 				if r.Addend != 0 {
-					color.Grayf("  Unhandled addend %d.\n", r.Addend)
+					logger.Print(color.Gray.Sprintf("  Unhandled addend %d.\n", r.Addend))
 				}
 				if r.Offset+8 <= uint64(len(e.Memory)) {
 					binary.LittleEndian.PutUint64(e.Memory[r.Offset:], newAddr)
 					externalCount++
 				}
-				color.Grayf("  Added fake address for %s:%s.\n", symbol.LibraryName, symbol.ReadableName)
+				logger.Print(color.Gray.Sprintf("  Added fake address for %s:%s.\n", symbol.LibraryName, symbol.ReadableName))
 				elf.FakeAddress += 8
 			}
 			break
@@ -84,7 +85,11 @@ func ProcessRelocationTable(e *elf.Elf, table *elf.ElfRelocationTable, tableName
 				if module := elf.GetDefiningModule(symbol); module != nil {
 					moduleIndex = module.ModuleIndex
 				} else {
-					color.Grayf("  Failed finding defining module for %s:%s.\n", symbol.LibraryName, symbol.ReadableName)
+					logger.Print(color.Gray.Sprintf(
+						"  Failed finding defining module for %s:%s.\n",
+						symbol.LibraryName,
+						symbol.ReadableName,
+					))
 				}
 			}
 			if r.Offset+8 <= uint64(len(e.Memory)) {
@@ -105,11 +110,14 @@ func ProcessRelocationTable(e *elf.Elf, table *elf.ElfRelocationTable, tableName
 			}
 			break
 		default:
-			color.Grayf("  Unhandled relocation type %d.\n", r.Type)
+			logger.Print(color.Gray.Sprintf(
+				"  Unhandled relocation type %d.\n",
+				r.Type,
+			))
 			break
 		}
 	}
-	fmt.Printf(
+	logger.Printf(
 		"  Applied %s relative & %s external relocations.\n",
 		color.Yellow.Sprintf("%d", relativeCount),
 		color.Yellow.Sprintf("%d", externalCount),

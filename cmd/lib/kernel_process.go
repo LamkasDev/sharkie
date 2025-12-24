@@ -1,9 +1,8 @@
 package lib
 
 import (
-	"fmt"
-
 	"github.com/LamkasDev/sharkie/cmd/emu"
+	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
 )
 
@@ -11,7 +10,7 @@ import (
 // __int64 __fastcall getpid()
 func libKernel_getpid() uintptr {
 	processId := uintptr(1001)
-	fmt.Printf("%-120s %s returned process id %s.\n",
+	logger.Printf("%-120s %s returned process id %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("getpid"),
 		color.Green.Sprintf("%d", processId),
@@ -24,7 +23,7 @@ func libKernel_getpid() uintptr {
 // __int64 __fastcall sceKernelGetProcessType()
 func libKernel_sceKernelGetProcessType() uintptr {
 	processType := uintptr(1)
-	fmt.Printf("%-120s %s returned process type %s.\n",
+	logger.Printf("%-120s %s returned process type %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sceKernelGetProcessType"),
 		color.Blue.Sprintf("0x%X", processType),
@@ -39,7 +38,7 @@ func libKernel_sceKernelGetProcParam() uintptr {
 	module := emu.GlobalModuleManager.CurrentModule
 	if module.ProcessParamSection != nil {
 		addr := module.BaseAddress + uintptr(module.ProcessParamSection.PVaddr)
-		fmt.Printf("%-120s %s returning process parameters %s (relative=%s).\n",
+		logger.Printf("%-120s %s returning process parameters %s (relative=%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceKernelGetProcParam"),
 			color.Yellow.Sprintf("0x%X", addr),
@@ -48,7 +47,7 @@ func libKernel_sceKernelGetProcParam() uintptr {
 		return addr
 	}
 
-	fmt.Printf("%-120s %s failed to return process parameters.\n",
+	logger.Printf("%-120s %s failed to return process parameters.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sceKernelGetProcParam"),
 	)

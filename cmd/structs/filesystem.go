@@ -8,11 +8,12 @@ import (
 	"path/filepath"
 	"sync"
 
+	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
 	"github.com/psanford/memfs"
 )
 
-var GlobalFilesystem = NewFilesystem()
+var GlobalFilesystem *SharkieFilesystem
 
 var FileDescriptorColors = map[string]color.Color{
 	"stdin":          color.White,
@@ -106,6 +107,10 @@ func (shFs *SharkieFilesystem) Delete(path string) error {
 	return nil
 }
 
+func SetupFilesystem() {
+	GlobalFilesystem = NewFilesystem()
+}
+
 func NewFilesystem() *SharkieFilesystem {
 	shFs := &SharkieFilesystem{
 		Files:          map[string]*SharkieFile{},
@@ -186,7 +191,7 @@ func (shFs *SharkieFilesystem) InitializeAppFiles() error {
 		if err != nil {
 			return err
 		}
-		fmt.Printf(
+		logger.Printf(
 			"Loaded file %s as %s.\n",
 			color.Blue.Sprint(path),
 			color.Blue.Sprint(fsPath),

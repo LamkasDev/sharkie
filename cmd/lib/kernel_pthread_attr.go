@@ -2,10 +2,10 @@ package lib
 
 import (
 	"encoding/binary"
-	"fmt"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
+	"github.com/LamkasDev/sharkie/cmd/logger"
 	. "github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/gookit/color"
 )
@@ -27,7 +27,7 @@ func libKernel_scePthreadAttrGet(threadPtr uintptr, attrHandlePtr uintptr) uintp
 	// Resolve the handle.
 	attr, err := ResolveHandle[PthreadAttr](attrHandlePtr)
 	if err != 0 {
-		fmt.Printf("%-120s %s failed due to invalid attribute pointer.\n",
+		logger.Printf("%-120s %s failed due to invalid attribute pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("scePthreadAttrGet"),
 		)
@@ -38,7 +38,7 @@ func libKernel_scePthreadAttrGet(threadPtr uintptr, attrHandlePtr uintptr) uintp
 	attr.StackSize = StackDefaultSize
 	attr.GuardSize = GuardPageSize
 
-	fmt.Printf("%-120s %s assigned thread attributes (threadPtr=%s, attrHandlePtr=%s).\n",
+	logger.Printf("%-120s %s assigned thread attributes (threadPtr=%s, attrHandlePtr=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("scePthreadAttrGet"),
 		color.Yellow.Sprintf("0x%X", threadPtr),
@@ -60,7 +60,7 @@ func libKernel_scePthreadAttrGetstack(attrPtr uintptr, addrPtr uintptr, sizePtr 
 		binary.LittleEndian.PutUint64(sizeSlice, uint64(StackDefaultSize))
 	}
 
-	fmt.Printf("%-120s %s returned thread attributes (attrPtr=%s, addrPtr=%s, sizePtr=%s).\n",
+	logger.Printf("%-120s %s returned thread attributes (attrPtr=%s, addrPtr=%s, sizePtr=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("scePthreadAttrGetstack"),
 		color.Yellow.Sprintf("0x%X", attrPtr),
@@ -74,7 +74,7 @@ func libKernel_scePthreadAttrGetstack(attrPtr uintptr, addrPtr uintptr, sizePtr 
 // __int64 __fastcall scePthreadAttrGetaffinity(__int64, _QWORD *)
 func libKernel_scePthreadAttrGetaffinity(attrPtr uintptr, cpuSetSize uintptr, cpuSetPtr uintptr) uintptr {
 	if cpuSetPtr == 0 {
-		fmt.Printf("%-120s %s failed due to invalid cpu set pointer.\n",
+		logger.Printf("%-120s %s failed due to invalid cpu set pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("scePthreadAttrGetaffinity"),
 		)
@@ -90,7 +90,7 @@ func libKernel_scePthreadAttrGetaffinity(attrPtr uintptr, cpuSetSize uintptr, cp
 		cpuSet[i] = 0xFF
 	}
 
-	fmt.Printf("%-120s %s returned thread affinity (attrPtr=%s, cpuSetSize=%s, cpuSetPtr=%s).\n",
+	logger.Printf("%-120s %s returned thread affinity (attrPtr=%s, cpuSetSize=%s, cpuSetPtr=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("scePthreadAttrGetaffinity"),
 		color.Yellow.Sprintf("0x%X", attrPtr),

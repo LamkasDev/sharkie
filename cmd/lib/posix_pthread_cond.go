@@ -2,10 +2,10 @@ package lib
 
 import (
 	"encoding/binary"
-	"fmt"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
+	"github.com/LamkasDev/sharkie/cmd/logger"
 	. "github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/gookit/color"
 )
@@ -27,7 +27,7 @@ func libKernel_pthread_cond_init(condHandlePtr, attrHandlePtr uintptr) uintptr {
 	condHandlePtrSlice := unsafe.Slice((*byte)(unsafe.Pointer(condHandlePtr)), 8)
 	binary.LittleEndian.PutUint64(condHandlePtrSlice, uint64(condAddr))
 
-	fmt.Printf("%-120s %s created cond at %s.\n",
+	logger.Printf("%-120s %s created cond at %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("pthread_cond_init"),
 		color.Yellow.Sprintf("0x%X", condAddr),
@@ -50,7 +50,7 @@ func libKernel_initStaticCond(condHandlePtr uintptr) uintptr {
 	condHandlePtrSlice := unsafe.Slice((*byte)(unsafe.Pointer(uintptr(condHandlePtr))), 8)
 	binary.LittleEndian.PutUint64(condHandlePtrSlice, uint64(condAddr))
 
-	fmt.Printf("%-120s %s created cond at %s.\n",
+	logger.Printf("%-120s %s created cond at %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("libKernel_initStaticCond"),
 		color.Yellow.Sprintf("0x%X", condAddr),
@@ -64,7 +64,7 @@ func libKernel_pthread_cond_destroy(condHandlePtr uintptr) uintptr {
 	// Resolve the handle.
 	cond, err := ResolveHandle[PthreadCond](condHandlePtr)
 	if err != 0 {
-		fmt.Printf("%-120s %s failed due to invalid cond pointer.\n",
+		logger.Printf("%-120s %s failed due to invalid cond pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("pthread_cond_destroy"),
 		)
@@ -74,14 +74,14 @@ func libKernel_pthread_cond_destroy(condHandlePtr uintptr) uintptr {
 	// Free the memory.
 	condAddr := uintptr(unsafe.Pointer(cond))
 	if !GlobalGoAllocator.Free(condAddr, PthreadCondSize) {
-		fmt.Printf("%-120s %s failed freeing untracked pointer.\n",
+		logger.Printf("%-120s %s failed freeing untracked pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("pthread_cond_destroy"),
 		)
 		return EFAULT
 	}
 
-	fmt.Printf("%-120s %s destroyed cond %s.\n",
+	logger.Printf("%-120s %s destroyed cond %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("pthread_cond_destroy"),
 		color.Yellow.Sprintf("0x%X", condAddr),
@@ -109,7 +109,7 @@ func libKernel_pthread_cond_broadcast(condHandlePtr uintptr) uintptr {
 	hostCond := GetCond(condAddr)
 	hostCond.Broadcast()
 
-	fmt.Printf("%-120s %s broadcasted cond %s.\n",
+	logger.Printf("%-120s %s broadcasted cond %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("pthread_cond_broadcast"),
 		color.Yellow.Sprintf("0x%X", condAddr),
@@ -137,7 +137,7 @@ func libKernel_pthread_cond_signal(condHandlePtr uintptr) uintptr {
 	hostCond := GetCond(condAddr)
 	hostCond.Signal()
 
-	fmt.Printf("%-120s %s signaled cond %s.\n",
+	logger.Printf("%-120s %s signaled cond %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("pthread_cond_signal"),
 		color.Yellow.Sprintf("0x%X", condAddr),
@@ -165,7 +165,7 @@ func libKernel_pthread_cond_wait(condHandlePtr uintptr) uintptr {
 	hostCond := GetCond(condAddr)
 	hostCond.Wait()
 
-	fmt.Printf("%-120s %s waited on cond %s.\n",
+	logger.Printf("%-120s %s waited on cond %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("pthread_cond_signal"),
 		color.Yellow.Sprintf("0x%X", condAddr),

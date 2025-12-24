@@ -1,10 +1,10 @@
 package lib
 
 import (
-	"fmt"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
+	"github.com/LamkasDev/sharkie/cmd/logger"
 	. "github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/gookit/color"
 )
@@ -12,7 +12,7 @@ import (
 // 0x0000000000028E70
 // __int64 __fastcall malloc_init(__int64)
 func libSceLibcInternal__malloc_init() uintptr {
-	fmt.Printf("%-120s %s initialized allocator.\n",
+	logger.Printf("%-120s %s initialized allocator.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("_malloc_init"),
 	)
@@ -49,7 +49,7 @@ func libSceLibcInternal_calloc(nmemb, size uintptr) uintptr {
 // __int64 __fastcall free(_QWORD)
 func libSceLibcInternal_free(ptr uintptr) {
 	if ptr == 0 {
-		fmt.Printf("%-120s %s failed due to invalid pointer %s.\n",
+		logger.Printf("%-120s %s failed due to invalid pointer %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("free"),
 			color.Yellow.Sprintf("0x%X", ptr),
@@ -61,7 +61,7 @@ func libSceLibcInternal_free(ptr uintptr) {
 	defer GlobalAllocator.Lock.Unlock()
 	size, ok := GlobalAllocator.Allocations[ptr]
 	if !ok {
-		fmt.Printf("%-120s %s failed freeing untracked pointer %s.\n",
+		logger.Printf("%-120s %s failed freeing untracked pointer %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("free"),
 			color.Yellow.Sprintf("0x%X", ptr),
@@ -74,7 +74,7 @@ func libSceLibcInternal_free(ptr uintptr) {
 	}
 
 	delete(GlobalAllocator.Allocations, ptr)
-	fmt.Printf("%-120s %s freed %s bytes at %s.\n",
+	logger.Printf("%-120s %s freed %s bytes at %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("free"),
 		color.Yellow.Sprintf("0x%X", size),
@@ -97,7 +97,7 @@ func libSceLibcInternal_realloc(ptr, newSize uintptr) uintptr {
 	defer GlobalAllocator.Lock.Unlock()
 	oldSize, ok := GlobalAllocator.Allocations[ptr]
 	if !ok {
-		fmt.Printf("%-120s %s failed reallocating untracked pointer %s.\n",
+		logger.Printf("%-120s %s failed reallocating untracked pointer %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("realloc"),
 			color.Yellow.Sprintf("0x%X", ptr),
@@ -119,7 +119,7 @@ func libSceLibcInternal_realloc(ptr, newSize uintptr) uintptr {
 		unsafe.Slice((*byte)(unsafe.Pointer(ptr)), copySize),
 	)
 
-	fmt.Printf("%-120s %s reallocated %s bytes from %s to %s.\n",
+	logger.Printf("%-120s %s reallocated %s bytes from %s to %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("realloc"),
 		color.Yellow.Sprintf("0x%X", copySize),
@@ -171,7 +171,7 @@ func libSceLibcInternal_sceLibcMspaceDestroy() uintptr {
 func libSceLibcInternal_sceLibcMspaceMemalign(mspace, alignment, size uintptr) uintptr {
 	// TODO: handle actual alignment
 	if alignment > 4096 {
-		fmt.Printf("%-120s %s ignored allocation alignment (wanted=%s, got=%s).\n",
+		logger.Printf("%-120s %s ignored allocation alignment (wanted=%s, got=%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceLibcMspaceMemalign"),
 			color.Yellow.Sprintf("0x%X", alignment),
@@ -185,7 +185,7 @@ func libSceLibcInternal_sceLibcMspaceMemalign(mspace, alignment, size uintptr) u
 // _BOOL8 __fastcall sceLibcMspaceIsHeapEmpty(__int64, __int64, __int64)
 func libSceLibcInternal_sceLibcMspaceIsHeapEmpty(mspace, heapPtr uintptr) uintptr {
 	isEmpty := uintptr(0)
-	fmt.Printf("%-120s %s returning %s.\n",
+	logger.Printf("%-120s %s returning %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sceLibcMspaceIsHeapEmpty"),
 		color.Yellow.Sprintf("0x%X", isEmpty),

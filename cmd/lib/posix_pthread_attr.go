@@ -2,10 +2,10 @@ package lib
 
 import (
 	"encoding/binary"
-	"fmt"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
+	"github.com/LamkasDev/sharkie/cmd/logger"
 	. "github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/gookit/color"
 )
@@ -30,7 +30,7 @@ func libKernel_pthread_attr_init(attrHandlePtr uintptr) uintptr {
 	attrHandlePtrSlice := unsafe.Slice((*byte)(unsafe.Pointer(attrHandlePtr)), 8)
 	binary.LittleEndian.PutUint64(attrHandlePtrSlice, uint64(attrAddr))
 
-	fmt.Printf("%-120s %s created attribute at %s.\n",
+	logger.Printf("%-120s %s created attribute at %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("pthread_attr_init"),
 		color.Yellow.Sprintf("0x%X", attrAddr),
