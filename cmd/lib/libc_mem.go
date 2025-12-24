@@ -1,5 +1,11 @@
 package lib
 
+// 0x0000000000027A00
+// __int64 malloc_init(void)
+func libc__malloc_init() uintptr {
+	return libSceLibcInternal__malloc_init()
+}
+
 // 0x0000000000027950
 // __int64 malloc()
 func libc_malloc(size uintptr) uintptr {
@@ -64,4 +70,10 @@ func libc_sceLibcMspaceDestroy() uintptr {
 // __int64 __fastcall sceLibcMspaceMemalign(__int64, __int64, __int64)
 func libc_sceLibcMspaceMemalign(mspace, alignment, size uintptr) uintptr {
 	return libSceLibcInternal_sceLibcMspaceMemalign(mspace, alignment, size)
+}
+
+// 0x00000000000314C0
+// _BOOL8 __fastcall sceLibcMspaceIsHeapEmpty(__int64, __int64, __int64)
+func libc_sceLibcMspaceIsHeapEmpty(mspace, heapPtr uintptr) uintptr {
+	return libSceLibcInternal_sceLibcMspaceIsHeapEmpty(mspace, heapPtr)
 }

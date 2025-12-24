@@ -4,6 +4,7 @@ import "github.com/LamkasDev/sharkie/cmd/elf"
 
 func RegisterLibcStubs() {
 	// Memory functions.
+	elf.RegisterStub("libc", "_malloc_init", libc__malloc_init)
 	elf.RegisterStub("libc", "malloc", libc_malloc)
 	elf.RegisterStub("libc", "calloc", libc_calloc)
 	elf.RegisterStub("libc", "free", libc_free)
@@ -15,6 +16,7 @@ func RegisterLibcStubs() {
 	elf.RegisterStub("libc", "sceLibcMspaceMemalign", libc_sceLibcMspaceMemalign)
 	elf.RegisterStub("libc", "sceLibcMspaceCreate", libc_sceLibcMspaceCreate)
 	elf.RegisterStub("libc", "sceLibcMspaceDestroy", libc_sceLibcMspaceDestroy)
+	elf.RegisterStub("libc", "sceLibcMspaceIsHeapEmpty", libc_sceLibcMspaceIsHeapEmpty)
 
 	// CXA guard functions.
 	elf.RegisterStub("libc", "__cxa_guard_release", libLibc___cxa_guard_release)

@@ -41,10 +41,12 @@ var MemoryTypeNames = map[uintptr]string{
 }
 
 const (
-	PROT_NONE  = 0x0
-	PROT_READ  = 0x1
-	PROT_WRITE = 0x2
-	PROT_EXEC  = 0x4
+	PROT_NONE      = 0x0
+	PROT_READ      = 0x1
+	PROT_WRITE     = 0x2
+	PROT_EXEC      = 0x4
+	PROT_GPU_READ  = 0x10
+	PROT_GPU_WRITE = 0x20
 )
 
 const (
@@ -80,7 +82,7 @@ func NewAllocator() *Allocator {
 		Allocations:      map[uintptr]uintptr{},
 		Lock:             sync.Mutex{},
 	}
-	allocator.DirectMemoryBase, err = ReserveKernelMemory(0, allocator.DirectMemorySize)
+	allocator.DirectMemoryBase, err = ReserveKernelMemory(0x400000000, allocator.DirectMemorySize)
 	if allocator.DirectMemoryBase == 0 {
 		panic(err)
 	}

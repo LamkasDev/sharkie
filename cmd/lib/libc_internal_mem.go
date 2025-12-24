@@ -9,6 +9,16 @@ import (
 	"github.com/gookit/color"
 )
 
+// 0x0000000000028E70
+// __int64 __fastcall malloc_init(__int64)
+func libSceLibcInternal__malloc_init() uintptr {
+	fmt.Printf("%-120s %s initialized allocator.\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("_malloc_init"),
+	)
+	return 0
+}
+
 // 0x0000000000028D60
 // __int64 malloc()
 func libSceLibcInternal_malloc(size uintptr) uintptr {
@@ -169,4 +179,22 @@ func libSceLibcInternal_sceLibcMspaceMemalign(mspace, alignment, size uintptr) u
 		)
 	}
 	return libSceLibcInternal_malloc(size)
+}
+
+// 0x0000000000034890
+// _BOOL8 __fastcall sceLibcMspaceIsHeapEmpty(__int64, __int64, __int64)
+func libSceLibcInternal_sceLibcMspaceIsHeapEmpty(mspace, heapPtr uintptr) uintptr {
+	isEmpty := uintptr(0)
+	fmt.Printf("%-120s %s returning %s.\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("sceLibcMspaceIsHeapEmpty"),
+		color.Yellow.Sprintf("0x%X", isEmpty),
+	)
+	return isEmpty
+}
+
+// 0x0000000000035610
+// _BOOL8 __fastcall sceLibcPafMspaceIsHeapEmpty(__int64, __int64, __int64)
+func libSceLibcInternal_sceLibcPafMspaceIsHeapEmpty(mspace, heapPtr uintptr) uintptr {
+	return libSceLibcInternal_sceLibcMspaceIsHeapEmpty(mspace, heapPtr)
 }

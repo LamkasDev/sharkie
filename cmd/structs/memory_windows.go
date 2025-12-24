@@ -14,13 +14,11 @@ func MemoryProtToWindowsProt(prot uintptr) uintptr {
 	isExec := (prot & PROT_EXEC) != 0
 
 	switch {
-	case isExec && isRead && isWrite:
+	case isExec && isWrite:
 		return windows.PAGE_EXECUTE_READWRITE
-	case isExec && isRead:
-		return windows.PAGE_EXECUTE_READ
 	case isExec:
-		return windows.PAGE_EXECUTE
-	case isRead && isWrite:
+		return windows.PAGE_EXECUTE_READ
+	case isWrite:
 		return windows.PAGE_READWRITE
 	case isRead:
 		return windows.PAGE_READONLY
@@ -44,11 +42,12 @@ func ReserveKernelMemory(addr, length uintptr) (uintptr, error) {
 }
 
 func AllocKernelMemory(addr, length, prot, flags uintptr) (uintptr, error) {
-	allocationType := uintptr(windows.MEM_RESERVE | windows.MEM_COMMIT)
-	if addr != 0 &&
+	allocationType := uintptr(windows.MEM_COMMIT)
+	isDirectMemory := addr != 0 &&
 		addr >= GlobalAllocator.DirectMemoryBase &&
-		addr < GlobalAllocator.DirectMemoryBase+GlobalAllocator.DirectMemorySize {
-		allocationType = windows.MEM_COMMIT
+		addr < GlobalAllocator.DirectMemoryBase+GlobalAllocator.DirectMemorySize
+	if !isDirectMemory {
+		allocationType |= windows.MEM_RESERVE
 	}
 	allocatedAddr, _, err := sys_struct.VirtualAlloc.Call(
 		addr,

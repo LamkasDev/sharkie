@@ -94,12 +94,15 @@ func libKernel_sys_sceKernelMapDirectMemory(addrPtr, length, prot, flags, offset
 		return ERR_PTR
 	}
 
-	fmt.Printf("%-120s %s mapped %s bytes at %s. (addrPtr=%s)\n",
+	fmt.Printf("%-120s %s mapped %s bytes at %s (addrPtr=%s, prot=%s, flags=%s, alignment=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sceKernelMapDirectMemory"),
 		color.Yellow.Sprintf("0x%X", length),
 		color.Yellow.Sprintf("0x%X", offset),
 		color.Yellow.Sprintf("0x%X", addrPtr),
+		color.Yellow.Sprintf("0x%X", prot),
+		color.Yellow.Sprintf("0x%X", flags),
+		color.Yellow.Sprintf("0x%X", alignment),
 	)
 	return 0
 }
