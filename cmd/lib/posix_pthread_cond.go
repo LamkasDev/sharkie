@@ -7,14 +7,13 @@ import (
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	. "github.com/LamkasDev/sharkie/cmd/structs"
-	"github.com/LamkasDev/sharkie/cmd/sys_struct"
 	"github.com/gookit/color"
 )
 
 // 0x0000000000004CA0
 // __int64 __fastcall pthread_cond_init(_QWORD *, _DWORD **)
 func libKernel_pthread_cond_init(condHandlePtr, attrHandlePtr uintptr) uintptr {
-	condAddr, _ := sys_struct.AllocReadWriteMemory(unsafe.Sizeof(PthreadCond{}))
+	condAddr := GlobalGoAllocator.Malloc(PthreadCondSize)
 	if condAddr == 0 {
 		return ENOMEM
 	}
@@ -27,17 +26,17 @@ func libKernel_pthread_cond_init(condHandlePtr, attrHandlePtr uintptr) uintptr {
 	// Copy the pointer back to condHandlePtr.
 	condHandlePtrSlice := unsafe.Slice((*byte)(unsafe.Pointer(condHandlePtr)), 8)
 	binary.LittleEndian.PutUint64(condHandlePtrSlice, uint64(condAddr))
-	fmt.Printf("%-120s %s created struct at %s.\n",
+
+	fmt.Printf("%-120s %s created cond at %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("pthread_cond_init"),
 		color.Yellow.Sprintf("0x%X", condAddr),
 	)
-
 	return 0
 }
 
 func libKernel_initStaticCond(condHandlePtr uintptr) uintptr {
-	condAddr, _ := sys_struct.AllocReadWriteMemory(unsafe.Sizeof(PthreadCond{}))
+	condAddr := GlobalGoAllocator.Malloc(PthreadCondSize)
 	if condAddr == 0 {
 		return ENOMEM
 	}
@@ -50,28 +49,37 @@ func libKernel_initStaticCond(condHandlePtr uintptr) uintptr {
 	// Copy the pointer back to condHandlePtr.
 	condHandlePtrSlice := unsafe.Slice((*byte)(unsafe.Pointer(uintptr(condHandlePtr))), 8)
 	binary.LittleEndian.PutUint64(condHandlePtrSlice, uint64(condAddr))
-	fmt.Printf("%-120s %s created struct at %s.\n",
+
+	fmt.Printf("%-120s %s created cond at %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("libKernel_initStaticCond"),
 		color.Yellow.Sprintf("0x%X", condAddr),
 	)
-
 	return 0
 }
 
 // 0x0000000000004D60
 // __int64 __fastcall pthread_cond_destroy(__int64 *)
 func libKernel_pthread_cond_destroy(condHandlePtr uintptr) uintptr {
-	if condHandlePtr == 0 {
-		return EINVAL
+	// Resolve the handle.
+	cond, err := ResolveHandle[PthreadCond](condHandlePtr)
+	if err != 0 {
+		fmt.Printf("%-120s %s failed due to invalid cond pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("pthread_cond_destroy"),
+		)
+		return err
 	}
 
-	condAddr := *(*uintptr)(unsafe.Pointer(condHandlePtr))
-	if condAddr == PthreadCondInitializer {
-		return 0
+	// Free the memory.
+	condAddr := uintptr(unsafe.Pointer(cond))
+	if !GlobalGoAllocator.Free(condAddr, PthreadCondSize) {
+		fmt.Printf("%-120s %s failed freeing untracked pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("pthread_cond_destroy"),
+		)
+		return EFAULT
 	}
-
-	// TODO: actually destroy it.
 
 	fmt.Printf("%-120s %s destroyed cond %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),

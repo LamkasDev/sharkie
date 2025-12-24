@@ -31,7 +31,7 @@ func libKernel_scePthreadAttrGet(threadPtr uintptr, attrHandlePtr uintptr) uintp
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("scePthreadAttrGet"),
 		)
-		return uintptr(err)
+		return err
 	}
 
 	attr.StackAddress = emu.GlobalModuleManager.Stack.Address

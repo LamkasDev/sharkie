@@ -3,11 +3,17 @@ package structs
 import (
 	"fmt"
 	"sync"
+	"unsafe"
 
 	"github.com/gookit/color"
+	"github.com/langhuihui/gomem"
 )
 
+// GlobalAllocator should be used for explicit allocations (mmap, etc.)
 var GlobalAllocator = NewAllocator()
+
+// GlobalGoAllocator should be used for implicit allocations (inside init stubs, etc.)
+var GlobalGoAllocator = NewGoAllocator()
 
 const (
 	SCE_KERNEL_ERROR_ENOTSUP      = 0x80020001
@@ -62,6 +68,10 @@ type Allocator struct {
 	Lock                sync.Mutex
 }
 
+type GoAllocator struct {
+	Allocator *gomem.ScalableMemoryAllocator
+}
+
 // NewAllocator creates a new instance of Allocator.
 func NewAllocator() *Allocator {
 	var err error
@@ -82,4 +92,23 @@ func NewAllocator() *Allocator {
 	)
 
 	return allocator
+}
+
+// NewGoAllocator creates a new instance of GoAllocator.
+func NewGoAllocator() *GoAllocator {
+	goAllocator := &GoAllocator{
+		Allocator: gomem.NewScalableMemoryAllocator(1024),
+	}
+
+	return goAllocator
+}
+
+func (allocator *GoAllocator) Malloc(size uintptr) uintptr {
+	data := allocator.Allocator.Malloc(int(size))
+	return (uintptr)(unsafe.Pointer(&data[0]))
+}
+
+func (allocator *GoAllocator) Free(address, size uintptr) bool {
+	data := unsafe.Slice((*byte)(unsafe.Pointer(address)), size)
+	return allocator.Allocator.Free(data)
 }

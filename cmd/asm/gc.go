@@ -4,6 +4,7 @@ import (
 	"runtime"
 	"runtime/debug"
 	"sync/atomic"
+	"time"
 )
 
 var (
@@ -16,12 +17,12 @@ func SetupCooperativeGC() {
 	debug.SetGCPercent(-1)
 
 	// Start a background ticker to signal for a GC.
-	/* go func() {
+	go func() {
 		ticker := time.NewTicker(2 * time.Second)
 		for range ticker.C {
 			NeedsGC.Store(true)
 		}
-	}() */
+	}()
 }
 
 // CheckAndRunGC checks if GC is pending and runs it.

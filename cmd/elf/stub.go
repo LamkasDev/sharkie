@@ -7,6 +7,7 @@ import (
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/asm"
+	. "github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/LamkasDev/sharkie/cmd/sys_struct"
 	"github.com/gookit/color"
 )
@@ -47,7 +48,7 @@ func RegisterStub(libraryName, symbolName string, f interface{}) asm.StubInfo {
 
 // RegisterVariableStub registers a new variable stub specified by library and symbol name of size.
 func RegisterVariableStub(libraryName, symbolName string, size uintptr) asm.StubInfo {
-	addr, _ := sys_struct.AllocReadWriteMemory(size)
+	addr := GlobalGoAllocator.Malloc(size)
 	hashIndex := GetSymbolHashIndex(libraryName, symbolName)
 	stub := asm.StubInfo{
 		LibraryName: libraryName,

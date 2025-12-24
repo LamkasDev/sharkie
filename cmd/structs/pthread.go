@@ -1,5 +1,7 @@
 package structs
 
+import "unsafe"
+
 type PthreadSchedulingPolicy uint32
 type PthreadAttrFlags uint32
 
@@ -43,3 +45,5 @@ type PthreadAttr struct {
 	CpuSetSize        uintptr
 	CpuSet            uintptr
 }
+
+const PthreadAttrSize = unsafe.Sizeof(PthreadAttr{})

@@ -22,13 +22,13 @@ func NewTCB(l *linker.Linker) *Tcb {
 	tcbOffset := tlsSize + padding
 	totalSize := tcbOffset + tcbSize
 
-	addr, _ := sys_struct.AllocReadWriteMemory(totalSize)
+	addr := GlobalGoAllocator.Malloc(totalSize)
 	tcb := (*Tcb)(unsafe.Pointer(addr + tcbOffset))
 	tcb.Self = tcb
 
-	dtvAddr, _ := sys_struct.AllocReadWriteMemory(dtvSize)
+	dtvAddr := GlobalGoAllocator.Malloc(dtvSize)
 	tcb.Dtv = (*DtvEntry)(unsafe.Pointer(dtvAddr))
-	threadAddr, _ := sys_struct.AllocReadWriteMemory(threadSize)
+	threadAddr := GlobalGoAllocator.Malloc(threadSize)
 	tcb.Thread = (*Pthread)(unsafe.Pointer(threadAddr))
 	tcb.Fiber = 0
 

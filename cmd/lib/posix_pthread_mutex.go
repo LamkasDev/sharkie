@@ -8,14 +8,13 @@ import (
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	. "github.com/LamkasDev/sharkie/cmd/structs"
-	"github.com/LamkasDev/sharkie/cmd/sys_struct"
 	"github.com/gookit/color"
 )
 
 // 0x000000000002FDF0
 // __int64 __fastcall pthread_mutex_init(__int64, _QWORD *)
 func libKernel_pthread_mutex_init(mutexHandlePtr uintptr, attrHandlePtr uintptr) uintptr {
-	mutexAddr, _ := sys_struct.AllocReadWriteMemory(unsafe.Sizeof(PthreadMutex{}))
+	mutexAddr := GlobalGoAllocator.Malloc(PthreadMutexSize)
 	if mutexAddr == 0 {
 		return ENOMEM
 	}
@@ -35,7 +34,10 @@ func libKernel_pthread_mutex_init(mutexHandlePtr uintptr, attrHandlePtr uintptr)
 	if err == 0 {
 		if attr.Type < PthreadMutexTypeErrorCheck || attr.Type > PthreadMutexTypeAdaptiveNp ||
 			attr.Protocol > PthreadMutexProtocolProtect {
-			// TODO: free the mutex
+			tempHandleAddr := mutexAddr
+			if err = libKernel_pthread_mutex_destroy(tempHandleAddr); err != 0 {
+				return err
+			}
 			fmt.Printf("%-120s %s failed due to invalid attribute.\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("pthread_mutex_init"),
@@ -53,7 +55,7 @@ func libKernel_pthread_mutex_init(mutexHandlePtr uintptr, attrHandlePtr uintptr)
 	// Copy the pointer back to mutexHandlePtr.
 	mutexHandlePtrSlice := unsafe.Slice((*byte)(unsafe.Pointer(mutexHandlePtr)), 8)
 	binary.LittleEndian.PutUint64(mutexHandlePtrSlice, uint64(mutexAddr))
-	fmt.Printf("%-120s %s created struct at %s.\n",
+	fmt.Printf("%-120s %s created mutex at %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("pthread_mutex_init"),
 		color.Yellow.Sprintf("0x%X", mutexAddr),
@@ -63,7 +65,7 @@ func libKernel_pthread_mutex_init(mutexHandlePtr uintptr, attrHandlePtr uintptr)
 }
 
 func libKernel_initStaticMutex(mutexHandlePtr uintptr, initType uintptr) uintptr {
-	mutexAddr, _ := sys_struct.AllocReadWriteMemory(unsafe.Sizeof(PthreadMutex{}))
+	mutexAddr := GlobalGoAllocator.Malloc(PthreadMutexSize)
 	if mutexAddr == 0 {
 		return ENOMEM
 	}
@@ -86,28 +88,37 @@ func libKernel_initStaticMutex(mutexHandlePtr uintptr, initType uintptr) uintptr
 	// Copy the pointer back to mutexHandlePtr.
 	mutexHandlePtrSlice := unsafe.Slice((*byte)(unsafe.Pointer(mutexHandlePtr)), 8)
 	binary.LittleEndian.PutUint64(mutexHandlePtrSlice, uint64(mutexAddr))
-	fmt.Printf("%-120s %s created struct at %s.\n",
+
+	fmt.Printf("%-120s %s created mutex at %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("libKernel_initStaticMutex"),
 		color.Yellow.Sprintf("0x%X", mutexAddr),
 	)
-
 	return 0
 }
 
 // 0x0000000000030CB0
 // __int64 __fastcall pthread_mutex_destroy(__int64 *)
 func libKernel_pthread_mutex_destroy(mutexHandlePtr uintptr) uintptr {
-	if mutexHandlePtr == 0 {
-		return EINVAL
+	// Resolve the handle.
+	mutex, err := ResolveHandle[PthreadMutex](mutexHandlePtr)
+	if err != 0 {
+		fmt.Printf("%-120s %s failed due to invalid mutex pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("pthread_mutex_destroy"),
+		)
+		return err
 	}
 
-	mutexAddr := *(*uintptr)(unsafe.Pointer(mutexHandlePtr))
-	if mutexAddr <= ThrMutexDestroyed {
-		return 0
+	// Free the memory.
+	mutexAddr := uintptr(unsafe.Pointer(mutex))
+	if !GlobalGoAllocator.Free(mutexAddr, PthreadMutexSize) {
+		fmt.Printf("%-120s %s failed freeing untracked pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("pthread_mutex_destroy"),
+		)
+		return EFAULT
 	}
-
-	// TODO: actually destroy it.
 
 	fmt.Printf("%-120s %s destroyed mutex %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
@@ -247,13 +258,13 @@ func libKernel_pthread_mutex_lock(mutexHandlePtr uintptr) uintptr {
 	// Fallback to a blocking lock.
 	hostMutex.Lock()
 	mutex.Owner = currentThread
+
 	fmt.Printf("%-120s %s locked mutex %s (thread=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("pthread_mutex_lock"),
 		GetMutexNameText(mutex, mutexAddr),
 		color.Yellow.Sprintf("0x%X", currentThread),
 	)
-
 	return 0
 }
 
@@ -324,12 +335,12 @@ func libKernel_pthread_mutex_unlock(mutexHandlePtr uintptr) uintptr {
 	mutex.Owner = 0
 	hostMutex := GetMutex(mutexAddr)
 	hostMutex.Unlock()
+
 	fmt.Printf("%-120s %s unlocked mutex %s (thread=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("pthread_mutex_unlock"),
 		GetMutexNameText(mutex, mutexAddr),
 		color.Yellow.Sprintf("0x%X", currentThread),
 	)
-
 	return 0
 }

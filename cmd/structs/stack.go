@@ -3,8 +3,6 @@ package structs
 import (
 	"encoding/binary"
 	"unsafe"
-
-	"github.com/LamkasDev/sharkie/cmd/sys_struct"
 )
 
 const StackAlignment = 8
@@ -22,9 +20,9 @@ type Stack struct {
 
 // NewStack creates a new stack with the defined size.
 func NewStack(stackSize uintptr) *Stack {
-	addr, err := sys_struct.AllocReadWriteMemory(stackSize)
-	if err != nil {
-		panic(err)
+	addr := GlobalGoAllocator.Malloc(stackSize)
+	if addr == 0 {
+		panic("failed to allocate stack space")
 	}
 
 	return &Stack{

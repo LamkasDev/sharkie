@@ -17,7 +17,7 @@ const ERR_HANDLE = ^uint32(0)
 
 // ResolveHandle converts a guest handle (double pointer) into a host structs pointer.
 // Returns the structs pointer and 0 on success, or nil and an error code (EINVAL).
-func ResolveHandle[T any](handlePtr uintptr) (*T, int32) {
+func ResolveHandle[T any](handlePtr uintptr) (*T, uintptr) {
 	if handlePtr == 0 {
 		return nil, EINVAL
 	}

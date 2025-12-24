@@ -5,7 +5,6 @@ import (
 	"unsafe"
 
 	. "github.com/LamkasDev/sharkie/cmd/structs"
-	"github.com/LamkasDev/sharkie/cmd/sys_struct"
 )
 
 // TODO: fix name creation
@@ -29,7 +28,7 @@ func libKernel_scePthreadMutexInit(mutexHandlePtr uintptr, attrPtr uintptr, name
 	} else {
 		name = fmt.Sprintf("Mutex_%x", mutexAddr)
 	}
-	realNamePtr, _ := sys_struct.AllocReadWriteMemory(uintptr(len(name) + 1))
+	realNamePtr := GlobalGoAllocator.Malloc(uintptr(len(name) + 1))
 	WriteCString(realNamePtr, name)
 	mutex.NamePtr = realNamePtr
 

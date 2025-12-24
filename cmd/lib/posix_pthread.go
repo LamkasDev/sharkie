@@ -22,7 +22,6 @@ var MainThreadInitialized = false
 // 0x000000000000B530
 // unsigned __int64 pthread_self()
 func libKernel_pthread_self() uintptr {
-	fmt.Println("DEBUG: scePthreadSelf called\n")
 	if !MainThreadInitialized {
 		libKernel_sys_pthread_self()
 	}

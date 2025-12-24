@@ -1,6 +1,10 @@
 package structs
 
-import "github.com/gookit/color"
+import (
+	"unsafe"
+
+	"github.com/gookit/color"
+)
 
 type PthreadMutexType uint32
 type PthreadMutexProtocol uint32
@@ -39,11 +43,15 @@ type PthreadMutex struct {
 	NamePtr    uintptr
 }
 
+const PthreadMutexSize = unsafe.Sizeof(PthreadMutex{})
+
 type PthreadMutexAttr struct {
 	Type     PthreadMutexType
 	Protocol PthreadMutexProtocol
 	Ceiling  int32
 }
+
+const PthreadMutexAttrSize = unsafe.Sizeof(PthreadMutexAttr{})
 
 func GetMutexNameText(m *PthreadMutex, addr uintptr) string {
 	if m.NamePtr == 0 {

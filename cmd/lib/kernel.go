@@ -5,7 +5,7 @@ import (
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/elf"
-	"github.com/LamkasDev/sharkie/cmd/sys_struct"
+	. "github.com/LamkasDev/sharkie/cmd/structs"
 )
 
 func RegisterKernelStubs() {
@@ -20,22 +20,22 @@ func RegisterKernelStubs() {
 
 	// Environment variables.
 	environ := elf.RegisterVariableStub("libkernel", "environ", 8)
-	environList, _ := sys_struct.AllocReadWriteMemory(8)
+	environListAddr := GlobalGoAllocator.Malloc(8)
 	binary.LittleEndian.PutUint64(
 		unsafe.Slice((*byte)(unsafe.Pointer(environ.Address)), 8),
-		uint64(environList),
+		uint64(environListAddr),
 	)
 
 	// Pointer to current program name.
 	progname := elf.RegisterVariableStub("libkernel", "__progname", 8)
-	prognameStr, _ := sys_struct.AllocReadWriteMemory(32)
+	prognameStrAddr := GlobalGoAllocator.Malloc(32)
 	copy(
-		unsafe.Slice((*byte)(unsafe.Pointer(prognameStr)), 32),
+		unsafe.Slice((*byte)(unsafe.Pointer(prognameStrAddr)), 32),
 		"eboot.bin\x00",
 	)
 	binary.LittleEndian.PutUint64(
 		unsafe.Slice((*byte)(unsafe.Pointer(progname.Address)), 8),
-		uint64(prognameStr),
+		uint64(prognameStrAddr),
 	)
 
 	// Flag used by libc to control signal interrupt behavior.

@@ -154,7 +154,7 @@ func (m *ModuleManager) RunModule(name string) {
 	}
 
 	fmt.Printf(
-		"\nRunning module %s...\n",
+		"Running module %s...\n",
 		color.Blue.Sprint(name),
 	)
 	m.Prepare(linker.GlobalLinker)
