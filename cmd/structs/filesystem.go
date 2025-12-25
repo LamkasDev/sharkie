@@ -2,7 +2,6 @@ package structs
 
 import (
 	"errors"
-	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -44,15 +43,15 @@ func (shFs *SharkieFilesystem) Open(path string, oflag uintptr, mode uintptr) (*
 }
 
 func (shFs *SharkieFilesystem) Create(path string) (*SharkieFile, error) {
-	err := shFs.Fs.MkdirAll(filepath.ToSlash(filepath.Dir(GetUsablePath(path))), 0777)
+	err := shFs.Fs.MkdirAll(filepath.ToSlash(filepath.Dir(path)), 0777)
 	if err != nil {
 		return nil, err
 	}
-	err = shFs.Fs.WriteFile(GetUsablePath(path), []byte{}, 0777)
+	err = shFs.Fs.WriteFile(path, []byte{}, 0777)
 	if err != nil {
 		return nil, err
 	}
-	file, err := shFs.Fs.Open(GetUsablePath(path))
+	file, err := shFs.Fs.Open(path)
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +72,7 @@ func (shFs *SharkieFilesystem) Write(path string, data []byte) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	return len(data), shFs.Fs.WriteFile(GetUsablePath(path), data, 0777)
+	return len(data), shFs.Fs.WriteFile(path, data, 0777)
 }
 
 func (shFs *SharkieFilesystem) ReadFull(path string) ([]byte, error) {
@@ -81,7 +80,7 @@ func (shFs *SharkieFilesystem) ReadFull(path string) ([]byte, error) {
 	if err != nil {
 		return []byte{}, err
 	}
-	return fs.ReadFile(shFs.Fs, GetUsablePath(path))
+	return fs.ReadFile(shFs.Fs, path)
 }
 
 func (shFs *SharkieFilesystem) Read(path string, data []byte) (int, error) {
@@ -90,6 +89,17 @@ func (shFs *SharkieFilesystem) Read(path string, data []byte) (int, error) {
 		return 0, err
 	}
 	return file.Read(data)
+}
+
+func (shFs *SharkieFilesystem) Close(path string) error {
+	_, ok := shFs.Files[path]
+	if !ok {
+		return errors.New("file not found")
+	}
+
+	// TODO: actually close file.
+
+	return nil
 }
 
 func (shFs *SharkieFilesystem) Delete(path string) error {
@@ -130,43 +140,43 @@ func NewFilesystem() *SharkieFilesystem {
 }
 
 func (shFs *SharkieFilesystem) InitializeSystemFiles() error {
-	if _, err := shFs.Create("stdin"); err != nil {
+	if _, err := shFs.Create(GetUsablePath("stdin")); err != nil {
 		return err
 	}
-	if _, err := shFs.Create("stdout"); err != nil {
+	if _, err := shFs.Create(GetUsablePath("stdout")); err != nil {
 		return err
 	}
-	if _, err := shFs.Create("stderr"); err != nil {
+	if _, err := shFs.Create(GetUsablePath("stderr")); err != nil {
 		return err
 	}
-	if _, err := shFs.Create("/dev/console"); err != nil {
+	if _, err := shFs.Create(GetUsablePath("/dev/console")); err != nil {
 		return err
 	}
-	if _, err := shFs.Create("/dev/deci_tty6"); err != nil {
+	if _, err := shFs.Create(GetUsablePath("/dev/deci_tty6")); err != nil {
 		return err
 	}
-	if _, err := shFs.Create("/dev/gc"); err != nil {
+	if _, err := shFs.Create(GetUsablePath("/dev/gc")); err != nil {
 		return err
 	}
-	if _, err := shFs.Create("/dev/dipsw"); err != nil {
+	if _, err := shFs.Create(GetUsablePath("/dev/dipsw")); err != nil {
 		return err
 	}
-	if _, err := shFs.Create("/dev/hmd_cmd"); err != nil {
+	if _, err := shFs.Create(GetUsablePath("/dev/hmd_cmd")); err != nil {
 		return err
 	}
-	if _, err := shFs.Create("/dev/hmd_snsr"); err != nil {
+	if _, err := shFs.Create(GetUsablePath("/dev/hmd_snsr")); err != nil {
 		return err
 	}
-	if _, err := shFs.Create("/dev/hmd_3da"); err != nil {
+	if _, err := shFs.Create(GetUsablePath("/dev/hmd_3da")); err != nil {
 		return err
 	}
-	if _, err := shFs.Create("/dev/hmd_dist"); err != nil {
+	if _, err := shFs.Create(GetUsablePath("/dev/hmd_dist")); err != nil {
 		return err
 	}
-	if _, err := shFs.Create("/dev/sbl_srv"); err != nil {
+	if _, err := shFs.Create(GetUsablePath("/dev/sbl_srv")); err != nil {
 		return err
 	}
-	if _, err := shFs.Write(AudioInBufferName, make([]byte, AudioInBufferDefault)); err != nil {
+	if _, err := shFs.Write(GetUsablePath(AudioInBufferName), make([]byte, AudioInBufferDefault)); err != nil {
 		panic(err)
 	}
 
@@ -186,7 +196,7 @@ func (shFs *SharkieFilesystem) InitializeAppFiles() error {
 		if err != nil {
 			return err
 		}
-		fsPath = fmt.Sprintf("/%s", filepath.ToSlash(fsPath))
+		fsPath = GetUsablePath(filepath.ToSlash(fsPath))
 		_, err = shFs.Write(fsPath, data)
 		if err != nil {
 			return err

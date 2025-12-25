@@ -46,7 +46,7 @@ func libKernel_sys_open(pathPtr uintptr, flags uintptr, mode uintptr) uintptr {
 	GlobalFilesystem.Lock.Lock()
 	defer GlobalFilesystem.Lock.Unlock()
 
-	path := ReadCString(pathPtr)
+	path := GetUsablePath(ReadCString(pathPtr))
 	file, err := GlobalFilesystem.Open(path, 0, mode)
 	if err != nil {
 		logger.Printf("%-120s %s failed due to open error on %s (%s).\n",

@@ -9,6 +9,43 @@ import (
 	"github.com/gookit/color"
 )
 
+// 0x00000000000163D0
+// __int64 __fastcall sceKernelStat(__int64, __int64)
+func libKernel_sceKernelStat(pathPtr uintptr, statPtr uintptr) uintptr {
+	err := libKernel_stat(pathPtr, statPtr)
+	if err != 0 {
+		return GetErrno() - 0x7FFE0000
+	}
+
+	return 0
+}
+
+// 0x0000000000000850
+// __int64 __fastcall stat()
+func libKernel_stat(pathPtr uintptr, statPtr uintptr) uintptr {
+	if pathPtr == 0 {
+		logger.Printf("%-120s %s failed due to invalid path pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("stat"),
+		)
+		return 0
+	}
+
+	path := GetUsablePath(ReadCString(pathPtr))
+	file, ok := GlobalFilesystem.Files[path]
+	if !ok {
+		logger.Printf("%-120s %s failed due to unknown file %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("stat"),
+			color.Blue.Sprint(path),
+		)
+		SetErrno(ENOENT)
+		return ERR_PTR
+	}
+
+	return libKernel_fstat(uintptr(file.Descriptor), statPtr)
+}
+
 // 0x0000000000016400
 // __int64 __fastcall sceKernelFstat(__int64, __int64)
 func libKernel_sceKernelFstat(fd uintptr, statPtr uintptr) uintptr {

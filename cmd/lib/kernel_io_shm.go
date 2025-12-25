@@ -20,7 +20,7 @@ func libKernel_shm_open(pathPtr uintptr, oflag uintptr, mode uintptr) uintptr {
 	GlobalFilesystem.Lock.Lock()
 	defer GlobalFilesystem.Lock.Unlock()
 
-	path := ReadCString(pathPtr)
+	path := GetUsablePath(ReadCString(pathPtr))
 	file, err := GlobalFilesystem.Open(path, oflag, mode)
 	if err != nil {
 		logger.Printf("%-120s %s failed due to open error on %s (%s).\n",

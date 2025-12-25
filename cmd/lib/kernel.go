@@ -82,6 +82,9 @@ func RegisterKernelStubs() {
 	elf.RegisterStub("libkernel", "open", libKernel_open)
 	elf.RegisterStub("libkernel", "_open", libKernel__open)
 	elf.RegisterStub("libkernel", "sceKernelOpen", libKernel_sceKernelOpen)
+	elf.RegisterStub("libkernel", "close", libKernel_close)
+	elf.RegisterStub("libkernel", "_close", libKernel__close)
+	elf.RegisterStub("libkernel", "sceKernelClose", libKernel_sceKernelClose)
 	elf.RegisterStub("libkernel", "read", libKernel_read)
 	elf.RegisterStub("libkernel", "_read", libKernel__read)
 	elf.RegisterStub("libkernel", "sceKernelRead", libKernel_sceKernelRead)
@@ -92,6 +95,8 @@ func RegisterKernelStubs() {
 	elf.RegisterStub("libkernel", "_ioctl", libKernel_ioctl) // TODO: this neither
 	elf.RegisterStub("libkernel", "ftruncate", libKernel_ftruncate)
 	elf.RegisterStub("libkernel", "ftruncate_0", libKernel_ftruncate_0)
+	elf.RegisterStub("libkernel", "stat", libKernel_stat)
+	elf.RegisterStub("libkernel", "sceKernelStat", libKernel_sceKernelStat)
 	elf.RegisterStub("libkernel", "fstat", libKernel_fstat)
 	elf.RegisterStub("libkernel", "sceKernelFstat", libKernel_sceKernelFstat)
 

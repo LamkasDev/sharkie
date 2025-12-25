@@ -23,6 +23,7 @@ type SharkieFile struct {
 }
 
 func GetUsablePath(path string) string {
+	path = strings.ReplaceAll(path, "//", "/")
 	path = strings.TrimLeft(path, "/")
 	if path == "" {
 		return "unnamed"

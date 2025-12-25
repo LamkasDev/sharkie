@@ -9,8 +9,8 @@ import (
 
 // 0x0000000000000970
 // __int64 __fastcall ioctl()
-func libKernel_ioctl(pathPtr uintptr, flags uintptr, mode uintptr) uintptr {
-	return libKernel_sys_ioctl(pathPtr, flags, mode)
+func libKernel_ioctl(fd, request, mode uintptr) uintptr {
+	return libKernel_sys_ioctl(fd, request, mode)
 }
 
 func libKernel_sys_ioctl(fd, request, argPtr uintptr) uintptr {
