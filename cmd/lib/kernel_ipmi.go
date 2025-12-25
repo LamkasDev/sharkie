@@ -2,7 +2,6 @@ package lib
 
 import (
 	"encoding/binary"
-	"fmt"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
@@ -76,6 +75,7 @@ func libKernel_ipmimgr_call(op, handle, resultPtr, paramsPtr, paramsSize, magic,
 			)
 			return SCE_KERNEL_ERROR_ENOENT
 		}
+
 		delete(GlobalIpmiManager.Clients, uint32(handle))
 		delete(GlobalIpmiManager.Servers, uint32(handle))
 		if resultPtr != 0 {
@@ -83,10 +83,10 @@ func libKernel_ipmimgr_call(op, handle, resultPtr, paramsPtr, paramsSize, magic,
 			binary.LittleEndian.PutUint32(resultSlice, 0)
 		}
 
-		logger.Printf("%-120s %s destroyed ipmi object %s.\n",
+		logger.Printf("%-120s %s destroyed ipmi client %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("ipmimgr_call"),
-			color.Yellow.Sprintf("0x%X", handle),
+			color.Blue.Sprint(client.Name),
 		)
 		return 0
 
@@ -119,11 +119,48 @@ func libKernel_ipmimgr_call(op, handle, resultPtr, paramsPtr, paramsSize, magic,
 			binary.LittleEndian.PutUint32(resultSlice, 0)
 		}
 
-		logger.Printf("%-120s %s invoked unknown method %s (handle=%s).\n",
+		logger.Printf("%-120s %s invoked sync method %s on client %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("ipmimgr_call"),
 			color.Yellow.Sprintf("0x%X", methodId),
-			color.Yellow.Sprintf("0x%X", handle),
+			color.Blue.Sprint(client.Name),
+		)
+		return 0
+
+	case IMPI_INVOKE_ASYNC_CLIENT:
+		if client == nil {
+			logger.Printf("%-120s %s failed due to invalid client handle %s.\n",
+				emu.GlobalModuleManager.GetCallSiteText(),
+				color.Magenta.Sprint("ipmimgr_call"),
+				color.Yellow.Sprintf("0x%X", handle),
+			)
+			return SCE_KERNEL_ERROR_ENOENT
+		}
+		if paramsPtr == 0 {
+			logger.Printf("%-120s %s failed due to invalid params pointer.\n",
+				emu.GlobalModuleManager.GetCallSiteText(),
+				color.Magenta.Sprint("ipmimgr_call"),
+			)
+			return SCE_KERNEL_ERROR_EINVAL
+		}
+
+		paramsSlice := unsafe.Slice((*byte)(unsafe.Pointer(paramsPtr)), 48)
+		methodId := uintptr(binary.LittleEndian.Uint32(paramsSlice))
+		// inputPtr := uintptr(binary.LittleEndian.Uint64(paramsSlice[0x10:]))
+		// inputSizePtr := uintptr(binary.LittleEndian.Uint64(paramsSlice[0x18:]))
+		// outputPtr := uintptr(binary.LittleEndian.Uint64(paramsSlice[0x20:]))
+		// outputSizePtr := uintptr(binary.LittleEndian.Uint64(paramsSlice[0x28:]))
+
+		if resultPtr != 0 {
+			resultSlice := unsafe.Slice((*byte)(unsafe.Pointer(resultPtr)), 4)
+			binary.LittleEndian.PutUint32(resultSlice, 0)
+		}
+
+		logger.Printf("%-120s %s invoked async method %s on client %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("ipmimgr_call"),
+			color.Yellow.Sprintf("0x%X", methodId),
+			color.Blue.Sprint(client.Name),
 		)
 		return 0
 
@@ -136,7 +173,7 @@ func libKernel_ipmimgr_call(op, handle, resultPtr, paramsPtr, paramsSize, magic,
 			)
 			return SCE_KERNEL_ERROR_ENOENT
 		}
-		if _, err := GlobalFilesystem.Write(fmt.Sprintf("/%s", client.Name), make([]byte, FileBlockSize)); err != nil {
+		if _, err := GlobalFilesystem.Write(client.Name, make([]byte, FileBlockSize)); err != nil {
 			logger.Printf("%-120s %s failed creating shared memory file (%s).\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("ipmimgr_call"),
@@ -153,7 +190,7 @@ func libKernel_ipmimgr_call(op, handle, resultPtr, paramsPtr, paramsSize, magic,
 		logger.Printf("%-120s %s connected %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("ipmimgr_call"),
-			color.Yellow.Sprintf("0x%X", handle),
+			color.Blue.Sprint(client.Name),
 		)
 		return 0
 
@@ -166,7 +203,7 @@ func libKernel_ipmimgr_call(op, handle, resultPtr, paramsPtr, paramsSize, magic,
 			)
 			return SCE_KERNEL_ERROR_ENOENT
 		}
-		if err := GlobalFilesystem.Delete(fmt.Sprintf("/%s", client.Name)); err != nil {
+		if err := GlobalFilesystem.Delete(client.Name); err != nil {
 			logger.Printf("%-120s %s failed deleting shared memory file (%s).\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("ipmimgr_call"),
@@ -188,7 +225,20 @@ func libKernel_ipmimgr_call(op, handle, resultPtr, paramsPtr, paramsSize, magic,
 		logger.Printf("%-120s %s disconnected %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("ipmimgr_call"),
-			color.Yellow.Sprintf("0x%X", handle),
+			color.Blue.Sprint(client.Name),
+		)
+		return 0
+
+	case IMPI_POLL_EVENT_FLAG:
+		if resultPtr != 0 {
+			resultSlice := unsafe.Slice((*byte)(unsafe.Pointer(resultPtr)), 4)
+			binary.LittleEndian.PutUint32(resultSlice, 0)
+		}
+
+		logger.Printf("%-120s %s polled event flag on %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("ipmimgr_call"),
+			color.Blue.Sprint(client.Name),
 		)
 		return 0
 	}

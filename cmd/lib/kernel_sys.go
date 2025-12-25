@@ -2,7 +2,6 @@ package lib
 
 import (
 	"encoding/binary"
-	"fmt"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
@@ -23,11 +22,6 @@ const (
 	UMTX_OP_WAKE              = 3
 	UMTX_OP_WAIT_UINT_PRIVATE = 15
 	UMTX_OP_WAKE_PRIVATE      = 16
-)
-
-const (
-	REGMGR_GET_INT = 25
-	REGMGR_GET_BIN = 27
 )
 
 const AMD64_SET_FSBASE = 129
@@ -228,74 +222,6 @@ func libKernel_sys_get_authinfo(processId uintptr, infoPtr uintptr) uintptr {
 		color.Yellow.Sprintf("0x%X", infoPtr),
 	)
 	return 0
-}
-
-// 0x00000000000017F0
-// __int64 __fastcall _sys_regmgr_call()
-func libKernel___sys_regmgr_call(op, id, resultPtr, valuePtr, size uintptr) uintptr {
-	switch op {
-	case REGMGR_GET_INT:
-		if valuePtr == 0 || size < 4 {
-			logger.Printf("%-120s %s failed due to invalid value pointer.\n",
-				emu.GlobalModuleManager.GetCallSiteText(),
-				color.Magenta.Sprint("__sys_regmgr_call"),
-			)
-			return EFAULT
-		}
-
-		valueSlice := unsafe.Slice((*byte)(unsafe.Pointer(valuePtr)), 16)
-		keyId := uintptr(binary.LittleEndian.Uint64(valueSlice))
-		// _ := uintptr(binary.LittleEndian.Uint32(valueSlice[8:]))
-		// value := uintptr(binary.LittleEndian.Uint32(valueSlice[12:]))
-
-		retVal := uint32(0)
-		keyName := fmt.Sprintf("UNKNOWN KEY 0x%X", keyId)
-		switch keyId {
-		case 0x78020500: // System Language (0 = Japanese, 1 = English, ...)
-			retVal = 1
-			keyName = "SYSTEM_LANGUAGE"
-			break
-		case 0x78020B00: // Enter Button Assignment (0 = Circle, 1 = Cross, ...)
-			retVal = 1
-			keyName = "ENTER_BUTTON_ASSIGNMENT"
-			break
-		}
-
-		binary.LittleEndian.PutUint32(valueSlice[12:], retVal)
-		if resultPtr != 0 {
-			resultSlice := unsafe.Slice((*byte)(unsafe.Pointer(resultPtr)), 4)
-			binary.LittleEndian.PutUint32(resultSlice, 0)
-		}
-
-		logger.Printf("%-120s %s returned %s for %s (id=%s, resultPtr=%s, valuePtr=%s, size=%s).\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("__sys_regmgr_call"),
-			color.Yellow.Sprintf("0x%X", retVal),
-			color.Blue.Sprint(keyName),
-			color.Yellow.Sprintf("0x%X", id),
-			color.Yellow.Sprintf("0x%X", resultPtr),
-			color.Yellow.Sprintf("0x%X", valuePtr),
-			color.Green.Sprintf("%d", size),
-		)
-		return 0
-	case REGMGR_GET_BIN:
-		logger.Printf("%-120s %s requested binary data (id=%s, resultPtr=%s, valuePtr=%s, size=%s).\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("__sys_regmgr_call"),
-			color.Yellow.Sprintf("0x%X", id),
-			color.Yellow.Sprintf("0x%X", resultPtr),
-			color.Yellow.Sprintf("0x%X", valuePtr),
-			color.Green.Sprintf("%d", size),
-		)
-		return 0
-	}
-
-	logger.Printf("%-120s %s failed due to unknown operation %s.\n",
-		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprint("__sys_regmgr_call"),
-		color.Green.Sprintf("%d", op),
-	)
-	return ENOENT
 }
 
 // 0x0000000000001F10

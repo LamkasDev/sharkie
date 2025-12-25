@@ -1,0 +1,74 @@
+package structs
+
+const (
+	REGMGR_GET_VERSION                = 0x0
+	REGMGR_SET_INT                    = 0x1
+	REGMGR_GET_INT                    = 0x2
+	REGMGR_SET_STRING                 = 0x3
+	REGMGR_GET_STRING                 = 0x4
+	REGMGR_SET_BIN                    = 0x5
+	REGMGR_GET_BIN                    = 0x6
+	REGMGR_GET_INT_INIT               = 0x7
+	REGMGR_GET_STRING_INIT            = 0x8
+	REGMGR_GET_BIN_INIT               = 0x9
+	REGMGR_SET_INIT_LEVEL             = 0xA
+	REGMGR_RESET_VALUE                = 0xB
+	REGMGR_CHECK_ERROR                = 0xC
+	REGMGR_CONTROL_SET_INIT_REINSTALL = 0xD
+	REGMGR_CONTROL_GET_FILES_COUNT    = 0xE
+	REGMGR_CONTROL_GET_FILENAME       = 0xF
+
+	REGMGR_CONTROL_STOP_HDD      = 0x10
+	REGMGR_IS_INIT_OK            = 0x11
+	REGMGR_SRV_GET_REGION        = 0x12
+	REGMGR_SRV_GET_REGION_STRING = 0x13
+	REGMGR_SRV_CNV_REGION_STRING = 0x14
+	REGMGR_SRV_CNV_REGION_INT    = 0x15
+	REGMGR_SRV_GET_MACHINE_TYPE  = 0x16
+	REGMGR_SRV_GET_QAF_FOR_REG   = 0x17
+	REGMGR_NONSYS_SET_INT        = 0x18
+	REGMGR_NONSYS_GET_INT        = 0x19
+	REGMGR_NONSYS_SET_STRING     = 0x1A
+	REGMGR_NONSYS_GET_STRING     = 0x1B
+	REGMGR_NONSYS_SET_BIN        = 0x1C
+	REGMGR_NONSYS_GET_BIN        = 0x1D
+	REGMGR_NONSYS_CHECK_ERROR    = 0x1E
+	_                            = 0x1F
+
+	_                                = 0x20
+	REGMGR_SRV_GET_REAL_MACHINE_TYPE = 0x24
+	REGMGR_TOOL_GET_UPDATE_COUNT     = 0x25
+	REGMGR_TOOL_GET_ENTRY_COUNT      = 0x26
+	REGMGR_TOOL_DATA_CHECK_GET       = 0x28
+	REGMGR_DRV_GET_UPDATE_COUNT      = 0x29
+	REGMGR_DRV_GET_ENTRY_COUNT       = 0x2A
+	REGMGR_DRV_DATA_OPEN             = 0x2B
+	REGMGR_DRV_DATA_CHECK_GET        = 0x2C
+	REGMGR_DRV_DATA_CLOSE            = 0x2D
+	REGMGR_LOG_START                 = 0x2E
+	REGMGR_LOG_PULL                  = 0x2F
+
+	REGMGR_IS_CHANGE            = 0x30
+	REGMGR_EVENT_GET_COUNT      = 0x31
+	REGMGR_EVENT_GET_REG_ID     = 0x32
+	REGMGR_BACKUP_NEEDED_MEMORY = 0x33
+	REGMGR_BACKUP_PULL_DATA     = 0x34
+	REGMGR_BACKUP_PUSH_DATA     = 0x35
+	REGMGR_TOOL_GET_INFO        = 0x36
+	REGMGR_CONTROL_START        = 0x37
+	REGMGR_CONTROL_DELETE_REG   = 0x38
+	REGMGR_RECOVER_REG_NVS      = 0x39
+	REGMGR_RECOVER_PRINT_INFO   = 0x3A
+)
+
+const (
+	REG_DEVENV_TOOL_sce_module_dbg  = 0x7802C000
+	REG_DEVENV_TOOL_preload_chk_off = 0x78020500
+	REG_DEVENV_TOOL_fake_xxx_mode   = 0x78020B00 // not sure about this one.
+)
+
+var RegistryNames = map[uintptr]string{
+	REG_DEVENV_TOOL_sce_module_dbg:  "REG_DEVENV_TOOL_sce_module_dbg",
+	REG_DEVENV_TOOL_preload_chk_off: "REG_DEVENV_TOOL_preload_chk_off",
+	REG_DEVENV_TOOL_fake_xxx_mode:   "REG_DEVENV_TOOL_fake_xxx_mode",
+}
