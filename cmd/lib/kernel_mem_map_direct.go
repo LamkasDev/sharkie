@@ -101,7 +101,7 @@ func libKernel_sys_sceKernelMapDirectMemory(addrPtr, length, prot, flags, offset
 		color.Yellow.Sprintf("0x%X", length),
 		color.Yellow.Sprintf("0x%X", offset),
 		color.Yellow.Sprintf("0x%X", addrPtr),
-		color.Yellow.Sprintf("0x%X", prot),
+		color.Blue.Sprint(MemoryProtName(prot)),
 		color.Yellow.Sprintf("0x%X", flags),
 		color.Yellow.Sprintf("0x%X", alignment),
 	)

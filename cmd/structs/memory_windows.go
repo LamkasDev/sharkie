@@ -9,8 +9,8 @@ import (
 
 // MemoryProtToWindowsProt converts memory protection flags to Windows VirtualAlloc flags.
 func MemoryProtToWindowsProt(prot uintptr) uintptr {
-	isRead := (prot & PROT_READ) != 0
-	isWrite := (prot & PROT_WRITE) != 0
+	isRead := (prot&PROT_READ) != 0 || (prot&PROT_GPU_READ) != 0
+	isWrite := (prot&PROT_WRITE) != 0 || (prot&PROT_GPU_WRITE) != 0
 	isExec := (prot & PROT_EXEC) != 0
 
 	switch {
@@ -46,7 +46,10 @@ func AllocKernelMemory(addr, length, prot, flags uintptr) (uintptr, error) {
 	isDirectMemory := addr != 0 &&
 		addr >= GlobalAllocator.DirectMemoryBase &&
 		addr < GlobalAllocator.DirectMemoryBase+GlobalAllocator.DirectMemorySize
-	if !isDirectMemory {
+	isGpuMemory := addr != 0 &&
+		addr >= GlobalAllocator.GpuMemoryBase &&
+		addr < GlobalAllocator.GpuMemoryBase+GlobalAllocator.GpuMemorySize
+	if !isDirectMemory && !isGpuMemory {
 		allocationType |= windows.MEM_RESERVE
 	}
 	allocatedAddr, _, err := sys_struct.VirtualAlloc.Call(

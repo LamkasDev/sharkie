@@ -2,7 +2,6 @@ package lib
 
 import (
 	"encoding/binary"
-	"fmt"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
@@ -38,7 +37,12 @@ func libKernel_sys_sceKernelAllocateDirectMemory(searchStart, searchEnd, length,
 	}
 
 	// Get the direct memory address.
-	directAddr := GlobalAllocator.DirectMemoryCurrent
+	var directAddr uintptr
+	if memType == SCE_KERNEL_MTYPE_WC_GARLIC || memType == SCE_KERNEL_MTYPE_WB_ONION {
+		directAddr = GlobalAllocator.GpuMemoryCurrent
+	} else {
+		directAddr = GlobalAllocator.DirectMemoryCurrent
+	}
 	if directAddr%alignment != 0 {
 		directAddr += alignment - (directAddr % alignment)
 	}
@@ -62,17 +66,17 @@ func libKernel_sys_sceKernelAllocateDirectMemory(searchStart, searchEnd, length,
 	// Write back pointer.
 	destPtrSlice := unsafe.Slice((*byte)(unsafe.Pointer(destPtr)), 8)
 	binary.LittleEndian.PutUint64(destPtrSlice, uint64(allocatedAddr))
-	GlobalAllocator.DirectMemoryCurrent = allocatedAddr + length
-
-	memTypeName := fmt.Sprintf("unknown 0x%X", memType)
-	if name, ok := MemoryTypeNames[memType]; ok {
-		memTypeName = name
+	if memType == SCE_KERNEL_MTYPE_WC_GARLIC || memType == SCE_KERNEL_MTYPE_WB_ONION {
+		GlobalAllocator.GpuMemoryCurrent = allocatedAddr + length
+	} else {
+		GlobalAllocator.DirectMemoryCurrent = allocatedAddr + length
 	}
+
 	logger.Printf("%-120s %s stored pointer at %s (type=%s, alignment=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sceKernelAllocateDirectMemory"),
 		color.Yellow.Sprintf("0x%X", destPtr),
-		color.Blue.Sprint(memTypeName),
+		color.Blue.Sprint(MemoryTypeNames[memType]),
 		color.Yellow.Sprintf("0x%X", alignment),
 	)
 	return 0

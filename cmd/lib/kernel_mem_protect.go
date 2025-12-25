@@ -44,7 +44,7 @@ func libKernel_sys_mprotect(addr, length, prot uintptr) uintptr {
 		color.Magenta.Sprint("sceKernelMprotect"),
 		color.Yellow.Sprintf("0x%X", length),
 		color.Yellow.Sprintf("0x%X", addr),
-		color.Yellow.Sprintf("0x%X", prot),
+		color.Blue.Sprint(MemoryProtName(prot)),
 	)
 	return 0
 }

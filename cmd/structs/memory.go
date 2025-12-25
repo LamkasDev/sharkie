@@ -1,6 +1,7 @@
 package structs
 
 import (
+	"fmt"
 	"sync"
 	"unsafe"
 
@@ -29,15 +30,15 @@ const (
 )
 
 const (
-	SCE_KERNEL_MTYPE_WB_ONION = 0x0 // Onion Bus (CPU/GPU shared)
-	SCE_KERNEL_MTYPE_C_SHARED = 0xC // Onion (CPU optimized)
-	SCE_KERNEL_MTYPE_C        = 0x3 // Garlic (GPU optimized)
+	SCE_KERNEL_MTYPE_WB_ONION  = 0x0 // Onion Bus (CPU shared)
+	SCE_KERNEL_MTYPE_WC_GARLIC = 0x3 // Garlic Bus (CPU/GPU optimized)
+	SCE_KERNEL_MTYPE_WB_GARLIC = 0xA // Garlic Bus (GPU optimized)
 )
 
 var MemoryTypeNames = map[uintptr]string{
-	SCE_KERNEL_MTYPE_WB_ONION: "SCE_KERNEL_MTYPE_WB_ONION",
-	SCE_KERNEL_MTYPE_C_SHARED: "SCE_KERNEL_MTYPE_C_SHARED",
-	SCE_KERNEL_MTYPE_C:        "SCE_KERNEL_MTYPE_C",
+	SCE_KERNEL_MTYPE_WB_ONION:  "SCE_KERNEL_MTYPE_WB_ONION",
+	SCE_KERNEL_MTYPE_WC_GARLIC: "SCE_KERNEL_MTYPE_WC_GARLIC",
+	SCE_KERNEL_MTYPE_WB_GARLIC: "SCE_KERNEL_MTYPE_WB_GARLIC",
 }
 
 const (
@@ -58,6 +59,7 @@ const (
 
 const (
 	DirectMemoryDefaultSize = uintptr(0x100000000) // 4GB
+	GpuMemoryDefaultSize    = uintptr(0x010000000) // 2GB
 	MemoryPageSize          = uintptr(0x4000)      // 16KB
 	GuardPageSize           = uintptr(4096)        // 4KB
 )
@@ -67,6 +69,9 @@ type Allocator struct {
 	DirectMemoryBase    uintptr
 	DirectMemoryCurrent uintptr
 	DirectMemorySize    uintptr
+	GpuMemoryBase       uintptr
+	GpuMemoryCurrent    uintptr
+	GpuMemorySize       uintptr
 	Lock                sync.Mutex
 }
 
@@ -84,6 +89,7 @@ func NewAllocator() *Allocator {
 	var err error
 	allocator := &Allocator{
 		DirectMemorySize: DirectMemoryDefaultSize,
+		GpuMemorySize:    GpuMemoryDefaultSize,
 		Allocations:      map[uintptr]uintptr{},
 		Lock:             sync.Mutex{},
 	}
@@ -92,10 +98,17 @@ func NewAllocator() *Allocator {
 		panic(err)
 	}
 	allocator.DirectMemoryCurrent = allocator.DirectMemoryBase
+	allocator.GpuMemoryBase, err = ReserveKernelMemory(0xFE0000000, allocator.GpuMemorySize)
+	if allocator.GpuMemoryBase == 0 {
+		panic(err)
+	}
+	allocator.GpuMemoryCurrent = allocator.GpuMemoryBase
 	logger.Printf(
-		"Reserved %s bytes for the global allocator at %s.\n",
+		"Reserved %s of direct memory (%s) and %s bytes of graphics memory (%s).\n",
 		color.Yellow.Sprintf("0x%X", allocator.DirectMemorySize),
 		color.Yellow.Sprintf("0x%X", allocator.DirectMemoryBase),
+		color.Yellow.Sprintf("0x%X", allocator.GpuMemorySize),
+		color.Yellow.Sprintf("0x%X", allocator.GpuMemoryBase),
 	)
 
 	return allocator
@@ -118,4 +131,22 @@ func (allocator *GoAllocator) Malloc(size uintptr) uintptr {
 func (allocator *GoAllocator) Free(address, size uintptr) bool {
 	data := unsafe.Slice((*byte)(unsafe.Pointer(address)), size)
 	return allocator.Allocator.Free(data)
+}
+
+func MemoryProtName(prot uintptr) string {
+	name := ""
+	if (prot&PROT_READ) != 0 || (prot&PROT_GPU_READ) != 0 {
+		name = fmt.Sprintf("%sR", name)
+	}
+	if (prot&PROT_WRITE) != 0 || (prot&PROT_GPU_WRITE) != 0 {
+		name = fmt.Sprintf("%sW", name)
+	}
+	if (prot & PROT_EXEC) != 0 {
+		name = fmt.Sprintf("%sE", name)
+	}
+	if name == "" {
+		name = "NO_ACCESS"
+	}
+
+	return name
 }
