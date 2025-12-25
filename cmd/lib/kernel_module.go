@@ -44,12 +44,75 @@ func libKernel_sceKernelGetModuleInfoForUnwind(addr uintptr, flags int32, infoPt
 	binary.LittleEndian.PutUint64(infoSlice[0x120:], uint64(textSection.Address))
 	binary.LittleEndian.PutUint64(infoSlice[0x128:], textSection.LoadedSize)
 
-	logger.Printf("%-120s %s returned module info for %s (addr=%s, flags=%s).\n",
+	logger.Printf("%-120s %s returned unwind module info for %s (addr=%s, flags=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sceKernelGetModuleInfoForUnwind"),
 		color.Blue.Sprint(module.Name),
 		color.Yellow.Sprintf("0x%X", addr),
 		color.Yellow.Sprintf("0x%X", flags),
+	)
+	return 0
+}
+
+// 0x000000000002CFF0
+// __int64 __fastcall sceKernelGetExecutableModuleHandle()
+func libKernel_sceKernelGetExecutableModuleHandle() uintptr {
+	handle := ModuleInfoHandleOffset + uintptr(emu.GlobalModuleManager.CurrentModule.ModuleIndex)
+
+	logger.Printf("%-120s %s returned module handle %s.\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("sceKernelGetExecutableModuleHandle"),
+		color.Yellow.Sprintf("0x%X", handle),
+	)
+	return handle
+}
+
+// 0x000000000002C920
+// __int64 __fastcall sceKernelGetModuleInfo(unsigned int, __int64)
+func libKernel_sceKernelGetModuleInfo(handle uintptr, infoPtr uintptr) uintptr {
+	if infoPtr == 0 {
+		logger.Printf("%-120s %s failed due to invalid info pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceKernelGetModuleInfo"),
+		)
+		return SCE_KERNEL_ERROR_EINVAL
+	}
+
+	module := emu.GlobalModuleManager.Modules[handle-ModuleInfoHandleOffset]
+	if module == nil {
+		logger.Printf("%-120s %s failed due to unknown module %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceKernelGetModuleInfo"),
+			color.Yellow.Sprintf("0x%X", handle),
+		)
+		return SCE_KERNEL_ERROR_ENOENT
+	}
+
+	info := (*ModuleInfo)(unsafe.Pointer(infoPtr))
+	info.Size = ModuleInfoSize
+	WriteCString((uintptr)(unsafe.Pointer(&info.Name[0])), module.Name)
+	segIndex := uint32(0)
+	for _, section := range module.LoadSections {
+		if segIndex >= 4 {
+			break
+		}
+		if section.LoadedSize == 0 {
+			continue
+		}
+		info.Segments[segIndex] = SegmentInfo{
+			Address:    section.Address,
+			Size:       uint32(section.LoadedSize),
+			Protection: PROT_READ | PROT_WRITE | PROT_EXEC,
+		}
+		segIndex++
+	}
+	info.SegmentsCount = segIndex
+
+	logger.Printf("%-120s %s returned module info for %s (infoPtr=%s).\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("sceKernelGetModuleInfo"),
+		color.Blue.Sprint(module.Name),
+		color.Yellow.Sprintf("0x%X", infoPtr),
 	)
 	return 0
 }

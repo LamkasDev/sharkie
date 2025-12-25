@@ -111,6 +111,8 @@ func RegisterKernelStubs() {
 	// Thread functions.
 	elf.RegisterStub("libkernel", "pthread_mutexattr_init", libKernel_pthread_mutexattr_init)
 	elf.RegisterStub("libkernel", "scePthreadAttrInit", libKernel_scePthreadAttrInit)
+	elf.RegisterStub("libkernel", "pthread_attr_destroy", libKernel_pthread_attr_destroy)
+	elf.RegisterStub("libkernel", "scePthreadAttrDestroy", libKernel_scePthreadAttrDestroy)
 	elf.RegisterStub("libkernel", "scePthreadAttrGet", libKernel_scePthreadAttrGet)
 	elf.RegisterStub("libkernel", "scePthreadAttrGetstack", libKernel_scePthreadAttrGetstack)
 	elf.RegisterStub("libkernel", "scePthreadAttrGetaffinity", libKernel_scePthreadAttrGetaffinity)
@@ -150,6 +152,8 @@ func RegisterKernelStubs() {
 	elf.RegisterStub("libkernel", "sceKernelCreateEventFlag", libKernel_sceKernelCreateEventFlag)
 
 	// Module functions.
+	elf.RegisterStub("libkernel", "sceKernelGetExecutableModuleHandle", libKernel_sceKernelGetExecutableModuleHandle)
+	elf.RegisterStub("libkernel", "sceKernelGetModuleInfo", libKernel_sceKernelGetModuleInfo)
 	elf.RegisterStub("libkernel", "sceKernelGetModuleInfoForUnwind", libKernel_sceKernelGetModuleInfoForUnwind)
 	elf.RegisterStub("libkernel", "sub_1EB0", libKernel_sys_dynlib_get_info_ex)
 	elf.RegisterStub("libkernel", "sceKernelIsInSandbox", libKernel_sceKernelIsInSandbox)

@@ -21,6 +21,17 @@ func libKernel_scePthreadAttrInit(attrHandlePtr uintptr) uintptr {
 	return 0
 }
 
+// 0x00000000000133E0
+// __int64 __fastcall scePthreadAttrDestroy(__int64 *)
+func libKernel_scePthreadAttrDestroy(attrHandlePtr uintptr) uintptr {
+	err := libKernel_pthread_attr_destroy(attrHandlePtr)
+	if err != 0 {
+		return err - 0x7FFE0000
+	}
+
+	return 0
+}
+
 // 0x0000000000014480
 // __int64 __fastcall scePthreadAttrGet(volatile signed __int32 *, __int64 *)
 func libKernel_scePthreadAttrGet(threadPtr uintptr, attrHandlePtr uintptr) uintptr {

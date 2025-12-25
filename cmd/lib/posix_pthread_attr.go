@@ -37,3 +37,38 @@ func libKernel_pthread_attr_init(attrHandlePtr uintptr) uintptr {
 	)
 	return 0
 }
+
+// 0x0000000000003800
+// __int64 __fastcall pthread_attr_destroy(__int64 *)
+func libKernel_pthread_attr_destroy(attrHandlePtr uintptr) uintptr {
+	// Resolve the handle.
+	attr, err := ResolveHandle[PthreadAttr](attrHandlePtr)
+	if err != 0 {
+		logger.Printf("%-120s %s failed due to invalid attribute pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("pthread_attr_destroy"),
+		)
+		return err
+	}
+
+	// Free the memory.
+	attrAddr := uintptr(unsafe.Pointer(attr))
+	if !GlobalGoAllocator.Free(attrAddr, PthreadAttrSize) {
+		logger.Printf("%-120s %s failed freeing untracked pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("pthread_attr_destroy"),
+		)
+		return EFAULT
+	}
+
+	// Copy NULL pointer to attrHandlePtr.
+	attrHandlePtrSlice := unsafe.Slice((*byte)(unsafe.Pointer(attrHandlePtr)), 8)
+	binary.LittleEndian.PutUint64(attrHandlePtrSlice, 0)
+
+	logger.Printf("%-120s %s destroyed struct at %s.\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("pthread_attr_destroy"),
+		color.Yellow.Sprintf("0x%X", attrAddr),
+	)
+	return 0
+}
