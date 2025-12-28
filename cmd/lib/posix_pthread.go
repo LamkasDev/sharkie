@@ -26,7 +26,13 @@ func libKernel_pthread_self() uintptr {
 		libKernel_sys_pthread_self()
 	}
 
-	return emu.GetCurrentThread()
+	thread := emu.GetCurrentThread()
+	/* logger.Printf("%-120s %s returned thread %s.\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("pthread_self"),
+		color.Yellow.Sprintf("0x%X", thread),
+	) */
+	return thread
 }
 
 func libKernel_sys_pthread_self() {
@@ -56,4 +62,13 @@ func libKernel_sys_pthread_self() {
 		color.Magenta.Sprint("pthread_self"),
 		color.Yellow.Sprintf("0x%X", mainThread),
 	)
+}
+
+// 0x0000000000007590
+// _BOOL8 __fastcall pthread_equal(__int64, __int64)
+func libKernel_pthread_equal(t1, t2 uintptr) uintptr {
+	if t1 == t2 {
+		return 1
+	}
+	return 0
 }

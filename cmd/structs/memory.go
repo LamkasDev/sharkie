@@ -2,7 +2,6 @@ package structs
 
 import (
 	"fmt"
-	"sync"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/logger"
@@ -59,20 +58,23 @@ const (
 
 const (
 	DirectMemoryDefaultSize = uintptr(0x100000000) // 4GB
-	GpuMemoryDefaultSize    = uintptr(0x010000000) // 2GB
+	GpuMemoryDefaultSize    = uintptr(0x080000000) // 2GB
 	MemoryPageSize          = uintptr(0x4000)      // 16KB
 	GuardPageSize           = uintptr(4096)        // 4KB
 )
 
+const (
+	AllocationAlignment  = 16
+	AllocationHeaderSize = 16
+)
+
 type Allocator struct {
-	Allocations         map[uintptr]uintptr
 	DirectMemoryBase    uintptr
 	DirectMemoryCurrent uintptr
 	DirectMemorySize    uintptr
 	GpuMemoryBase       uintptr
 	GpuMemoryCurrent    uintptr
 	GpuMemorySize       uintptr
-	Lock                sync.Mutex
 }
 
 type GoAllocator struct {
@@ -90,8 +92,6 @@ func NewAllocator() *Allocator {
 	allocator := &Allocator{
 		DirectMemorySize: DirectMemoryDefaultSize,
 		GpuMemorySize:    GpuMemoryDefaultSize,
-		Allocations:      map[uintptr]uintptr{},
-		Lock:             sync.Mutex{},
 	}
 	allocator.DirectMemoryBase, err = ReserveKernelMemory(0x400000000, allocator.DirectMemorySize)
 	if allocator.DirectMemoryBase == 0 {
@@ -124,13 +124,75 @@ func NewGoAllocator() *GoAllocator {
 }
 
 func (allocator *GoAllocator) Malloc(size uintptr) uintptr {
-	data := allocator.Allocator.Malloc(int(size))
-	return (uintptr)(unsafe.Pointer(&data[0]))
+	if size == 0 {
+		size = 1
+	}
+
+	// We need 16-bytes for header and 15-bytes for worst case alignment.
+	allocatedSize := size + AllocationHeaderSize + (AllocationAlignment - 1)
+	dataSlice := allocator.Allocator.Malloc(int(allocatedSize))
+	if len(dataSlice) == 0 {
+		return 0
+	}
+	address := uintptr(unsafe.Pointer(&dataSlice[0]))
+	alignedAddress := (address + AllocationHeaderSize + (AllocationAlignment - 1)) & ^uintptr(AllocationAlignment-1)
+	headerAddress := alignedAddress - AllocationHeaderSize
+
+	// Write header (0 - original pointer, 8 - allocated size).
+	*(*uintptr)(unsafe.Pointer(headerAddress)) = address
+	*(*uintptr)(unsafe.Pointer(headerAddress + 8)) = allocatedSize
+
+	return alignedAddress
 }
 
-func (allocator *GoAllocator) Free(address, size uintptr) bool {
-	data := unsafe.Slice((*byte)(unsafe.Pointer(address)), size)
-	return allocator.Allocator.Free(data)
+func (allocator *GoAllocator) Free(ptr uintptr) bool {
+	if ptr == 0 {
+		return true
+	}
+
+	// Read header (0 - original pointer, 8 - allocated size).
+	headerAddr := ptr - AllocationHeaderSize
+	address := *(*uintptr)(unsafe.Pointer(headerAddr))
+	allocatedSize := *(*uintptr)(unsafe.Pointer(headerAddr + 8))
+	dataSlice := unsafe.Slice((*byte)(unsafe.Pointer(address)), allocatedSize)
+
+	return allocator.Allocator.Free(dataSlice)
+}
+
+func (allocator *GoAllocator) Realloc(ptr uintptr, newSize uintptr) uintptr {
+	if ptr == 0 {
+		return allocator.Malloc(newSize)
+	}
+	if newSize == 0 {
+		allocator.Free(ptr)
+		return 0
+	}
+
+	// Read header (0 - original pointer, 8 - allocated size).
+	headerAddr := ptr - AllocationHeaderSize
+	address := *(*uintptr)(unsafe.Pointer(headerAddr))
+	allocatedSize := *(*uintptr)(unsafe.Pointer(headerAddr + 8))
+
+	// Allocate new block.
+	padding := ptr - address
+	oldUserSize := allocatedSize - padding
+	newAddress := allocator.Malloc(newSize)
+	if newAddress == 0 {
+		return 0
+	}
+
+	// Copy contents.
+	copySize := oldUserSize
+	if newSize < copySize {
+		copySize = newSize
+	}
+	copy(
+		unsafe.Slice((*byte)(unsafe.Pointer(newAddress)), copySize),
+		unsafe.Slice((*byte)(unsafe.Pointer(ptr)), copySize),
+	)
+	allocator.Free(ptr)
+
+	return newAddress
 }
 
 func MemoryProtName(prot uintptr) string {

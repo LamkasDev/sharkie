@@ -55,24 +55,33 @@ func (shFs *SharkieFilesystem) Create(path string) (*SharkieFile, error) {
 	if err != nil {
 		return nil, err
 	}
-	shmFile := &SharkieFile{
+	shFile := &SharkieFile{
 		Path:       path,
 		Descriptor: shFs.NextDescriptor,
 		File:       file,
 	}
-	shFs.Files[path] = shmFile
-	shFs.Descriptors[shmFile.Descriptor] = shmFile
+	shFs.Files[path] = shFile
+	shFs.Descriptors[shFile.Descriptor] = shFile
 	shFs.NextDescriptor++
 
-	return shmFile, nil
+	return shFile, nil
 }
 
 func (shFs *SharkieFilesystem) Write(path string, data []byte) (int, error) {
-	_, err := shFs.Open(path, SCE_O_CREAT, 0)
+	shFile, err := shFs.Open(path, SCE_O_CREAT, 0)
 	if err != nil {
 		return 0, err
 	}
-	return len(data), shFs.Fs.WriteFile(path, data, 0777)
+	written, err := len(data), shFs.Fs.WriteFile(path, data, 0777)
+	if err != nil {
+		return 0, err
+	}
+	shFile.File, err = shFs.Fs.Open(path)
+	if err != nil {
+		return 0, err
+	}
+
+	return written, nil
 }
 
 func (shFs *SharkieFilesystem) ReadFull(path string) ([]byte, error) {
@@ -149,6 +158,9 @@ func (shFs *SharkieFilesystem) InitializeSystemFiles() error {
 	if _, err := shFs.Create(GetUsablePath("stderr")); err != nil {
 		return err
 	}
+	if _, err := shFs.Create(GetUsablePath("/dev/rng")); err != nil {
+		return err
+	}
 	if _, err := shFs.Create(GetUsablePath("/dev/console")); err != nil {
 		return err
 	}
@@ -201,10 +213,12 @@ func (shFs *SharkieFilesystem) InitializeAppFiles() error {
 		if err != nil {
 			return err
 		}
+		s, _ := shFs.Files[fsPath].File.Stat()
 		logger.Printf(
-			"Loaded file %s as %s.\n",
+			"Loaded file %s as %s (size=%s).\n",
 			color.Blue.Sprint(path),
 			color.Blue.Sprint(fsPath),
+			color.Yellow.Sprintf("0x%X", s.Size()),
 		)
 
 		return nil

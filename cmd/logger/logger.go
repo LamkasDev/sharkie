@@ -6,7 +6,7 @@ import (
 	"sync"
 )
 
-const LogToFile = false
+const LogToFile = true
 
 var LogFile *os.File
 var LogLock = sync.Mutex{}

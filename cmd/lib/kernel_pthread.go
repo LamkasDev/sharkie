@@ -24,3 +24,14 @@ func libKernel_scePthreadGetthreadid() uintptr {
 func libKernel_scePthreadSelf() uintptr {
 	return libKernel_pthread_self()
 }
+
+// 0x0000000000013920
+// __int64 scePthreadEqual()
+func libKernel_scePthreadEqual(t1, t2 uintptr) uintptr {
+	err := libKernel_pthread_equal(t1, t2)
+	if err != 0 {
+		return err - 0x7FFE0000
+	}
+
+	return 0
+}

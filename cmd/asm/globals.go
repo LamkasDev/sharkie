@@ -15,3 +15,6 @@ var (
 	ReturnAddressAnchor uintptr
 	CallReturnAddress   uintptr
 )
+
+func SetGuestSP(sp uintptr)
+func GetGuestSP() uintptr

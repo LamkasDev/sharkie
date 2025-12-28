@@ -44,24 +44,27 @@ func NewTCB(l *linker.Linker) *Tcb {
 	copy(tcb.Thread.Name[:], "MainThread")
 
 	for _, module := range GlobalModuleManager.ModulesMap {
-		if module.TlsSection == nil || module.TlsSection.InitImageSize == 0 {
+		if module.TlsSection == nil || module.TlsSection.ImageSize == 0 {
 			continue
 		}
-		src := uintptr(unsafe.Pointer(&module.Memory[0])) + uintptr(module.TlsSection.ImageVirtualAddress)
 		dest := addr + uintptr(module.TlsSection.Offset)
-		copy(
-			unsafe.Slice((*byte)(unsafe.Pointer(dest)), module.TlsSection.InitImageSize),
-			unsafe.Slice((*byte)(unsafe.Pointer(src)), module.TlsSection.InitImageSize),
-		)
+		if module.TlsSection.InitImageSize > 0 {
+			src := uintptr(unsafe.Pointer(&module.Memory[0])) + uintptr(module.TlsSection.ImageVirtualAddress)
+			copy(
+				unsafe.Slice((*byte)(unsafe.Pointer(dest)), module.TlsSection.InitImageSize),
+				unsafe.Slice((*byte)(unsafe.Pointer(src)), module.TlsSection.InitImageSize),
+			)
+		}
 		dtvSlice[module.ModuleIndex+1].Pointer = dest
 		TlsBaseRepo[module.ModuleIndex] = dest
 
 		logger.Printf(
-			"%s's PT_TLS data from %s loaded into TCB at %s (%s bytes).\n",
+			"Copied %s bytes of %s's PT_TLS data from %s to %s (image size %s).\n",
+			color.Green.Sprintf("%d", module.TlsSection.InitImageSize),
 			color.Blue.Sprint(module.Name),
 			color.Yellow.Sprintf("0x%X", module.TlsSection.ImageVirtualAddress),
 			color.Yellow.Sprintf("0x%X", dest),
-			color.Gray.Sprintf("%d", module.TlsSection.InitImageSize),
+			color.Gray.Sprintf("%d", module.TlsSection.ImageSize),
 		)
 	}
 

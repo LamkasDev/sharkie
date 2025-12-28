@@ -119,6 +119,8 @@ func RegisterKernelStubs() {
 	elf.RegisterStub("libkernel", "scePthreadGetthreadid", libKernel_scePthreadGetthreadid)
 	elf.RegisterStub("libkernel", "pthread_self", libKernel_pthread_self)
 	elf.RegisterStub("libkernel", "scePthreadSelf", libKernel_scePthreadSelf)
+	elf.RegisterStub("libkernel", "pthread_equal", libKernel_pthread_equal)
+	elf.RegisterStub("libkernel", "scePthreadEqual", libKernel_scePthreadEqual)
 
 	// Mutex functions.
 	elf.RegisterStub("libkernel", "pthread_mutexattr_init", libKernel_pthread_mutexattr_init)
@@ -160,6 +162,10 @@ func RegisterKernelStubs() {
 	elf.RegisterStub("libkernel", "sceKernelGetCompiledSdkVersion", libKernel_sceKernelGetCompiledSdkVersion)
 	elf.RegisterStub("libkernel", "sceKernelLoadStartModuleForSysmodule", libKernel_sceKernelLoadStartModuleForSysmodule)
 	elf.RegisterStub("libkernel", "sceKernelLoadStartModule", libKernel_sceKernelLoadStartModule)
+
+	// App functions.
+	elf.RegisterStub("libkernel", "sceKernelGetAppInfo", libKernel_sceKernelGetAppInfo)
+	elf.RegisterStub("libkernel", "sceKernelTitleWorkaroundIsEnabled", libKernel_sceKernelTitleWorkaroundIsEnabled)
 
 	// TSC functions.
 	elf.RegisterStub("libkernel", "sceKernelGetTscFrequency", libKernel_sceKernelGetTscFrequency)

@@ -112,7 +112,7 @@ func libKernel_pthread_mutex_destroy(mutexHandlePtr uintptr) uintptr {
 
 	// Free the memory.
 	mutexAddr := uintptr(unsafe.Pointer(mutex))
-	if !GlobalGoAllocator.Free(mutexAddr, PthreadMutexSize) {
+	if !GlobalGoAllocator.Free(mutexAddr) {
 		logger.Printf("%-120s %s failed freeing untracked pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("pthread_mutex_destroy"),
@@ -256,15 +256,15 @@ func libKernel_pthread_mutex_lock(mutexHandlePtr uintptr) uintptr {
 	}
 
 	// Fallback to a blocking lock.
-	hostMutex.Lock()
-	mutex.Owner = currentThread
-
-	logger.Printf("%-120s %s locked mutex %s (thread=%s).\n",
+	logger.Printf("%-120s %s locking mutex %s (thread=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("pthread_mutex_lock"),
 		GetMutexNameText(mutex, mutexAddr),
 		color.Yellow.Sprintf("0x%X", currentThread),
 	)
+	hostMutex.Lock()
+	mutex.Owner = currentThread
+
 	return 0
 }
 
@@ -332,15 +332,15 @@ func libKernel_pthread_mutex_unlock(mutexHandlePtr uintptr) uintptr {
 	}
 
 	// Unlock the mutex.
-	mutex.Owner = 0
-	hostMutex := GetMutex(mutexAddr)
-	hostMutex.Unlock()
-
-	logger.Printf("%-120s %s unlocked mutex %s (thread=%s).\n",
+	logger.Printf("%-120s %s unlocking mutex %s (thread=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("pthread_mutex_unlock"),
 		GetMutexNameText(mutex, mutexAddr),
 		color.Yellow.Sprintf("0x%X", currentThread),
 	)
+	mutex.Owner = 0
+	hostMutex := GetMutex(mutexAddr)
+	hostMutex.Unlock()
+
 	return 0
 }

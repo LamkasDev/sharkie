@@ -46,6 +46,26 @@ func RegisterStub(libraryName, symbolName string, f interface{}) asm.StubInfo {
 	return stub
 }
 
+// RegisterAssemblyStub registers a new stub specified by library and symbol name pointing to function address.
+func RegisterAssemblyStub(libraryName, symbolName string, functionAddress uintptr) asm.StubInfo {
+	stub := asm.StubInfo{
+		LibraryName: libraryName,
+		SymbolName:  symbolName,
+		Address:     functionAddress,
+	}
+	hashIndex := GetSymbolHashIndex(libraryName, symbolName)
+	asm.Stubs[hashIndex] = stub
+	asm.StubsMap[functionAddress] = hashIndex
+	asm.StubsTrampolineMap[stub.Address] = hashIndex
+	logger.Printf(
+		"Registered %s as assembly function at %s...\n",
+		color.Blue.Sprintf("%s:%s", libraryName, symbolName),
+		color.Yellow.Sprintf("0x%X", stub.Address),
+	)
+
+	return stub
+}
+
 // RegisterVariableStub registers a new variable stub specified by library and symbol name of size.
 func RegisterVariableStub(libraryName, symbolName string, size uintptr) asm.StubInfo {
 	addr := GlobalGoAllocator.Malloc(size)

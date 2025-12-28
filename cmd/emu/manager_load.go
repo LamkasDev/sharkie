@@ -72,6 +72,9 @@ func (m *ModuleManager) _RecursiveLoadModule(name string) error {
 	module.Path = *modulePath
 	m.Modules = append(m.Modules, module)
 	m.ModulesMap[name] = module
+	if module.Name == "libSceFios2.sprx" {
+		RegisterFiosStubs()
+	}
 	logger.Println()
 
 	for _, needed := range module.DynamicInfo.Needed {

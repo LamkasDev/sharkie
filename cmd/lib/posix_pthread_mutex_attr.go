@@ -79,7 +79,7 @@ func libKernel_pthread_mutexattr_destroy(attrHandlePtr uintptr) uintptr {
 
 	// Free the memory.
 	attrAddr := uintptr(unsafe.Pointer(attr))
-	if !GlobalGoAllocator.Free(attrAddr, PthreadMutexAttrSize) {
+	if !GlobalGoAllocator.Free(attrAddr) {
 		logger.Printf("%-120s %s failed freeing untracked pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("pthread_mutexattr_destroy"),

@@ -46,8 +46,8 @@ func libKernel_scePthreadCondSignal(condHandlePtr uintptr) uintptr {
 
 // 0x00000000000138C0
 // __int64 scePthreadCondWait()
-func libKernel_scePthreadCondWait(condHandlePtr uintptr) uintptr {
-	err := libKernel_pthread_cond_wait(condHandlePtr)
+func libKernel_scePthreadCondWait(condHandlePtr uintptr, mutexHandlePtr uintptr) uintptr {
+	err := libKernel_pthread_cond_wait(condHandlePtr, mutexHandlePtr)
 	if err != 0 {
 		return err - 0x7FFE0000
 	}

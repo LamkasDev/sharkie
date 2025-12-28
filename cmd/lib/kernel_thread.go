@@ -28,7 +28,7 @@ func libKernel_rtprio_thread(function, lwpid, rtpPtr uintptr) uintptr {
 		return ERR_PTR
 	}
 	if function != RTP_LOOKUP {
-		logger.Printf("%-120s %s failed due to unknown function %s.\n",
+		logger.Printf("%-120s %s failed due to unknown method %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("rtprio_thread"),
 			color.Yellow.Sprintf("0x%X", function),

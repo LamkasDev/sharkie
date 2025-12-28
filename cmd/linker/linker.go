@@ -64,7 +64,7 @@ func (l *Linker) Link(e *elf.Elf) error {
 			continue
 		}
 		stub, ok := asm.Stubs[symbol.HashIndex]
-		if ok {
+		if ok && stub.SymbolName != "sceFiosInitialize" {
 			// MOV trampolineAddr, RAX
 			patch := []byte{0x48, 0xB8}
 			patch = binary.LittleEndian.AppendUint64(patch, uint64(stub.Address))

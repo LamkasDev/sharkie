@@ -73,7 +73,7 @@ func libKernel_pthread_cond_destroy(condHandlePtr uintptr) uintptr {
 
 	// Free the memory.
 	condAddr := uintptr(unsafe.Pointer(cond))
-	if !GlobalGoAllocator.Free(condAddr, PthreadCondSize) {
+	if !GlobalGoAllocator.Free(condAddr) {
 		logger.Printf("%-120s %s failed freeing untracked pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("pthread_cond_destroy"),
@@ -147,7 +147,7 @@ func libKernel_pthread_cond_signal(condHandlePtr uintptr) uintptr {
 
 // 0x0000000000005550
 // __int64 __fastcall pthread_cond_wait(__int64 *, unsigned __int64 *, __int64, __int64, __int64, int)
-func libKernel_pthread_cond_wait(condHandlePtr uintptr) uintptr {
+func libKernel_pthread_cond_wait(condHandlePtr uintptr, mutexHandlePtr uintptr) uintptr {
 	if condHandlePtr == 0 {
 		return EINVAL
 	}
@@ -161,14 +161,24 @@ func libKernel_pthread_cond_wait(condHandlePtr uintptr) uintptr {
 		condAddr = *(*uintptr)(unsafe.Pointer(condHandlePtr))
 	}
 
-	// Wait on it.
-	hostCond := GetCond(condAddr)
-	hostCond.Wait()
-
-	logger.Printf("%-120s %s waited on cond %s.\n",
+	// Unlock mutex, wait on condition and relock mutex.
+	err := libKernel_pthread_mutex_unlock(mutexHandlePtr)
+	if err != 0 {
+		return err
+	}
+	logger.Printf("%-120s %s waiting on cond %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprint("pthread_cond_signal"),
+		color.Magenta.Sprint("pthread_cond_wait"),
 		color.Yellow.Sprintf("0x%X", condAddr),
 	)
+	hostCond := GetCond(condAddr)
+	hostCond.L.Lock()
+	hostCond.Wait()
+	hostCond.L.Unlock()
+	err = libKernel_pthread_mutex_lock(mutexHandlePtr)
+	if err != 0 {
+		return err
+	}
+
 	return 0
 }

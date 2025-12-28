@@ -181,7 +181,7 @@ func libKernel_sceKernelIsInSandbox() uintptr {
 // 0x000000000001A920
 // __int64 sceKernelGetCompiledSdkVersion()
 func libKernel_sceKernelGetCompiledSdkVersion(versionPtr uintptr) uintptr {
-	sdkVersion := uint32(0x11000000)
+	sdkVersion := GameCompiledSdkVersion
 	if versionPtr != 0 {
 		versionSlice := unsafe.Slice((*byte)(unsafe.Pointer(versionPtr)), 4)
 		binary.LittleEndian.PutUint32(versionSlice, sdkVersion)
