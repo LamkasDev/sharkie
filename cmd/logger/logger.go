@@ -3,13 +3,11 @@ package logger
 import (
 	"fmt"
 	"os"
-	"sync"
 )
 
 const LogToFile = true
 
 var LogFile *os.File
-var LogLock = sync.Mutex{}
 
 func StartLogging() {
 	if !LogToFile {
@@ -26,10 +24,11 @@ func StopLogging() {
 	if LogFile == nil {
 		return
 	}
-	if err := LogFile.Close(); err != nil {
+	file := LogFile
+	LogFile = nil
+	if err := file.Close(); err != nil {
 		panic(err)
 	}
-	LogFile = nil
 }
 
 func CleanupAndExit() {
@@ -41,9 +40,7 @@ func CleanupAndExit() {
 func Print(a ...any) {
 	message := fmt.Sprint(a...)
 	fmt.Print(message)
-	if LogToFile {
-		LogLock.Lock()
-		defer LogLock.Unlock()
+	if LogToFile && LogFile != nil {
 		if _, err := LogFile.Write([]byte(message)); err != nil {
 			panic(err)
 		}
@@ -53,9 +50,7 @@ func Print(a ...any) {
 func Printf(format string, a ...any) {
 	message := fmt.Sprintf(format, a...)
 	fmt.Print(message)
-	if LogToFile {
-		LogLock.Lock()
-		defer LogLock.Unlock()
+	if LogToFile && LogFile != nil {
 		if _, err := LogFile.Write([]byte(message)); err != nil {
 			panic(err)
 		}
@@ -65,9 +60,7 @@ func Printf(format string, a ...any) {
 func Println(a ...any) {
 	message := fmt.Sprintln(a...)
 	fmt.Print(message)
-	if LogToFile {
-		LogLock.Lock()
-		defer LogLock.Unlock()
+	if LogToFile && LogFile != nil {
 		if _, err := LogFile.Write([]byte(message)); err != nil {
 			panic(err)
 		}

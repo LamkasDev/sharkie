@@ -6,42 +6,45 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/linker"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	. "github.com/LamkasDev/sharkie/cmd/structs"
-	"github.com/LamkasDev/sharkie/cmd/sys_struct"
 	"github.com/gookit/color"
 )
 
-// NewTCB creates a new instance of Tcb based on passed Elf.
-func NewTCB(l *linker.Linker) *Tcb {
-	maxTlsIndex := uintptr(len(GlobalModuleManager.ModulesMap))
-	tcbSize := unsafe.Sizeof(Tcb{})
-	dtvSize := unsafe.Sizeof(DtvEntry{}) * (maxTlsIndex + 2)
-	threadSize := unsafe.Sizeof(Pthread{})
+// NewTcb creates a new instance of Tcb for passed thread.
+func NewTcb(thread *Thread) *Tcb {
+	GlobalModuleManager.ModulesLock.RLock()
+	defer GlobalModuleManager.ModulesLock.RUnlock()
 
-	tlsSize := uintptr(l.StaticTlsSize)
+	maxTlsIndex := uintptr(len(GlobalModuleManager.ModulesMap))
+	tlsSize := uintptr(linker.GlobalLinker.StaticTlsSize)
 	padding := (TcbAlignment - (tlsSize % TcbAlignment)) % TcbAlignment
 	tcbOffset := tlsSize + padding
-	totalSize := tcbOffset + tcbSize
+	totalSize := tcbOffset + TcbSize
 
 	addr := GlobalGoAllocator.Malloc(totalSize)
-	tcb := (*Tcb)(unsafe.Pointer(addr + tcbOffset))
+	tcbAddr := addr + tcbOffset
+	tcb := (*Tcb)(unsafe.Pointer(tcbAddr))
 	tcb.Self = tcb
 
-	dtvAddr := GlobalGoAllocator.Malloc(dtvSize)
+	dtvAddr := GlobalGoAllocator.Malloc(DtvEntrySize * (maxTlsIndex + 2))
 	tcb.Dtv = (*DtvEntry)(unsafe.Pointer(dtvAddr))
-	threadAddr := GlobalGoAllocator.Malloc(threadSize)
+	threadAddr := GlobalGoAllocator.Malloc(PthreadSize)
 	tcb.Thread = (*Pthread)(unsafe.Pointer(threadAddr))
 	tcb.Fiber = 0
 
 	dtvSlice := unsafe.Slice(tcb.Dtv, maxTlsIndex+2)
-	dtvSlice[0].Counter = l.GenerationCounter
+	dtvSlice[0].Counter = linker.GlobalLinker.GenerationCounter
 	dtvSlice[1].Counter = maxTlsIndex
 
-	tcb.Thread.ThreadId = 1337
-	tcb.Thread.Flags = 0
+	tcb.Thread.Self = threadAddr
+	tcb.Thread.TcbSelf = tcbAddr
+	tcb.Thread.StartFunc = 0
+	tcb.Thread.Arg = 0
+	tcb.Thread.Attr = PthreadAttr{}
 	tcb.Thread.ReturnValue = 0
-	tcb.Thread.Error = 0
-	tcb.Thread.CleanupHandlerStack = 0
-	copy(tcb.Thread.Name[:], "MainThread")
+	tcb.Thread.NamePtr = GlobalGoAllocator.Malloc(33)
+	WriteCString(tcb.Thread.NamePtr, thread.Name)
+	tcb.Thread.CleanupStack = 0
+	tcb.Thread.Magic = PthreadMagic
 
 	for _, module := range GlobalModuleManager.ModulesMap {
 		if module.TlsSection == nil || module.TlsSection.ImageSize == 0 {
@@ -59,7 +62,8 @@ func NewTCB(l *linker.Linker) *Tcb {
 		TlsBaseRepo[module.ModuleIndex] = dest
 
 		logger.Printf(
-			"Copied %s bytes of %s's PT_TLS data from %s to %s (image size %s).\n",
+			"[%s] Copied %s bytes of %s's PT_TLS data from %s to %s (image size %s).\n",
+			color.Green.Sprint(thread.Name),
 			color.Green.Sprintf("%d", module.TlsSection.InitImageSize),
 			color.Blue.Sprint(module.Name),
 			color.Yellow.Sprintf("0x%X", module.TlsSection.ImageVirtualAddress),
@@ -69,20 +73,4 @@ func NewTCB(l *linker.Linker) *Tcb {
 	}
 
 	return tcb
-}
-
-// GetMainThread returns pointer to the Pthread struct of the main thread.
-func GetMainThread() uintptr {
-	return uintptr(unsafe.Pointer(GlobalModuleManager.Tcb.Thread))
-}
-
-// GetCurrentThread returns pointer to the Pthread struct of the current thread.
-func GetCurrentThread() uintptr {
-	tcbAddr, _, _ := sys_struct.TlsGetValue.Call(sys_struct.TlsSlot)
-	if tcbAddr == 0 {
-		return 0
-	}
-
-	tcb := (*Tcb)(unsafe.Pointer(tcbAddr))
-	return (uintptr)(unsafe.Pointer(tcb.Thread))
 }

@@ -1,7 +1,9 @@
 package structs
 
 import (
+	"encoding/binary"
 	"fmt"
+	"sync"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/logger"
@@ -79,6 +81,7 @@ type Allocator struct {
 
 type GoAllocator struct {
 	Allocator *gomem.ScalableMemoryAllocator
+	Lock      sync.Mutex
 }
 
 func SetupAllocator() {
@@ -118,6 +121,7 @@ func NewAllocator() *Allocator {
 func NewGoAllocator() *GoAllocator {
 	goAllocator := &GoAllocator{
 		Allocator: gomem.NewScalableMemoryAllocator(1024),
+		Lock:      sync.Mutex{},
 	}
 
 	return goAllocator
@@ -130,7 +134,9 @@ func (allocator *GoAllocator) Malloc(size uintptr) uintptr {
 
 	// We need 16-bytes for header and 15-bytes for worst case alignment.
 	allocatedSize := size + AllocationHeaderSize + (AllocationAlignment - 1)
+	allocator.Lock.Lock()
 	dataSlice := allocator.Allocator.Malloc(int(allocatedSize))
+	allocator.Lock.Unlock()
 	if len(dataSlice) == 0 {
 		return 0
 	}
@@ -139,8 +145,9 @@ func (allocator *GoAllocator) Malloc(size uintptr) uintptr {
 	headerAddress := alignedAddress - AllocationHeaderSize
 
 	// Write header (0 - original pointer, 8 - allocated size).
-	*(*uintptr)(unsafe.Pointer(headerAddress)) = address
-	*(*uintptr)(unsafe.Pointer(headerAddress + 8)) = allocatedSize
+	headerSlice := unsafe.Slice((*byte)(unsafe.Pointer(headerAddress)), AllocationHeaderSize)
+	binary.LittleEndian.PutUint64(headerSlice, uint64(address))
+	binary.LittleEndian.PutUint64(headerSlice[8:], uint64(allocatedSize))
 
 	return alignedAddress
 }
@@ -156,6 +163,8 @@ func (allocator *GoAllocator) Free(ptr uintptr) bool {
 	allocatedSize := *(*uintptr)(unsafe.Pointer(headerAddr + 8))
 	dataSlice := unsafe.Slice((*byte)(unsafe.Pointer(address)), allocatedSize)
 
+	allocator.Lock.Lock()
+	defer allocator.Lock.Unlock()
 	return allocator.Allocator.Free(dataSlice)
 }
 

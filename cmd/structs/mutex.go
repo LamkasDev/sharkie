@@ -12,15 +12,21 @@ var (
 
 // GetMutex retrieves or creates Go sync.Mutex corresponding to a guest address.
 func GetMutex(guestAddress uintptr) *sync.Mutex {
-	// This doesn't need to be fast, let's just read/write in one pass.
-	MutexLock.Lock()
-	defer MutexLock.Unlock()
-	if mutex, ok := MutexRepo[guestAddress]; ok {
+	MutexLock.RLock()
+	mutex, ok := MutexRepo[guestAddress]
+	MutexLock.RUnlock()
+	if ok {
 		return mutex
 	}
 
-	mutex := &sync.Mutex{}
-	MutexRepo[guestAddress] = mutex
+	// Create new mutex.
+	MutexLock.Lock()
+	defer MutexLock.Unlock()
+	if mutex, ok = MutexRepo[guestAddress]; ok {
+		return mutex
+	}
 
+	mutex = &sync.Mutex{}
+	MutexRepo[guestAddress] = mutex
 	return mutex
 }

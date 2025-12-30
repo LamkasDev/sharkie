@@ -188,6 +188,9 @@ func (shFs *SharkieFilesystem) InitializeSystemFiles() error {
 	if _, err := shFs.Create(GetUsablePath("/dev/sbl_srv")); err != nil {
 		return err
 	}
+	if _, err := shFs.Create(GetUsablePath("/dev/dce")); err != nil {
+		return err
+	}
 	if _, err := shFs.Write(GetUsablePath(AudioInBufferName), make([]byte, AudioInBufferDefault)); err != nil {
 		panic(err)
 	}

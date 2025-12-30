@@ -16,7 +16,7 @@ func libKernel_ioctl(fd, request, mode uintptr) uintptr {
 func libKernel_sys_ioctl(fd, request, argPtr uintptr) uintptr {
 	file, ok := GlobalFilesystem.Descriptors[FileDescriptor(fd)]
 	if !ok {
-		logger.Printf("%-120s %s requested %s with argument at %s.\n",
+		logger.Printf("%-132s %s requested %s with argument at %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprintf("[ioctl on unknown %d]", fd),
 			color.Yellow.Sprintf("0x%X", request),
@@ -25,7 +25,7 @@ func libKernel_sys_ioctl(fd, request, argPtr uintptr) uintptr {
 		return 0
 	}
 
-	logger.Printf("%-120s %s requested %s with argument at %s.\n",
+	logger.Printf("%-132s %s requested %s with argument at %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprintf("[ioctl on %s]", file.Path),
 		color.Yellow.Sprintf("0x%X", request),

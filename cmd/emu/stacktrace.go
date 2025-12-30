@@ -1,8 +1,6 @@
 package emu
 
 import (
-	"unsafe"
-
 	"github.com/LamkasDev/sharkie/cmd/asm"
 	"github.com/LamkasDev/sharkie/cmd/elf"
 	"github.com/LamkasDev/sharkie/cmd/logger"
@@ -16,18 +14,6 @@ type StackTraceFrame struct {
 
 type StackTrace struct {
 	Frames []StackTraceFrame
-}
-
-// SafeReadUint64 safely reads a uint64 value from the stack.
-func SafeReadUint64(address uintptr) (uint64, bool) {
-	module := GlobalModuleManager.CurrentModule
-	if module != nil && GlobalModuleManager.Stack != nil {
-		if address >= GlobalModuleManager.Stack.Address && address+8 <= GlobalModuleManager.Stack.Address+uintptr(len(GlobalModuleManager.Stack.Contents)) {
-			return *(*uint64)(unsafe.Pointer(address)), true
-		}
-	}
-
-	return 0, false
 }
 
 // PrintAddress prints an address and relative position to a module, if within one.

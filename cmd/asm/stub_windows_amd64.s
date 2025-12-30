@@ -24,26 +24,29 @@ TEXT ·stubAsm(SB), NOSPLIT, $0-0
     // Save all general-purpose registers.
     SAVE_REGS
 
+    // Save Thread Context Pointer into R15.
+    GET_TLS_CONTEXT(R15)
+
     // Save fake caller address in case we run into an exception handler.
     LEAQ ·stubAsm(SB), SI
     ADDQ $7, SI
-    MOVQ SI, ·ReturnAddressAnchor(SB)
+    MOVQ SI, CTX_RET_ANCHOR(R15)
 
     // Save playstation stack.
     MOVQ SP, R13
-    MOVQ R13, ·PlaystationStackSP(SB)
+    MOVQ R13, CTX_PS_SP(R15)
 
     // Pass context pointer.
-    MOVQ R13, ·GlobalStubContext(SB)
+    MOVQ R13, CTX_STUB_CTX(R15)
 
     // Restore Go stack into scratch registers.
-    MOVQ ·SavedG(SB), R14
-    MOVQ ·GoStackSP(SB), BX
-    MOVQ ·GoStackBP(SB), BP
+    MOVQ CTX_SAVED_G(R15), R14
+    MOVQ CTX_GO_SP(R15), BX
+    MOVQ CTX_GO_BP(R15), BP
 
     // Construct fake call frame.
     SUBQ $16, BX
-    MOVQ ·CallReturnAddress(SB), AX
+    MOVQ CTX_RET_ANCHOR(R15), AX
     MOVQ AX, 8(BX)
     MOVQ BP, 0(BX)
     LEAQ 0(BX), BP
@@ -59,12 +62,15 @@ TEXT ·stubAsm(SB), NOSPLIT, $0-0
     MOVQ SP, BX
     ADDQ $16, BX
 
+    // Save Thread Context Pointer into R15.
+    GET_TLS_CONTEXT(R15)
+
     // Save Go stack.
-    MOVQ BX, ·GoStackSP(SB)
-    MOVQ BP, ·GoStackBP(SB)
+    MOVQ BX, CTX_GO_SP(R15)
+    MOVQ BP, CTX_GO_BP(R15)
 
     // Switch to playstation stack.
-    MOVQ ·PlaystationStackSP(SB), BX
+    MOVQ CTX_PS_SP(R15), BX
     BYTE $0x48; BYTE $0x89; BYTE $0xDC  // MOVQ BX, SP
 
     // Restore all general-purpose registers.

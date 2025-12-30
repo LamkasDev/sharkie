@@ -40,7 +40,7 @@ func libKernel_sys_close(fd uintptr) uintptr {
 
 	file, ok := GlobalFilesystem.Descriptors[FileDescriptor(fd)]
 	if !ok {
-		logger.Printf("%-120s %s failed due to unknown file %s.\n",
+		logger.Printf("%-132s %s failed due to unknown file %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("_close"),
 			color.Yellow.Sprintf("0x%X", fd),
@@ -50,7 +50,7 @@ func libKernel_sys_close(fd uintptr) uintptr {
 	}
 
 	if err := GlobalFilesystem.Close(file.Path); err != nil {
-		logger.Printf("%-120s %s failed due to close error on %s (%s).\n",
+		logger.Printf("%-132s %s failed due to close error on %s (%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("_close"),
 			color.Blue.Sprint(file.Path),
@@ -60,7 +60,7 @@ func libKernel_sys_close(fd uintptr) uintptr {
 		return ERR_PTR
 	}
 
-	logger.Printf("%-120s %s closed file %s (path=%s).\n",
+	logger.Printf("%-132s %s closed file %s (path=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("_close"),
 		color.Yellow.Sprintf("0x%X", file.Descriptor),

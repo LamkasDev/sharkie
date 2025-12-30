@@ -20,9 +20,9 @@ type Stack struct {
 
 // NewStack creates a new stack with the defined size.
 func NewStack(stackSize uintptr) *Stack {
-	addr := GlobalGoAllocator.Malloc(stackSize)
+	addr, err := AllocKernelMemory(0, stackSize, PROT_READ|PROT_WRITE|PROT_EXEC, MAP_ANON|MAP_PRIVATE)
 	if addr == 0 {
-		panic("failed to allocate stack space")
+		panic(err)
 	}
 
 	return &Stack{

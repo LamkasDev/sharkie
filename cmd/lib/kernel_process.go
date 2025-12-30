@@ -1,8 +1,13 @@
 package lib
 
 import (
+	"encoding/binary"
+	"time"
+	"unsafe"
+
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	"github.com/LamkasDev/sharkie/cmd/logger"
+	. "github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/gookit/color"
 )
 
@@ -10,7 +15,7 @@ import (
 // __int64 __fastcall getpid()
 func libKernel_getpid() uintptr {
 	processId := uintptr(1001)
-	logger.Printf("%-120s %s returned process id %s.\n",
+	logger.Printf("%-132s %s returned process id %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("getpid"),
 		color.Green.Sprintf("%d", processId),
@@ -23,7 +28,7 @@ func libKernel_getpid() uintptr {
 // __int64 __fastcall sceKernelGetProcessType()
 func libKernel_sceKernelGetProcessType() uintptr {
 	processType := uintptr(1)
-	logger.Printf("%-120s %s returned process type %s.\n",
+	logger.Printf("%-132s %s returned process type %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sceKernelGetProcessType"),
 		color.Blue.Sprintf("0x%X", processType),
@@ -38,7 +43,7 @@ func libKernel_sceKernelGetProcParam() uintptr {
 	module := emu.GlobalModuleManager.CurrentModule
 	if module.ProcessParamSection != nil {
 		addr := module.BaseAddress + uintptr(module.ProcessParamSection.PVaddr)
-		logger.Printf("%-120s %s returning process parameters %s (relative=%s).\n",
+		logger.Printf("%-132s %s returning process parameters %s (relative=%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceKernelGetProcParam"),
 			color.Yellow.Sprintf("0x%X", addr),
@@ -47,9 +52,46 @@ func libKernel_sceKernelGetProcParam() uintptr {
 		return addr
 	}
 
-	logger.Printf("%-120s %s failed to return process parameters.\n",
+	logger.Printf("%-132s %s failed to return process parameters.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sceKernelGetProcParam"),
 	)
+	return 0
+}
+
+// 0x0000000000014BE0
+// __int64 __fastcall sceKernelUsleep(unsigned int)
+func libKernel_sceKernelUsleep(micros uintptr) uintptr {
+	logger.Printf("%-132s %s sleeping for %s microseconds.\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("sceKernelUsleep"),
+		color.Yellow.Sprintf("0x%X", micros),
+	)
+	time.Sleep(time.Duration(micros) * time.Microsecond)
+	return 0
+}
+
+// 0x0000000000014B50
+// __int64 __fastcall sceKernelNanosleep(__int128 *, __int64)
+func libKernel_sceKernelNanosleep(timestampPtr uintptr) uintptr {
+	if timestampPtr == 0 {
+		logger.Printf("%-132s %s failed due to invalid time pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceKernelNanosleep"),
+		)
+		return SCE_KERNEL_ERROR_EINVAL
+	}
+
+	timestampSlice := unsafe.Slice((*byte)(unsafe.Pointer(timestampPtr)), 16)
+	seconds := binary.LittleEndian.Uint64(timestampSlice)
+	nanos := binary.LittleEndian.Uint64(timestampSlice[8:])
+
+	logger.Printf("%-132s %s sleeping for %ss and %sns.\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("sceKernelNanosleep"),
+		color.Yellow.Sprintf("0x%X", seconds),
+		color.Yellow.Sprintf("0x%X", nanos),
+	)
+	time.Sleep(time.Duration(seconds)*time.Second + time.Duration(nanos)*time.Nanosecond)
 	return 0
 }

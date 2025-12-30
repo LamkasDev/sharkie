@@ -13,7 +13,7 @@ import (
 // __int64 sceKernelGetTscFrequency()
 func libKernel_sceKernelGetTscFrequency() uintptr {
 	freq := uintptr(structs.TSC_FREQUENCY)
-	logger.Printf("%-120s %s returned frequency %s.\n",
+	logger.Printf("%-132s %s returned frequency %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sceKernelGetTscFrequency"),
 		color.Yellow.Sprintf("0x%X", freq),
@@ -27,7 +27,7 @@ func libKernel_sceKernelReadTsc() uintptr {
 	elapsed := time.Since(structs.TscStartTime)
 	ticks := uintptr((elapsed.Nanoseconds() * int64(structs.TSC_FREQUENCY)) / 1_000_000_000)
 
-	logger.Printf("%-120s %s returned %s ticks.\n",
+	logger.Printf("%-132s %s returned %s ticks.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sceKernelReadTsc"),
 		color.Green.Sprint(ticks),

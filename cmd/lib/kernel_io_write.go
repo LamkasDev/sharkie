@@ -39,7 +39,7 @@ func libKernel__write(fd uintptr, bufPtr uintptr, length uintptr) uintptr {
 
 func libKernel_sys_write(fd uintptr, bufPtr uintptr, length uintptr) uintptr {
 	if bufPtr == 0 {
-		logger.Printf("%-120s %s failed due to invalid buffer pointer.\n",
+		logger.Printf("%-132s %s failed due to invalid buffer pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("_write"),
 		)
@@ -51,7 +51,7 @@ func libKernel_sys_write(fd uintptr, bufPtr uintptr, length uintptr) uintptr {
 
 	file, ok := GlobalFilesystem.Descriptors[FileDescriptor(fd)]
 	if !ok {
-		logger.Printf("%-120s %s failed due to unknown file %s.\n",
+		logger.Printf("%-132s %s failed due to unknown file %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("_write"),
 			color.Yellow.Sprintf("0x%X", fd),
@@ -61,7 +61,7 @@ func libKernel_sys_write(fd uintptr, bufPtr uintptr, length uintptr) uintptr {
 	}
 	fileData, err := GlobalFilesystem.ReadFull(file.Path)
 	if err != nil {
-		logger.Printf("%-120s %s failed due to read error on %s (%s).\n",
+		logger.Printf("%-132s %s failed due to read error on %s (%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("_write"),
 			color.Blue.Sprint(file.Path),
@@ -79,7 +79,7 @@ func libKernel_sys_write(fd uintptr, bufPtr uintptr, length uintptr) uintptr {
 		if !ok {
 			outputColor = color.White
 		}
-		logger.Printf("%-120s %s %s",
+		logger.Printf("%-132s %s %s",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprintf("[write on %s]", file.Path),
 			outputColor.Sprint(message),
@@ -89,9 +89,11 @@ func libKernel_sys_write(fd uintptr, bufPtr uintptr, length uintptr) uintptr {
 		}
 		return wroteBytes
 	}
+
+	// Write data.
 	fileData = append(fileData, buffer...)
 	if _, err = GlobalFilesystem.Write(file.Path, fileData); err != nil {
-		logger.Printf("%-120s %s failed due to write error on %s (%s).\n",
+		logger.Printf("%-132s %s failed due to write error on %s (%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("_write"),
 			color.Blue.Sprint(file.Path),
@@ -102,7 +104,7 @@ func libKernel_sys_write(fd uintptr, bufPtr uintptr, length uintptr) uintptr {
 	}
 	file.Cursor += wroteBytes
 
-	logger.Printf("%-120s %s wrote %s bytes to file %s (length=%s).\n",
+	logger.Printf("%-132s %s wrote %s bytes to file %s (length=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("_write"),
 		color.Yellow.Sprintf("0x%X", wroteBytes),
@@ -123,7 +125,7 @@ func libKernel_ftruncate(fd uintptr, length uintptr) uintptr {
 func libKernel_ftruncate_0(fd uintptr, length uintptr) uintptr {
 	file, ok := GlobalFilesystem.Descriptors[FileDescriptor(fd)]
 	if !ok {
-		logger.Printf("%-120s %s failed due to unknown file %s.\n",
+		logger.Printf("%-132s %s failed due to unknown file %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("ftruncate_0"),
 			color.Yellow.Sprintf("0x%X", fd),
@@ -136,7 +138,7 @@ func libKernel_ftruncate_0(fd uintptr, length uintptr) uintptr {
 
 	fileData, err := GlobalFilesystem.ReadFull(file.Path)
 	if err != nil {
-		logger.Printf("%-120s %s failed due to read error on %s (%s).\n",
+		logger.Printf("%-132s %s failed due to read error on %s (%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("ftruncate_0"),
 			color.Blue.Sprint(file.Path),
@@ -159,7 +161,7 @@ func libKernel_ftruncate_0(fd uintptr, length uintptr) uintptr {
 
 	_, err = GlobalFilesystem.Write(file.Path, fileChunk)
 	if err != nil {
-		logger.Printf("%-120s %s failed due to write error on %s (%s).\n",
+		logger.Printf("%-132s %s failed due to write error on %s (%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("ftruncate_0"),
 			color.Blue.Sprint(file.Path),
@@ -169,7 +171,7 @@ func libKernel_ftruncate_0(fd uintptr, length uintptr) uintptr {
 		return ERR_PTR
 	}
 
-	logger.Printf("%-120s %s truncated file %s from %s to %s bytes.\n",
+	logger.Printf("%-132s %s truncated file %s from %s to %s bytes.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("ftruncate_0"),
 		color.Blue.Sprint(file.Path),
@@ -177,4 +179,97 @@ func libKernel_ftruncate_0(fd uintptr, length uintptr) uintptr {
 		color.Yellow.Sprintf("0x%X", length),
 	)
 	return 0
+}
+
+// 0x0000000000016550
+// __int64 sceKernelPwrite()
+func libKernel_sceKernelPwrite(fd uintptr, bufPtr uintptr, length uintptr, offset uintptr) uintptr {
+	err := libKernel_pwrite(fd, bufPtr, length, offset)
+	if err != 0 {
+		return GetErrno() - 0x7FFE0000
+	}
+
+	return 0
+}
+
+// 0x00000000000125C0
+// __int64 pwrite()
+func libKernel_pwrite(fd uintptr, bufPtr uintptr, length uintptr, offset uintptr) uintptr {
+	return libKernel_pwrite_0(fd, bufPtr, length, offset)
+}
+
+// 0x00000000000029D0
+// __int64 pwrite_0()
+func libKernel_pwrite_0(fd uintptr, bufPtr uintptr, length uintptr, offset uintptr) uintptr {
+	return libKernel_sys_pwrite(fd, bufPtr, length, offset)
+}
+
+func libKernel_sys_pwrite(fd uintptr, bufPtr uintptr, length uintptr, offset uintptr) uintptr {
+	if bufPtr == 0 {
+		logger.Printf("%-132s %s failed due to invalid buffer pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("pwrite_0"),
+		)
+		SetErrno(EFAULT)
+		return 0
+	}
+	GlobalFilesystem.Lock.Lock()
+	defer GlobalFilesystem.Lock.Unlock()
+
+	file, ok := GlobalFilesystem.Descriptors[FileDescriptor(fd)]
+	if !ok {
+		logger.Printf("%-132s %s failed due to unknown file %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("pwrite_0"),
+			color.Yellow.Sprintf("0x%X", fd),
+		)
+		SetErrno(ENOENT)
+		return ERR_PTR
+	}
+	fileData, err := GlobalFilesystem.ReadFull(file.Path)
+	if err != nil {
+		logger.Printf("%-132s %s failed due to read error on %s (%s).\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("pwrite_0"),
+			color.Blue.Sprint(file.Path),
+			err.Error(),
+		)
+		SetErrno(EFAULT)
+		return ERR_PTR
+	}
+
+	buffer := unsafe.Slice((*byte)(unsafe.Pointer(bufPtr)), length)
+	wroteBytes := uintptr(len(buffer))
+
+	// Ensure the file is large enough for a write at the offset.
+	requiredSize := offset + wroteBytes
+	currentSize := uintptr(len(fileData))
+	if requiredSize > currentSize {
+		// Expand the file with zeros if we are writing past EOF.
+		expansion := make([]byte, requiredSize-currentSize)
+		fileData = append(fileData, expansion...)
+	}
+
+	// Write data.
+	copy(fileData[offset:], buffer)
+	if _, err = GlobalFilesystem.Write(file.Path, fileData); err != nil {
+		logger.Printf("%-132s %s failed due to write error on %s (%s).\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("pwrite_0"),
+			color.Blue.Sprint(file.Path),
+			err.Error(),
+		)
+		SetErrno(EFAULT)
+		return ERR_PTR
+	}
+
+	logger.Printf("%-132s %s wrote %s bytes to file %s at offset %s (length=%s).\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("pwrite_0"),
+		color.Yellow.Sprintf("0x%X", wroteBytes),
+		color.Blue.Sprint(file.Path),
+		color.Yellow.Sprintf("0x%X", offset),
+		color.Yellow.Sprintf("0x%X", length),
+	)
+	return wroteBytes
 }

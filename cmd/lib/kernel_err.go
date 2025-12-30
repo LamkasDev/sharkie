@@ -12,8 +12,8 @@ import (
 const ErrnoTcbOffset = 0x188
 
 func GetErrnoAddress() uintptr {
-	tcbAddr := uintptr(unsafe.Pointer(emu.GlobalModuleManager.Tcb))
-	return tcbAddr + ErrnoTcbOffset
+	thread := emu.GetCurrentThread()
+	return uintptr(unsafe.Pointer(thread.Tcb)) + ErrnoTcbOffset
 }
 
 func GetErrno() uintptr {
@@ -39,7 +39,7 @@ func libKernel___error() uintptr {
 func libKernel_sceKernelError(err uintptr) uintptr {
 	if err != 0 {
 		err = err - 0x7FFE0000
-		logger.Printf("%-120s %s returning %s.\n",
+		logger.Printf("%-132s %s returning %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceKernelError"),
 			color.Red.Sprintf("0x%X", err),
@@ -53,7 +53,7 @@ func libKernel_sceKernelError(err uintptr) uintptr {
 // 0x0000000000022D40
 // __int64 __fastcall sceKernelDebugRaiseException(__int64, __int64)
 func libKernel_sceKernelDebugRaiseException(err, argsPtr uintptr) uintptr {
-	logger.Printf("%-120s %s called with %s, exiting...\n",
+	logger.Printf("%-132s %s called with %s, exiting...\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sceKernelDebugRaiseException"),
 		color.Red.Sprintf("0x%X", err),

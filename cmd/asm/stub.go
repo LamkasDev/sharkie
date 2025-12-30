@@ -27,7 +27,8 @@ func stubGo() {
 	CheckAndRunGC()
 
 	// Extract arguments and function pointer from RegSaveArea.
-	ctx := (*RegContext)(unsafe.Pointer(GlobalStubContext))
+	threadContext := GetCurrentThreadContext()
+	ctx := (*RegContext)(unsafe.Pointer(threadContext.GlobalStubContext))
 	fnPtr := ctx.R11
 
 	// Look up the stub info.
@@ -71,6 +72,7 @@ func stubGo() {
 	}
 
 	// Call the function.
+	// fmt.Printf("[%d] %s:%s\n", threadContext.ThreadId, stubInfo.LibraryName, stubInfo.SymbolName)
 	results := stubInfo.FuncValue.Call(arguments)
 
 	// Return the result.

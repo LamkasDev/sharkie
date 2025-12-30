@@ -29,6 +29,7 @@ func main() {
 	asm.InitSignalsAddr()
 	asm.InitStubAddr()
 	asm.SetupCooperativeGC()
+	asm.AllocGoTlsSlot()
 	emu.SetupSignalHandler()
 	structs.SetupFilesystem()
 	structs.SetupAllocator()

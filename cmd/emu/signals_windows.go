@@ -17,8 +17,10 @@ import (
 // It's called directly by the assembly trampoline on the restored Go stack.
 // We take a uintptr to avoid any potential pointer checks by the runtime during the call.
 func ExceptionHandlerGo() uintptr {
-	arg := asm.GlobalExceptionInfo
-	exceptionInfo := (*sys_struct.EXCEPTION_POINTERS)(unsafe.Pointer(arg))
+	thread := GetCurrentThread()
+	threadContext := asm.GetCurrentThreadContext()
+
+	exceptionInfo := (*sys_struct.EXCEPTION_POINTERS)(unsafe.Pointer(threadContext.GlobalExceptionInfo))
 	code := exceptionInfo.ExceptionRecord.ExceptionCode
 	ctx := exceptionInfo.ContextRecord
 
@@ -26,7 +28,8 @@ func ExceptionHandlerGo() uintptr {
 	case sys_struct.EXCEPTION_ACCESS_VIOLATION:
 		if name, ok := elf.FakeAddressMap[ctx.Rip]; ok {
 			logger.Printf(
-				"Called external symbol %s at %s...\n",
+				"[%s] Called external symbol %s at %s...\n",
+				color.Green.Sprint(thread.Name),
 				color.Blue.Sprint(name),
 				color.Yellow.Sprintf("0x%X", ctx.Rip),
 			)
@@ -42,7 +45,8 @@ func ExceptionHandlerGo() uintptr {
 		}
 
 		logger.Printf(
-			"Trapped %s at %s...\nAttempted to access address: %s\n",
+			"[%s] Trapped %s at %s...\nAttempted to access address: %s\n",
+			color.Green.Sprint(thread.Name),
 			color.Red.Sprint("EXCEPTION_ACCESS_VIOLATION"),
 			color.Yellow.Sprintf("0x%X", ctx.Rip),
 			color.Yellow.Sprintf("0x%X", exceptionInfo.ExceptionRecord.ExceptionInformation[1]),
@@ -52,7 +56,8 @@ func ExceptionHandlerGo() uintptr {
 		logger.CleanupAndExit()
 	default:
 		logger.Printf(
-			"Trapped exception code %s at %s...\n",
+			"[%s] Trapped exception code %s at %s...\n",
+			color.Green.Sprint(thread.Name),
 			color.Red.Sprint(code),
 			color.Yellow.Sprintf("0x%X", ctx.Rip),
 		)

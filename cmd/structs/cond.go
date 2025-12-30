@@ -15,15 +15,21 @@ var (
 
 // GetCond retrieves or creates Go sync.Cond corresponding to a guest address.
 func GetCond(guestAddress uintptr) *sync.Cond {
-	// This doesn't need to be fast, let's just read/write in one pass.
-	CondLock.Lock()
-	defer CondLock.Unlock()
-	if cond, ok := CondRepo[guestAddress]; ok {
+	CondLock.RLock()
+	cond, ok := CondRepo[guestAddress]
+	CondLock.RUnlock()
+	if ok {
 		return cond
 	}
 
-	cond := sync.NewCond(GlobalCondMutex)
-	CondRepo[guestAddress] = cond
+	// Create new cond.
+	CondLock.Lock()
+	defer CondLock.Unlock()
+	if cond, ok = CondRepo[guestAddress]; ok {
+		return cond
+	}
 
+	cond = sync.NewCond(GlobalCondMutex)
+	CondRepo[guestAddress] = cond
 	return cond
 }

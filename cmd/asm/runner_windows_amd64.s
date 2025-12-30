@@ -1,6 +1,6 @@
 //go:build windows && amd64
 
-#include "textflag.h"
+#include "reg_amd64.s"
 #include "funcdata.h"
 
 // This function switches to the game's stack and jumps to its entry point.
@@ -10,6 +10,9 @@
 TEXT ·Run(SB), NOSPLIT, $0-32
     NO_LOCAL_POINTERS
 
+    // Save Thread Context Pointer into R12.
+    GET_TLS_CONTEXT(R12)
+
     // We fake call site in case we run into an exception handler.
     BYTE $0xEB; BYTE $0x05  // JMP +5 bytes
     CALL ·exceptionHandlerAsm(SB)
@@ -17,12 +20,12 @@ TEXT ·Run(SB), NOSPLIT, $0-32
     // Save fake caller address in case we run into an exception handler.
     LEAQ ·Run(SB), R15
     ADDQ $7, R15
-    MOVQ R15, ·ReturnAddressAnchor(SB)
+    MOVQ R15, CTX_RET_ANCHOR(R12)
 
     // Save the current Go stack so we can restore it later.
-    MOVQ SP, ·GoStackSP(SB)
-    MOVQ BP, ·GoStackBP(SB)
-    MOVQ R14, ·SavedG(SB)
+    MOVQ SP, CTX_GO_SP(R12)
+    MOVQ BP, CTX_GO_BP(R12)
+    MOVQ R14, CTX_SAVED_G(R12)
 
     MOVQ entry+0(FP), AX        // entry = AX
     MOVQ stackPtr+8(FP), BX     // stackPtr = BX
@@ -41,6 +44,7 @@ TEXT ·Run(SB), NOSPLIT, $0-32
     XORQ R9, R9
     XORQ R10, R10
     XORQ R11, R11
+    XORQ R12, R12
     XORQ BP, BP
 
     // Far jump to the entry point to set CS.
@@ -54,6 +58,9 @@ TEXT ·Run(SB), NOSPLIT, $0-32
 TEXT ·Call(SB), NOSPLIT, $48-32
     NO_LOCAL_POINTERS
 
+    // Save Thread Context Pointer into DX.
+    GET_TLS_CONTEXT(DX)
+
     // We fake call site in case we run into an exception handler.
     BYTE $0xEB; BYTE $0x05  // JMP +5 bytes
     CALL ·exceptionHandlerAsm(SB)
@@ -61,7 +68,7 @@ TEXT ·Call(SB), NOSPLIT, $48-32
     // Save fake caller address in case we run into an exception handler.
     LEAQ ·Call(SB), R15
     ADDQ $7, R15
-    MOVQ R15, ·ReturnAddressAnchor(SB)
+    MOVQ R15, CTX_RET_ANCHOR(DX)
 
     // Save callee-saved registers.
     MOVQ BP, 0(SP)
@@ -72,9 +79,9 @@ TEXT ·Call(SB), NOSPLIT, $48-32
     MOVQ R15, 40(SP)
 
     // Save the current Go stack so we can restore it later.
-    MOVQ SP, ·GoStackSP(SB)
-    MOVQ BP, ·GoStackBP(SB)
-    MOVQ R14, ·SavedG(SB)
+    MOVQ SP, CTX_GO_SP(DX)
+    MOVQ BP, CTX_GO_BP(DX)
+    MOVQ R14, CTX_SAVED_G(DX)
 
     MOVQ entry+0(FP), AX     // entry = AX
     MOVQ stackPtr+8(FP), BX  // stackPtr = BX
@@ -86,7 +93,7 @@ TEXT ·Call(SB), NOSPLIT, $48-32
 
     // Save return address.
     BYTE $0x5E
-    MOVQ SI, ·CallReturnAddress(SB)
+    MOVQ SI, CTX_CALL_RET(DX)
 
     // Switch to the playstation stack.
     SUBQ $32, BX
@@ -111,13 +118,16 @@ TEXT ·Call(SB), NOSPLIT, $48-32
     JMP AX
 
 CallRestoreRegisters:
+    // Save Thread Context Pointer into R12.
+    GET_TLS_CONTEXT(R12)
+
     // Switch to the Go stack.
-    MOVQ ·GoStackSP(SB), BX
+    MOVQ CTX_GO_SP(R12), BX
     BYTE $0x48; BYTE $0x89; BYTE $0xDC  // MOVQ BX, SP
 
     // Restore Go stack.
-    MOVQ ·GoStackBP(SB), BP
-    MOVQ ·SavedG(SB), R14
+    MOVQ CTX_GO_BP(R12), BP
+    MOVQ CTX_SAVED_G(R12), R14
 
     // Restore callee-saved registers.
     MOVQ 40(SP), R15

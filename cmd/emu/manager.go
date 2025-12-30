@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"sync"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/asm"
 	"github.com/LamkasDev/sharkie/cmd/elf"
 	"github.com/LamkasDev/sharkie/cmd/logger"
-	"github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/gookit/color"
 )
 
@@ -24,17 +24,18 @@ type ModuleManager struct {
 	CurrentModule *elf.Elf
 	Modules       []*elf.Elf
 	ModulesMap    map[string]*elf.Elf
+	ModulesLock   sync.RWMutex
 
-	Stack *structs.Stack
-	Tcb   *structs.Tcb
+	MainThread *Thread
 }
 
 // NewModuleManager creates a new instance of ModuleManager.
 func NewModuleManager(linkPaths []string) *ModuleManager {
 	mm := &ModuleManager{
-		LinkPaths:  linkPaths,
-		Modules:    make([]*elf.Elf, 1),
-		ModulesMap: map[string]*elf.Elf{},
+		LinkPaths:   linkPaths,
+		Modules:     make([]*elf.Elf, 1),
+		ModulesMap:  map[string]*elf.Elf{},
+		ModulesLock: sync.RWMutex{},
 	}
 
 	return mm
@@ -54,13 +55,16 @@ func (m *ModuleManager) GetModulePath(name string) *string {
 
 // GetModuleAtAddress returns module that is loaded inside given address.
 func GetModuleAtAddress(address uintptr) *elf.Elf {
+	GlobalModuleManager.ModulesLock.RLock()
 	for _, module := range GlobalModuleManager.ModulesMap {
 		for _, section := range module.LoadSections {
 			if address >= section.Address && address < section.Address+uintptr(section.LoadedSize) {
+				GlobalModuleManager.ModulesLock.RUnlock()
 				return module
 			}
 		}
 	}
+	GlobalModuleManager.ModulesLock.RUnlock()
 
 	return nil
 }
@@ -77,13 +81,13 @@ func GetModuleSections(module *elf.Elf) (*elf.ElfLoadSection, *elf.ElfLoadSectio
 		}
 	}
 	if textSection == nil && len(module.LoadSections) > 0 {
-		logger.Printf("%-120s %s failed to find TEXT section.\n",
+		logger.Printf("%-132s %s failed to find TEXT section.\n",
 			GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("GetModuleSections"),
 		)
 	}
 	if dataSection == nil {
-		logger.Printf("%-120s %s failed to find DATA section.\n",
+		logger.Printf("%-132s %s failed to find DATA section.\n",
 			GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("GetModuleSections"),
 		)
@@ -140,11 +144,22 @@ func GetRealCallerAddress(e *elf.Elf, returnAddr uintptr) uintptr {
 
 // GetCallSiteText returns text indicating the returnAddr call site.
 func (m *ModuleManager) GetCallSiteText() string {
-	ctx := (*asm.RegContext)(unsafe.Pointer(asm.GlobalStubContext))
+	thread := GetCurrentThread()
+	threadName := "??"
+	if thread != nil {
+		threadName = thread.Name
+	}
+	threadContext := asm.GetCurrentThreadContext()
+	if threadContext == nil {
+		return "??\n"
+	}
+
+	ctx := (*asm.RegContext)(unsafe.Pointer(threadContext.GlobalStubContext))
 	returnAddr := *(*uintptr)(unsafe.Pointer(ctx.BP + 8))
 	module := GetModuleAtAddress(returnAddr)
 	if module == nil {
-		return fmt.Sprintf("[unknown address %s]",
+		return fmt.Sprintf("[%s] [unknown address %s]",
+			color.Green.Sprint(threadName),
 			color.Yellow.Sprintf("0x%X", returnAddr),
 		)
 	}
@@ -155,19 +170,21 @@ func (m *ModuleManager) GetCallSiteText() string {
 		hashIndex, ok = asm.StubsTrampolineMap[callerAddress]
 		if !ok {
 			return fmt.Sprintf(
-				"[%s called %s at %s]",
+				"[%s] [%s+%s/%s]",
+				color.Green.Sprint(threadName),
 				color.Blue.Sprint(module.Name),
 				color.Magenta.Sprint("unknown function"),
 				color.Yellow.Sprintf("0x%X", returnAddr-module.BaseAddress),
 			)
 		}
 	}
-	symbol := module.SymbolTable.SymbolsMap[hashIndex]
 
+	symbol := module.SymbolTable.SymbolsMap[hashIndex]
 	return fmt.Sprintf(
-		"[%s called %s at %s]",
+		"[%s] [%s+%s/%s]",
+		color.Green.Sprint(threadName),
 		color.Blue.Sprint(module.Name),
-		color.Magenta.Sprintf("%s:%s", symbol.LibraryName, symbol.ReadableName),
 		color.Yellow.Sprintf("0x%X", callerAddress-module.BaseAddress),
+		color.Magenta.Sprintf("%s:%s", symbol.LibraryName, symbol.ReadableName),
 	)
 }

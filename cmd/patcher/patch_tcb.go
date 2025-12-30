@@ -71,13 +71,10 @@ func (p *Patcher) PatchTcbAccess(instruction gapstone.Instruction, instructionBy
 	// Patch prefix to 0x65 (GS)
 	instructionBytes[prefixOffset] = 0x65
 
-	// Calculate new displacement (TlsSlotsOffset = 0x1480)
-	newDisplacement := uint32(0x1480 + sys_struct.TlsSlot*8)
-
 	// Patch displacement (last 4 bytes)
 	if len(instruction.Bytes) >= 5 {
 		displacementOffset := len(instruction.Bytes) - 4
-		binary.LittleEndian.PutUint32(instructionBytes[displacementOffset:], newDisplacement)
+		binary.LittleEndian.PutUint32(instructionBytes[displacementOffset:], uint32(sys_struct.PlaystationTlsOffset))
 	}
 
 	/* logger.Printf(
@@ -100,19 +97,18 @@ func (p *Patcher) CreateTcbAccessTrampoline(e *elf.Elf, instruction gapstone.Ins
 
 	// Create trampoline for TCB access with displacement.
 	trampolineAsm := newAsmHelper()
-	trampolineAsm.mov_r64_from_gs_mem(scratchReg, int32(0x1480+sys_struct.TlsSlot*8))
-	trampolineAsm.add_r64_imm32(scratchReg, int32(displacement))
-	trampolineAsm.mov_r64_from_mem(dstReg, scratchReg, 0)
-	trampoline := trampolineAsm.bytes()
-	trampolineSize := len(trampoline) + 5 // 5 bytes for jmp rel32
+	trampolineAsm.mov_r64_from_gs_mem(scratchReg, int32(sys_struct.PlaystationTlsOffset))
+	trampolineAsm.mov_r64_from_mem(dstReg, scratchReg, int32(displacement))
+	trampolineCode := trampolineAsm.bytes()
+	trampolineSize := len(trampolineCode) + 5 // 5 bytes for jmp rel32
 	trampolineAddr, _ := sys_struct.AllocExecututableMemory(uintptr(trampolineSize))
 
 	jumpBackAsm := newAsmHelper()
-	jumpBackSourceAddr := uint64(trampolineAddr) + uint64(len(trampoline))
+	jumpBackSourceAddr := uint64(trampolineAddr) + uint64(len(trampolineCode))
 	jumpBackAsm.jmp_rel32(returnAddr, jumpBackSourceAddr)
 	jumpBackCode := jumpBackAsm.bytes()
 
-	trampoline = append(trampoline, jumpBackCode...)
+	trampoline := append(trampolineCode, jumpBackCode...)
 	copy(
 		unsafe.Slice((*byte)(unsafe.Pointer(trampolineAddr)), trampolineSize),
 		trampoline,
@@ -128,11 +124,14 @@ func (p *Patcher) CreateTcbAccessTrampoline(e *elf.Elf, instruction gapstone.Ins
 	binary.LittleEndian.PutUint32(patch[1:], uint32(rel32Jump))
 	copy(e.Memory[instruction.Address:], patch)
 
-	/* logger.Printf(
+	if instruction.Address == 0x9642 {
+		logger.Printf("")
+	}
+	logger.Printf(
 		"Patched fs:%s TCB access at %s (trampolined to %s).\n",
 		color.Yellow.Sprintf("0x%X", displacement),
 		color.Yellow.Sprintf("0x%X", instruction.Address),
 		color.Yellow.Sprintf("0x%X", trampolineAddr),
-	) */
+	)
 	return true
 }

@@ -35,7 +35,7 @@ func libSceLibcInternal__Mtxinit(mutexHandlePtr uintptr, nameSuffixPtr uintptr) 
 	destroyErr := libKernel_scePthreadMutexattrDestroy(attrHandlePtr)
 	if initErr == 0 {
 		// TODO: move print to libKernel_scePthreadMutexInit.
-		logger.Printf("%-120s %s created mutex named %s.\n",
+		logger.Printf("%-132s %s created mutex named %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("_Mtxinit"),
 			color.Blue.Sprint(name),

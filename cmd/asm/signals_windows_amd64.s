@@ -1,6 +1,6 @@
 //go:build windows && amd64
 
-#include "textflag.h"
+#include "reg_amd64.s"
 #include "funcdata.h"
 
 // InitSignalsAddr is called from Go's init function.
@@ -27,21 +27,24 @@ TEXT ·exceptionHandlerAsm(SB), NOSPLIT, $8-0
     PUSHQ R14
     PUSHQ R15
 
+    // Save Thread Context Pointer into R13.
+    GET_TLS_CONTEXT(R13)
+
     // Save Windows stack.
-    MOVQ SP, ·WindowsStackSP(SB)
+    MOVQ SP, CTX_WIN_SP(R13)
 
     // Restore Go stack pointer into scratch register.
-    MOVQ ·SavedG(SB), R14
-    MOVQ ·GoStackSP(SB), BX
+    MOVQ CTX_SAVED_G(R13), R14
+    MOVQ CTX_GO_SP(R13), BX
 
     // Create fake call frame.
     SUBQ $16, BX
-    MOVQ ·ReturnAddressAnchor(SB), SI
+    MOVQ CTX_RET_ANCHOR(R13), SI
     MOVQ SI, 8(BX)
 
     // Pass the exception info pointer.
-    MOVQ CX, ·GlobalExceptionInfo(SB)
-    MOVQ ·GoStackBP(SB), BP
+    MOVQ CX, CTX_EXC_INFO(R13)
+    MOVQ CTX_GO_BP(R13), BP
 
     // For real restore Go stack pointer.
     BYTE $0x48; BYTE $0x89; BYTE $0xDC  // MOVQ BX, SP
@@ -49,14 +52,17 @@ TEXT ·exceptionHandlerAsm(SB), NOSPLIT, $8-0
     // Call the Go exception handler.
     CALL ·exceptionHandlerGo(SB)
 
+    // Save Thread Context Pointer into R13.
+    GET_TLS_CONTEXT(R13)
+
     // Save Go stack pointer.
     MOVQ SP, BX
     ADDQ $16, BX
-    MOVQ BX, ·GoStackSP(SB)
-    MOVQ BP, ·GoStackBP(SB)
+    MOVQ BX, CTX_GO_SP(R13)
+    MOVQ BP, CTX_GO_BP(R13)
 
     // Switch to Windows stack.
-    MOVQ ·WindowsStackSP(SB), BX
+    MOVQ CTX_WIN_SP(R13), BX
     BYTE $0x48; BYTE $0x89; BYTE $0xDC  // MOVQ BX, SP
 
     // Restore Windows non-volatile registers.

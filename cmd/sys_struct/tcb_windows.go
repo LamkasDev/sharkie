@@ -6,15 +6,19 @@ import (
 	"sync"
 )
 
-var TlsSlot uintptr
-var TlsOnce sync.Once
+var (
+	PlaystationTlsSlot   uintptr
+	PlaystationTlsOffset uintptr
+	PlaystationTlsOnce   sync.Once
+)
 
-func AllocTlsSlot() {
+func AllocPlaystationTlsSlot() {
 	slot, _, err := TlsAlloc.Call()
 	if slot == 0 {
 		panic(err)
 	}
-	TlsSlot = slot
+	PlaystationTlsSlot = slot
+	PlaystationTlsOffset = 0x1480 + slot*8
 }
 
 // TODO: FilterTcbAccess

@@ -17,7 +17,7 @@ func RegisterStubs() {
 
 func Abort() uintptr {
 	logger.Printf(
-		"%-120s aborted :c\n",
+		"%-132s aborted :c\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 	)
 	logger.CleanupAndExit()
@@ -27,7 +27,7 @@ func Abort() uintptr {
 
 func GenericStub() uintptr {
 	logger.Printf(
-		"%-120s hi from %s :3\n",
+		"%-132s hi from %s :3\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprintf("generic stub"),
 	)

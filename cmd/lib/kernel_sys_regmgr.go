@@ -15,7 +15,7 @@ import (
 // __int64 __fastcall _sys_regmgr_call()
 func libKernel___sys_regmgr_call(op, id, resultPtr, valuePtr, size uintptr) uintptr {
 	if valuePtr == 0 {
-		logger.Printf("%-120s %s failed due to invalid value pointer.\n",
+		logger.Printf("%-132s %s failed due to invalid value pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("__sys_regmgr_call"),
 		)
@@ -44,7 +44,7 @@ func libKernel___sys_regmgr_call(op, id, resultPtr, valuePtr, size uintptr) uint
 			binary.LittleEndian.PutUint32(resultSlice, 0)
 		}
 
-		logger.Printf("%-120s %s requested int for %s (resultPtr=%s, valuePtr=%s, size=%s).\n",
+		logger.Printf("%-132s %s requested int for %s (resultPtr=%s, valuePtr=%s, size=%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("__sys_regmgr_call"),
 			color.Blue.Sprint(keyName),
@@ -70,7 +70,7 @@ func libKernel___sys_regmgr_call(op, id, resultPtr, valuePtr, size uintptr) uint
 			binary.LittleEndian.PutUint32(resultSlice, 0)
 		}
 
-		logger.Printf("%-120s %s requested binary data for %s (resultPtr=%s, valuePtr=%s, size=%s).\n",
+		logger.Printf("%-132s %s requested binary data for %s (resultPtr=%s, valuePtr=%s, size=%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("__sys_regmgr_call"),
 			color.Blue.Sprint(keyName),
@@ -81,7 +81,7 @@ func libKernel___sys_regmgr_call(op, id, resultPtr, valuePtr, size uintptr) uint
 		return 0
 	case REGMGR_GET_STRING, REGMGR_NONSYS_GET_STRING:
 		if size < 1 {
-			logger.Printf("%-120s %s failed due to invalid size %s.\n",
+			logger.Printf("%-132s %s failed due to invalid size %s.\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("__sys_regmgr_call"),
 				color.Green.Sprintf("%d", size),
@@ -104,7 +104,7 @@ func libKernel___sys_regmgr_call(op, id, resultPtr, valuePtr, size uintptr) uint
 			binary.LittleEndian.PutUint32(resultSlice, 0)
 		}
 
-		logger.Printf("%-120s %s requested string for %s (resultPtr=%s, valuePtr=%s, size=%s).\n",
+		logger.Printf("%-132s %s requested string for %s (resultPtr=%s, valuePtr=%s, size=%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("__sys_regmgr_call"),
 			color.Blue.Sprint(keyName),
@@ -115,7 +115,7 @@ func libKernel___sys_regmgr_call(op, id, resultPtr, valuePtr, size uintptr) uint
 		return 0
 	}
 
-	logger.Printf("%-120s %s failed due to unknown operation %s.\n",
+	logger.Printf("%-132s %s failed due to unknown operation %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("__sys_regmgr_call"),
 		color.Green.Sprintf("%d", op),

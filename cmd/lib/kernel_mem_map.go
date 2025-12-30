@@ -21,7 +21,7 @@ func libKernel_mmap(addr, length, prot, flags, fd, offset uintptr) uintptr {
 func libKernel_mmap_0(addr, length, prot, flags, fd, offset uintptr) uintptr {
 	// Perform initial pointer checks.
 	if length == 0 {
-		logger.Printf("%-120s %s failed due to invalid size %s.\n",
+		logger.Printf("%-132s %s failed due to invalid size %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("mmap_0"),
 			color.Yellow.Sprintf("0x%X", length),
@@ -40,7 +40,7 @@ func libKernel_mmap_0(addr, length, prot, flags, fd, offset uintptr) uintptr {
 	allocatedLength := length
 	if fd != ERR_PTR && uint32(fd) != ERR_HANDLE {
 		if allocatedLength < MinFileMmapSize {
-			logger.Printf("%-120s %s expanding allocation size from %s to %s bytes.\n",
+			logger.Printf("%-132s %s expanding allocation size from %s to %s bytes.\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("mmap_0"),
 				color.Yellow.Sprintf("0x%X", allocatedLength),
@@ -59,7 +59,7 @@ func libKernel_mmap_0(addr, length, prot, flags, fd, offset uintptr) uintptr {
 		}
 	}
 	if allocatedAddr == 0 {
-		logger.Printf("%-120s %s failed allocating memory (addr=%s, length=%s, prot=%s, flags=%s, fd=%s, offset=%s, err=%s).\n",
+		logger.Printf("%-132s %s failed allocating memory (addr=%s, length=%s, prot=%s, flags=%s, fd=%s, offset=%s, err=%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("mmap_0"),
 			color.Yellow.Sprintf("0x%X", addr),
@@ -74,7 +74,7 @@ func libKernel_mmap_0(addr, length, prot, flags, fd, offset uintptr) uintptr {
 		return ERR_PTR
 	}
 	if addr != 0 && allocatedAddr != addr {
-		logger.Printf("%-120s %s ignored allocation address (wanted=%s, got=%s).\n",
+		logger.Printf("%-132s %s ignored allocation address (wanted=%s, got=%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("mmap_0"),
 			color.Yellow.Sprintf("0x%X", addr),
@@ -86,7 +86,7 @@ func libKernel_mmap_0(addr, length, prot, flags, fd, offset uintptr) uintptr {
 	if fd != ERR_PTR && uint32(fd) != ERR_HANDLE {
 		file, ok := GlobalFilesystem.Descriptors[FileDescriptor(fd)]
 		if !ok {
-			logger.Printf("%-120s %s failed due to unknown file %s.\n",
+			logger.Printf("%-132s %s failed due to unknown file %s.\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("mmap_0"),
 				color.Yellow.Sprintf("0x%X", fd),
@@ -98,7 +98,7 @@ func libKernel_mmap_0(addr, length, prot, flags, fd, offset uintptr) uintptr {
 		// Copy file data into the memory block.
 		fileData, err := GlobalFilesystem.ReadFull(file.Path)
 		if err != nil {
-			logger.Printf("%-120s %s failed due to read error on %s (%s).\n",
+			logger.Printf("%-132s %s failed due to read error on %s (%s).\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("ftruncate_0"),
 				color.Blue.Sprint(file.Path),
@@ -121,7 +121,7 @@ func libKernel_mmap_0(addr, length, prot, flags, fd, offset uintptr) uintptr {
 		// Protect the memory block again.
 		if tempProt != prot {
 			if _, err = ProtectKernelMemory(allocatedAddr, allocatedLength, prot); err != nil {
-				logger.Printf("%-120s %s failed due to memory protection error (%s).\n",
+				logger.Printf("%-132s %s failed due to memory protection error (%s).\n",
 					emu.GlobalModuleManager.GetCallSiteText(),
 					color.Magenta.Sprint("mmap_0"),
 					err.Error(),
@@ -132,7 +132,7 @@ func libKernel_mmap_0(addr, length, prot, flags, fd, offset uintptr) uintptr {
 		}
 	}
 
-	logger.Printf("%-120s %s allocated %s bytes at %s (addr=%s, length=%s, prot=%s, flags=%s, fd=%s, offset=%s).\n",
+	logger.Printf("%-132s %s allocated %s bytes at %s (addr=%s, length=%s, prot=%s, flags=%s, fd=%s, offset=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("mmap_0"),
 		color.Yellow.Sprintf("0x%X", allocatedLength),
@@ -178,7 +178,7 @@ func libKernel_sceKernelMunmap(addr, length uintptr) uintptr {
 // __int64 __fastcall munmap()
 func libKernel_munmap(addr, length uintptr) uintptr {
 	if addr == 0 {
-		logger.Printf("%-120s %s failed due to invalid pointer %s.\n",
+		logger.Printf("%-132s %s failed due to invalid pointer %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceKernelMunmap"),
 			color.Yellow.Sprintf("0x%X", addr),
@@ -189,7 +189,7 @@ func libKernel_munmap(addr, length uintptr) uintptr {
 
 	_, err := FreeKernelMemory(addr, length)
 	if err != nil {
-		logger.Printf("%-120s %s failed to unmap %s (length=%s, err=%s)\n",
+		logger.Printf("%-132s %s failed to unmap %s (length=%s, err=%s)\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceKernelMunmap"),
 			color.Yellow.Sprintf("0x%X", addr),
@@ -200,7 +200,7 @@ func libKernel_munmap(addr, length uintptr) uintptr {
 		return ERR_PTR
 	}
 
-	logger.Printf("%-120s %s unmapped %s bytes at %s.\n",
+	logger.Printf("%-132s %s unmapped %s bytes at %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sceKernelMunmap"),
 		color.Yellow.Sprintf("0x%X", length),

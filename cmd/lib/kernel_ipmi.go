@@ -14,7 +14,7 @@ import (
 // __int64 __fastcall ipmimgr_call()
 func libKernel_ipmimgr_call(op, handle, resultPtr, paramsPtr, paramsSize, magic, objPtr, namePtr, configPtr uintptr) uintptr {
 	if (op == IMPI_CREATE_CLIENT || op == IMPI_CREATE_SERVER) && magic != IPMI_MAGIC {
-		logger.Printf("%-120s %s calling using invalid magic %s.\n",
+		logger.Printf("%-132s %s calling using invalid magic %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("ipmimgr_call"),
 			color.Yellow.Sprintf("0x%X", magic),
@@ -36,7 +36,7 @@ func libKernel_ipmimgr_call(op, handle, resultPtr, paramsPtr, paramsSize, magic,
 			binary.LittleEndian.PutUint32(resultSlice, client.Handle)
 		}
 
-		logger.Printf("%-120s %s created ipmi client %s (name=%s, objPtr=%s).\n",
+		logger.Printf("%-132s %s created ipmi client %s (name=%s, objPtr=%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("ipmimgr_call"),
 			color.Yellow.Sprintf("0x%X", client.Handle),
@@ -57,7 +57,7 @@ func libKernel_ipmimgr_call(op, handle, resultPtr, paramsPtr, paramsSize, magic,
 			binary.LittleEndian.PutUint32(resultSlice, server.Handle)
 		}
 
-		logger.Printf("%-120s %s created ipmi server %s (name=%s, objPtr=%s).\n",
+		logger.Printf("%-132s %s created ipmi server %s (name=%s, objPtr=%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("ipmimgr_call"),
 			color.Yellow.Sprintf("0x%X", server.Handle),
@@ -68,7 +68,7 @@ func libKernel_ipmimgr_call(op, handle, resultPtr, paramsPtr, paramsSize, magic,
 
 	case IMPI_DESTROY_CLIENT:
 		if client == nil {
-			logger.Printf("%-120s %s failed due to invalid client handle %s.\n",
+			logger.Printf("%-132s %s failed due to invalid client handle %s.\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("ipmimgr_call"),
 				color.Yellow.Sprintf("0x%X", handle),
@@ -83,7 +83,7 @@ func libKernel_ipmimgr_call(op, handle, resultPtr, paramsPtr, paramsSize, magic,
 			binary.LittleEndian.PutUint32(resultSlice, 0)
 		}
 
-		logger.Printf("%-120s %s destroyed ipmi client %s.\n",
+		logger.Printf("%-132s %s destroyed ipmi client %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("ipmimgr_call"),
 			color.Blue.Sprint(client.Name),
@@ -92,7 +92,7 @@ func libKernel_ipmimgr_call(op, handle, resultPtr, paramsPtr, paramsSize, magic,
 
 	case IMPI_INVOKE_SYNC_CLIENT:
 		if client == nil {
-			logger.Printf("%-120s %s failed due to invalid client handle %s.\n",
+			logger.Printf("%-132s %s failed due to invalid client handle %s.\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("ipmimgr_call"),
 				color.Yellow.Sprintf("0x%X", handle),
@@ -100,7 +100,7 @@ func libKernel_ipmimgr_call(op, handle, resultPtr, paramsPtr, paramsSize, magic,
 			return SCE_KERNEL_ERROR_ENOENT
 		}
 		if paramsPtr == 0 {
-			logger.Printf("%-120s %s failed due to invalid params pointer.\n",
+			logger.Printf("%-132s %s failed due to invalid params pointer.\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("ipmimgr_call"),
 			)
@@ -119,7 +119,7 @@ func libKernel_ipmimgr_call(op, handle, resultPtr, paramsPtr, paramsSize, magic,
 			binary.LittleEndian.PutUint32(resultSlice, 0)
 		}
 
-		logger.Printf("%-120s %s invoked sync method %s on client %s.\n",
+		logger.Printf("%-132s %s invoked sync method %s on client %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("ipmimgr_call"),
 			color.Yellow.Sprintf("0x%X", methodId),
@@ -129,7 +129,7 @@ func libKernel_ipmimgr_call(op, handle, resultPtr, paramsPtr, paramsSize, magic,
 
 	case IMPI_INVOKE_ASYNC_CLIENT:
 		if client == nil {
-			logger.Printf("%-120s %s failed due to invalid client handle %s.\n",
+			logger.Printf("%-132s %s failed due to invalid client handle %s.\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("ipmimgr_call"),
 				color.Yellow.Sprintf("0x%X", handle),
@@ -137,7 +137,7 @@ func libKernel_ipmimgr_call(op, handle, resultPtr, paramsPtr, paramsSize, magic,
 			return SCE_KERNEL_ERROR_ENOENT
 		}
 		if paramsPtr == 0 {
-			logger.Printf("%-120s %s failed due to invalid params pointer.\n",
+			logger.Printf("%-132s %s failed due to invalid params pointer.\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("ipmimgr_call"),
 			)
@@ -156,7 +156,7 @@ func libKernel_ipmimgr_call(op, handle, resultPtr, paramsPtr, paramsSize, magic,
 			binary.LittleEndian.PutUint32(resultSlice, 0)
 		}
 
-		logger.Printf("%-120s %s invoked async method %s on client %s.\n",
+		logger.Printf("%-132s %s invoked async method %s on client %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("ipmimgr_call"),
 			color.Yellow.Sprintf("0x%X", methodId),
@@ -166,7 +166,7 @@ func libKernel_ipmimgr_call(op, handle, resultPtr, paramsPtr, paramsSize, magic,
 
 	case IMPI_CONNECT:
 		if client == nil {
-			logger.Printf("%-120s %s failed due to invalid client handle %s.\n",
+			logger.Printf("%-132s %s failed due to invalid client handle %s.\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("ipmimgr_call"),
 				color.Yellow.Sprintf("0x%X", handle),
@@ -174,7 +174,7 @@ func libKernel_ipmimgr_call(op, handle, resultPtr, paramsPtr, paramsSize, magic,
 			return SCE_KERNEL_ERROR_ENOENT
 		}
 		if _, err := GlobalFilesystem.Write(client.Name, make([]byte, FileBlockSize)); err != nil {
-			logger.Printf("%-120s %s failed creating shared memory file (%s).\n",
+			logger.Printf("%-132s %s failed creating shared memory file (%s).\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("ipmimgr_call"),
 				err.Error(),
@@ -187,7 +187,7 @@ func libKernel_ipmimgr_call(op, handle, resultPtr, paramsPtr, paramsSize, magic,
 			binary.LittleEndian.PutUint32(resultSlice, 0)
 		}
 
-		logger.Printf("%-120s %s connected %s.\n",
+		logger.Printf("%-132s %s connected %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("ipmimgr_call"),
 			color.Blue.Sprint(client.Name),
@@ -196,7 +196,7 @@ func libKernel_ipmimgr_call(op, handle, resultPtr, paramsPtr, paramsSize, magic,
 
 	case IMPI_DISCONNECT_CLIENT:
 		if client == nil {
-			logger.Printf("%-120s %s failed due to invalid client handle %s.\n",
+			logger.Printf("%-132s %s failed due to invalid client handle %s.\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("ipmimgr_call"),
 				color.Yellow.Sprintf("0x%X", handle),
@@ -204,7 +204,7 @@ func libKernel_ipmimgr_call(op, handle, resultPtr, paramsPtr, paramsSize, magic,
 			return SCE_KERNEL_ERROR_ENOENT
 		}
 		if err := GlobalFilesystem.Delete(client.Name); err != nil {
-			logger.Printf("%-120s %s failed deleting shared memory file (%s).\n",
+			logger.Printf("%-132s %s failed deleting shared memory file (%s).\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("ipmimgr_call"),
 				err.Error(),
@@ -222,7 +222,7 @@ func libKernel_ipmimgr_call(op, handle, resultPtr, paramsPtr, paramsSize, magic,
 			binary.LittleEndian.PutUint32(objSlice, 0)
 		}
 
-		logger.Printf("%-120s %s disconnected %s.\n",
+		logger.Printf("%-132s %s disconnected %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("ipmimgr_call"),
 			color.Blue.Sprint(client.Name),
@@ -235,7 +235,7 @@ func libKernel_ipmimgr_call(op, handle, resultPtr, paramsPtr, paramsSize, magic,
 			binary.LittleEndian.PutUint32(resultSlice, 0)
 		}
 
-		logger.Printf("%-120s %s polled event flag on %s.\n",
+		logger.Printf("%-132s %s polled event flag on %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("ipmimgr_call"),
 			color.Blue.Sprint(client.Name),
@@ -243,7 +243,7 @@ func libKernel_ipmimgr_call(op, handle, resultPtr, paramsPtr, paramsSize, magic,
 		return 0
 	}
 
-	logger.Printf("%-120s %s failed due to unknown operation %s (handle=%s).\n",
+	logger.Printf("%-132s %s failed due to unknown operation %s (handle=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("ipmimgr_call"),
 		color.Yellow.Sprintf("0x%X", op),

@@ -38,7 +38,7 @@ func libKernel__read(fd uintptr, bufPtr uintptr, length uintptr) uintptr {
 
 func libKernel_sys_read(fd uintptr, bufPtr uintptr, length uintptr) uintptr {
 	if bufPtr == 0 {
-		logger.Printf("%-120s %s failed due to invalid buffer pointer.\n",
+		logger.Printf("%-132s %s failed due to invalid buffer pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("_read"),
 		)
@@ -50,7 +50,7 @@ func libKernel_sys_read(fd uintptr, bufPtr uintptr, length uintptr) uintptr {
 
 	file, ok := GlobalFilesystem.Descriptors[FileDescriptor(fd)]
 	if !ok {
-		logger.Printf("%-120s %s failed due to unknown file %s.\n",
+		logger.Printf("%-132s %s failed due to unknown file %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("_read"),
 			color.Yellow.Sprintf("0x%X", fd),
@@ -60,7 +60,7 @@ func libKernel_sys_read(fd uintptr, bufPtr uintptr, length uintptr) uintptr {
 	}
 	fileData, err := GlobalFilesystem.ReadFull(file.Path)
 	if err != nil {
-		logger.Printf("%-120s %s failed due to read error on %s (%s).\n",
+		logger.Printf("%-132s %s failed due to read error on %s (%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("_read"),
 			color.Blue.Sprint(file.Path),
@@ -69,8 +69,10 @@ func libKernel_sys_read(fd uintptr, bufPtr uintptr, length uintptr) uintptr {
 		SetErrno(EFAULT)
 		return ERR_PTR
 	}
+
+	// Check if cursor is beyond the end of the file.
 	if file.Cursor >= uintptr(len(fileData)) {
-		logger.Printf("%-120s %s ignored read of %s bytes from file %s (cursor EOF).\n",
+		logger.Printf("%-132s %s ignored read of %s bytes from file %s (cursor EOF).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("_read"),
 			color.Yellow.Sprintf("0x%X", length),
@@ -79,6 +81,7 @@ func libKernel_sys_read(fd uintptr, bufPtr uintptr, length uintptr) uintptr {
 		return 0
 	}
 
+	// Calculate bytes available from cursor.
 	availableBytes := uintptr(len(fileData)) - file.Cursor
 	readBytes := length
 	if readBytes > availableBytes {
@@ -88,11 +91,99 @@ func libKernel_sys_read(fd uintptr, bufPtr uintptr, length uintptr) uintptr {
 	copy(buffer, fileData[file.Cursor:file.Cursor+readBytes])
 	file.Cursor += readBytes
 
-	logger.Printf("%-120s %s read %s bytes from file %s (length=%s).\n",
+	logger.Printf("%-132s %s read %s bytes from file %s (length=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("_read"),
 		color.Yellow.Sprintf("0x%X", readBytes),
 		color.Blue.Sprint(file.Path),
+		color.Yellow.Sprintf("0x%X", length),
+	)
+	return readBytes
+}
+
+// 0x0000000000016520
+// __int64 sceKernelPread()
+func libKernel_sceKernelPread(fd uintptr, bufPtr uintptr, length uintptr, offset uintptr) uintptr {
+	err := libKernel_pread(fd, bufPtr, length, offset)
+	if err != 0 {
+		return GetErrno() - 0x7FFE0000
+	}
+
+	return 0
+}
+
+// 0x00000000000125B0
+// __int64 pread()
+func libKernel_pread(fd uintptr, bufPtr uintptr, length uintptr, offset uintptr) uintptr {
+	return libKernel_pread_0(fd, bufPtr, length, offset)
+}
+
+// 0x00000000000029B0
+// __int64 pread_0()
+func libKernel_pread_0(fd uintptr, bufPtr uintptr, length uintptr, offset uintptr) uintptr {
+	return libKernel_sys_pread(fd, bufPtr, length, offset)
+}
+
+func libKernel_sys_pread(fd uintptr, bufPtr uintptr, length uintptr, offset uintptr) uintptr {
+	if bufPtr == 0 {
+		logger.Printf("%-132s %s failed due to invalid buffer pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("pread_0"),
+		)
+		SetErrno(EFAULT)
+		return 0
+	}
+	GlobalFilesystem.Lock.Lock()
+	defer GlobalFilesystem.Lock.Unlock()
+
+	file, ok := GlobalFilesystem.Descriptors[FileDescriptor(fd)]
+	if !ok {
+		logger.Printf("%-132s %s failed due to unknown file %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("pread_0"),
+			color.Yellow.Sprintf("0x%X", fd),
+		)
+		SetErrno(ENOENT)
+		return ERR_PTR
+	}
+	fileData, err := GlobalFilesystem.ReadFull(file.Path)
+	if err != nil {
+		logger.Printf("%-132s %s failed due to read error on %s (%s).\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("pread_0"),
+			color.Blue.Sprint(file.Path),
+			err.Error(),
+		)
+		SetErrno(EFAULT)
+		return ERR_PTR
+	}
+
+	// Check if offset is beyond the end of the file.
+	if offset >= uintptr(len(fileData)) {
+		logger.Printf("%-132s %s ignored read of %s bytes from file %s (offset EOF).\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("pread_0"),
+			color.Yellow.Sprintf("0x%X", length),
+			color.Blue.Sprint(file.Path),
+		)
+		return 0
+	}
+
+	// Calculate bytes available from specific offset.
+	availableBytes := uintptr(len(fileData)) - offset
+	readBytes := length
+	if readBytes > availableBytes {
+		readBytes = availableBytes
+	}
+	buffer := unsafe.Slice((*byte)(unsafe.Pointer(bufPtr)), readBytes)
+	copy(buffer, fileData[offset:offset+readBytes])
+
+	logger.Printf("%-132s %s read %s bytes from file %s at offset %s (length=%s).\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("pread_0"),
+		color.Yellow.Sprintf("0x%X", readBytes),
+		color.Blue.Sprint(file.Path),
+		color.Yellow.Sprintf("0x%X", offset),
 		color.Yellow.Sprintf("0x%X", length),
 	)
 	return readBytes

@@ -24,6 +24,9 @@ func libSceLibcInternal_printErrAbort(message string) {
 // 0x00000000000CD8E0
 // void _cxa_guard_release(__guard *)
 func libSceLibcInternal___cxa_guard_release(guardPtr uintptr) uintptr {
+	emu.GlobalModuleManager.ModulesLock.RLock()
+	defer emu.GlobalModuleManager.ModulesLock.RUnlock()
+
 	module := emu.GlobalModuleManager.ModulesMap["libSceLibcInternal.sprx"]
 	return cxaGuardRelease(
 		module.BaseAddress+LibSceLibcInternalCxaGuardMutexOffset,
@@ -35,7 +38,7 @@ func libSceLibcInternal___cxa_guard_release(guardPtr uintptr) uintptr {
 func cxaGuardRelease(mutexAddr, condAddr, guardPtr uintptr) uintptr {
 	if libKernel_pthread_mutex_lock(mutexAddr) != 0 {
 		libSceLibcInternal_printErrAbort(
-			fmt.Sprintf("%-120s %s failed to acquire mutex.\n",
+			fmt.Sprintf("%-132s %s failed to acquire mutex.\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("__cxa_guard_release"),
 			),
@@ -43,14 +46,14 @@ func cxaGuardRelease(mutexAddr, condAddr, guardPtr uintptr) uintptr {
 		return 0
 	}
 	*(*byte)(unsafe.Pointer(guardPtr)) = 1
-	logger.Printf("%-120s %s marked guard %s as initialized.\n",
+	logger.Printf("%-132s %s marked guard %s as initialized.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("__cxa_guard_release"),
 		color.Yellow.Sprintf("0x%X", mutexAddr),
 	)
 	if libKernel_pthread_mutex_unlock(mutexAddr) != 0 {
 		libSceLibcInternal_printErrAbort(
-			fmt.Sprintf("%-120s %s failed to release mutex.\n",
+			fmt.Sprintf("%-132s %s failed to release mutex.\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("__cxa_guard_release"),
 			),
@@ -58,7 +61,7 @@ func cxaGuardRelease(mutexAddr, condAddr, guardPtr uintptr) uintptr {
 	}
 	if libKernel_pthread_cond_broadcast(condAddr) != 0 {
 		libSceLibcInternal_printErrAbort(
-			fmt.Sprintf("%-120s %s failed to broadcast condition variable.\n",
+			fmt.Sprintf("%-132s %s failed to broadcast condition variable.\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("__cxa_guard_release"),
 			),

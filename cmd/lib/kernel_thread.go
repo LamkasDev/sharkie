@@ -20,7 +20,7 @@ const (
 // __int64 __fastcall rtprio_thread()
 func libKernel_rtprio_thread(function, lwpid, rtpPtr uintptr) uintptr {
 	if rtpPtr == 0 {
-		logger.Printf("%-120s %s failed due to invalid structs pointer.\n",
+		logger.Printf("%-132s %s failed due to invalid structs pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("rtprio_thread"),
 		)
@@ -28,7 +28,7 @@ func libKernel_rtprio_thread(function, lwpid, rtpPtr uintptr) uintptr {
 		return ERR_PTR
 	}
 	if function != RTP_LOOKUP {
-		logger.Printf("%-120s %s failed due to unknown method %s.\n",
+		logger.Printf("%-132s %s failed due to unknown method %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("rtprio_thread"),
 			color.Yellow.Sprintf("0x%X", function),
@@ -41,7 +41,7 @@ func libKernel_rtprio_thread(function, lwpid, rtpPtr uintptr) uintptr {
 	binary.LittleEndian.PutUint16(rtpSlice, RTP_PRIO_NORMAL)
 	binary.LittleEndian.PutUint16(rtpSlice[2:], 0)
 
-	logger.Printf("%-120s %s requested rtp struct (type=%s, priority=%s).\n",
+	logger.Printf("%-132s %s requested rtp struct (type=%s, priority=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("rtprio_thread"),
 		color.Yellow.Sprintf("0x%X", RTP_PRIO_NORMAL),

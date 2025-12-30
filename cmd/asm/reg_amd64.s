@@ -18,6 +18,17 @@
 #define REG_BP 368          // XMM area is 16 * 16 = 256 bytes. 112 + 256 = 368
 #define CONTEXT_SIZE 384    // Aligned to 16 bytes
 
+#define CTX_TID 0
+#define CTX_WIN_SP 8
+#define CTX_PS_SP 16
+#define CTX_GO_SP 24
+#define CTX_GO_BP 32
+#define CTX_SAVED_G 40
+#define CTX_RET_ANCHOR 48
+#define CTX_CALL_RET 56
+#define CTX_STUB_CTX 64
+#define CTX_EXC_INFO 72
+
 // SAVE_REGS saves all general-purpose registers.
 #define SAVE_REGS \
     BYTE $0x48; BYTE $0x81; BYTE $0xEC; BYTE $0x80; BYTE $0x01; BYTE $0x00; BYTE $0x00 \ // SUBQ $384, SP
@@ -59,3 +70,8 @@
     MOVUPS REG_XMM+16(SP), X1 \
     MOVQ REG_BP(SP), BP \
     BYTE $0x48; BYTE $0x81; BYTE $0xC4; BYTE $0x80; BYTE $0x01; BYTE $0x00; BYTE $0x00 // ADDQ $384, SP
+
+#define GET_TLS_CONTEXT(REG) \
+    MOVQ 0x30(GS), REG \
+    ADDQ ·GoTlsOffset(SB), REG \
+    MOVQ (REG), REG

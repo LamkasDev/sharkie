@@ -11,6 +11,7 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/linker"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/LamkasDev/sharkie/cmd/patcher"
+	"github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/gookit/color"
 )
 
@@ -24,6 +25,8 @@ func (m *ModuleManager) LoadModule(name string) error {
 	}
 
 	// Link & patch everything now.
+	GlobalModuleManager.ModulesLock.RLock()
+	defer GlobalModuleManager.ModulesLock.RUnlock()
 	for _, module := range m.ModulesMap {
 		if !module.Linked {
 			logger.Printf(
@@ -47,9 +50,12 @@ func (m *ModuleManager) LoadModule(name string) error {
 
 // _RecursiveLoadModule loads a module and dependencies without linking.
 func (m *ModuleManager) _RecursiveLoadModule(name string) error {
+	GlobalModuleManager.ModulesLock.RLock()
 	if m.ModulesMap[name] != nil {
+		GlobalModuleManager.ModulesLock.RUnlock()
 		return nil
 	}
+	GlobalModuleManager.ModulesLock.RUnlock()
 
 	modulePath := m.GetModulePath(name)
 	if modulePath == nil {
@@ -70,8 +76,10 @@ func (m *ModuleManager) _RecursiveLoadModule(name string) error {
 	module := elf.NewElf(data)
 	module.ModuleIndex = moduleIndex
 	module.Path = *modulePath
+	GlobalModuleManager.ModulesLock.Lock()
 	m.Modules = append(m.Modules, module)
 	m.ModulesMap[name] = module
+	GlobalModuleManager.ModulesLock.Unlock()
 	if module.Name == "libSceFios2.sprx" {
 		RegisterFiosStubs()
 	}
@@ -125,7 +133,7 @@ func (m *ModuleManager) RunModuleInitializers(module *elf.Elf, visited map[strin
 				color.Magenta.Sprint("DT_PREINIT_ARRAY"),
 				color.Yellow.Sprintf("0x%X", funcAddr),
 			)
-			m.Call(uintptr(funcAddr))
+			m.MainThread.Call(uintptr(funcAddr))
 		}
 	}
 	if module.DynamicInfo.InitFunc != nil {
@@ -135,7 +143,7 @@ func (m *ModuleManager) RunModuleInitializers(module *elf.Elf, visited map[strin
 			color.Magenta.Sprint("DT_INIT"),
 			color.Yellow.Sprintf("0x%X", module.DynamicInfo.InitFunc),
 		)
-		m.Call(uintptr(*module.DynamicInfo.InitFunc))
+		m.MainThread.Call(uintptr(*module.DynamicInfo.InitFunc))
 	}
 	if !isSelfContained {
 		for _, funcAddr := range module.DynamicInfo.InitArray {
@@ -145,7 +153,7 @@ func (m *ModuleManager) RunModuleInitializers(module *elf.Elf, visited map[strin
 				color.Magenta.Sprint("DT_INIT_ARRAY"),
 				color.Yellow.Sprintf("0x%X", funcAddr),
 			)
-			m.Call(uintptr(funcAddr))
+			m.MainThread.Call(uintptr(funcAddr))
 		}
 	}
 }
@@ -161,8 +169,10 @@ func (m *ModuleManager) RunModule(name string) {
 		"Running module %s...\n",
 		color.Blue.Sprint(name),
 	)
-	m.Prepare(linker.GlobalLinker)
+	m.MainThread = CreateThread(0, structs.StackDefaultSize)
+	m.MainThread.Setup()
+
 	visited := make(map[string]bool)
 	m.RunModuleInitializers(m.CurrentModule, visited, true)
-	m.Run(m.CurrentModule)
+	m.MainThread.Run(m.CurrentModule)
 }

@@ -13,7 +13,7 @@ import (
 // __int64 __fastcall sceKernelGetAppInfo(int, _DWORD *)
 func libKernel_sceKernelGetAppInfo(processId uintptr, infoPtr uintptr) uintptr {
 	if infoPtr == 0 {
-		logger.Printf("%-120s %s failed due to invalid info pointer.\n",
+		logger.Printf("%-132s %s failed due to invalid info pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceKernelGetAppInfo"),
 		)
@@ -38,7 +38,7 @@ func libKernel_sceKernelGetAppInfo(processId uintptr, infoPtr uintptr) uintptr {
 	info.HasParamSfo = 1
 	info.TitleWorkaround = TitleWorkaround{}
 
-	logger.Printf("%-120s %s returned app info.\n",
+	logger.Printf("%-132s %s returned app info.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sceKernelGetAppInfo"),
 	)
@@ -49,7 +49,7 @@ func libKernel_sceKernelGetAppInfo(processId uintptr, infoPtr uintptr) uintptr {
 // __int64 __fastcall sceKernelTitleWorkaroundIsEnabled(__int64, unsigned __int64, _DWORD *)
 func libKernel_sceKernelTitleWorkaroundIsEnabled() uintptr {
 	titleWorkaround := uintptr(0)
-	logger.Printf("%-120s %s returned %s.\n",
+	logger.Printf("%-132s %s returned %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sceKernelTitleWorkaroundIsEnabled"),
 		color.Green.Sprintf("%d", titleWorkaround),

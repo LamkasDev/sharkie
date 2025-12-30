@@ -25,7 +25,7 @@ func libKernel_sceKernelAllocateDirectMemory(searchStart, searchEnd, length, ali
 func libKernel_sys_sceKernelAllocateDirectMemory(searchStart, searchEnd, length, alignment, memType, destPtr uintptr) uintptr {
 	// Perform initial pointer checks.
 	if length == 0 || destPtr == 0 {
-		logger.Printf("%-120s %s failed due to invalid length or pointer.\n",
+		logger.Printf("%-132s %s failed due to invalid length or pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceKernelAllocateDirectMemory"),
 		)
@@ -53,7 +53,7 @@ func libKernel_sys_sceKernelAllocateDirectMemory(searchStart, searchEnd, length,
 		return ERR_PTR
 	}
 	if allocatedAddr%alignment != 0 {
-		logger.Printf("%-120s %s failed due to ignored alignment of %s (got=%s, wanted=%s).\n",
+		logger.Printf("%-132s %s failed due to ignored alignment of %s (got=%s, wanted=%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceKernelAllocateDirectMemory"),
 			color.Yellow.Sprintf("0x%X", alignment),
@@ -72,7 +72,7 @@ func libKernel_sys_sceKernelAllocateDirectMemory(searchStart, searchEnd, length,
 		GlobalAllocator.DirectMemoryCurrent = allocatedAddr + length
 	}
 
-	logger.Printf("%-120s %s stored pointer at %s (type=%s, alignment=%s).\n",
+	logger.Printf("%-132s %s stored pointer at %s (type=%s, alignment=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sceKernelAllocateDirectMemory"),
 		color.Yellow.Sprintf("0x%X", destPtr),

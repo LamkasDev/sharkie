@@ -1,6 +1,11 @@
 package structs
 
 type Timestamp struct {
-	Seconds     int64
-	NanoSeconds int64
+	Seconds     uint64
+	NanoSeconds uint64
+}
+
+type Timevalue struct {
+	Seconds  uint64
+	USeconds uint64
 }

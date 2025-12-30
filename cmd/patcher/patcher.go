@@ -51,8 +51,8 @@ func NewPatcher() *Patcher {
 
 // Patch patches the ELF file.
 func (p *Patcher) Patch(e *elf.Elf) error {
-	sys_struct.TlsOnce.Do(sys_struct.AllocTlsSlot)
-	if sys_struct.TlsSlot >= 64 {
+	sys_struct.PlaystationTlsOnce.Do(sys_struct.AllocPlaystationTlsSlot)
+	if sys_struct.PlaystationTlsSlot >= 64 {
 		return errors.New("tls slot is too high, cannot patch tcb access")
 	}
 

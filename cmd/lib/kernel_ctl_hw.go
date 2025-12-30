@@ -23,7 +23,7 @@ func libKernel_ctl_hw(mib []uint32, namePtr uintptr, nameLen uint32, oldPtr uint
 
 func libKernel_ctl_hw_pagesize(mib []uint32, namePtr uintptr, nameLen uint32, oldPtr uintptr, oldLenPtr uintptr, newPtr uintptr, newLen uintptr) uintptr {
 	if oldLenPtr == 0 || oldPtr == 0 {
-		logger.Printf("%-120s %s failed due to invalid pointer.\n",
+		logger.Printf("%-132s %s failed due to invalid pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sysctl"),
 		)
@@ -36,7 +36,7 @@ func libKernel_ctl_hw_pagesize(mib []uint32, namePtr uintptr, nameLen uint32, ol
 	binary.LittleEndian.PutUint32(oldSlice, memoryPageSize)
 	binary.LittleEndian.PutUint64(oldLenSlice, uint64(4))
 
-	logger.Printf("%-120s %s requested memory page size %s (oldPtr=%s).\n",
+	logger.Printf("%-132s %s requested memory page size %s (oldPtr=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sysctl"),
 		color.Yellow.Sprintf("0x%X", memoryPageSize),

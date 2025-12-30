@@ -28,7 +28,7 @@ func libKernel_pthread_mutexattr_init(attrHandlePtr uintptr) uintptr {
 	attrHandlePtrSlice := unsafe.Slice((*byte)(unsafe.Pointer(attrHandlePtr)), 8)
 	binary.LittleEndian.PutUint64(attrHandlePtrSlice, uint64(attrAddr))
 
-	logger.Printf("%-120s %s created struct at %s.\n",
+	logger.Printf("%-132s %s created struct at %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("pthread_mutexattr_init"),
 		color.Yellow.Sprintf("0x%X", attrAddr),
@@ -46,7 +46,7 @@ func libKernel_pthread_mutexattr_settype(attrHandlePtr uintptr, attrType uintptr
 	// Resolve the handle.
 	attr, err := ResolveHandle[PthreadMutexAttr](attrHandlePtr)
 	if err != 0 {
-		logger.Printf("%-120s %s failed due to invalid attribute pointer.\n",
+		logger.Printf("%-132s %s failed due to invalid attribute pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("pthread_mutexattr_settype"),
 		)
@@ -56,10 +56,10 @@ func libKernel_pthread_mutexattr_settype(attrHandlePtr uintptr, attrType uintptr
 	// Set type.
 	attr.Type = PthreadMutexType(attrType)
 
-	logger.Printf("%-120s %s set type to %s.\n",
+	logger.Printf("%-132s %s set type to %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("pthread_mutexattr_settype"),
-		color.Green.Sprintf("%d", attrType),
+		color.Blue.Sprint(MutexTypeNames[attr.Type]),
 	)
 	return 0
 }
@@ -70,7 +70,7 @@ func libKernel_pthread_mutexattr_destroy(attrHandlePtr uintptr) uintptr {
 	// Resolve the handle.
 	attr, err := ResolveHandle[PthreadMutexAttr](attrHandlePtr)
 	if err != 0 {
-		logger.Printf("%-120s %s failed due to invalid attribute pointer.\n",
+		logger.Printf("%-132s %s failed due to invalid attribute pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("pthread_mutexattr_destroy"),
 		)
@@ -80,7 +80,7 @@ func libKernel_pthread_mutexattr_destroy(attrHandlePtr uintptr) uintptr {
 	// Free the memory.
 	attrAddr := uintptr(unsafe.Pointer(attr))
 	if !GlobalGoAllocator.Free(attrAddr) {
-		logger.Printf("%-120s %s failed freeing untracked pointer.\n",
+		logger.Printf("%-132s %s failed freeing untracked pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("pthread_mutexattr_destroy"),
 		)
@@ -91,7 +91,7 @@ func libKernel_pthread_mutexattr_destroy(attrHandlePtr uintptr) uintptr {
 	attrHandlePtrSlice := unsafe.Slice((*byte)(unsafe.Pointer(attrHandlePtr)), 8)
 	binary.LittleEndian.PutUint64(attrHandlePtrSlice, 0)
 
-	logger.Printf("%-120s %s destroyed struct at %s.\n",
+	logger.Printf("%-132s %s destroyed struct at %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("pthread_mutexattr_destroy"),
 		color.Yellow.Sprintf("0x%X", attrAddr),

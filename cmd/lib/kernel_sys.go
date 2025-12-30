@@ -20,6 +20,7 @@ const (
 const (
 	UMTX_OP_WAIT              = 2
 	UMTX_OP_WAKE              = 3
+	UMTX_OP_WAIT_UINT         = 11
 	UMTX_OP_WAIT_UINT_PRIVATE = 15
 	UMTX_OP_WAKE_PRIVATE      = 16
 )
@@ -36,7 +37,7 @@ type RtPriority struct {
 func libKernel_sysctl(namePtr uintptr, nameLen uint32, oldPtr uintptr, oldLenPtr uintptr, newPtr uintptr, newLen uintptr) uintptr {
 	// Perform initial checks.
 	if namePtr == 0 || nameLen < 2 {
-		logger.Printf("%-120s %s failed due to invalid name pointer.\n",
+		logger.Printf("%-132s %s failed due to invalid name pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sysctl"),
 		)
@@ -64,7 +65,7 @@ func libKernel_sysctl(namePtr uintptr, nameLen uint32, oldPtr uintptr, oldLenPtr
 		break
 	}
 	if !found {
-		logger.Printf("%-120s %s failed due to unknown OIDs %+v.\n",
+		logger.Printf("%-132s %s failed due to unknown OIDs %+v.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sysctl"),
 			mib,
@@ -86,7 +87,7 @@ func libKernel_sys_sysarch(number uintptr, argsPtr uintptr) uintptr {
 	switch number {
 	case AMD64_SET_FSBASE:
 		if argsPtr == 0 {
-			logger.Printf("%-120s %s failed due to invalid argument pointer.\n",
+			logger.Printf("%-132s %s failed due to invalid argument pointer.\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("sys_sysarch"),
 			)
@@ -94,13 +95,14 @@ func libKernel_sys_sysarch(number uintptr, argsPtr uintptr) uintptr {
 			return ERR_PTR
 		}
 
+		thread := emu.GetCurrentThread()
 		argsPtrSlice := unsafe.Slice((*byte)(unsafe.Pointer(argsPtr)), 8)
 		tcbBaseAddr := uintptr(binary.LittleEndian.Uint64(argsPtrSlice))
-		emu.GlobalModuleManager.Tcb = (*Tcb)(unsafe.Pointer(tcbBaseAddr))
+		thread.Tcb = (*Tcb)(unsafe.Pointer(tcbBaseAddr))
 
-		ret, _, _ := sys_struct.TlsSetValue.Call(sys_struct.TlsSlot, tcbBaseAddr)
+		ret, _, _ := sys_struct.TlsSetValue.Call(sys_struct.PlaystationTlsSlot, tcbBaseAddr)
 		if ret == 0 {
-			logger.Printf("%-120s %s failed setting TCB base.\n",
+			logger.Printf("%-132s %s failed setting TCB base.\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("sys_sysarch"),
 			)
@@ -109,7 +111,7 @@ func libKernel_sys_sysarch(number uintptr, argsPtr uintptr) uintptr {
 		}
 
 		logger.Printf(
-			"%-120s %s set TCB base to %s.\n",
+			"%-132s %s set TCB base to %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sys_sysarch"),
 			color.Yellow.Sprintf("0x%X", tcbBaseAddr),
@@ -117,7 +119,7 @@ func libKernel_sys_sysarch(number uintptr, argsPtr uintptr) uintptr {
 		return 0
 	}
 
-	logger.Printf("%-120s %s failed due to unknown number %s.\n",
+	logger.Printf("%-132s %s failed due to unknown number %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sys_sysarch"),
 		color.Yellow.Sprintf("0x%X", number),
@@ -130,7 +132,7 @@ func libKernel_sys_sysarch(number uintptr, argsPtr uintptr) uintptr {
 // __int64 __fastcall sub_1590()
 func libKernel_sys_thr_self(idPtr uintptr) uintptr {
 	if idPtr == 0 {
-		logger.Printf("%-120s %s failed due to invalid Id pointer.\n",
+		logger.Printf("%-132s %s failed due to invalid Id pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sys_thr_self"),
 		)
@@ -138,50 +140,71 @@ func libKernel_sys_thr_self(idPtr uintptr) uintptr {
 		return ERR_PTR
 	}
 
-	thread := emu.GlobalModuleManager.Tcb.Thread
+	thread := emu.GetCurrentThread()
 	idSlice := unsafe.Slice((*byte)(unsafe.Pointer(idPtr)), 8)
-	binary.LittleEndian.PutUint64(idSlice, uint64(thread.ThreadId))
+	binary.LittleEndian.PutUint64(idSlice, uint64(thread.Id))
 
-	logger.Printf("%-120s %s requested thread id %s.\n",
+	logger.Printf("%-132s %s requested thread id %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sys_thr_self"),
-		color.Green.Sprintf("%d", thread.ThreadId),
+		color.Green.Sprintf("%d", thread.Id),
 	)
 	return 0
 }
 
 // 0x0000000000002BA0
 // __int64 sub_2BA0()
-func libKernel_sys_umtx_op(objPtr, op, val, uaddr, uaddr2 uintptr) uintptr {
-	switch op {
-	case UMTX_OP_WAKE, UMTX_OP_WAKE_PRIVATE:
-		logger.Printf("%-120s %s tried waking up thread xd.\n",
+func libKernel_sys_umtx_op(objPtr, op, value, uaddr, uaddr2 uintptr) uintptr {
+	if objPtr == 0 {
+		logger.Printf("%-132s %s failed due to invalid object pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sys_umtx_op"),
 		)
+		return EINVAL
+	}
+	userMutex := GetUserMutex(objPtr)
+
+	switch op {
+	case UMTX_OP_WAKE, UMTX_OP_WAKE_PRIVATE:
+		logger.Printf("%-132s %s waking up %s (value=%s).\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sys_umtx_op"),
+			color.Yellow.Sprintf("0x%X", objPtr),
+			color.Yellow.Sprintf("0x%X", value),
+		)
+		if value == 1 {
+			userMutex.Signal()
+		} else {
+			userMutex.Broadcast()
+		}
 		return 0
-	case UMTX_OP_WAIT, UMTX_OP_WAIT_UINT_PRIVATE:
+	case UMTX_OP_WAIT_UINT, UMTX_OP_WAIT_UINT_PRIVATE:
+		userMutex.L.Lock()
 		objSlice := unsafe.Slice((*byte)(unsafe.Pointer(objPtr)), 4)
 		obj := uintptr(binary.LittleEndian.Uint32(objSlice))
-		if obj != val {
-			logger.Printf("%-120s %s skipped wait because %s != %s.\n",
+		if obj != value {
+			userMutex.L.Unlock()
+			logger.Printf("%-132s %s skipped wait because %s != %s.\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("sys_umtx_op"),
 				color.Yellow.Sprintf("0x%X", obj),
-				color.Yellow.Sprintf("0x%X", val),
+				color.Yellow.Sprintf("0x%X", value),
 			)
 			return 0
 		}
 
-		logger.Printf("%-120s %s waiting on %s.\n",
+		// TODO: implement timeout.
+		logger.Printf("%-132s %s waiting on %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sys_umtx_op"),
 			color.Yellow.Sprintf("0x%X", objPtr),
 		)
+		userMutex.Wait()
+		userMutex.L.Unlock()
 		return 0
 	}
 
-	logger.Printf("%-120s %s failed due to unknown operation %s.\n",
+	logger.Printf("%-132s %s failed due to unknown operation %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sys_umtx_op"),
 		color.Yellow.Sprintf("0x%X", op),
@@ -193,7 +216,7 @@ func libKernel_sys_umtx_op(objPtr, op, val, uaddr, uaddr2 uintptr) uintptr {
 // __int64 __fastcall get_authinfo()
 func libKernel_sys_get_authinfo(processId uintptr, infoPtr uintptr) uintptr {
 	if infoPtr == 0 {
-		logger.Printf("%-120s %s failed due to invalid info pointer.\n",
+		logger.Printf("%-132s %s failed due to invalid info pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sys_get_authinfo"),
 		)
@@ -202,7 +225,7 @@ func libKernel_sys_get_authinfo(processId uintptr, infoPtr uintptr) uintptr {
 	}
 
 	if processId != 0 && processId != 1001 {
-		logger.Printf("%-120s %s is requesting invalid process id %s.\n",
+		logger.Printf("%-132s %s is requesting invalid process id %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sys_get_authinfo"),
 			color.Yellow.Sprintf("0x%X", processId),
@@ -215,7 +238,7 @@ func libKernel_sys_get_authinfo(processId uintptr, infoPtr uintptr) uintptr {
 	}
 	binary.LittleEndian.PutUint64(infoSlice[8:], 0x6000000000000000)
 
-	logger.Printf("%-120s %s returning auth info for process id %s (infoPtr=%s).\n",
+	logger.Printf("%-132s %s returning auth info for process id %s (infoPtr=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sys_get_authinfo"),
 		color.Green.Sprintf("%d", processId),
@@ -228,7 +251,7 @@ func libKernel_sys_get_authinfo(processId uintptr, infoPtr uintptr) uintptr {
 // __int64 __fastcall _sys_get_proc_type_info()
 func libKernel___sys_get_proc_type_info(infoPtr uintptr) uintptr {
 	if infoPtr == 0 {
-		logger.Printf("%-120s %s failed due to invalid info pointer.\n",
+		logger.Printf("%-132s %s failed due to invalid info pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("__sys_get_proc_type_info"),
 		)
@@ -241,7 +264,7 @@ func libKernel___sys_get_proc_type_info(infoPtr uintptr) uintptr {
 	binary.LittleEndian.PutUint32(infoSlice[4:], PROC_TYPE_BIG_APP)
 	binary.LittleEndian.PutUint32(infoSlice[8:], flags)
 
-	logger.Printf("%-120s %s returning process type info (infoPtr=%s).\n",
+	logger.Printf("%-132s %s returning process type info (infoPtr=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("__sys_get_proc_type_info"),
 		color.Yellow.Sprintf("0x%X", infoPtr),

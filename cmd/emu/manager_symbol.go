@@ -19,7 +19,8 @@ func GetSymbolAddress(s *elf.ElfSymbol) (uint64, bool) {
 	}
 
 	// Let's use a generic stub for now, so we know which functions to patch.
-	if s.LibraryName == "libkernel" && s.Type == elf.STT_FUNC {
+	if s.LibraryName == "libkernel" && s.Type == elf.STT_FUNC &&
+		s.ReadableName != "pthread_once" && s.ReadableName != "scePthreadOnce" {
 		return uint64(asm.Stubs[elf.GetSymbolHashIndex("", "__sharkie_generic_stub")].Address), true
 	}
 
@@ -46,6 +47,9 @@ func GetSymbolAddress(s *elf.ElfSymbol) (uint64, bool) {
 
 // GetDefiningModule returns the module that actually defines given symbol.
 func GetDefiningModule(s *elf.ElfSymbol) *elf.Elf {
+	GlobalModuleManager.ModulesLock.RLock()
+	defer GlobalModuleManager.ModulesLock.RUnlock()
+
 	if s.LibraryName != "" {
 		if module, ok := GlobalModuleManager.ModulesMap[s.LibraryName]; ok {
 			return module

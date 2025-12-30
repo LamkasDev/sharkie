@@ -17,6 +17,14 @@ const (
 	PthreadMutexTypeMask       = 0xFF
 )
 
+var MutexTypeNames = map[PthreadMutexType]string{
+	PthreadMutexTypeErrorCheck: "ErrorCheck",
+	PthreadMutexTypeRecursive:  "Recursive",
+	PthreadMutexTypeNormal:     "Normal",
+	PthreadMutexTypeAdaptiveNp: "AdaptiveNp",
+	PthreadMutexTypeMask:       "Mask",
+}
+
 const (
 	PthreadMutexProtocolNone    = PthreadMutexProtocol(0)
 	PthreadMutexProtocolInherit = PthreadMutexProtocol(1)

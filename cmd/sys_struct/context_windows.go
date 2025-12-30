@@ -9,6 +9,7 @@ import (
 
 // PrintContext prints the given context.
 func PrintContext(ctx *CONTEXT) {
+	tcbAddress, _, _ := TlsGetValue.Call(PlaystationTlsSlot)
 	logger.Println("Context:")
 	PrintRegister("RAX", ctx.Rax)
 	PrintRegister("RBX", ctx.Rbx)
@@ -42,6 +43,7 @@ func PrintContext(ctx *CONTEXT) {
 		color.Blue.Sprint("SS"),
 		color.Yellow.Sprintf("%d", ctx.SegSs),
 	)
+	PrintRegister("TCB", uint64(tcbAddress))
 }
 
 // PrintRegister prints the given register and it's value.
