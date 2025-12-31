@@ -2,6 +2,7 @@ package lib
 
 import (
 	"encoding/binary"
+	"time"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
@@ -187,6 +188,125 @@ func libKernel_pthread_cond_wait(condHandlePtr uintptr, mutexHandlePtr uintptr) 
 	err = libKernel_pthread_mutex_lock(mutexHandlePtr)
 	if err != 0 {
 		return err
+	}
+
+	return 0
+}
+
+// 0x00000000000056B0
+// __int64 __fastcall pthread_cond_timedwait(__int64 *, unsigned __int64 *, __int64, __int64, __int64, int)
+func libKernel_pthread_cond_timedwait(condHandlePtr uintptr, mutexHandlePtr uintptr, timeoutPtr uintptr) uintptr {
+	if condHandlePtr == 0 || timeoutPtr == 0 {
+		return EINVAL
+	}
+
+	// Try initializing a cond, if it wasn't initialized yet.
+	condAddr := *(*uintptr)(unsafe.Pointer(condHandlePtr))
+	if condAddr == PthreadCondInitializer {
+		CondLock.Lock()
+		if err := libKernel_initStaticCond(condHandlePtr); err != 0 {
+			CondLock.Unlock()
+			return err
+		}
+		CondLock.Unlock()
+		condAddr = *(*uintptr)(unsafe.Pointer(condHandlePtr))
+	}
+
+	// Calculate actual timeout from absolute time.
+	timeoutSlice := unsafe.Slice((*byte)(unsafe.Pointer(timeoutPtr)), 16)
+	seconds := binary.LittleEndian.Uint64(timeoutSlice)
+	nanos := binary.LittleEndian.Uint64(timeoutSlice[8:])
+
+	targetTime := time.Unix(int64(seconds), int64(nanos))
+	timeout := time.Until(targetTime)
+	if timeout <= 0 {
+		logger.Printf("%-132s %s timed out on cond %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("pthread_cond_timedwait"),
+			color.Yellow.Sprintf("0x%X", condAddr),
+		)
+		return ETIMEDOUT
+	}
+
+	// Unlock mutex, perform a timed wait on condition and relock mutex.
+	err := libKernel_pthread_mutex_unlock(mutexHandlePtr)
+	if err != 0 {
+		return err
+	}
+	logger.Printf("%-132s %s waiting on cond %s for %s microseconds.\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("pthread_cond_timedwait"),
+		color.Yellow.Sprintf("0x%X", condAddr),
+		color.Yellow.Sprintf("0x%X", timeout.Microseconds()),
+	)
+	hostCond := GetCond(condAddr)
+	hostCond.L.Lock()
+	waited := CondWaitTimeout(hostCond, timeout)
+	hostCond.L.Unlock()
+	err = libKernel_pthread_mutex_lock(mutexHandlePtr)
+	if err != 0 {
+		return err
+	}
+	if !waited {
+		logger.Printf("%-132s %s timed out on cond %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("pthread_cond_timedwait"),
+			color.Yellow.Sprintf("0x%X", condAddr),
+		)
+		return ETIMEDOUT
+	}
+
+	return 0
+}
+
+// 0x00000000000057D0
+// __int64 __fastcall pthread_cond_reltimedwait_np(__int64 *, unsigned __int64 *, unsigned int, __int64, __int64, int)
+func libKernel_pthread_cond_reltimedwait_np(condHandlePtr uintptr, mutexHandlePtr uintptr, micros uintptr) uintptr {
+	if condHandlePtr == 0 {
+		return EINVAL
+	}
+
+	// Try initializing a cond, if it wasn't initialized yet.
+	condAddr := *(*uintptr)(unsafe.Pointer(condHandlePtr))
+	if condAddr == PthreadCondInitializer {
+		CondLock.Lock()
+		if err := libKernel_initStaticCond(condHandlePtr); err != 0 {
+			CondLock.Unlock()
+			return err
+		}
+		CondLock.Unlock()
+		condAddr = *(*uintptr)(unsafe.Pointer(condHandlePtr))
+	}
+
+	// Calculate timeout.
+	timeout := time.Duration(micros) * time.Microsecond
+
+	// Unlock mutex, perform a timed wait on condition and relock mutex.
+	err := libKernel_pthread_mutex_unlock(mutexHandlePtr)
+	if err != 0 {
+		return err
+	}
+	logger.Printf("%-132s %s waiting on cond %s for %s microseconds.\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("pthread_cond_reltimedwait_np"),
+		color.Yellow.Sprintf("0x%X", condAddr),
+		color.Yellow.Sprintf("0x%X", timeout.Microseconds()),
+	)
+	hostCond := GetCond(condAddr)
+	hostCond.L.Lock()
+	waited := CondWaitTimeout(hostCond, timeout)
+	hostCond.L.Unlock()
+	err = libKernel_pthread_mutex_lock(mutexHandlePtr)
+	if err != 0 {
+		return err
+	}
+	if !waited {
+		logger.Printf("%-132s %s timed out on cond %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("pthread_cond_reltimedwait_np"),
+			color.Yellow.Sprintf("0x%X", condAddr),
+		)
+		return ETIMEDOUT
 	}
 
 	return 0

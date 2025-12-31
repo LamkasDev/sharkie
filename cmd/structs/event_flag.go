@@ -1,46 +1,90 @@
 package structs
 
-import "sync"
+import (
+	"fmt"
+	"sync"
+)
 
 var (
-	EventFlagRepo   = map[int32]*EventFlag{}
-	EventFlagLock   sync.RWMutex
-	EventFlagNextId = int32(1)
+	// EventFlagRepo maps handles to host event flags (*EventFlag).
+	EventFlagRepo = map[uintptr]*EventFlag{}
+
+	// EventFlagLock protects EventFlagRepo, so multiple threads can look up event flags safely.
+	EventFlagLock sync.RWMutex
+
+	NextEventFlagId = uintptr(1)
 )
 
 const (
-	EVF_ATTR_TH_DEFAULT = 0x00
-	EVF_ATTR_TH_FIFO    = 0x01
-	EVF_ATTR_TH_PRIO    = 0x02
-	EVF_ATTR_SINGLE     = 0x10
-	EVF_ATTR_MULTI      = 0x20
+	EVF_ATTR_TH_FIFO = 0x01
+	EVF_ATTR_TH_PRIO = 0x02
+	EVF_ATTR_SINGLE  = 0x10
+	EVF_ATTR_MULTI   = 0x20
+
+	EVF_WAITMODE_AND       = 0x01
+	EVF_WAITMODE_OR        = 0x02
+	EVF_WAITMODE_CLEAR_ALL = 0x10
+	EVF_WAITMODE_CLEAR_PAT = 0x20
 
 	EVF_NAME_MAX = 32
 )
 
 type EventFlag struct {
-	Id             int32
+	Handle         uintptr
 	Name           string
 	Attributes     uint32
 	CurrentPattern uint64
 	InitialPattern uint64
 
-	Mutex sync.Mutex
+	Lock sync.Mutex
+	Cond *sync.Cond
 }
 
-func AddEventFlag(ef *EventFlag) int32 {
+func CreateEventFlag(name string, attributes uint32, currentPattern, initialPattern uint64) *EventFlag {
 	EventFlagLock.Lock()
 	defer EventFlagLock.Unlock()
 
-	id := EventFlagNextId
-	ef.Id = id
-	EventFlagRepo[id] = ef
-	EventFlagNextId++
-	return id
+	eventFlag := &EventFlag{
+		Handle:         NextEventFlagId,
+		Name:           name,
+		Attributes:     attributes,
+		CurrentPattern: currentPattern,
+		InitialPattern: initialPattern,
+		Lock:           sync.Mutex{},
+	}
+	eventFlag.Cond = sync.NewCond(&eventFlag.Lock)
+	EventFlagRepo[eventFlag.Handle] = eventFlag
+	NextEventFlagId++
+	return eventFlag
 }
 
-func GetEventFlag(id int32) *EventFlag {
+func GetEventFlag(handle uintptr) *EventFlag {
 	EventFlagLock.RLock()
 	defer EventFlagLock.RUnlock()
-	return EventFlagRepo[id]
+	return EventFlagRepo[handle]
+}
+
+func CheckEventFlagCondition(current, wait uint64, mode uint32) bool {
+	if (mode & EVF_WAITMODE_OR) != 0 {
+		return (current & wait) != 0
+	}
+
+	return (current & wait) == wait
+}
+
+func CreateDefaultEventFlags(names []string) {
+	for _, name := range names {
+		CreateEventFlag(name, EVF_ATTR_TH_FIFO|EVF_ATTR_MULTI, 0, 0)
+	}
+}
+
+func SetupEventFlags() {
+	CreateDefaultEventFlags([]string{AudioInEventFlagName})
+	CreateDefaultEventFlags([]string{
+		"SceBootStatusFlags",
+		"SceSystemStateMgrInfo",
+		"SceSystemStateMgrStatus",
+		fmt.Sprintf("SceNpTusIpc_%08x", 1001),
+		fmt.Sprintf("SceNpScoreIpc_%08x", 1001),
+	})
 }

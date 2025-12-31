@@ -132,7 +132,7 @@ func libKernel_sys_sysarch(number uintptr, argsPtr uintptr) uintptr {
 // __int64 __fastcall sub_1590()
 func libKernel_sys_thr_self(idPtr uintptr) uintptr {
 	if idPtr == 0 {
-		logger.Printf("%-132s %s failed due to invalid Id pointer.\n",
+		logger.Printf("%-132s %s failed due to invalid id pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sys_thr_self"),
 		)

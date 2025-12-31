@@ -46,8 +46,8 @@ func NewTcb(thread *Thread) *Tcb {
 	tcb.Thread.CleanupStack = 0
 	tcb.Thread.Magic = PthreadMagic
 
-	for _, module := range GlobalModuleManager.ModulesMap {
-		if module.TlsSection == nil || module.TlsSection.ImageSize == 0 {
+	for _, module := range GlobalModuleManager.Modules {
+		if module == nil || module.TlsSection == nil || module.TlsSection.ImageSize == 0 {
 			continue
 		}
 		dest := addr + uintptr(module.TlsSection.Offset)

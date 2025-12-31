@@ -27,22 +27,23 @@ func (m *ModuleManager) LoadModule(name string) error {
 	// Link & patch everything now.
 	GlobalModuleManager.ModulesLock.RLock()
 	defer GlobalModuleManager.ModulesLock.RUnlock()
-	for _, module := range m.ModulesMap {
-		if !module.Linked {
-			logger.Printf(
-				"Linking module %s from %s...\n",
-				color.Blue.Sprint(module.Name),
-				color.Blue.Sprint(module.Path),
-			)
-			if err := linker.GlobalLinker.Link(module); err != nil {
-				return err
-			}
-			if err := patcher.GlobalPatcher.Patch(module); err != nil {
-				return err
-			}
-			module.Linked = true
-			logger.Println()
+	for _, module := range m.Modules {
+		if module == nil || module.Linked {
+			continue
 		}
+		logger.Printf(
+			"Linking module %s from %s...\n",
+			color.Blue.Sprint(module.Name),
+			color.Blue.Sprint(module.Path),
+		)
+		if err := linker.GlobalLinker.Link(module); err != nil {
+			return err
+		}
+		if err := patcher.GlobalPatcher.Patch(module); err != nil {
+			return err
+		}
+		module.Linked = true
+		logger.Println()
 	}
 
 	return nil

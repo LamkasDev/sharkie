@@ -32,7 +32,10 @@ func main() {
 	asm.AllocGoTlsSlot()
 	emu.SetupSignalHandler()
 	structs.SetupFilesystem()
+	structs.SetupSemaphores()
+	structs.SetupEventFlags()
 	structs.SetupAllocator()
+	structs.SetupImpiManager()
 
 	symbol.LoadSymbolMap("data/aerolib.csv")
 	lib.RegisterStubs()

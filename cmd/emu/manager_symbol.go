@@ -35,7 +35,10 @@ func GetSymbolAddress(s *elf.ElfSymbol) (uint64, bool) {
 
 	// libSceVideoOut:sceVideoOutSubmitEopFlip is at 0x0
 	// libSceVideoOut:sceVideoOutGetBufferLabelAddress is at 0x0
-	for _, module := range GlobalModuleManager.ModulesMap {
+	for _, module := range GlobalModuleManager.Modules {
+		if module == nil {
+			continue
+		}
 		if address, ok := TryGetSymbolAddress(s, module); ok {
 			return address, true
 		}
@@ -58,7 +61,10 @@ func GetDefiningModule(s *elf.ElfSymbol) *elf.Elf {
 		return nil
 	}
 
-	for _, module := range GlobalModuleManager.ModulesMap {
+	for _, module := range GlobalModuleManager.Modules {
+		if module == nil {
+			continue
+		}
 		if _, found := TryGetSymbolAddress(s, module); found {
 			return module
 		}

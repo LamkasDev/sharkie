@@ -25,3 +25,16 @@ func GetImpiClient(handle uint32) *IpmiClient {
 	defer GlobalIpmiManager.Lock.RUnlock()
 	return GlobalIpmiManager.Clients[handle]
 }
+
+func GetImpiClientByName(name string) *IpmiClient {
+	GlobalIpmiManager.Lock.RLock()
+	defer GlobalIpmiManager.Lock.RUnlock()
+
+	for _, client := range GlobalIpmiManager.Clients {
+		if client.Name == name {
+			return client
+		}
+	}
+
+	return nil
+}

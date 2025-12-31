@@ -31,3 +31,9 @@ func CheckAndRunGC() {
 		runtime.GC()
 	}
 }
+
+func GuestEnter() {
+}
+
+func GuestLeave() {
+}

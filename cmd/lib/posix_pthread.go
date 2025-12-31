@@ -121,7 +121,9 @@ func libKernel_pthread_create_name_np(threadPtr, attrHandlePtr, entryPoint, arg,
 		runtime.LockOSThread()
 		defer runtime.UnlockOSThread()
 		thread.Setup()
-		asm.Run(entryPoint, thread.Stack.CurrentPointer, arg, 0)
+		asm.GuestEnter()
+		asm.Call(entryPoint, thread.Stack.CurrentPointer, arg, 0)
+		asm.GuestLeave()
 		logger.Printf("Thread %s exited.\n",
 			color.Blue.Sprint(threadName),
 		)

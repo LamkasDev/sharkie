@@ -123,7 +123,9 @@ func (t *Thread) Call(funcAddr uintptr) {
 	stackPtr &^= 15
 
 	// Call the assembly trampoline and call funcAddr function.
+	asm.GuestEnter()
 	asm.Call(funcAddr, stackPtr, 0, 0)
+	asm.GuestLeave()
 }
 
 // Run pushes arguments on stack and calls the program's entry point.
@@ -146,7 +148,9 @@ func (t *Thread) Run(e *elf.Elf) {
 		"Jumping to entry point %s...\n",
 		color.Yellow.Sprintf("0x%X", entry),
 	)
+	asm.GuestEnter()
 	asm.Run(entry, stackPtr, argsPtr, 0)
+	asm.GuestLeave()
 
 	// This should not be reached.
 	logger.Println("Returned from run - this should not happen.")

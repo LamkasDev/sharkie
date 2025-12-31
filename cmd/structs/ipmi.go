@@ -1,8 +1,11 @@
 package structs
 
-import "sync"
+import (
+	"fmt"
+	"sync"
+)
 
-var GlobalIpmiManager = NewIpmiManager()
+var GlobalIpmiManager *IpmiManager
 
 const IPMI_MAGIC = 0xDEADBADECAFEBEAF
 
@@ -46,7 +49,7 @@ const (
 	IMPI_GET_USER_DATA_SESSION         = 0x468
 	IMPI_GET_SESSION_PID_BY_CLIENT_KID = 0x469
 	IMPI_TRY_DISPATCH                  = 0x46A
-	_                                  = 0x46B
+	IPMI_REPORT_LONG_CALL              = 0x46B
 
 	IMPI_WAIT_EVENT_FLAG = 0x490
 	IMPI_POLL_EVENT_FLAG = 0x491
@@ -54,6 +57,10 @@ const (
 	IMPI_SET_EVENT_FLAG  = 0x493
 
 	IMPI_TERMINATE_CONNECTION_CLIENT = 0x520
+)
+
+const (
+	IMPI_METHOD_SERVICE_INIT = 0x0
 )
 
 type IpmiManager struct {
@@ -71,4 +78,36 @@ func NewIpmiManager() *IpmiManager {
 		Lock:       sync.RWMutex{},
 		NextHandle: 0x40000001,
 	}
+}
+
+func SetupImpiManager() {
+	GlobalIpmiManager = NewIpmiManager()
+	CreateImpiServer("SceLncService", 0)
+	CreateImpiServer("SceShellCoreUtil", 0)
+	CreateDefaultEventFlags([]string{
+		"SceShellCoreUtilAppFocus",
+		"SceShellCoreUtilCtrlFocus",
+		"SceShellCoreUtilPowerControl",
+	})
+	CreateImpiServer("SceAppMessaging", 0)
+	CreateImpiServer("SceNpMgrIpc", 0)
+	CreateDefaultEventFlags([]string{
+		"SceNpMgrIpc",
+	})
+	CreateImpiServer("SceNpService", 0)
+	CreateImpiServer("SceNetCtl", 0)
+	CreateImpiServer("SceNpTrophyIpc", 0)
+	CreateImpiServer("SceAppContent", 0)
+	CreateImpiServer("SceMbusIpc", 0)
+	CreateImpiServer("SceSysAudioSystemIpc", 0)
+	CreateDefaultEventFlags([]string{
+		fmt.Sprintf("sceAudioOutMix%x", 1001),
+	})
+	CreateImpiServer("SceAvSettingIpc", 0)
+	CreateDefaultEventFlags([]string{
+		"SceAvSettingEvf",
+	})
+	CreateImpiServer("SceSaveData", 0)
+	CreateImpiServer("SceUserService", 0)
+	CreateImpiServer("SceRemoteplayIpc", 0)
 }

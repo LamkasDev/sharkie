@@ -10,6 +10,7 @@ const ENOMEM = 12
 const EFAULT = 14
 const EINVAL = 22
 const EDEADLK = 45
+const ETIMEDOUT = 60
 const ENAMETOOLONG = 63
 
 const ERR_PTR = ^uintptr(0)

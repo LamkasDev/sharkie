@@ -56,7 +56,10 @@ func (m *ModuleManager) GetModulePath(name string) *string {
 // GetModuleAtAddress returns module that is loaded inside given address.
 func GetModuleAtAddress(address uintptr) *elf.Elf {
 	GlobalModuleManager.ModulesLock.RLock()
-	for _, module := range GlobalModuleManager.ModulesMap {
+	for _, module := range GlobalModuleManager.Modules {
+		if module == nil {
+			continue
+		}
 		for _, section := range module.LoadSections {
 			if address >= section.Address && address < section.Address+uintptr(section.LoadedSize) {
 				GlobalModuleManager.ModulesLock.RUnlock()

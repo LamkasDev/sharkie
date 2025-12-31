@@ -74,7 +74,7 @@ func libKernel_pthread_attr_setstacksize(attrHandlePtr uintptr, stackSize uintpt
 // 0x0000000000003D10
 // __int64 __fastcall pthread_attr_setschedpolicy(_DWORD **, int)
 func libKernel_pthread_attr_setschedpolicy(attrHandlePtr uintptr, schedulingPolicy uintptr) uintptr {
-	if schedulingPolicy != 0 && schedulingPolicy != 2 && schedulingPolicy != 3 {
+	if schedulingPolicy != 1 && schedulingPolicy != 2 && schedulingPolicy != 3 {
 		logger.Printf("%-132s %s failed due to invalid scheduling policy %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("pthread_attr_setschedpolicy"),

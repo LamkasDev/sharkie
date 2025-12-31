@@ -149,6 +149,7 @@ func NewFilesystem() *SharkieFilesystem {
 }
 
 func (shFs *SharkieFilesystem) InitializeSystemFiles() error {
+	// Device files.
 	if _, err := shFs.Create(GetUsablePath("stdin")); err != nil {
 		return err
 	}
@@ -191,7 +192,21 @@ func (shFs *SharkieFilesystem) InitializeSystemFiles() error {
 	if _, err := shFs.Create(GetUsablePath("/dev/dce")); err != nil {
 		return err
 	}
+	if _, err := shFs.Create(GetUsablePath("/dev/hid")); err != nil {
+		return err
+	}
+	if _, err := shFs.Create(GetUsablePath("/dev/ajm")); err != nil {
+		return err
+	}
+
+	// Deamon files.
 	if _, err := shFs.Write(GetUsablePath(AudioInBufferName), make([]byte, AudioInBufferDefault)); err != nil {
+		panic(err)
+	}
+	if _, err := shFs.Write(GetUsablePath(AudioVideoSettingsName), make([]byte, AudioVideoSettingsDefault)); err != nil {
+		panic(err)
+	}
+	if _, err := shFs.Write(GetUsablePath("SceNpTpip"), make([]byte, 4096)); err != nil {
 		panic(err)
 	}
 

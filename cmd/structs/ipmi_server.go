@@ -25,3 +25,16 @@ func GetImpiServer(handle uint32) *IpmiServer {
 	defer GlobalIpmiManager.Lock.RUnlock()
 	return GlobalIpmiManager.Servers[handle]
 }
+
+func GetImpiServerByName(name string) *IpmiServer {
+	GlobalIpmiManager.Lock.RLock()
+	defer GlobalIpmiManager.Lock.RUnlock()
+
+	for _, server := range GlobalIpmiManager.Servers {
+		if server.Name == name {
+			return server
+		}
+	}
+
+	return nil
+}

@@ -11,7 +11,7 @@ type PthreadAttrFlags uint32
 const PthreadMagic = uint32(0xD09BA115)
 
 const (
-	PthreadSchedulingPolicyFifo       = PthreadSchedulingPolicy(0)
+	PthreadSchedulingPolicyFifo       = PthreadSchedulingPolicy(1)
 	PthreadSchedulingPolicyOther      = PthreadSchedulingPolicy(2)
 	PthreadSchedulingPolicyRoundRobin = PthreadSchedulingPolicy(3)
 )

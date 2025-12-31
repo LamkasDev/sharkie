@@ -85,6 +85,8 @@ TEXT ·Call(SB), NOSPLIT, $48-32
 
     MOVQ entry+0(FP), AX     // entry = AX
     MOVQ stackPtr+8(FP), BX  // stackPtr = BX
+    MOVQ arg1+16(FP), DI  // arg1 = DI
+    MOVQ arg2+24(FP), R10  // arg1 = SI (R10 for now)
 
     // Prepare a return address for guest.
     BYTE $0xE8; BYTE $0x05; BYTE $0x00; BYTE $0x00; BYTE $0x00
@@ -104,17 +106,19 @@ TEXT ·Call(SB), NOSPLIT, $48-32
     ANDQ $-16, BX
     BYTE $0x48; BYTE $0x89; BYTE $0xDC  // MOVQ BX, SP
 
-    // Call the entry function with empty registers.
+    // Setup call frame.
     BYTE $0x48; BYTE $0x83; BYTE $0xEC; BYTE $0x08  // SUBQ $8, SP
     MOVQ SI, 0(SP)
+    MOVQ R10, SI
+
+    // Clear registers.
     XORQ CX, CX
     XORQ DX, DX
-    XORQ DI, DI
-    XORQ SI, SI
     XORQ R8, R8
     XORQ R9, R9
     XORQ R10, R10
     XORQ R11, R11
+
     JMP AX
 
 CallRestoreRegisters:

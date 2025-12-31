@@ -175,9 +175,16 @@ func RegisterKernelStubs() {
 	elf.RegisterStub("libkernel", "scePthreadCondSignal", libKernel_scePthreadCondSignal)
 	elf.RegisterStub("libkernel", "pthread_cond_wait", libKernel_pthread_cond_wait)
 	elf.RegisterStub("libkernel", "scePthreadCondWait", libKernel_scePthreadCondWait)
+	elf.RegisterStub("libkernel", "pthread_cond_timedwait", libKernel_pthread_cond_timedwait)
+	elf.RegisterStub("libkernel", "pthread_cond_reltimedwait_np", libKernel_pthread_cond_reltimedwait_np)
+	elf.RegisterStub("libkernel", "scePthreadCondTimedwait", libKernel_scePthreadCondTimedwait)
 
 	// Event flag functions.
 	elf.RegisterStub("libkernel", "sceKernelCreateEventFlag", libKernel_sceKernelCreateEventFlag)
+	elf.RegisterStub("libkernel", "sceKernelOpenEventFlag", libKernel_sceKernelOpenEventFlag)
+	elf.RegisterStub("libkernel", "sceKernelWaitEventFlag", libKernel_sceKernelWaitEventFlag)
+	elf.RegisterStub("libkernel", "sceKernelPollEventFlag", libKernel_sceKernelPollEventFlag)
+	elf.RegisterStub("libkernel", "sceKernelSetEventFlag", libKernel_sceKernelSetEventFlag)
 
 	// Module functions.
 	elf.RegisterStub("libkernel", "sceKernelGetExecutableModuleHandle", libKernel_sceKernelGetExecutableModuleHandle)
@@ -208,4 +215,26 @@ func RegisterKernelStubs() {
 	// Signal functions.
 	elf.RegisterStub("libkernel", "sigprocmask", libKernel_sigprocmask)
 	elf.RegisterStub("libkernel", "_sigprocmask", libKernel_sigprocmask)
+
+	// Equeue/kevent functions.
+	elf.RegisterStub("libkernel", "kevent", libKernel_kevent)
+	elf.RegisterStub("libkernel", "__sys_kqueueex", libKernel___sys_kqueueex)
+	elf.RegisterStub("libkernel", "kqueue", libKernel_kqueue)
+	elf.RegisterStub("libkernel", "sceKernelCreateEqueue", libKernel_sceKernelCreateEqueue)
+	elf.RegisterStub("libkernel", "sceKernelWaitEqueue", libKernel_sceKernelWaitEqueue)
+	elf.RegisterStub("libkernel", "sceKernelAddUserEvent", libKernel_sceKernelAddUserEvent)
+
+	// Semaphore functions.
+	elf.RegisterStub("libkernel", "sem_init", libKernel_sem_init)
+	elf.RegisterStub("libkernel", "sceKernelCreateSema", libKernel_sceKernelCreateSema)
+	elf.RegisterStub("libkernel", "sceKernelOpenSema", libKernel_sceKernelOpenSema)
+	elf.RegisterStub("libkernel", "sceKernelDeleteSema", libKernel_sceKernelDeleteSema)
+	elf.RegisterStub("libkernel", "sceKernelWaitSema", libKernel_sceKernelWaitSema)
+	elf.RegisterStub("libkernel", "sem_wait", libKernel_sem_wait)
+	elf.RegisterStub("libkernel", "sem_timedwait", libKernel_sem_timedwait)
+
+	// Network functions.
+	elf.RegisterStub("libkernel", "__sys_netcontrol", libKernel___sys_netcontrol)
+	elf.RegisterStub("libkernel", "__sys_socketex", libKernel___sys_socketex)
+	elf.RegisterStub("libkernel", "__sys_socketclose", libKernel___sys_socketclose)
 }

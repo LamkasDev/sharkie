@@ -20,6 +20,7 @@ type SharkieFile struct {
 	Descriptor FileDescriptor
 	Cursor     uintptr
 	File       fs.File
+	ExtraData  interface{}
 }
 
 func GetUsablePath(path string) string {

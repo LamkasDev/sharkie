@@ -54,3 +54,14 @@ func libKernel_scePthreadCondWait(condHandlePtr uintptr, mutexHandlePtr uintptr)
 
 	return 0
 }
+
+// 0x00000000000138A0
+// __int64 scePthreadCondTimedwait()
+func libKernel_scePthreadCondTimedwait(condHandlePtr uintptr, mutexHandlePtr uintptr, micros uintptr) uintptr {
+	err := libKernel_pthread_cond_reltimedwait_np(condHandlePtr, mutexHandlePtr, micros)
+	if err != 0 {
+		return err - 0x7FFE0000
+	}
+
+	return 0
+}

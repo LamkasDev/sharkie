@@ -1,6 +1,9 @@
 package structs
 
-import "sync"
+import (
+	"sync"
+	"time"
+)
 
 var (
 	// CondRepo maps guest addresses (uintptr) to host conds (*sync.Cond).
@@ -32,4 +35,22 @@ func GetCond(guestAddress uintptr) *sync.Cond {
 	cond = sync.NewCond(GlobalCondMutex)
 	CondRepo[guestAddress] = cond
 	return cond
+}
+
+func CondWaitTimeout(cond *sync.Cond, timeout time.Duration) bool {
+	done := make(chan struct{})
+	go func() {
+		cond.Wait()
+		cond.L.Unlock()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		cond.L.Lock()
+		return true
+	case <-time.After(timeout):
+		cond.L.Lock()
+		return false
+	}
 }

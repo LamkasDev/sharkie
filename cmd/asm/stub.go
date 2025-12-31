@@ -24,6 +24,7 @@ func InitStubAddr()
 // stubGo is a Go function that acts as a trampoline to call the target function.
 // It is called from stubAsm.
 func stubGo() {
+	GuestLeave()
 	CheckAndRunGC()
 
 	// Extract arguments and function pointer from RegSaveArea.
@@ -79,4 +80,5 @@ func stubGo() {
 	if len(results) > 0 {
 		ctx.AX = uintptr(results[0].Uint())
 	}
+	GuestEnter()
 }

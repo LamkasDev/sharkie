@@ -68,7 +68,7 @@ func libKernel_ipmimgr_call(op, handle, resultPtr, paramsPtr, paramsSize, magic,
 
 	case IMPI_DESTROY_CLIENT:
 		if client == nil {
-			logger.Printf("%-132s %s failed due to invalid client handle %s.\n",
+			logger.Printf("%-132s %s failed due to unknown client %s.\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("ipmimgr_call"),
 				color.Yellow.Sprintf("0x%X", handle),
@@ -90,9 +90,9 @@ func libKernel_ipmimgr_call(op, handle, resultPtr, paramsPtr, paramsSize, magic,
 		)
 		return 0
 
-	case IMPI_INVOKE_SYNC_CLIENT:
+	case IMPI_INVOKE_SYNC_CLIENT, IMPI_INVOKE_ASYNC_CLIENT:
 		if client == nil {
-			logger.Printf("%-132s %s failed due to invalid client handle %s.\n",
+			logger.Printf("%-132s %s failed due to unknown client %s.\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("ipmimgr_call"),
 				color.Yellow.Sprintf("0x%X", handle),
@@ -107,69 +107,23 @@ func libKernel_ipmimgr_call(op, handle, resultPtr, paramsPtr, paramsSize, magic,
 			return SCE_KERNEL_ERROR_EINVAL
 		}
 
-		paramsSlice := unsafe.Slice((*byte)(unsafe.Pointer(paramsPtr)), 48)
-		methodId := uintptr(binary.LittleEndian.Uint32(paramsSlice))
-		// inputPtr := uintptr(binary.LittleEndian.Uint64(paramsSlice[0x10:]))
-		// inputSizePtr := uintptr(binary.LittleEndian.Uint64(paramsSlice[0x18:]))
-		// outputPtr := uintptr(binary.LittleEndian.Uint64(paramsSlice[0x20:]))
-		// outputSizePtr := uintptr(binary.LittleEndian.Uint64(paramsSlice[0x28:]))
-
-		if resultPtr != 0 {
-			resultSlice := unsafe.Slice((*byte)(unsafe.Pointer(resultPtr)), 4)
-			binary.LittleEndian.PutUint32(resultSlice, 0)
-		}
-
-		logger.Printf("%-132s %s invoked sync method %s on client %s.\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("ipmimgr_call"),
-			color.Yellow.Sprintf("0x%X", methodId),
-			color.Blue.Sprint(client.Name),
-		)
-		return 0
-
-	case IMPI_INVOKE_ASYNC_CLIENT:
-		if client == nil {
-			logger.Printf("%-132s %s failed due to invalid client handle %s.\n",
-				emu.GlobalModuleManager.GetCallSiteText(),
-				color.Magenta.Sprint("ipmimgr_call"),
-				color.Yellow.Sprintf("0x%X", handle),
-			)
-			return SCE_KERNEL_ERROR_ENOENT
-		}
-		if paramsPtr == 0 {
-			logger.Printf("%-132s %s failed due to invalid params pointer.\n",
-				emu.GlobalModuleManager.GetCallSiteText(),
-				color.Magenta.Sprint("ipmimgr_call"),
-			)
-			return SCE_KERNEL_ERROR_EINVAL
-		}
-
-		paramsSlice := unsafe.Slice((*byte)(unsafe.Pointer(paramsPtr)), 48)
-		methodId := uintptr(binary.LittleEndian.Uint32(paramsSlice))
-		// inputPtr := uintptr(binary.LittleEndian.Uint64(paramsSlice[0x10:]))
-		// inputSizePtr := uintptr(binary.LittleEndian.Uint64(paramsSlice[0x18:]))
-		// outputPtr := uintptr(binary.LittleEndian.Uint64(paramsSlice[0x20:]))
-		// outputSizePtr := uintptr(binary.LittleEndian.Uint64(paramsSlice[0x28:]))
-
-		if resultPtr != 0 {
-			resultSlice := unsafe.Slice((*byte)(unsafe.Pointer(resultPtr)), 4)
-			binary.LittleEndian.PutUint32(resultSlice, 0)
-		}
-
-		logger.Printf("%-132s %s invoked async method %s on client %s.\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("ipmimgr_call"),
-			color.Yellow.Sprintf("0x%X", methodId),
-			color.Blue.Sprint(client.Name),
-		)
-		return 0
+		return InvokeImpiClientMethod(client, resultPtr, paramsPtr, paramsSize, objPtr)
 
 	case IMPI_CONNECT:
 		if client == nil {
-			logger.Printf("%-132s %s failed due to invalid client handle %s.\n",
+			logger.Printf("%-132s %s failed due to unknown client %s.\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("ipmimgr_call"),
 				color.Yellow.Sprintf("0x%X", handle),
+			)
+			return SCE_KERNEL_ERROR_ENOENT
+		}
+		server = GetImpiServerByName(client.Name)
+		if server == nil {
+			logger.Printf("%-132s %s failed due to unknown server %s.\n",
+				emu.GlobalModuleManager.GetCallSiteText(),
+				color.Magenta.Sprint("ipmimgr_call"),
+				color.Blue.Sprint(client.Name),
 			)
 			return SCE_KERNEL_ERROR_ENOENT
 		}
@@ -196,7 +150,7 @@ func libKernel_ipmimgr_call(op, handle, resultPtr, paramsPtr, paramsSize, magic,
 
 	case IMPI_DISCONNECT_CLIENT:
 		if client == nil {
-			logger.Printf("%-132s %s failed due to invalid client handle %s.\n",
+			logger.Printf("%-132s %s failed due to unknown client %s.\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("ipmimgr_call"),
 				color.Yellow.Sprintf("0x%X", handle),
@@ -250,4 +204,71 @@ func libKernel_ipmimgr_call(op, handle, resultPtr, paramsPtr, paramsSize, magic,
 		color.Yellow.Sprintf("0x%X", handle),
 	)
 	return SCE_KERNEL_ERROR_ENOTSUP
+}
+
+func InvokeImpiClientMethod(client *IpmiClient, resultPtr, paramsPtr, paramsSize, objPtr uintptr) uintptr {
+	paramsSlice := unsafe.Slice((*byte)(unsafe.Pointer(paramsPtr)), paramsSize)
+	methodId := binary.LittleEndian.Uint32(paramsSlice)
+	inputSize := binary.LittleEndian.Uint32(paramsSlice[0x4:])
+	outputSize := binary.LittleEndian.Uint32(paramsSlice[0x8:])
+	inputPtr := uintptr(binary.LittleEndian.Uint64(paramsSlice[0x10:]))
+	outputPtr := uintptr(binary.LittleEndian.Uint64(paramsSlice[0x18:]))
+
+	switch client.Name {
+	case "SceNpMgrIpc":
+		switch methodId {
+		case IMPI_METHOD_SERVICE_INIT:
+			if inputSize >= 4 && inputPtr != 0 {
+				inputSlice := unsafe.Slice((*byte)(unsafe.Pointer(inputPtr)), inputSize)
+				serviceId := binary.LittleEndian.Uint32(inputSlice)
+
+				if resultPtr != 0 {
+					resultSlice := unsafe.Slice((*byte)(unsafe.Pointer(resultPtr)), 4)
+					binary.LittleEndian.PutUint32(resultSlice, 0)
+				}
+
+				logger.Printf("%-132s %s initialized service %s on client %s.\n",
+					emu.GlobalModuleManager.GetCallSiteText(),
+					color.Magenta.Sprint("ipmimgr_call"),
+					color.Yellow.Sprintf("0x%X", serviceId),
+					color.Blue.Sprint(client.Name),
+				)
+				return 0
+			}
+
+			if outputSize > 0 && outputPtr != 0 {
+				outputSlice := unsafe.Slice((*byte)(unsafe.Pointer(outputPtr)), 8)
+				namePtr := uintptr(binary.LittleEndian.Uint64(outputSlice))
+
+				WriteCString(namePtr, client.Name)
+
+				if resultPtr != 0 {
+					resultSlice := unsafe.Slice((*byte)(unsafe.Pointer(resultPtr)), 4)
+					binary.LittleEndian.PutUint32(resultSlice, 0)
+				}
+
+				logger.Printf("%-132s %s returned server name for client %s.\n",
+					emu.GlobalModuleManager.GetCallSiteText(),
+					color.Magenta.Sprint("ipmimgr_call"),
+					color.Blue.Sprint(client.Name),
+				)
+				return 0
+			}
+			break
+		}
+		break
+	}
+
+	if resultPtr != 0 {
+		resultSlice := unsafe.Slice((*byte)(unsafe.Pointer(resultPtr)), 4)
+		binary.LittleEndian.PutUint32(resultSlice, 0)
+	}
+
+	logger.Printf("%-132s %s invoked unknown method %s on client %s.\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("ipmimgr_call"),
+		color.Yellow.Sprintf("0x%X", methodId),
+		color.Blue.Sprint(client.Name),
+	)
+	return 0
 }
