@@ -5,7 +5,6 @@ import (
 	"runtime"
 	"unsafe"
 
-	"github.com/LamkasDev/sharkie/cmd/asm"
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	. "github.com/LamkasDev/sharkie/cmd/structs"
@@ -45,9 +44,8 @@ func libKernel_sys_pthread_self() {
 	mainThread := emu.GlobalModuleManager.MainThread
 	base := emu.GlobalModuleManager.ModulesMap["libkernel.sprx"].BaseAddress
 
-	mainThreadSlice := unsafe.Slice((*byte)(unsafe.Pointer(base+MainThreadGlobalOffset)), 8)
 	mainThreadPtr := (uintptr)(unsafe.Pointer(mainThread.Tcb.Thread))
-	binary.LittleEndian.PutUint64(mainThreadSlice, uint64(mainThreadPtr))
+	WriteAddress(base+MainThreadGlobalOffset, mainThreadPtr)
 
 	pidSlice := unsafe.Slice((*byte)(unsafe.Pointer(base+PidGlobalOffset)), 4)
 	binary.LittleEndian.PutUint32(pidSlice, uint32(libKernel_getpid()))
@@ -112,18 +110,16 @@ func libKernel_pthread_create_name_np(threadPtr, attrHandlePtr, entryPoint, arg,
 	// Write back result.
 	pthreadAddr := (uintptr)(unsafe.Pointer(thread.Tcb.Thread))
 	if threadPtr != 0 {
-		threadSlice := unsafe.Slice((*byte)(unsafe.Pointer(threadPtr)), 8)
-		binary.LittleEndian.PutUint64(threadSlice, uint64(pthreadAddr))
+		WriteAddress(threadPtr, pthreadAddr)
 	}
 
 	threadName := thread.Name
 	go func() {
 		runtime.LockOSThread()
 		defer runtime.UnlockOSThread()
+
 		thread.Setup()
-		asm.GuestEnter()
-		asm.Call(entryPoint, thread.Stack.CurrentPointer, arg, 0)
-		asm.GuestLeave()
+		thread.Call(entryPoint, arg)
 		logger.Printf("Thread %s exited.\n",
 			color.Blue.Sprint(threadName),
 		)
@@ -136,6 +132,85 @@ func libKernel_pthread_create_name_np(threadPtr, attrHandlePtr, entryPoint, arg,
 		color.Yellow.Sprintf("0x%X", pthreadAddr),
 		color.Blue.Sprint(module.Name),
 		color.Yellow.Sprintf("0x%X", entryPoint-module.BaseAddress),
+	)
+	return 0
+}
+
+// 0x0000000000014560
+// __int64 __fastcall scePthreadGetaffinity(signed __int32 *, _QWORD *)
+func libKernel_scePthreadGetaffinity(threadPtr uintptr, maskPtr uintptr) uintptr {
+	cpuSet := ThreadCpuSet{}
+	err := libKernel_pthread_getaffinity_np(threadPtr, ThreadCpuSetSize, uintptr(unsafe.Pointer(&cpuSet)))
+	if err != 0 {
+		return err - SonyErrorOffset
+	}
+	mask := (*ThreadAffinityMask)(unsafe.Pointer(maskPtr))
+	*mask = ThreadAffinityMask(cpuSet.Low)
+
+	return 0
+}
+
+// 0x0000000000003720
+// __int64 __fastcall pthread_getaffinity_np(signed __int32 *, __int64, __int64)
+func libKernel_pthread_getaffinity_np(threadPtr uintptr, cpuSetSize uintptr, cpuSetPtr uintptr) uintptr {
+	if cpuSetPtr == 0 || cpuSetSize < 8 {
+		return EINVAL
+	}
+	thread := emu.GetThreadForPtr(threadPtr)
+	if thread == nil {
+		return ENOENT
+	}
+
+	// Get thread's affinity.
+	cpuSet := (*ThreadCpuSet)(unsafe.Pointer(cpuSetPtr))
+	cpuSet.Low = uint64(thread.AffinityMask)
+	cpuSet.High = 0
+
+	logger.Printf("%-132s %s returned affinity %s of %s.\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("pthread_getaffinity_np"),
+		color.Yellow.Sprintf("0x%X", cpuSet.Low),
+		color.Green.Sprint(thread.Name),
+	)
+	return 0
+}
+
+// 0x0000000000798B20
+// __int64 scePthreadSetaffinity()
+func libKernel_scePthreadSetaffinity(threadPtr uintptr, mask uintptr) uintptr {
+	cpuSet := ThreadCpuSet{
+		Low: uint64(mask),
+	}
+	err := libKernel_pthread_setaffinity_np(threadPtr, ThreadCpuSetSize, uintptr(unsafe.Pointer(&cpuSet)))
+	if err != 0 {
+		return err - SonyErrorOffset
+	}
+
+	return 0
+}
+
+// 0x0000000000003640
+// __int64 __fastcall pthread_setaffinity_np(signed __int32 *, __int64, __int64)
+func libKernel_pthread_setaffinity_np(threadPtr uintptr, cpuSetSize uintptr, cpuSetPtr uintptr) uintptr {
+	if cpuSetPtr == 0 || cpuSetSize < 8 {
+		return EINVAL
+	}
+	thread := emu.GetThreadForPtr(threadPtr)
+	if thread == nil {
+		return ENOENT
+	}
+
+	// Set thread's affinity.
+	cpuSet := (*ThreadCpuSet)(unsafe.Pointer(cpuSetPtr))
+	thread.Lock.Lock()
+	thread.AffinityMask = ThreadAffinityMask(cpuSet.Low)
+	thread.Lock.Unlock()
+
+	logger.Printf("%-132s %s set affinity of %s to %s.\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("pthread_setaffinity_np"),
+		color.Green.Sprint(thread.Name),
+		color.Yellow.Sprintf("0x%X", cpuSet.Low),
 	)
 	return 0
 }
@@ -188,6 +263,7 @@ func libKernel_sys_pthread_exit(retValue uintptr) uintptr {
 	}
 	thread.Tcb.Thread.CleanupStack = 0
 
+	// Mark thread as done and exit goroutine.
 	thread.Lock.Lock()
 	thread.Exited = true
 	thread.ExitCode = retValue

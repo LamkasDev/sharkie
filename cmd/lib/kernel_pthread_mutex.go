@@ -4,7 +4,10 @@ import (
 	"fmt"
 	"unsafe"
 
+	"github.com/LamkasDev/sharkie/cmd/emu"
+	"github.com/LamkasDev/sharkie/cmd/logger"
 	. "github.com/LamkasDev/sharkie/cmd/structs"
+	"github.com/gookit/color"
 )
 
 // TODO: fix name creation
@@ -14,7 +17,7 @@ import (
 func libKernel_scePthreadMutexInit(mutexHandlePtr uintptr, attrPtr uintptr, namePtr uintptr) uintptr {
 	err := libKernel_pthread_mutex_init(mutexHandlePtr, attrPtr)
 	if err != 0 {
-		return err - 0x7FFE0000
+		return err - SonyErrorOffset
 	}
 
 	// Retrieve structs back.
@@ -34,6 +37,11 @@ func libKernel_scePthreadMutexInit(mutexHandlePtr uintptr, attrPtr uintptr, name
 
 	// TODO: emulate __sys_namedobj_create?
 
+	logger.Printf("%-132s %s created mutex named %s.\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("scePthreadMutexInit"),
+		color.Blue.Sprint(name),
+	)
 	return 0
 }
 
@@ -42,7 +50,7 @@ func libKernel_scePthreadMutexInit(mutexHandlePtr uintptr, attrPtr uintptr, name
 func libKernel_scePthreadMutexDestroy(mutexHandlePtr uintptr) uintptr {
 	err := libKernel_pthread_mutex_destroy(mutexHandlePtr)
 	if err != 0 {
-		return err - 0x7FFE0000
+		return err - SonyErrorOffset
 	}
 
 	return 0
@@ -53,7 +61,18 @@ func libKernel_scePthreadMutexDestroy(mutexHandlePtr uintptr) uintptr {
 func libKernel_scePthreadMutexLock(mutexHandlePtr uintptr) uintptr {
 	err := libKernel_pthread_mutex_lock(mutexHandlePtr)
 	if err != 0 {
-		return err - 0x7FFE0000
+		return err - SonyErrorOffset
+	}
+
+	return 0
+}
+
+// 0x0000000000013C90
+// __int64 scePthreadMutexTrylock()
+func libKernel_scePthreadMutexTrylock(mutexHandlePtr uintptr) uintptr {
+	err := libKernel_pthread_mutex_trylock(mutexHandlePtr)
+	if err != 0 {
+		return err - SonyErrorOffset
 	}
 
 	return 0
@@ -64,7 +83,7 @@ func libKernel_scePthreadMutexLock(mutexHandlePtr uintptr) uintptr {
 func libKernel_scePthreadMutexUnlock(mutexHandlePtr uintptr) uintptr {
 	err := libKernel_pthread_mutex_unlock(mutexHandlePtr)
 	if err != 0 {
-		return err - 0x7FFE0000
+		return err - SonyErrorOffset
 	}
 
 	return 0

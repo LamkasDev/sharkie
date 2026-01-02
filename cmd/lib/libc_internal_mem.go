@@ -29,12 +29,14 @@ func libSceLibcInternal_malloc(size uintptr) uintptr {
 		return 0
 	}
 
-	logger.Printf("%-132s %s allocated %s bytes at %s.\n",
-		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprint("malloc"),
-		color.Yellow.Sprintf("0x%X", size),
-		color.Yellow.Sprintf("0x%X", address),
-	)
+	if logger.LogAlloc {
+		logger.Printf("%-132s %s allocated %s bytes at %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("malloc"),
+			color.Yellow.Sprintf("0x%X", size),
+			color.Yellow.Sprintf("0x%X", address),
+		)
+	}
 	return address
 }
 
@@ -64,11 +66,13 @@ func libSceLibcInternal_free(ptr uintptr) {
 		)
 		return
 	}
-	logger.Printf("%-132s %s freed %s.\n",
-		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprint("free"),
-		color.Yellow.Sprintf("0x%X", ptr),
-	)
+	if logger.LogAlloc {
+		logger.Printf("%-132s %s freed %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("free"),
+			color.Yellow.Sprintf("0x%X", ptr),
+		)
+	}
 }
 
 // 0x0000000000028D90
@@ -83,13 +87,15 @@ func libSceLibcInternal_realloc(ptr, newSize uintptr) uintptr {
 		return 0
 	}
 
-	logger.Printf("%-132s %s reallocated %s to %s (newSize=%s).\n",
-		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprint("realloc"),
-		color.Yellow.Sprintf("0x%X", ptr),
-		color.Yellow.Sprintf("0x%X", address),
-		color.Yellow.Sprintf("0x%X", newSize),
-	)
+	if logger.LogAlloc {
+		logger.Printf("%-132s %s reallocated %s to %s (newSize=%s).\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("realloc"),
+			color.Yellow.Sprintf("0x%X", ptr),
+			color.Yellow.Sprintf("0x%X", address),
+			color.Yellow.Sprintf("0x%X", newSize),
+		)
+	}
 	return address
 }
 

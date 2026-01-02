@@ -158,7 +158,8 @@ func (m *ModuleManager) GetCallSiteText() string {
 	}
 
 	ctx := (*asm.RegContext)(unsafe.Pointer(threadContext.GlobalStubContext))
-	returnAddr := *(*uintptr)(unsafe.Pointer(ctx.BP + 8))
+	returnAddrPtr := uintptr(unsafe.Pointer(ctx)) + asm.RegContextSize
+	returnAddr := *(*uintptr)(unsafe.Pointer(returnAddrPtr))
 	module := GetModuleAtAddress(returnAddr)
 	if module == nil {
 		return fmt.Sprintf("[%s] [unknown address %s]",

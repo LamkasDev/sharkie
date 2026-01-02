@@ -12,7 +12,7 @@ import (
 func libKernel_sceKernelOpen(pathPtr uintptr, flags uintptr, mode uintptr) uintptr {
 	fd := libKernel_open(pathPtr, flags, mode)
 	if fd == ERR_PTR {
-		return GetErrno() - 0x7FFE0000
+		return GetErrno() - SonyErrorOffset
 	}
 
 	return fd

@@ -133,6 +133,9 @@ func NewElf(data []byte) *Elf {
 	for _, loadSection := range e.LoadSections {
 		ProcessLoadSection(e, loadSection, data)
 	}
+	if e.ProcessParamSection != nil {
+		ProcessLoadSection(e, e.ProcessParamSection, data)
+	}
 	if e.ExceptionFrameSection != nil {
 		// Now we need to actually parse the section and figure out the exception frame address.
 		headerAddr := e.BaseAddress + uintptr(e.ExceptionFrameSection.PVaddr)

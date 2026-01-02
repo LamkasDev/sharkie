@@ -1,7 +1,6 @@
 package lib
 
 import (
-	"encoding/binary"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
@@ -24,11 +23,10 @@ func libKernel_pthread_attr_init(attrHandlePtr uintptr) uintptr {
 	attr.InheritScheduling = PthreadInheritSchedulingInherit
 	attr.Priority = 700
 	attr.Flags = PthreadAttrFlagsScopeSystem
-	attr.StackSize = 0x100000
+	attr.StackSize = StackDefaultSize
 
 	// Copy the pointer back to attrHandlePtr.
-	attrHandlePtrSlice := unsafe.Slice((*byte)(unsafe.Pointer(attrHandlePtr)), 8)
-	binary.LittleEndian.PutUint64(attrHandlePtrSlice, uint64(attrAddr))
+	WriteAddress(attrHandlePtr, attrAddr)
 
 	logger.Printf("%-132s %s created attribute at %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
@@ -41,7 +39,7 @@ func libKernel_pthread_attr_init(attrHandlePtr uintptr) uintptr {
 // 0x00000000000134C0
 // __int64 __fastcall pthread_attr_setstacksize(__int64, unsigned __int64)
 func libKernel_pthread_attr_setstacksize(attrHandlePtr uintptr, stackSize uintptr) uintptr {
-	if stackSize < 0x4000 {
+	if stackSize < StackMinimumSize {
 		logger.Printf("%-132s %s failed due to invalid stack size %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("pthread_attr_setstacksize"),
@@ -300,10 +298,9 @@ func libKernel_pthread_attr_destroy(attrHandlePtr uintptr) uintptr {
 	}
 
 	// Copy NULL pointer to attrHandlePtr.
-	attrHandlePtrSlice := unsafe.Slice((*byte)(unsafe.Pointer(attrHandlePtr)), 8)
-	binary.LittleEndian.PutUint64(attrHandlePtrSlice, 0)
+	WriteAddress(attrHandlePtr, 0)
 
-	logger.Printf("%-132s %s destroyed struct at %s.\n",
+	logger.Printf("%-132s %s destroyed thread attribute %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("pthread_attr_destroy"),
 		color.Yellow.Sprintf("0x%X", attrAddr),

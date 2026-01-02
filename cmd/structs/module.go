@@ -12,7 +12,7 @@ type ModuleInfo struct {
 	Fingerprint   [20]byte
 }
 
-const ModuleInfoSize = uintptr(unsafe.Sizeof(ModuleInfo{}))
+const ModuleInfoSize = unsafe.Sizeof(ModuleInfo{})
 
 type SegmentInfo struct {
 	Address    uintptr
@@ -20,4 +20,4 @@ type SegmentInfo struct {
 	Protection uint32
 }
 
-const SegmentInfoSize = uintptr(unsafe.Sizeof(SegmentInfo{}))
+const SegmentInfoSize = unsafe.Sizeof(SegmentInfo{})

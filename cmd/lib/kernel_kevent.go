@@ -1,7 +1,7 @@
 package lib
 
 import (
-	"encoding/binary"
+	"runtime"
 	"time"
 	"unsafe"
 
@@ -13,7 +13,7 @@ import (
 
 // 0x00000000000013B0
 // __int64 __fastcall kevent()
-func libKernel_kevent(equeueHandle, changelistPtr, nchanges, eventlistPtr, nevents, timeoutPtr uintptr) uintptr {
+func libKernel_kevent(equeueHandle, changelistPtr, nchanges, eventlistPtr, nevents, timestampPtr uintptr) uintptr {
 	equeue := GetEqueue(equeueHandle)
 	if equeue == nil {
 		logger.Printf("%-132s %s failed due to unknown equeue %s.\n",
@@ -33,7 +33,7 @@ func libKernel_kevent(equeueHandle, changelistPtr, nchanges, eventlistPtr, neven
 	}
 
 	if eventlistPtr != 0 && nevents > 0 {
-		return processKeventWait(equeue, eventlistPtr, nevents, timeoutPtr)
+		return processKeventWait(equeue, eventlistPtr, nevents, timestampPtr)
 	}
 
 	return 0
@@ -44,6 +44,9 @@ func processKeventChange(equeue *Equeue, event Kevent) {
 		switch event.Filter {
 		case EVFILT_VBLANK:
 			go func() {
+				runtime.LockOSThread()
+				defer runtime.UnlockOSThread()
+
 				// 60 FPS = ~16.66ms per frame
 				ticker := time.NewTicker(16666 * time.Microsecond)
 				defer ticker.Stop()
@@ -86,13 +89,11 @@ func processKeventChange(equeue *Equeue, event Kevent) {
 	)
 }
 
-func processKeventWait(equeue *Equeue, eventlistPtr, nevents, timeoutPtr uintptr) uintptr {
+func processKeventWait(equeue *Equeue, eventlistPtr, nevents, timestampPtr uintptr) uintptr {
 	timeout := time.Duration(-1)
-	if timeoutPtr != 0 {
-		timeoutSlice := unsafe.Slice((*byte)(unsafe.Pointer(timeoutPtr)), 16)
-		seconds := binary.LittleEndian.Uint64(timeoutSlice)
-		nanos := binary.LittleEndian.Uint64(timeoutSlice[8:])
-		timeout = time.Duration(seconds)*time.Second + time.Duration(nanos)*time.Nanosecond
+	if timestampPtr != 0 {
+		timestamp := (*Timestamp)(unsafe.Pointer(timestampPtr))
+		timeout = time.Duration(timestamp.Seconds)*time.Second + time.Duration(timestamp.Nanoseconds)*time.Nanosecond
 	}
 	logger.Printf("%-132s %s waiting on %s for %s microseconds.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),

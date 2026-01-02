@@ -2,10 +2,14 @@ package structs
 
 type Timestamp struct {
 	Seconds     uint64
-	NanoSeconds uint64
+	Nanoseconds uint64
 }
 
 type Timevalue struct {
-	Seconds  uint64
-	USeconds uint64
+	Seconds      uint64
+	Microseconds uint64
+}
+
+type Timeout struct {
+	Microseconds uint32
 }

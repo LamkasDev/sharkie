@@ -24,8 +24,9 @@ func InitStubAddr()
 // stubGo is a Go function that acts as a trampoline to call the target function.
 // It is called from stubAsm.
 func stubGo() {
-	GuestLeave()
-	CheckAndRunGC()
+	// GuestLeave()
+	// defer GuestEnter()
+	// CheckAndRunGC()
 
 	// Extract arguments and function pointer from RegSaveArea.
 	threadContext := GetCurrentThreadContext()
@@ -65,7 +66,7 @@ func stubGo() {
 			break
 		default:
 			// RegContextSize + stubAsm return address + original return address + offset.
-			stackOffset := RegContextSize + 16 + uintptr((i-6)*8)
+			stackOffset := RegContextSize + 8 + uintptr((i-6)*8)
 			addr := (*uint64)(unsafe.Pointer(uintptr(unsafe.Pointer(ctx)) + stackOffset))
 			argVal.SetUint(*addr)
 		}
@@ -80,5 +81,4 @@ func stubGo() {
 	if len(results) > 0 {
 		ctx.AX = uintptr(results[0].Uint())
 	}
-	GuestEnter()
 }

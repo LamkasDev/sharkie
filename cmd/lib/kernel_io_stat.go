@@ -14,7 +14,7 @@ import (
 func libKernel_sceKernelStat(pathPtr uintptr, statPtr uintptr) uintptr {
 	err := libKernel_stat(pathPtr, statPtr)
 	if err != 0 {
-		return GetErrno() - 0x7FFE0000
+		return GetErrno() - SonyErrorOffset
 	}
 
 	return 0
@@ -51,7 +51,7 @@ func libKernel_stat(pathPtr uintptr, statPtr uintptr) uintptr {
 func libKernel_sceKernelFstat(fd uintptr, statPtr uintptr) uintptr {
 	err := libKernel_fstat(fd, statPtr)
 	if err != 0 {
-		return GetErrno() - 0x7FFE0000
+		return GetErrno() - SonyErrorOffset
 	}
 
 	return 0
@@ -101,16 +101,16 @@ func libKernel_fstat(fd uintptr, statPtr uintptr) uintptr {
 	stat.OwnerUser = 0
 	stat.OwnerGroup = 0
 	stat.SpecialDevice = 0
-	stat.AccessTime = Timestamp{Seconds: 0, NanoSeconds: 0}
-	stat.ModifyTime = Timestamp{Seconds: 0, NanoSeconds: 0}
-	stat.ChangeStatusTime = Timestamp{Seconds: 0, NanoSeconds: 0}
+	stat.AccessTime = Timestamp{Seconds: 0, Nanoseconds: 0}
+	stat.ModifyTime = Timestamp{Seconds: 0, Nanoseconds: 0}
+	stat.ChangeStatusTime = Timestamp{Seconds: 0, Nanoseconds: 0}
 	stat.Size = fileStat.Size()
 	stat.BlockSize = FileBlockSize
 	stat.Blocks = (stat.Size + 511) / 512
 	stat.Flags = 0
 	stat.GenerationNumber = 0
 	stat.ImplementationDetails = 0
-	stat.CreateTime = Timestamp{Seconds: 0, NanoSeconds: 0}
+	stat.CreateTime = Timestamp{Seconds: 0, Nanoseconds: 0}
 
 	logger.Printf("%-132s %s returned file stat for %s (size=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),

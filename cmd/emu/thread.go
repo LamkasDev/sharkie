@@ -1,7 +1,9 @@
 package emu
 
 import (
+	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"unsafe"
 
@@ -9,7 +11,7 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/elf"
 	"github.com/LamkasDev/sharkie/cmd/linker"
 	"github.com/LamkasDev/sharkie/cmd/logger"
-	"github.com/LamkasDev/sharkie/cmd/structs"
+	. "github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/LamkasDev/sharkie/cmd/sys_struct"
 	"github.com/gookit/color"
 )
@@ -28,8 +30,8 @@ var (
 type Thread struct {
 	Id    int32
 	Name  string
-	Stack *structs.Stack
-	Tcb   *structs.Tcb
+	Stack *Stack
+	Tcb   *Tcb
 	Lock  sync.Mutex
 
 	IsMain   bool
@@ -37,15 +39,15 @@ type Thread struct {
 	ExitCode uintptr
 	JoinCond *sync.Cond
 
-	SignalMask [2]uint64
+	SignalMask   ThreadSignalMask
+	AffinityMask ThreadAffinityMask
 }
 
 func NewThread(namePtr, stackSize uintptr) *Thread {
 	thread := &Thread{
-		Id:         NextThreadId,
-		Stack:      structs.NewStack(stackSize),
-		Lock:       sync.Mutex{},
-		SignalMask: [2]uint64{},
+		Id:    NextThreadId,
+		Stack: NewStack(stackSize),
+		Lock:  sync.Mutex{},
 	}
 	if namePtr == 0 {
 		if thread.Id == MainThreadId {
@@ -55,7 +57,7 @@ func NewThread(namePtr, stackSize uintptr) *Thread {
 			thread.Name = fmt.Sprintf("Thread-%d", thread.Id)
 		}
 	} else {
-		thread.Name = structs.ReadCString(namePtr)
+		thread.Name = strings.ReplaceAll(ReadCString(namePtr), "\n", "")
 	}
 	thread.Tcb = NewTcb(thread)
 	thread.JoinCond = sync.NewCond(&thread.Lock)
@@ -92,11 +94,24 @@ func GetCurrentThread() *Thread {
 
 	threadContext := asm.GetCurrentThreadContext()
 	if threadContext == nil {
-		return nil
+		panic(errors.New("unknown thread context"))
 	}
 	thread := ThreadRepo[int32(threadContext.ThreadId)]
+	if thread == nil {
+		panic(errors.New("unknown thread"))
+	}
 
 	return thread
+}
+
+func GetThreadForPtr(threadPtr uintptr) *Thread {
+	for _, thread := range ThreadRepo {
+		if thread.Tcb.Thread.Self == threadPtr {
+			return thread
+		}
+	}
+
+	return nil
 }
 
 func (t *Thread) Setup() {
@@ -118,14 +133,14 @@ func (t *Thread) Setup() {
 }
 
 // Call calls function at specified address.
-func (t *Thread) Call(funcAddr uintptr) {
+func (t *Thread) Call(funcAddr uintptr, arg uintptr) {
 	stackPtr := t.Stack.CurrentPointer
 	stackPtr &^= 15
 
 	// Call the assembly trampoline and call funcAddr function.
-	asm.GuestEnter()
-	asm.Call(funcAddr, stackPtr, 0, 0)
-	asm.GuestLeave()
+	// asm.GuestEnter()
+	asm.Call(funcAddr, stackPtr, arg, 0)
+	// asm.GuestLeave()
 }
 
 // Run pushes arguments on stack and calls the program's entry point.
@@ -148,9 +163,9 @@ func (t *Thread) Run(e *elf.Elf) {
 		"Jumping to entry point %s...\n",
 		color.Yellow.Sprintf("0x%X", entry),
 	)
-	asm.GuestEnter()
+	// asm.GuestEnter()
 	asm.Run(entry, stackPtr, argsPtr, 0)
-	asm.GuestLeave()
+	// asm.GuestLeave()
 
 	// This should not be reached.
 	logger.Println("Returned from run - this should not happen.")
@@ -158,8 +173,7 @@ func (t *Thread) Run(e *elf.Elf) {
 
 // SafeReadUint64 safely reads a uint64 value from the stack.
 func (t *Thread) SafeReadUint64(address uintptr) (uint64, bool) {
-	module := GlobalModuleManager.CurrentModule
-	if module != nil && t.Stack != nil {
+	if t.Stack != nil {
 		if address >= t.Stack.Address && address+8 <= t.Stack.Address+uintptr(len(t.Stack.Contents)) {
 			return *(*uint64)(unsafe.Pointer(address)), true
 		}

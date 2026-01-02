@@ -1,7 +1,6 @@
 package lib
 
 import (
-	"encoding/binary"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/elf"
@@ -12,19 +11,13 @@ func RegisterKernelStubs() {
 	// Stack smashing protection.
 	// https://gcc.gnu.org/onlinedocs/gcc-4.1.2/gccint/Stack-Smashing-Protection.html
 	stackChkGuard := elf.RegisterVariableStub("libkernel", "__stack_chk_guard", 8)
-	binary.LittleEndian.PutUint64(
-		unsafe.Slice((*byte)(unsafe.Pointer(stackChkGuard.Address)), 8),
-		0xDEADBEEF,
-	)
+	WriteAddress(stackChkGuard.Address, 0xDEADBEEF)
 	elf.RegisterStub("libkernel", "__stack_chk_fail", StackChkFail)
 
 	// Environment variables.
 	environ := elf.RegisterVariableStub("libkernel", "environ", 8)
 	environListAddr := GlobalGoAllocator.Malloc(8)
-	binary.LittleEndian.PutUint64(
-		unsafe.Slice((*byte)(unsafe.Pointer(environ.Address)), 8),
-		uint64(environListAddr),
-	)
+	WriteAddress(environ.Address, environListAddr)
 
 	// Pointer to current program name.
 	progname := elf.RegisterVariableStub("libkernel", "__progname", 8)
@@ -33,10 +26,7 @@ func RegisterKernelStubs() {
 		unsafe.Slice((*byte)(unsafe.Pointer(prognameStrAddr)), 32),
 		"eboot.bin\x00",
 	)
-	binary.LittleEndian.PutUint64(
-		unsafe.Slice((*byte)(unsafe.Pointer(progname.Address)), 8),
-		uint64(prognameStrAddr),
-	)
+	WriteAddress(progname.Address, prognameStrAddr)
 
 	// Flag used by libc to control signal interrupt behavior.
 	// https://www.gnu.org/software//libc/manual/2.23/html_node/Other-Safety-Remarks.html
@@ -137,6 +127,7 @@ func RegisterKernelStubs() {
 	elf.RegisterStub("libkernel", "scePthreadAttrSetscope", libKernel_scePthreadAttrSetscope)
 	elf.RegisterStub("libkernel", "scePthreadAttrGet", libKernel_scePthreadAttrGet)
 	elf.RegisterStub("libkernel", "scePthreadAttrGetstack", libKernel_scePthreadAttrGetstack)
+	elf.RegisterStub("libkernel", "pthread_attr_getaffinity_np", libKernel_pthread_attr_getaffinity_np)
 	elf.RegisterStub("libkernel", "scePthreadAttrGetaffinity", libKernel_scePthreadAttrGetaffinity)
 	elf.RegisterStub("libkernel", "scePthreadGetthreadid", libKernel_scePthreadGetthreadid)
 	elf.RegisterStub("libkernel", "pthread_self", libKernel_pthread_self)
@@ -145,6 +136,10 @@ func RegisterKernelStubs() {
 	elf.RegisterStub("libkernel", "scePthreadEqual", libKernel_scePthreadEqual)
 	elf.RegisterStub("libkernel", "pthread_create_name_np", libKernel_pthread_create_name_np)
 	elf.RegisterStub("libkernel", "scePthreadCreate", libKernel_scePthreadCreate)
+	elf.RegisterStub("libkernel", "pthread_getaffinity_np", libKernel_pthread_getaffinity_np)
+	elf.RegisterStub("libkernel", "scePthreadGetaffinity", libKernel_scePthreadGetaffinity)
+	elf.RegisterStub("libkernel", "pthread_setaffinity_np", libKernel_pthread_setaffinity_np)
+	elf.RegisterStub("libkernel", "scePthreadSetaffinity", libKernel_scePthreadSetaffinity)
 	elf.RegisterStub("libkernel", "pthread_exit", libKernel_pthread_exit)
 	elf.RegisterStub("libkernel", "scePthreadExit", libKernel_scePthreadExit)
 
@@ -161,6 +156,8 @@ func RegisterKernelStubs() {
 	elf.RegisterStub("libkernel", "scePthreadMutexDestroy", libKernel_scePthreadMutexDestroy)
 	elf.RegisterStub("libkernel", "pthread_mutex_lock", libKernel_pthread_mutex_lock)
 	elf.RegisterStub("libkernel", "scePthreadMutexLock", libKernel_scePthreadMutexLock)
+	elf.RegisterStub("libkernel", "pthread_mutex_trylock", libKernel_pthread_mutex_trylock)
+	elf.RegisterStub("libkernel", "scePthreadMutexTrylock", libKernel_scePthreadMutexTrylock)
 	elf.RegisterStub("libkernel", "pthread_mutex_unlock", libKernel_pthread_mutex_unlock)
 	elf.RegisterStub("libkernel", "scePthreadMutexUnlock", libKernel_scePthreadMutexUnlock)
 

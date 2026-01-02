@@ -3,16 +3,17 @@
 package emu
 
 import (
-	"github.com/LamkasDev/sharkie/cmd/logger"
+	"unsafe"
+
 	"github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/LamkasDev/sharkie/cmd/sys_struct"
 )
 
-// PrintStackTrace prints the stack trace from given context.
-func PrintStackTrace(ctx *sys_struct.CONTEXT) {
+// SprintStackTrace prints the stack trace from given context.
+func SprintStackTrace(ctx *sys_struct.CONTEXT) (result string) {
 	thread := GetCurrentThread()
-	logger.Println("Stack trace:")
-	PrintAddress(uintptr(ctx.Rip))
+	result = "Stack trace:\n"
+	result += SprintAddress(uintptr(ctx.Rip))
 
 	stackPtr := uintptr(ctx.Rsp)
 	stackTop := thread.Stack.Address + structs.StackDefaultSize
@@ -20,12 +21,11 @@ func PrintStackTrace(ctx *sys_struct.CONTEXT) {
 		if stackPtr >= stackTop {
 			break
 		}
-		address, ok := thread.SafeReadUint64(stackPtr)
-		if !ok {
-			break
-		}
-		PrintAddress(uintptr(address))
+		address := *(*uint64)(unsafe.Pointer(stackPtr))
+		result += SprintAddress(uintptr(address))
 
 		stackPtr += 8
 	}
+
+	return result
 }

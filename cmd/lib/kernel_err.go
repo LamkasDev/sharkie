@@ -6,22 +6,26 @@ import (
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	"github.com/LamkasDev/sharkie/cmd/logger"
+	. "github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/gookit/color"
 )
 
 const ErrnoTcbOffset = 0x188
 
+// GetErrnoAddress returns address of the errno variable for current thread.
 func GetErrnoAddress() uintptr {
 	thread := emu.GetCurrentThread()
 	return uintptr(unsafe.Pointer(thread.Tcb)) + ErrnoTcbOffset
 }
 
+// GetErrno returns error number of current thread.
 func GetErrno() uintptr {
 	errNoAddr := GetErrnoAddress()
 	errNoSlice := unsafe.Slice((*byte)(unsafe.Pointer(errNoAddr)), 8)
 	return uintptr(binary.LittleEndian.Uint64(errNoSlice))
 }
 
+// SetErrno sets error number for current thread.
 func SetErrno(err uintptr) {
 	errNoAddr := GetErrnoAddress()
 	errNoSlice := unsafe.Slice((*byte)(unsafe.Pointer(errNoAddr)), 8)
@@ -38,7 +42,7 @@ func libKernel___error() uintptr {
 // __int64 __fastcall sceKernelError(int)
 func libKernel_sceKernelError(err uintptr) uintptr {
 	if err != 0 {
-		err = err - 0x7FFE0000
+		err -= SonyErrorOffset
 		logger.Printf("%-132s %s returning %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceKernelError"),

@@ -1,6 +1,9 @@
 package structs
 
-import "unsafe"
+import (
+	"encoding/binary"
+	"unsafe"
+)
 
 // https://docs.particle.io/reference/device-os/api/debugging/posix-errors
 const EPERM = 1
@@ -8,6 +11,7 @@ const ENOENT = 2
 const EAGAIN = 11
 const ENOMEM = 12
 const EFAULT = 14
+const EBUSY = 16
 const EINVAL = 22
 const EDEADLK = 45
 const ETIMEDOUT = 60
@@ -56,4 +60,14 @@ func WriteCString(stringPtr uintptr, name string) {
 
 func IsPowerOfTwo(v uintptr) bool {
 	return v != 0 && (v&(v-1)) == 0
+}
+
+func WriteAddress(addressPtr uintptr, address uintptr) {
+	handleSlice := unsafe.Slice((*byte)(unsafe.Pointer(addressPtr)), 8)
+	binary.LittleEndian.PutUint64(handleSlice, uint64(address))
+}
+
+func WriteResult(resultPtr uintptr, result uint32) {
+	resultSlice := unsafe.Slice((*byte)(unsafe.Pointer(resultPtr)), 4)
+	binary.LittleEndian.PutUint32(resultSlice, result)
 }

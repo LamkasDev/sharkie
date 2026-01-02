@@ -1,5 +1,7 @@
 package structs
 
+import "unsafe"
+
 const (
 	NETC_GET_MEM_INFO = 0x14
 
@@ -14,3 +16,9 @@ type Socket struct {
 	Type     int32
 	Protocol int32
 }
+
+type NetworkMemoryInfo struct {
+	BufferSize uint32
+}
+
+const NetworkMemoryInfoSize = unsafe.Sizeof(NetworkMemoryInfo{})

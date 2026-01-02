@@ -7,8 +7,9 @@ import (
 
 const StackAlignment = 8
 
-var StackDefaultSize = uintptr(2 * 1024 * 1024) // 2MB
-var StackArgumentsSize = uintptr(256)
+const StackDefaultSize = uintptr(2 * 1024 * 1024) // 2MB
+const StackMinimumSize = 0x4000
+const StackArgumentsSize = uintptr(256)
 
 type Stack struct {
 	Address          uintptr

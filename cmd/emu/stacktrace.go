@@ -1,9 +1,12 @@
 package emu
 
 import (
+	"fmt"
+	"path/filepath"
+	"runtime"
+
 	"github.com/LamkasDev/sharkie/cmd/asm"
 	"github.com/LamkasDev/sharkie/cmd/elf"
-	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
 )
 
@@ -16,11 +19,11 @@ type StackTrace struct {
 	Frames []StackTraceFrame
 }
 
-// PrintAddress prints an address and relative position to a module, if within one.
-func PrintAddress(address uintptr) {
+// SprintAddress prints an address and relative position to a module, if within one.
+func SprintAddress(address uintptr) string {
 	hashIndex, ok := asm.StubsMap[address]
 	if ok {
-		logger.Printf(
+		return fmt.Sprintf(
 			"  %42s (%s)\n",
 			color.Blue.Sprintf("%s:%s", asm.Stubs[hashIndex].LibraryName, asm.Stubs[hashIndex].SymbolName),
 			color.Yellow.Sprintf("0x%X", address),
@@ -29,15 +32,25 @@ func PrintAddress(address uintptr) {
 
 	module := GetModuleAtAddress(address)
 	if module != nil {
-		logger.Printf(
+		return fmt.Sprintf(
 			"  %42s (relative %s)\n",
 			color.Blue.Sprint(module.Name),
 			color.Yellow.Sprintf("0x%X", address-module.BaseAddress),
 		)
-	} else {
-		logger.Printf(
-			"  %42s\n",
-			color.Yellow.Sprintf("0x%X", address),
+	}
+
+	if fn := runtime.FuncForPC(address); fn != nil {
+		file, line := fn.FileLine(address)
+		return fmt.Sprintf(
+			"  %42s (%s:%d)\n",
+			color.Magenta.Sprint(filepath.Base(fn.Name())),
+			filepath.Base(file),
+			line,
 		)
 	}
+
+	return fmt.Sprintf(
+		"  %42s\n",
+		color.Yellow.Sprintf("0x%X", address),
+	)
 }

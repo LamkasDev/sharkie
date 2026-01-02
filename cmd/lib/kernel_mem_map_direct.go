@@ -16,7 +16,7 @@ func libKernel_sceKernelMapDirectMemory(addrPtr, length, prot, flags, offset, al
 	// TODO: pthread_once
 	err := libKernel_sys_sceKernelMapDirectMemory(addrPtr, length, prot, flags, offset, alignment)
 	if err == ERR_PTR {
-		return GetErrno() - 0x7FFE0000
+		return GetErrno() - SonyErrorOffset
 	}
 
 	return 0
@@ -29,12 +29,12 @@ func libKernel_sceKernelMapNamedDirectMemory(addrPtr, length, prot, flags, offse
 	// TODO: pthread_once
 	err := libKernel_sys_sceKernelMapDirectMemory(addrPtr, length, prot, flags, offset, alignment)
 	if err == ERR_PTR {
-		return GetErrno() - 0x7FFE0000
+		return GetErrno() - SonyErrorOffset
 	}
 	addrSlice := unsafe.Slice((*byte)(unsafe.Pointer(addrPtr)), 8)
 	addr := uintptr(binary.LittleEndian.Uint64(addrSlice))
 	if libKernel_mname(addr, length, namePtr) == ERR_PTR {
-		return GetErrno() - 0x7FFE0000
+		return GetErrno() - SonyErrorOffset
 	}
 
 	return 0
@@ -82,8 +82,7 @@ func libKernel_sys_sceKernelMapDirectMemory(addrPtr, length, prot, flags, offset
 	}
 
 	// Write back offset.
-	addrPtrSlice := unsafe.Slice((*byte)(unsafe.Pointer(addrPtr)), 8)
-	binary.LittleEndian.PutUint64(addrPtrSlice, uint64(offset))
+	WriteAddress(addrPtr, offset)
 
 	if _, err := ProtectKernelMemory(offset, length, prot); err != nil {
 		logger.Printf("%-132s %s failed due to memory protection error (%s).\n",

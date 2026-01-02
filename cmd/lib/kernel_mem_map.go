@@ -1,7 +1,6 @@
 package lib
 
 import (
-	"encoding/binary"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
@@ -152,12 +151,11 @@ func libKernel_mmap_0(addr, length, prot, flags, fd, offset uintptr) uintptr {
 func libKernel_sceKernelMmap(addr, length, prot, flags, fd, offset, retAddrPtr uintptr) uintptr {
 	allocatedAddr := libKernel_mmap(addr, length, prot, flags, fd, offset)
 	if allocatedAddr == ERR_PTR {
-		return GetErrno() - 0x7FFE0000
+		return GetErrno() - SonyErrorOffset
 	}
 
 	if retAddrPtr != 0 {
-		retAddrPtrSlice := unsafe.Slice((*byte)(unsafe.Pointer(retAddrPtr)), 8)
-		binary.LittleEndian.PutUint64(retAddrPtrSlice, uint64(allocatedAddr))
+		WriteAddress(retAddrPtr, allocatedAddr)
 	}
 
 	return 0
@@ -168,7 +166,7 @@ func libKernel_sceKernelMmap(addr, length, prot, flags, fd, offset, retAddrPtr u
 func libKernel_sceKernelMunmap(addr, length uintptr) uintptr {
 	err := libKernel_munmap(addr, length)
 	if err == ERR_PTR {
-		return GetErrno() - 0x7FFE0000
+		return GetErrno() - SonyErrorOffset
 	}
 
 	return 0

@@ -14,7 +14,7 @@ import (
 func libKernel_sceKernelRead(fd uintptr, bufPtr uintptr, length uintptr) uintptr {
 	err := libKernel_read(fd, bufPtr, length)
 	if err != 0 {
-		return GetErrno() - 0x7FFE0000
+		return GetErrno() - SonyErrorOffset
 	}
 
 	return 0
@@ -106,7 +106,7 @@ func libKernel_sys_read(fd uintptr, bufPtr uintptr, length uintptr) uintptr {
 func libKernel_sceKernelPread(fd uintptr, bufPtr uintptr, length uintptr, offset uintptr) uintptr {
 	err := libKernel_pread(fd, bufPtr, length, offset)
 	if err != 0 {
-		return GetErrno() - 0x7FFE0000
+		return GetErrno() - SonyErrorOffset
 	}
 
 	return 0

@@ -105,3 +105,19 @@ func CreateTrampoline(goFuncAddr uintptr) uintptr {
 
 	return trampolineAddr
 }
+
+var NativeFunctionNames = []string{
+	"pthread_once",
+	"scePthreadOnce",
+	"sceKernelSetCallRecord",
+}
+
+func CanStubFunctionName(funcName string) bool {
+	for _, nativeFuncName := range NativeFunctionNames {
+		if nativeFuncName == funcName {
+			return false
+		}
+	}
+
+	return true
+}

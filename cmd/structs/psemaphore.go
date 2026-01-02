@@ -5,6 +5,8 @@ import (
 	"unsafe"
 )
 
+const PSemaphoreMagic = 0x736D
+
 var (
 	// PSemaphoreRepo maps guest addresses (uintptr) to host semaphores (*sync.Cond).
 	PSemaphoreRepo = map[uintptr]*sync.Cond{}

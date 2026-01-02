@@ -12,7 +12,7 @@ import (
 func libKernel_sceKernelClose(fd uintptr) uintptr {
 	err := libKernel_close(fd)
 	if err != 0 {
-		return GetErrno() - 0x7FFE0000
+		return GetErrno() - SonyErrorOffset
 	}
 
 	return 0

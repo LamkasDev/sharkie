@@ -3,6 +3,7 @@ package lib
 import (
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	"github.com/LamkasDev/sharkie/cmd/logger"
+	. "github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/gookit/color"
 )
 
@@ -30,7 +31,7 @@ func libKernel_scePthreadSelf() uintptr {
 func libKernel_scePthreadEqual(t1, t2 uintptr) uintptr {
 	err := libKernel_pthread_equal(t1, t2)
 	if err != 0 {
-		return err - 0x7FFE0000
+		return err - SonyErrorOffset
 	}
 
 	return 0
@@ -41,7 +42,7 @@ func libKernel_scePthreadEqual(t1, t2 uintptr) uintptr {
 func libKernel_scePthreadCreate(threadPtr, attrHandlePtr, entryPoint, arg, namePtr uintptr) uintptr {
 	err := libKernel_pthread_create_name_np(threadPtr, attrHandlePtr, entryPoint, arg, namePtr)
 	if err != 0 {
-		return err - 0x7FFE0000
+		return err - SonyErrorOffset
 	}
 
 	return 0

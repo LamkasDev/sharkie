@@ -40,10 +40,7 @@ type EventFlag struct {
 	Cond *sync.Cond
 }
 
-func CreateEventFlag(name string, attributes uint32, currentPattern, initialPattern uint64) *EventFlag {
-	EventFlagLock.Lock()
-	defer EventFlagLock.Unlock()
-
+func NewEventFlag(name string, attributes uint32, currentPattern, initialPattern uint64) *EventFlag {
 	eventFlag := &EventFlag{
 		Handle:         NextEventFlagId,
 		Name:           name,
@@ -53,6 +50,15 @@ func CreateEventFlag(name string, attributes uint32, currentPattern, initialPatt
 		Lock:           sync.Mutex{},
 	}
 	eventFlag.Cond = sync.NewCond(&eventFlag.Lock)
+
+	return eventFlag
+}
+
+func CreateEventFlag(name string, attributes uint32, currentPattern, initialPattern uint64) *EventFlag {
+	EventFlagLock.Lock()
+	defer EventFlagLock.Unlock()
+
+	eventFlag := NewEventFlag(name, attributes, currentPattern, initialPattern)
 	EventFlagRepo[eventFlag.Handle] = eventFlag
 	NextEventFlagId++
 	return eventFlag

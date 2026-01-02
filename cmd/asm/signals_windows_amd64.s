@@ -14,7 +14,7 @@ TEXT ·InitSignalsAddr(SB), NOSPLIT, $0
 // It switches to the Go stack, calls the Go exception handler with exception info and returns.
 // LONG NTAPI VectoredHandler(PEXCEPTION_POINTERS ExceptionInfo);
 //                                                +0(RCX)
-TEXT ·exceptionHandlerAsm(SB), NOSPLIT, $8-0
+TEXT ·exceptionHandlerAsm(SB), NOSPLIT, $0-0
     NO_LOCAL_POINTERS
 
     // Save Windows non-volatile registers.
@@ -36,29 +36,31 @@ TEXT ·exceptionHandlerAsm(SB), NOSPLIT, $8-0
     // Restore Go stack pointer into scratch register.
     MOVQ CTX_SAVED_G(R13), R14
     MOVQ CTX_GO_SP(R13), BX
-
-    // Create fake call frame.
-    SUBQ $16, BX
-    MOVQ CTX_RET_ANCHOR(R13), SI
-    MOVQ SI, 8(BX)
+    MOVQ CTX_GO_BP(R13), BP
 
     // Pass the exception info pointer.
     MOVQ CX, CTX_EXC_INFO(R13)
-    MOVQ CTX_GO_BP(R13), BP
 
     // For real restore Go stack pointer.
     BYTE $0x48; BYTE $0x89; BYTE $0xDC  // MOVQ BX, SP
 
+    // Setup fake call frame.
+    PUSHQ $0
+    MOVQ CTX_RET_ANCHOR(R15), AX
+    PUSHQ AX
+
     // Call the Go exception handler.
     CALL ·exceptionHandlerGo(SB)
+
+    // Clean up fake call frame.
+    POPQ AX
+    POPQ AX
 
     // Save Thread Context Pointer into R13.
     GET_TLS_CONTEXT(R13)
 
     // Save Go stack pointer.
-    MOVQ SP, BX
-    ADDQ $16, BX
-    MOVQ BX, CTX_GO_SP(R13)
+    MOVQ SP, CTX_GO_SP(R13)
     MOVQ BP, CTX_GO_BP(R13)
 
     // Switch to Windows stack.

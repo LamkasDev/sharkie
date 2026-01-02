@@ -208,7 +208,7 @@ func libKernel_sceKernelLoadStartModule(namePtr uintptr, argc uintptr, argvPtr u
 	return libKernel_sys_sceKernelLoadStartModule(namePtr, argc, argvPtr, flags, optionPtr, statusPtr)
 }
 
-func libKernel_sys_sceKernelLoadStartModule(namePtr uintptr, argc uintptr, argvPtr uintptr, flags uintptr, optionPtr uintptr, statusPtr uintptr) uintptr {
+func libKernel_sys_sceKernelLoadStartModule(namePtr uintptr, argc uintptr, argvPtr uintptr, flags uintptr, optionPtr uintptr, resultPtr uintptr) uintptr {
 	if namePtr == 0 {
 		logger.Printf("%-132s %s failed due to invalid name pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -245,9 +245,8 @@ func libKernel_sys_sceKernelLoadStartModule(namePtr uintptr, argc uintptr, argvP
 
 	module := emu.GlobalModuleManager.ModulesMap[name]
 	handle := ModuleInfoHandleOffset + uintptr(module.ModuleIndex)
-	if statusPtr != 0 {
-		statusSlice := unsafe.Slice((*byte)(unsafe.Pointer(statusPtr)), 4)
-		binary.LittleEndian.PutUint32(statusSlice, 0)
+	if resultPtr != 0 {
+		WriteResult(resultPtr, 0)
 	}
 
 	logger.Printf("%-132s %s loaded module %s (name=%s).\n",

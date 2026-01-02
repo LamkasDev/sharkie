@@ -27,25 +27,26 @@ func libKernel_rtprio_thread(function, lwpid, rtpPtr uintptr) uintptr {
 		SetErrno(EFAULT)
 		return ERR_PTR
 	}
-	if function != RTP_LOOKUP {
-		logger.Printf("%-132s %s failed due to unknown method %s.\n",
+
+	switch function {
+	case RTP_LOOKUP:
+		rtpSlice := unsafe.Slice((*byte)(unsafe.Pointer(rtpPtr)), 4)
+		binary.LittleEndian.PutUint16(rtpSlice, RTP_PRIO_NORMAL)
+		binary.LittleEndian.PutUint16(rtpSlice[2:], 0)
+		logger.Printf("%-132s %s requested rtp struct (type=%s, priority=%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("rtprio_thread"),
-			color.Yellow.Sprintf("0x%X", function),
+			color.Yellow.Sprintf("0x%X", RTP_PRIO_NORMAL),
+			color.Yellow.Sprintf("0x%X", 0),
 		)
-		SetErrno(EINVAL)
-		return ERR_PTR
+		return 0
 	}
 
-	rtpSlice := unsafe.Slice((*byte)(unsafe.Pointer(rtpPtr)), 4)
-	binary.LittleEndian.PutUint16(rtpSlice, RTP_PRIO_NORMAL)
-	binary.LittleEndian.PutUint16(rtpSlice[2:], 0)
-
-	logger.Printf("%-132s %s requested rtp struct (type=%s, priority=%s).\n",
+	logger.Printf("%-132s %s failed due to unknown method %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("rtprio_thread"),
-		color.Yellow.Sprintf("0x%X", RTP_PRIO_NORMAL),
-		color.Yellow.Sprintf("0x%X", 0),
+		color.Yellow.Sprintf("0x%X", function),
 	)
-	return 0
+	SetErrno(EINVAL)
+	return ERR_PTR
 }

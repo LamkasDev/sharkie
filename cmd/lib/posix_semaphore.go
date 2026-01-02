@@ -1,7 +1,6 @@
 package lib
 
 import (
-	"encoding/binary"
 	"sync/atomic"
 	"time"
 	"unsafe"
@@ -21,7 +20,7 @@ func libKernel_sem_init(semPtr uintptr, pShared uintptr, value uintptr) uintptr 
 
 	// Initialize to defaults.
 	semaphore := (*PSemaphore)(unsafe.Pointer(semPtr))
-	semaphore.Magic = 0x736D
+	semaphore.Magic = PSemaphoreMagic
 	semaphore.Flags = 0
 	semaphore.WaitAddress = 0
 	semaphore.Value = int32(value)
@@ -46,13 +45,13 @@ func libKernel_sem_wait(semPtr uintptr) uintptr {
 
 // 0x00000000000104D0
 // __int64 __fastcall sem_timedwait(__int64, __int64)
-func libKernel_sem_timedwait(semPtr uintptr, timeoutPtr uintptr) uintptr {
+func libKernel_sem_timedwait(semPtr uintptr, timestampPtr uintptr) uintptr {
 	if semPtr == 0 {
 		return EINVAL
 	}
 
 	semaphore := (*PSemaphore)(unsafe.Pointer(semPtr))
-	if semaphore.Magic != 0x736D {
+	if semaphore.Magic != PSemaphoreMagic {
 		return EINVAL
 	}
 
@@ -74,12 +73,9 @@ func libKernel_sem_timedwait(semPtr uintptr, timeoutPtr uintptr) uintptr {
 
 	// Calculate actual timeout from absolute time.
 	timeout := time.Duration(-1)
-	if timeoutPtr != 0 {
-		timeoutSlice := unsafe.Slice((*byte)(unsafe.Pointer(timeoutPtr)), 16)
-		seconds := binary.LittleEndian.Uint64(timeoutSlice)
-		nanos := binary.LittleEndian.Uint64(timeoutSlice[8:])
-
-		targetTime := time.Unix(int64(seconds), int64(nanos))
+	if timestampPtr != 0 {
+		timestamp := (*Timestamp)(unsafe.Pointer(timestampPtr))
+		targetTime := time.Unix(int64(timestamp.Seconds), int64(timestamp.Nanoseconds))
 		timeout = time.Until(targetTime)
 		if timeout <= 0 {
 			logger.Printf("%-132s %s timed out on semaphore %s.\n",
@@ -91,6 +87,7 @@ func libKernel_sem_timedwait(semPtr uintptr, timeoutPtr uintptr) uintptr {
 		}
 	}
 
+	// Lock semaphore.
 	hostSemaphore := GetPSemaphore(semPtr)
 	hostSemaphore.L.Lock()
 	defer hostSemaphore.L.Unlock()

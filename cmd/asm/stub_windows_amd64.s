@@ -14,7 +14,7 @@ TEXT ·InitStubAddr(SB), NOSPLIT, $0
 // The target function's address is passed in R11.
 // Arguments are passed in registers (RCX, RDX, R8, R9) and on the stack.
 // The return address is expected to be on the top of the stack.
-TEXT ·stubAsm(SB), NOSPLIT, $0-0
+TEXT ·stubAsm(SB), NOSPLIT|NOFRAME, $0-0
     NO_LOCAL_POINTERS
 
     // We fake call site in case we run into an exception handler.
@@ -33,40 +33,36 @@ TEXT ·stubAsm(SB), NOSPLIT, $0-0
     MOVQ SI, CTX_RET_ANCHOR(R15)
 
     // Save playstation stack.
-    MOVQ SP, R13
-    MOVQ R13, CTX_PS_SP(R15)
-
-    // Pass context pointer.
-    MOVQ R13, CTX_STUB_CTX(R15)
+    MOVQ SP, CTX_PS_SP(R15)
 
     // Restore Go stack into scratch registers.
     MOVQ CTX_SAVED_G(R15), R14
     MOVQ CTX_GO_SP(R15), BX
     MOVQ CTX_GO_BP(R15), BP
 
-    // Construct fake call frame.
-    SUBQ $16, BX
-    MOVQ CTX_RET_ANCHOR(R15), AX
-    MOVQ AX, 8(BX)
-    MOVQ BP, 0(BX)
-    LEAQ 0(BX), BP
+    // Pass context pointer.
+    MOVQ SP, CTX_STUB_CTX(R15)
 
     // For real switch to Go stack.
     BYTE $0x48; BYTE $0x89; BYTE $0xDC  // MOVQ BX, SP
+
+    // Setup fake call frame.
+    PUSHQ $0
+    MOVQ CTX_RET_ANCHOR(R15), AX
+    PUSHQ AX
 
     // Call the Go trampoline function.
     CALL ·stubGo(SB)
 
     // Clean up fake call frame.
-    MOVQ 0(SP), BP
-    MOVQ SP, BX
-    ADDQ $16, BX
+    POPQ AX
+    POPQ AX
 
     // Save Thread Context Pointer into R15.
     GET_TLS_CONTEXT(R15)
 
     // Save Go stack.
-    MOVQ BX, CTX_GO_SP(R15)
+    MOVQ SP, CTX_GO_SP(R15)
     MOVQ BP, CTX_GO_BP(R15)
 
     // Switch to playstation stack.

@@ -129,32 +129,35 @@ func (m *ModuleManager) RunModuleInitializers(module *elf.Elf, visited map[strin
 	if !isSelfContained {
 		for _, funcAddr := range module.DynamicInfo.PreInitArray {
 			logger.Printf(
-				"Calling %s's %s function at %s...\n",
+				"Calling %s's %s function at %s (relative=%s)...\n",
 				color.Blue.Sprint(module.Name),
 				color.Magenta.Sprint("DT_PREINIT_ARRAY"),
 				color.Yellow.Sprintf("0x%X", funcAddr),
+				color.Yellow.Sprintf("0x%X", uintptr(funcAddr)-module.BaseAddress),
 			)
-			m.MainThread.Call(uintptr(funcAddr))
+			m.MainThread.Call(uintptr(funcAddr), 0)
 		}
 	}
 	if module.DynamicInfo.InitFunc != nil {
 		logger.Printf(
-			"Calling %s's %s function at %s...\n",
+			"Calling %s's %s function at %s (relative=%s)...\n",
 			color.Blue.Sprint(module.Name),
 			color.Magenta.Sprint("DT_INIT"),
-			color.Yellow.Sprintf("0x%X", module.DynamicInfo.InitFunc),
+			color.Yellow.Sprintf("0x%X", *module.DynamicInfo.InitFunc),
+			color.Yellow.Sprintf("0x%X", uintptr(*module.DynamicInfo.InitFunc)-module.BaseAddress),
 		)
-		m.MainThread.Call(uintptr(*module.DynamicInfo.InitFunc))
+		m.MainThread.Call(uintptr(*module.DynamicInfo.InitFunc), 0)
 	}
 	if !isSelfContained {
 		for _, funcAddr := range module.DynamicInfo.InitArray {
 			logger.Printf(
-				"Calling %s's %s function at %s...\n",
+				"Calling %s's %s function at %s (relative=%s)...\n",
 				color.Blue.Sprint(module.Name),
 				color.Magenta.Sprint("DT_INIT_ARRAY"),
 				color.Yellow.Sprintf("0x%X", funcAddr),
+				color.Yellow.Sprintf("0x%X", uintptr(funcAddr)-module.BaseAddress),
 			)
-			m.MainThread.Call(uintptr(funcAddr))
+			m.MainThread.Call(uintptr(funcAddr), 0)
 		}
 	}
 }

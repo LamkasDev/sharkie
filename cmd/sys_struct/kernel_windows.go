@@ -15,5 +15,7 @@ var (
 	TlsAlloc                    = Kernel32.NewProc("TlsAlloc")
 	TlsSetValue                 = Kernel32.NewProc("TlsSetValue")
 	TlsGetValue                 = Kernel32.NewProc("TlsGetValue")
-	FlushInstructionCache       = Kernel32.NewProc("FlushInstructionCache")
+	GetCurrentThread            = Kernel32.NewProc("GetCurrentThread")
+	GetThreadContext            = Kernel32.NewProc("GetThreadContext")
+	SetThreadContext            = Kernel32.NewProc("SetThreadContext")
 )

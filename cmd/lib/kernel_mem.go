@@ -15,7 +15,7 @@ func libKernel_fake() uintptr {
 // __int64 __fastcall sceKernelSetVirtualRangeName()
 func libKernel_sceKernelSetVirtualRangeName(addr, length, namePtr uintptr) uintptr {
 	if libKernel_mname(addr, length, namePtr) == ERR_PTR {
-		return GetErrno() - 0x7FFE0000
+		return GetErrno() - SonyErrorOffset
 	}
 
 	return 0

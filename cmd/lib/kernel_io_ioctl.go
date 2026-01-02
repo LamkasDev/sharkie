@@ -2,6 +2,7 @@ package lib
 
 import (
 	"crypto/rand"
+	"encoding/binary"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
@@ -36,7 +37,6 @@ func libKernel_sys_ioctl(fd, request, argPtr uintptr) uintptr {
 		return 0
 	case SCE_RNG_IOCTL_GET_ENTROPY:
 		size := (request >> 16) & 0x1FFF
-
 		argSlice := unsafe.Slice((*byte)(unsafe.Pointer(argPtr)), size)
 		if _, err := rand.Read(argSlice); err != nil {
 			return SCE_KERNEL_ERROR_EINVAL
@@ -47,6 +47,176 @@ func libKernel_sys_ioctl(fd, request, argPtr uintptr) uintptr {
 			color.Magenta.Sprint("ioctl"),
 			color.Yellow.Sprintf("0x%X", size),
 			color.Yellow.Sprintf("0x%X", argPtr),
+		)
+		return 0
+	case SCE_GC_IOCTL_GET_SUBMIT_DONE_ADDRESS:
+		address := GlobalGraphicsController.SubmitDoneAddress
+		WriteAddress(argPtr, address)
+
+		logger.Printf("%-132s %s returned submit done address %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("ioctl"),
+			color.Yellow.Sprintf("0x%X", address),
+		)
+		return 0
+	case SCE_GC_IOCTL_GET_VM_ID:
+		argSlice := unsafe.Slice((*byte)(unsafe.Pointer(argPtr)), 4)
+		binary.LittleEndian.PutUint32(argSlice, 1)
+
+		logger.Printf("%-132s %s returned vm id.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("ioctl"),
+		)
+		return 0
+	case SCE_GC_IOCTL_SET_RING_SIZES:
+		ringSizes := (*GnmRingSizes)(unsafe.Pointer(argPtr))
+		ring1Size := ringSizes.Ring1 * 256
+		ring2Size := ringSizes.Ring2 * 256
+
+		logger.Printf("%-132s %s tried setting ring sizes %s & %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("ioctl"),
+			color.Yellow.Sprintf("0x%X", ring1Size),
+			color.Yellow.Sprintf("0x%X", ring2Size),
+		)
+		return 0
+	case SCE_GC_IOCTL_SET_MIP_STATS:
+		logger.Printf("%-132s %s tried setting mip stats.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("ioctl"),
+		)
+		return 0
+	case SCE_GC_IOCTL_GET_CU_MASK:
+		computeUnitMask := (*GnmComputeUnitMask)(unsafe.Pointer(argPtr))
+		computeUnitMask.Mask1 = 0xFFFFFFFF
+		computeUnitMask.Mask2 = 0xFFFFFFFF
+		computeUnitMask.Mask3 = 0
+		computeUnitMask.Mask4 = 0
+
+		logger.Printf("%-132s %s returned compute unit mask.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("ioctl"),
+		)
+		return 0
+	case SCE_GC_IOCTL_SUBMIT_COMMAND_BUFFERS:
+		submitCommandBuffers := (*GnmSubmitCommandBuffers)(unsafe.Pointer(argPtr))
+
+		logger.Printf("%-132s %s tried submitting command buffers (count=%s, flags=%s, buffersPtr=%s).\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("ioctl"),
+			color.Yellow.Sprintf("0x%X", submitCommandBuffers.Count),
+			color.Yellow.Sprintf("0x%X", submitCommandBuffers.Flags),
+			color.Yellow.Sprintf("0x%X", submitCommandBuffers.BuffersPtr),
+		)
+		return 0
+	case SCE_DCE_IOCTL_CMD:
+		command := (*DceCommand)(unsafe.Pointer(argPtr))
+
+		switch command.CommandId {
+		case 5:
+			logger.Printf("%-132s %s tried requesting connection status (handle=%s, param1=%s, param2=%s, param3=%s).\n",
+				emu.GlobalModuleManager.GetCallSiteText(),
+				color.Magenta.Sprint("ioctl"),
+				color.Yellow.Sprintf("0x%X", command.Handle),
+				color.Yellow.Sprintf("0x%X", command.Param1),
+				color.Yellow.Sprintf("0x%X", command.Param2),
+				color.Yellow.Sprintf("0x%X", command.Param3),
+			)
+			return 0
+		case 6:
+			logger.Printf("%-132s %s tried requesting resolution support (handle=%s, param1=%s, param2=%s, param3=%s).\n",
+				emu.GlobalModuleManager.GetCallSiteText(),
+				color.Magenta.Sprint("ioctl"),
+				color.Yellow.Sprintf("0x%X", command.Handle),
+				color.Yellow.Sprintf("0x%X", command.Param1),
+				color.Yellow.Sprintf("0x%X", command.Param2),
+				color.Yellow.Sprintf("0x%X", command.Param3),
+			)
+			return 0
+		case 9:
+			size := GlobalDisplayCoreEngine.AttributeBufferSize
+			if command.Param1 != 0 {
+				// Attribute buffer offset.
+				WriteAddress(command.Param1, 0)
+			}
+			if command.Param2 != 0 {
+				// Attribute buffer size.
+				WriteAddress(command.Param2, size)
+			}
+
+			logger.Printf("%-132s %s returned attribute buffer size %s.\n",
+				emu.GlobalModuleManager.GetCallSiteText(),
+				color.Magenta.Sprint("ioctl"),
+				color.Yellow.Sprintf("0x%X", size),
+			)
+			return 0
+		case 19:
+			if command.Param1 != 0 {
+				resolutionInfo := (*DceResolutionInfo)(unsafe.Pointer(command.Param1))
+				resolutionInfo.Width = 1920
+				resolutionInfo.Height = 1080
+				resolutionInfo.CropWidth = 0
+				resolutionInfo.CropHeight = 0
+				resolutionInfo.RefreshRate = 6000
+				resolutionInfo.Interlaced = 0
+				resolutionInfo.Type = 1
+			}
+			logger.Printf("%-132s %s returned resolution info (handle=%s, param1=%s, param2=%s, param3=%s).\n",
+				emu.GlobalModuleManager.GetCallSiteText(),
+				color.Magenta.Sprint("ioctl"),
+				color.Yellow.Sprintf("0x%X", command.Handle),
+				color.Yellow.Sprintf("0x%X", command.Param1),
+				color.Yellow.Sprintf("0x%X", command.Param2),
+				color.Yellow.Sprintf("0x%X", command.Param3),
+			)
+			return 0
+		case 25:
+			if command.Param1 != 0 {
+				portStatus := (*DcePortStatus)(unsafe.Pointer(command.Param1))
+				portStatus.Connected = 1
+			}
+			logger.Printf("%-132s %s returned port status (handle=%s, param1=%s, param2=%s, param3=%s).\n",
+				emu.GlobalModuleManager.GetCallSiteText(),
+				color.Magenta.Sprint("ioctl"),
+				color.Yellow.Sprintf("0x%X", command.Handle),
+				color.Yellow.Sprintf("0x%X", command.Param1),
+				color.Yellow.Sprintf("0x%X", command.Param2),
+				color.Yellow.Sprintf("0x%X", command.Param3),
+			)
+			return 0
+		case 31:
+			GlobalDisplayCoreEngine.AttributeBufferAddress = command.Param2
+
+			logger.Printf("%-132s %s set attribute buffer address to %s.\n",
+				emu.GlobalModuleManager.GetCallSiteText(),
+				color.Magenta.Sprint("ioctl"),
+				color.Yellow.Sprintf("0x%X", GlobalDisplayCoreEngine.AttributeBufferAddress),
+			)
+			return 0
+		}
+
+		logger.Printf("%-132s %s sent dce command %s (handle=%s, param1=%s, param2=%s, param3=%s).\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("ioctl"),
+			color.Yellow.Sprintf("0x%X", command.CommandId),
+			color.Yellow.Sprintf("0x%X", command.Handle),
+			color.Yellow.Sprintf("0x%X", command.Param1),
+			color.Yellow.Sprintf("0x%X", command.Param2),
+			color.Yellow.Sprintf("0x%X", command.Param3),
+		)
+		return 0
+	case SCE_DCE_IOCTL_REGISTER_BUFFERS:
+		registerBuffers := (*DceRegisterBuffers)(unsafe.Pointer(argPtr))
+
+		logger.Printf("%-132s %s tried registering buffers (commandId=%s, handle=%s, index=%s, address=%s, size=%s, flags=%s).\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("ioctl"),
+			color.Yellow.Sprintf("0x%X", registerBuffers.CommandId),
+			color.Yellow.Sprintf("0x%X", registerBuffers.Handle),
+			color.Yellow.Sprintf("0x%X", registerBuffers.Index),
+			color.Yellow.Sprintf("0x%X", registerBuffers.Address),
+			color.Yellow.Sprintf("0x%X", registerBuffers.Size),
+			color.Yellow.Sprintf("0x%X", registerBuffers.Flags),
 		)
 		return 0
 	}

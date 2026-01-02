@@ -15,7 +15,7 @@ import (
 func libKernel_scePthreadAttrInit(attrHandlePtr uintptr) uintptr {
 	err := libKernel_pthread_attr_init(attrHandlePtr)
 	if err != 0 {
-		return err - 0x7FFE0000
+		return err - SonyErrorOffset
 	}
 
 	return 0
@@ -26,7 +26,7 @@ func libKernel_scePthreadAttrInit(attrHandlePtr uintptr) uintptr {
 func libKernel_scePthreadAttrSetstacksize(attrHandlePtr uintptr, stackSize uintptr) uintptr {
 	err := libKernel_pthread_attr_setstacksize(attrHandlePtr, stackSize)
 	if err != 0 {
-		return err - 0x7FFE0000
+		return err - SonyErrorOffset
 	}
 
 	return 0
@@ -37,7 +37,7 @@ func libKernel_scePthreadAttrSetstacksize(attrHandlePtr uintptr, stackSize uintp
 func libKernel_scePthreadAttrSetschedpolicy(attrHandlePtr uintptr, schedulingPolicy uintptr) uintptr {
 	err := libKernel_pthread_attr_setschedpolicy(attrHandlePtr, schedulingPolicy)
 	if err != 0 {
-		return err - 0x7FFE0000
+		return err - SonyErrorOffset
 	}
 
 	return 0
@@ -48,7 +48,7 @@ func libKernel_scePthreadAttrSetschedpolicy(attrHandlePtr uintptr, schedulingPol
 func libKernel_scePthreadAttrSetinheritsched(attrHandlePtr uintptr, inheritScheduling uintptr) uintptr {
 	err := libKernel_pthread_attr_setinheritsched(attrHandlePtr, inheritScheduling)
 	if err != 0 {
-		return err - 0x7FFE0000
+		return err - SonyErrorOffset
 	}
 
 	return 0
@@ -59,7 +59,7 @@ func libKernel_scePthreadAttrSetinheritsched(attrHandlePtr uintptr, inheritSched
 func libKernel_scePthreadAttrSetschedparam(attrHandlePtr uintptr, schedulingParameterPtr uintptr) uintptr {
 	err := libKernel_pthread_attr_setschedparam(attrHandlePtr, schedulingParameterPtr)
 	if err != 0 {
-		return err - 0x7FFE0000
+		return err - SonyErrorOffset
 	}
 
 	return 0
@@ -70,7 +70,7 @@ func libKernel_scePthreadAttrSetschedparam(attrHandlePtr uintptr, schedulingPara
 func libKernel_scePthreadAttrSetguardsize(attrHandlePtr uintptr, guardSize uintptr) uintptr {
 	err := libKernel_pthread_attr_setguardsize(attrHandlePtr, guardSize)
 	if err != 0 {
-		return err - 0x7FFE0000
+		return err - SonyErrorOffset
 	}
 
 	return 0
@@ -81,7 +81,7 @@ func libKernel_scePthreadAttrSetguardsize(attrHandlePtr uintptr, guardSize uintp
 func libKernel_scePthreadAttrSetdetachstate(attrHandlePtr uintptr, detachState uintptr) uintptr {
 	err := libKernel_pthread_attr_setdetachstate(attrHandlePtr, detachState)
 	if err != 0 {
-		return err - 0x7FFE0000
+		return err - SonyErrorOffset
 	}
 
 	return 0
@@ -92,7 +92,7 @@ func libKernel_scePthreadAttrSetdetachstate(attrHandlePtr uintptr, detachState u
 func libKernel_scePthreadAttrSetscope(attrHandlePtr uintptr, scope uintptr) uintptr {
 	err := libKernel_pthread_attr_setscope(attrHandlePtr, scope)
 	if err != 0 {
-		return err - 0x7FFE0000
+		return err - SonyErrorOffset
 	}
 
 	return 0
@@ -103,7 +103,7 @@ func libKernel_scePthreadAttrSetscope(attrHandlePtr uintptr, scope uintptr) uint
 func libKernel_scePthreadAttrDestroy(attrHandlePtr uintptr) uintptr {
 	err := libKernel_pthread_attr_destroy(attrHandlePtr)
 	if err != 0 {
-		return err - 0x7FFE0000
+		return err - SonyErrorOffset
 	}
 
 	return 0
@@ -124,7 +124,7 @@ func libKernel_scePthreadAttrGet(threadPtr uintptr, attrHandlePtr uintptr) uintp
 
 	thread := emu.GetCurrentThread()
 	attr.StackAddress = thread.Stack.Address
-	attr.StackSize = StackDefaultSize
+	attr.StackSize = uintptr(len(thread.Stack.Contents))
 	attr.GuardSize = GuardPageSize
 
 	logger.Printf("%-132s %s assigned thread attributes (threadPtr=%s, attrHandlePtr=%s).\n",
@@ -141,8 +141,7 @@ func libKernel_scePthreadAttrGet(threadPtr uintptr, attrHandlePtr uintptr) uintp
 func libKernel_scePthreadAttrGetstack(attrPtr uintptr, addrPtr uintptr, sizePtr uintptr) uintptr {
 	thread := emu.GetCurrentThread()
 	if addrPtr != 0 {
-		addrSlice := unsafe.Slice((*byte)(unsafe.Pointer(addrPtr)), 8)
-		binary.LittleEndian.PutUint64(addrSlice, uint64(thread.Stack.Address))
+		WriteAddress(addrPtr, thread.Stack.Address)
 	}
 
 	if sizePtr != 0 {
@@ -162,7 +161,28 @@ func libKernel_scePthreadAttrGetstack(attrPtr uintptr, addrPtr uintptr, sizePtr 
 
 // 0x00000000000144A0
 // __int64 __fastcall scePthreadAttrGetaffinity(__int64, _QWORD *)
-func libKernel_scePthreadAttrGetaffinity(attrPtr uintptr, cpuSetSize uintptr, cpuSetPtr uintptr) uintptr {
+func libKernel_scePthreadAttrGetaffinity(attrPtr uintptr, outMaskPtr uintptr) uintptr {
+	var cpuSet [16]byte
+	err := libKernel_pthread_attr_getaffinity_np(
+		attrPtr,
+		16,
+		uintptr(unsafe.Pointer(&cpuSet[0])),
+	)
+	if err != 0 {
+		return err - SonyErrorOffset
+	}
+
+	if outMaskPtr != 0 {
+		outMask := unsafe.Slice((*byte)(unsafe.Pointer(outMaskPtr)), 8)
+		binary.LittleEndian.PutUint64(outMask, *(*uint64)(unsafe.Pointer(&cpuSet[0])))
+	}
+
+	return 0
+}
+
+// 0x0000000000003F60
+// __int64 __fastcall pthread_attr_getaffinity_np(__int64 *, unsigned __int64, __int64)
+func libKernel_pthread_attr_getaffinity_np(attrPtr uintptr, cpuSetSize uintptr, cpuSetPtr uintptr) uintptr {
 	if cpuSetPtr == 0 {
 		logger.Printf("%-132s %s failed due to invalid cpu set pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),

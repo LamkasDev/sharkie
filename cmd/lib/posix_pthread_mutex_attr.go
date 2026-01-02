@@ -1,7 +1,6 @@
 package lib
 
 import (
-	"encoding/binary"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
@@ -25,10 +24,9 @@ func libKernel_pthread_mutexattr_init(attrHandlePtr uintptr) uintptr {
 	attr.Ceiling = 0
 
 	// Copy the pointer back to attrHandlePtr.
-	attrHandlePtrSlice := unsafe.Slice((*byte)(unsafe.Pointer(attrHandlePtr)), 8)
-	binary.LittleEndian.PutUint64(attrHandlePtrSlice, uint64(attrAddr))
+	WriteAddress(attrHandlePtr, attrAddr)
 
-	logger.Printf("%-132s %s created struct at %s.\n",
+	logger.Printf("%-132s %s created mutex attribute at %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("pthread_mutexattr_init"),
 		color.Yellow.Sprintf("0x%X", attrAddr),
@@ -88,10 +86,9 @@ func libKernel_pthread_mutexattr_destroy(attrHandlePtr uintptr) uintptr {
 	}
 
 	// Copy NULL pointer to attrHandlePtr.
-	attrHandlePtrSlice := unsafe.Slice((*byte)(unsafe.Pointer(attrHandlePtr)), 8)
-	binary.LittleEndian.PutUint64(attrHandlePtrSlice, 0)
+	WriteAddress(attrHandlePtr, 0)
 
-	logger.Printf("%-132s %s destroyed struct at %s.\n",
+	logger.Printf("%-132s %s destroyed mutex attribute %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("pthread_mutexattr_destroy"),
 		color.Yellow.Sprintf("0x%X", attrAddr),

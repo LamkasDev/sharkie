@@ -25,7 +25,7 @@ func libKernel_sceKernelCreateEventFlag(efHandlePtr, namePtr, attr, initPattern,
 
 	handle := libKernel_sys_evf_create(namePtr, uint32(attr), uint64(initPattern))
 	if handle == ERR_PTR {
-		return GetErrno() - 0x7FFE0000
+		return GetErrno() - SonyErrorOffset
 	}
 
 	efHandleSlice := unsafe.Slice((*byte)(unsafe.Pointer(efHandlePtr)), 4)
@@ -114,7 +114,7 @@ func libKernel_sceKernelOpenEventFlag(handlePtr uintptr, namePtr uintptr) uintpt
 func libKernel_sceKernelWaitEventFlag(handle, waitPattern, waitMode, outPatternPtr, timeoutPtr uintptr) uintptr {
 	err := libKernel_sys_evf_wait(handle, uint64(waitPattern), uint32(waitMode), outPatternPtr, timeoutPtr)
 	if err == ERR_PTR {
-		return GetErrno() - 0x7FFE0000
+		return GetErrno() - SonyErrorOffset
 	}
 
 	return 0
@@ -128,9 +128,8 @@ func libKernel_sys_evf_wait(handle uintptr, waitPattern uint64, waitMode uint32,
 
 	timeout := time.Duration(-1)
 	if timeoutPtr != 0 {
-		timeoutSlice := unsafe.Slice((*byte)(unsafe.Pointer(timeoutPtr)), 4)
-		micros := binary.LittleEndian.Uint32(timeoutSlice)
-		timeout = time.Duration(micros) * time.Microsecond
+		timeoutObj := (*Timeout)(unsafe.Pointer(timeoutPtr))
+		timeout = time.Duration(timeoutObj.Microseconds) * time.Microsecond
 	}
 
 	eventFlag.Lock.Lock()
@@ -199,7 +198,7 @@ func libKernel_sys_evf_wait(handle uintptr, waitPattern uint64, waitMode uint32,
 func libKernel_sceKernelPollEventFlag(handle, waitPattern, waitMode, outPatternPtr uintptr) uintptr {
 	err := libKernel_sys_evf_trywait(handle, uint64(waitPattern), uint32(waitMode), outPatternPtr)
 	if err == ERR_PTR {
-		return GetErrno() - 0x7FFE0000
+		return GetErrno() - SonyErrorOffset
 	}
 
 	return 0
@@ -249,7 +248,7 @@ func libKernel_sys_evf_trywait(handle uintptr, waitPattern uint64, waitMode uint
 func libKernel_sceKernelSetEventFlag(handle, bits uintptr) uintptr {
 	err := libKernel_sys_evf_set(handle, uint64(bits))
 	if err == ERR_PTR {
-		return GetErrno() - 0x7FFE0000
+		return GetErrno() - SonyErrorOffset
 	}
 
 	return 0

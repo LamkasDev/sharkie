@@ -7,6 +7,11 @@ import (
 
 const LogToFile = true
 
+const (
+	LogSyncing = false
+	LogAlloc   = false
+)
+
 var LogFile *os.File
 
 func StartLogging() {

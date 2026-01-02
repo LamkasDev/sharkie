@@ -23,7 +23,7 @@ func libKernel_sceKernelCreateEqueue(handlePtr uintptr, namePtr uintptr) uintptr
 	}
 	err := libKernel_kqueue(handlePtr, namePtr)
 	if err == ERR_PTR {
-		return GetErrno() - 0x7FFE0000
+		return GetErrno() - SonyErrorOffset
 	}
 
 	// TODO: emulate __sys_namedobj_create?
@@ -58,9 +58,7 @@ func libKernel_kqueue(handlePtr uintptr, namePtr uintptr) uintptr {
 	} else {
 		equeue.Name = fmt.Sprintf("0x%X", equeue.Handle)
 	}
-
-	handleSlice := unsafe.Slice((*byte)(unsafe.Pointer(handlePtr)), 8)
-	binary.LittleEndian.PutUint64(handleSlice, uint64(equeue.Handle))
+	WriteAddress(handlePtr, equeue.Handle)
 
 	logger.Printf("%-132s %s created equeue %s (name=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
@@ -73,7 +71,7 @@ func libKernel_kqueue(handlePtr uintptr, namePtr uintptr) uintptr {
 
 // 0x000000000001ACF0
 // __int64 __fastcall sceKernelWaitEqueue(unsigned int, __int64, unsigned int, int *, unsigned int *)
-func libKernel_sceKernelWaitEqueue(handle, eventPtr, num, resultPtr, microsPtr uintptr) uintptr {
+func libKernel_sceKernelWaitEqueue(handle, eventPtr, num, resultPtr, timeoutPtr uintptr) uintptr {
 	equeue := GetEqueue(handle)
 	if equeue == nil {
 		logger.Printf("%-132s %s failed due to unknown equeue %s.\n",
@@ -85,23 +83,19 @@ func libKernel_sceKernelWaitEqueue(handle, eventPtr, num, resultPtr, microsPtr u
 		return ERR_PTR
 	}
 
-	micros := uint32(0)
-	timeoutSlice := [2]int64{}
-	timeoutPtr := uintptr(unsafe.Pointer(&timeoutSlice[0]))
-	if microsPtr != 0 {
-		microsSlice := unsafe.Slice((*byte)(unsafe.Pointer(microsPtr)), 4)
-		micros = binary.LittleEndian.Uint32(microsSlice)
-
-		timeoutSlice[0] = int64(micros / 1_000_000)
-		timeoutSlice[1] = int64((micros % 1_000_000) * 1000)
+	timestamp := &Timestamp{}
+	if timeoutPtr != 0 {
+		timeout := (*Timeout)(unsafe.Pointer(timeoutPtr))
+		timestamp.Seconds = uint64(timeout.Microseconds / 1_000_000)
+		timestamp.Nanoseconds = uint64((timeout.Microseconds % 1_000_000) * 1000)
 	}
 
-	err := processKeventWait(equeue, eventPtr, num, timeoutPtr)
+	err := processKeventWait(equeue, eventPtr, num, (uintptr)(unsafe.Pointer(timestamp)))
 	if resultPtr != 0 {
 		resultSlice := unsafe.Slice((*byte)(unsafe.Pointer(resultPtr)), 8)
 		binary.LittleEndian.PutUint64(resultSlice, uint64(err))
 	}
-	if err == 0 && microsPtr != 0 {
+	if err == 0 && timeoutPtr != 0 {
 		return SCE_KERNEL_ERROR_TIMEDOUT
 	}
 
@@ -122,15 +116,28 @@ func libKernel_sceKernelAddUserEvent(handle, eventId uintptr) uintptr {
 		return ERR_PTR
 	}
 
-	equeue.Lock.Lock()
-	equeue.UserEvents[eventId] = true
-	equeue.Lock.Unlock()
+	event := Kevent{
+		Id:     uint64(eventId),
+		Filter: EVFILT_USER,
+		Flags:  EV_ADD | EV_ENABLE,
+	}
+	select {
+	case equeue.Events <- event:
+		logger.Printf("%-132s %s sent user event %s on %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceKernelAddUserEvent"),
+			color.Yellow.Sprintf("0x%X", eventId),
+			color.Blue.Sprint(equeue.Name),
+		)
+		return 0
+	default:
+		logger.Printf("%-132s %s failed due to full queue %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceKernelAddUserEvent"),
+			color.Blue.Sprint(equeue.Name),
+		)
+		return 0
+	}
 
-	logger.Printf("%-132s %s added user event %s to %s.\n",
-		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprint("sceKernelAddUserEvent"),
-		color.Yellow.Sprintf("0x%X", eventId),
-		color.Blue.Sprint(equeue.Name),
-	)
 	return 0
 }

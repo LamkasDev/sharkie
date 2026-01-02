@@ -13,6 +13,7 @@ const (
 
 const (
 	EVFILT_VBLANK = -13
+	EVFILT_USER   = 0
 )
 
 type Kevent struct {

@@ -15,7 +15,7 @@ import (
 func libKernel_sceKernelWrite(fd uintptr, bufPtr uintptr, length uintptr) uintptr {
 	err := libKernel_write(fd, bufPtr, length)
 	if err != 0 {
-		return GetErrno() - 0x7FFE0000
+		return GetErrno() - SonyErrorOffset
 	}
 
 	return 0
@@ -186,7 +186,7 @@ func libKernel_ftruncate_0(fd uintptr, length uintptr) uintptr {
 func libKernel_sceKernelPwrite(fd uintptr, bufPtr uintptr, length uintptr, offset uintptr) uintptr {
 	err := libKernel_pwrite(fd, bufPtr, length, offset)
 	if err != 0 {
-		return GetErrno() - 0x7FFE0000
+		return GetErrno() - SonyErrorOffset
 	}
 
 	return 0

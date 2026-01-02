@@ -40,8 +40,7 @@ func libKernel___sys_regmgr_call(op, id, resultPtr, valuePtr, size uintptr) uint
 		}
 
 		if resultPtr != 0 {
-			resultSlice := unsafe.Slice((*byte)(unsafe.Pointer(resultPtr)), 4)
-			binary.LittleEndian.PutUint32(resultSlice, 0)
+			WriteResult(resultPtr, 0)
 		}
 
 		logger.Printf("%-132s %s requested int for %s (resultPtr=%s, valuePtr=%s, size=%s).\n",
@@ -66,8 +65,7 @@ func libKernel___sys_regmgr_call(op, id, resultPtr, valuePtr, size uintptr) uint
 		}
 
 		if resultPtr != 0 {
-			resultSlice := unsafe.Slice((*byte)(unsafe.Pointer(resultPtr)), 4)
-			binary.LittleEndian.PutUint32(resultSlice, 0)
+			WriteResult(resultPtr, 0)
 		}
 
 		logger.Printf("%-132s %s requested binary data for %s (resultPtr=%s, valuePtr=%s, size=%s).\n",
@@ -100,8 +98,7 @@ func libKernel___sys_regmgr_call(op, id, resultPtr, valuePtr, size uintptr) uint
 		}
 
 		if resultPtr != 0 {
-			resultSlice := unsafe.Slice((*byte)(unsafe.Pointer(resultPtr)), 4)
-			binary.LittleEndian.PutUint32(resultSlice, 0)
+			WriteResult(resultPtr, 0)
 		}
 
 		logger.Printf("%-132s %s requested string for %s (resultPtr=%s, valuePtr=%s, size=%s).\n",

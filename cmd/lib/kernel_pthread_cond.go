@@ -1,11 +1,15 @@
 package lib
 
+import (
+	. "github.com/LamkasDev/sharkie/cmd/structs"
+)
+
 // 0x00000000000137A0
 // __int64 scePthreadCondInit()
 func libKernel_scePthreadCondInit(condHandlePtr, attrHandlePtr uintptr) uintptr {
 	err := libKernel_pthread_cond_init(condHandlePtr, attrHandlePtr)
 	if err != 0 {
-		return err - 0x7FFE0000
+		return err - SonyErrorOffset
 	}
 
 	return 0
@@ -16,7 +20,7 @@ func libKernel_scePthreadCondInit(condHandlePtr, attrHandlePtr uintptr) uintptr 
 func libKernel_scePthreadCondDestroy(condHandlePtr uintptr) uintptr {
 	err := libKernel_pthread_cond_destroy(condHandlePtr)
 	if err != 0 {
-		return err - 0x7FFE0000
+		return err - SonyErrorOffset
 	}
 
 	return 0
@@ -27,7 +31,7 @@ func libKernel_scePthreadCondDestroy(condHandlePtr uintptr) uintptr {
 func libKernel_scePthreadCondBroadcast(condHandlePtr uintptr) uintptr {
 	err := libKernel_pthread_cond_broadcast(condHandlePtr)
 	if err != 0 {
-		return err - 0x7FFE0000
+		return err - SonyErrorOffset
 	}
 
 	return 0
@@ -38,7 +42,7 @@ func libKernel_scePthreadCondBroadcast(condHandlePtr uintptr) uintptr {
 func libKernel_scePthreadCondSignal(condHandlePtr uintptr) uintptr {
 	err := libKernel_pthread_cond_signal(condHandlePtr)
 	if err != 0 {
-		return err - 0x7FFE0000
+		return err - SonyErrorOffset
 	}
 
 	return 0
@@ -49,7 +53,7 @@ func libKernel_scePthreadCondSignal(condHandlePtr uintptr) uintptr {
 func libKernel_scePthreadCondWait(condHandlePtr uintptr, mutexHandlePtr uintptr) uintptr {
 	err := libKernel_pthread_cond_wait(condHandlePtr, mutexHandlePtr)
 	if err != 0 {
-		return err - 0x7FFE0000
+		return err - SonyErrorOffset
 	}
 
 	return 0
@@ -60,7 +64,7 @@ func libKernel_scePthreadCondWait(condHandlePtr uintptr, mutexHandlePtr uintptr)
 func libKernel_scePthreadCondTimedwait(condHandlePtr uintptr, mutexHandlePtr uintptr, micros uintptr) uintptr {
 	err := libKernel_pthread_cond_reltimedwait_np(condHandlePtr, mutexHandlePtr, micros)
 	if err != 0 {
-		return err - 0x7FFE0000
+		return err - SonyErrorOffset
 	}
 
 	return 0

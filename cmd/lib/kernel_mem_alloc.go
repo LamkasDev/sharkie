@@ -1,9 +1,6 @@
 package lib
 
 import (
-	"encoding/binary"
-	"unsafe"
-
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	. "github.com/LamkasDev/sharkie/cmd/structs"
@@ -16,7 +13,7 @@ func libKernel_sceKernelAllocateDirectMemory(searchStart, searchEnd, length, ali
 	// TODO: pthread_once
 	err := libKernel_sys_sceKernelAllocateDirectMemory(searchStart, searchEnd, length, alignment, memType, destPtr)
 	if err == ERR_PTR {
-		return GetErrno() - 0x7FFE0000
+		return GetErrno() - SonyErrorOffset
 	}
 
 	return 0
@@ -64,8 +61,7 @@ func libKernel_sys_sceKernelAllocateDirectMemory(searchStart, searchEnd, length,
 	}
 
 	// Write back pointer.
-	destPtrSlice := unsafe.Slice((*byte)(unsafe.Pointer(destPtr)), 8)
-	binary.LittleEndian.PutUint64(destPtrSlice, uint64(allocatedAddr))
+	WriteAddress(destPtr, allocatedAddr)
 	if memType == SCE_KERNEL_MTYPE_WC_GARLIC || memType == SCE_KERNEL_MTYPE_WB_ONION {
 		GlobalAllocator.GpuMemoryCurrent = allocatedAddr + length
 	} else {

@@ -1,7 +1,6 @@
 package lib
 
 import (
-	"encoding/binary"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
@@ -15,15 +14,15 @@ import (
 func libKernel___sys_netcontrol(fd uintptr, op uintptr, resultPtr uintptr, length uintptr) uintptr {
 	switch op {
 	case NETC_GET_MEM_INFO:
-		if length < 4 || resultPtr == 0 {
+		if length < NetworkMemoryInfoSize || resultPtr == 0 {
 			logger.Printf("%-132s %s failed due to invalid result pointer.\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("__sys_netcontrol"),
 			)
 			return EINVAL
 		}
-		resultSlice := unsafe.Slice((*byte)(unsafe.Pointer(resultPtr)), length)
-		binary.LittleEndian.PutUint32(resultSlice, SocketBufferSize)
+		memoryInfo := (*NetworkMemoryInfo)(unsafe.Pointer(resultPtr))
+		memoryInfo.BufferSize = SocketBufferSize
 
 		logger.Printf("%-132s %s returned network memory info.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),

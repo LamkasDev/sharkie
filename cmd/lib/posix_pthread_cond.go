@@ -1,7 +1,6 @@
 package lib
 
 import (
-	"encoding/binary"
 	"time"
 	"unsafe"
 
@@ -25,8 +24,7 @@ func libKernel_pthread_cond_init(condHandlePtr, attrHandlePtr uintptr) uintptr {
 	cond.Flags = 0
 
 	// Copy the pointer back to condHandlePtr.
-	condHandlePtrSlice := unsafe.Slice((*byte)(unsafe.Pointer(condHandlePtr)), 8)
-	binary.LittleEndian.PutUint64(condHandlePtrSlice, uint64(condAddr))
+	WriteAddress(condHandlePtr, condAddr)
 
 	logger.Printf("%-132s %s created cond at %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
@@ -48,8 +46,7 @@ func libKernel_initStaticCond(condHandlePtr uintptr) uintptr {
 	cond.Flags = 0
 
 	// Copy the pointer back to condHandlePtr.
-	condHandlePtrSlice := unsafe.Slice((*byte)(unsafe.Pointer(uintptr(condHandlePtr))), 8)
-	binary.LittleEndian.PutUint64(condHandlePtrSlice, uint64(condAddr))
+	WriteAddress(condHandlePtr, condAddr)
 
 	logger.Printf("%-132s %s created cond at %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
@@ -94,6 +91,10 @@ func libKernel_pthread_cond_destroy(condHandlePtr uintptr) uintptr {
 // __int64 __fastcall pthread_cond_broadcast(__int64 *, __int64, int, int, int, int)
 func libKernel_pthread_cond_broadcast(condHandlePtr uintptr) uintptr {
 	if condHandlePtr == 0 {
+		logger.Printf("%-132s %s failed due to invalid cond pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("pthread_cond_broadcast"),
+		)
 		return EINVAL
 	}
 
@@ -113,11 +114,13 @@ func libKernel_pthread_cond_broadcast(condHandlePtr uintptr) uintptr {
 	hostCond := GetCond(condAddr)
 	hostCond.Broadcast()
 
-	logger.Printf("%-132s %s broadcasted cond %s.\n",
-		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprint("pthread_cond_broadcast"),
-		color.Yellow.Sprintf("0x%X", condAddr),
-	)
+	if logger.LogSyncing {
+		logger.Printf("%-132s %s broadcasted cond %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("pthread_cond_broadcast"),
+			color.Yellow.Sprintf("0x%X", condAddr),
+		)
+	}
 	return 0
 }
 
@@ -125,6 +128,10 @@ func libKernel_pthread_cond_broadcast(condHandlePtr uintptr) uintptr {
 // __int64 __fastcall pthread_cond_signal(__int64 *, __m128, __m128, __m128, __m128, __m128, __m128, __m128, __m128, __int64, __int64, __int64, __int64, __int64)
 func libKernel_pthread_cond_signal(condHandlePtr uintptr) uintptr {
 	if condHandlePtr == 0 {
+		logger.Printf("%-132s %s failed due to invalid cond pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("pthread_cond_signal"),
+		)
 		return EINVAL
 	}
 
@@ -144,11 +151,13 @@ func libKernel_pthread_cond_signal(condHandlePtr uintptr) uintptr {
 	hostCond := GetCond(condAddr)
 	hostCond.Signal()
 
-	logger.Printf("%-132s %s signaled cond %s.\n",
-		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprint("pthread_cond_signal"),
-		color.Yellow.Sprintf("0x%X", condAddr),
-	)
+	if logger.LogSyncing {
+		logger.Printf("%-132s %s signaled cond %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("pthread_cond_signal"),
+			color.Yellow.Sprintf("0x%X", condAddr),
+		)
+	}
 	return 0
 }
 
@@ -156,6 +165,10 @@ func libKernel_pthread_cond_signal(condHandlePtr uintptr) uintptr {
 // __int64 __fastcall pthread_cond_wait(__int64 *, unsigned __int64 *, __int64, __int64, __int64, int)
 func libKernel_pthread_cond_wait(condHandlePtr uintptr, mutexHandlePtr uintptr) uintptr {
 	if condHandlePtr == 0 {
+		logger.Printf("%-132s %s failed due to invalid cond pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("pthread_cond_wait"),
+		)
 		return EINVAL
 	}
 
@@ -176,11 +189,13 @@ func libKernel_pthread_cond_wait(condHandlePtr uintptr, mutexHandlePtr uintptr) 
 	if err != 0 {
 		return err
 	}
-	logger.Printf("%-132s %s waiting on cond %s.\n",
-		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprint("pthread_cond_wait"),
-		color.Yellow.Sprintf("0x%X", condAddr),
-	)
+	if logger.LogSyncing {
+		logger.Printf("%-132s %s waiting on cond %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("pthread_cond_wait"),
+			color.Yellow.Sprintf("0x%X", condAddr),
+		)
+	}
 	hostCond := GetCond(condAddr)
 	hostCond.L.Lock()
 	hostCond.Wait()
@@ -195,8 +210,12 @@ func libKernel_pthread_cond_wait(condHandlePtr uintptr, mutexHandlePtr uintptr) 
 
 // 0x00000000000056B0
 // __int64 __fastcall pthread_cond_timedwait(__int64 *, unsigned __int64 *, __int64, __int64, __int64, int)
-func libKernel_pthread_cond_timedwait(condHandlePtr uintptr, mutexHandlePtr uintptr, timeoutPtr uintptr) uintptr {
-	if condHandlePtr == 0 || timeoutPtr == 0 {
+func libKernel_pthread_cond_timedwait(condHandlePtr uintptr, mutexHandlePtr uintptr, timestampPtr uintptr) uintptr {
+	if condHandlePtr == 0 || timestampPtr == 0 {
+		logger.Printf("%-132s %s failed due to invalid cond pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("pthread_cond_timedwait"),
+		)
 		return EINVAL
 	}
 
@@ -213,11 +232,8 @@ func libKernel_pthread_cond_timedwait(condHandlePtr uintptr, mutexHandlePtr uint
 	}
 
 	// Calculate actual timeout from absolute time.
-	timeoutSlice := unsafe.Slice((*byte)(unsafe.Pointer(timeoutPtr)), 16)
-	seconds := binary.LittleEndian.Uint64(timeoutSlice)
-	nanos := binary.LittleEndian.Uint64(timeoutSlice[8:])
-
-	targetTime := time.Unix(int64(seconds), int64(nanos))
+	timestamp := (*Timestamp)(unsafe.Pointer(timestampPtr))
+	targetTime := time.Unix(int64(timestamp.Seconds), int64(timestamp.Nanoseconds))
 	timeout := time.Until(targetTime)
 	if timeout <= 0 {
 		logger.Printf("%-132s %s timed out on cond %s.\n",
@@ -233,12 +249,14 @@ func libKernel_pthread_cond_timedwait(condHandlePtr uintptr, mutexHandlePtr uint
 	if err != 0 {
 		return err
 	}
-	logger.Printf("%-132s %s waiting on cond %s for %s microseconds.\n",
-		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprint("pthread_cond_timedwait"),
-		color.Yellow.Sprintf("0x%X", condAddr),
-		color.Yellow.Sprintf("0x%X", timeout.Microseconds()),
-	)
+	if logger.LogSyncing {
+		logger.Printf("%-132s %s waiting on cond %s for %s microseconds.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("pthread_cond_timedwait"),
+			color.Yellow.Sprintf("0x%X", condAddr),
+			color.Yellow.Sprintf("0x%X", timeout.Microseconds()),
+		)
+	}
 	hostCond := GetCond(condAddr)
 	hostCond.L.Lock()
 	waited := CondWaitTimeout(hostCond, timeout)
@@ -263,6 +281,10 @@ func libKernel_pthread_cond_timedwait(condHandlePtr uintptr, mutexHandlePtr uint
 // __int64 __fastcall pthread_cond_reltimedwait_np(__int64 *, unsigned __int64 *, unsigned int, __int64, __int64, int)
 func libKernel_pthread_cond_reltimedwait_np(condHandlePtr uintptr, mutexHandlePtr uintptr, micros uintptr) uintptr {
 	if condHandlePtr == 0 {
+		logger.Printf("%-132s %s failed due to invalid cond pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("pthread_cond_reltimedwait_np"),
+		)
 		return EINVAL
 	}
 
@@ -286,12 +308,14 @@ func libKernel_pthread_cond_reltimedwait_np(condHandlePtr uintptr, mutexHandlePt
 	if err != 0 {
 		return err
 	}
-	logger.Printf("%-132s %s waiting on cond %s for %s microseconds.\n",
-		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprint("pthread_cond_reltimedwait_np"),
-		color.Yellow.Sprintf("0x%X", condAddr),
-		color.Yellow.Sprintf("0x%X", timeout.Microseconds()),
-	)
+	if logger.LogSyncing {
+		logger.Printf("%-132s %s waiting on cond %s for %s microseconds.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("pthread_cond_reltimedwait_np"),
+			color.Yellow.Sprintf("0x%X", condAddr),
+			color.Yellow.Sprintf("0x%X", timeout.Microseconds()),
+		)
+	}
 	hostCond := GetCond(condAddr)
 	hostCond.L.Lock()
 	waited := CondWaitTimeout(hostCond, timeout)

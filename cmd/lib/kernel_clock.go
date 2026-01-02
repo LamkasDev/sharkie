@@ -1,7 +1,6 @@
 package lib
 
 import (
-	"encoding/binary"
 	"time"
 	"unsafe"
 
@@ -23,17 +22,14 @@ func libKernel_sceKernelClockGettime(clockId, timestampPtr uintptr) uintptr {
 	}
 
 	now := time.Now()
-	seconds := now.Unix()
-	nanoSeconds := now.Nanosecond()
-
-	timestampSlice := unsafe.Slice((*byte)(unsafe.Pointer(timestampPtr)), 16)
-	binary.LittleEndian.PutUint64(timestampSlice, uint64(seconds))
-	binary.LittleEndian.PutUint64(timestampSlice[8:], uint64(nanoSeconds))
+	timestamp := (*Timestamp)(unsafe.Pointer(timestampPtr))
+	timestamp.Seconds = uint64(now.Unix())
+	timestamp.Nanoseconds = uint64(now.Nanosecond())
 
 	logger.Printf("%-132s %s returned %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sceKernelClockGettime"),
-		color.Yellow.Sprintf("0x%X", seconds),
+		color.Yellow.Sprintf("0x%X", timestamp.Seconds),
 	)
 	return 0
 }
@@ -64,18 +60,14 @@ func libKernel_sceKernelGettimeofday(timevaluePtr uintptr) uintptr {
 	}
 
 	now := time.Now()
-	seconds := uint64(now.Unix())
-	uSeconds := uint64(now.Nanosecond() / 1000)
+	timevalue := (*Timevalue)(unsafe.Pointer(timevaluePtr))
+	timevalue.Seconds = uint64(now.Unix())
+	timevalue.Microseconds = uint64(now.Nanosecond() / 1000)
 
-	timevalueSlice := unsafe.Slice((*byte)(unsafe.Pointer(timevaluePtr)), 16)
-	binary.LittleEndian.PutUint64(timevalueSlice, seconds)
-	binary.LittleEndian.PutUint64(timevalueSlice[8:], uSeconds)
-
-	logger.Printf("%-132s %s returned %s (%sus).\n",
+	logger.Printf("%-132s %s returned %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sceKernelGettimeofday"),
-		color.Yellow.Sprintf("0x%X", seconds),
-		color.Yellow.Sprintf("0x%X", uSeconds),
+		color.Yellow.Sprintf("0x%X", timevalue.Seconds),
 	)
 	return 0
 }

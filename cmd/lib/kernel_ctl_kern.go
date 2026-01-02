@@ -15,12 +15,13 @@ const KERN_SMP = 24
 const KERN_USRSTACK = 33
 
 const KERN_PROC_APPINFO = 35
-const KERN_PROC_PTC = 42
+const KERN_PROC_CALL_RECORD = 42
+const KERN_PROC_PTC = 43 // TODO: not sure
 
 func libKernel_ctl_kern(mib []uint32, namePtr uintptr, nameLen uint32, oldPtr uintptr, oldLenPtr uintptr, newPtr uintptr, newLen uintptr) (uintptr, bool) {
 	switch mib[1] {
 	case KERN_PROC:
-		return libKernel_ctl_kern_proc(mib, namePtr, nameLen, oldPtr, oldLenPtr, newPtr, newLen), true
+		return libKernel_ctl_kern_proc(mib, namePtr, nameLen, oldPtr, oldLenPtr, newPtr, newLen)
 	case KERN_SMP:
 		return libKernel_ctl_kern_smp(mib, namePtr, nameLen, oldPtr, oldLenPtr, newPtr, newLen), true
 	case KERN_USRSTACK:
@@ -30,7 +31,21 @@ func libKernel_ctl_kern(mib []uint32, namePtr uintptr, nameLen uint32, oldPtr ui
 	return ENOENT, false
 }
 
-func libKernel_ctl_kern_proc(mib []uint32, namePtr uintptr, nameLen uint32, oldPtr uintptr, oldLenPtr uintptr, newPtr uintptr, newLen uintptr) uintptr {
+func libKernel_ctl_kern_proc(mib []uint32, namePtr uintptr, nameLen uint32, oldPtr uintptr, oldLenPtr uintptr, newPtr uintptr, newLen uintptr) (uintptr, bool) {
+	switch mib[2] {
+	case KERN_PROC_APPINFO:
+		return libKernel_ctl_kern_proc_appinfo(mib, namePtr, nameLen, oldPtr, oldLenPtr, newPtr, newLen), true
+	case KERN_PROC_CALL_RECORD:
+		return libKernel_ctl_kern_proc_call_record(mib, namePtr, nameLen, oldPtr, oldLenPtr, newPtr, newLen), true
+	case KERN_PROC_PTC:
+		return libKernel_ctl_kern_proc_ptc(mib, namePtr, nameLen, oldPtr, oldLenPtr, newPtr, newLen), true
+	}
+
+	return ENOENT, false
+}
+
+func libKernel_ctl_kern_proc_appinfo(mib []uint32, namePtr uintptr, nameLen uint32, oldPtr uintptr, oldLenPtr uintptr, newPtr uintptr, newLen uintptr) uintptr {
+	// Initial pointer checks.
 	if oldLenPtr == 0 || oldPtr == 0 {
 		logger.Printf("%-132s %s failed due to invalid pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -38,76 +53,106 @@ func libKernel_ctl_kern_proc(mib []uint32, namePtr uintptr, nameLen uint32, oldP
 		)
 		return 0
 	}
-	if len(mib) < 3 {
-		logger.Printf("%-132s %s failed due to short MIBs.\n",
+	oldLenSlice := unsafe.Slice((*byte)(unsafe.Pointer(oldLenPtr)), 8)
+	providedSize := uintptr(binary.LittleEndian.Uint64(oldLenSlice))
+
+	requiredSize := uintptr(72)
+	if providedSize < requiredSize {
+		logger.Printf("%-132s %s failed due to insufficient pointer size.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sysctl"),
+		)
+		return ENOMEM
+	}
+	oldSlice := unsafe.Slice((*byte)(unsafe.Pointer(oldPtr)), requiredSize)
+
+	// Write app info.
+	for i := uintptr(0); i < requiredSize; i++ {
+		oldSlice[i] = 0
+	}
+	binary.LittleEndian.PutUint32(oldSlice, mib[3])
+	binary.LittleEndian.PutUint64(oldLenSlice, uint64(requiredSize))
+
+	logger.Printf("%-132s %s requested app info for process %s (oldPtr=%s).\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("sysctl"),
+		color.Yellow.Sprintf("0x%X", mib[3]),
+		color.Yellow.Sprintf("0x%X", oldPtr),
+	)
+	return 0
+}
+
+func libKernel_ctl_kern_proc_call_record(mib []uint32, namePtr uintptr, nameLen uint32, oldPtr uintptr, oldLenPtr uintptr, newPtr uintptr, newLen uintptr) uintptr {
+	// Initial pointer checks.
+	if newPtr == 0 {
+		logger.Printf("%-132s %s failed due to invalid pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sysctl"),
 		)
 		return EINVAL
 	}
-	oldLenSlice := unsafe.Slice((*byte)(unsafe.Pointer(oldLenPtr)), 8)
-	providedSize := uintptr(binary.LittleEndian.Uint64(oldLenSlice))
 
-	switch mib[2] {
-	case KERN_PROC_APPINFO:
-		requiredSize := uintptr(72)
-		if providedSize < requiredSize {
-			logger.Printf("%-132s %s failed due to insufficient pointer size.\n",
-				emu.GlobalModuleManager.GetCallSiteText(),
-				color.Magenta.Sprint("sysctl"),
-			)
-			return ENOMEM
-		}
-		oldSlice := unsafe.Slice((*byte)(unsafe.Pointer(oldPtr)), requiredSize)
-
-		for i := uintptr(0); i < requiredSize; i++ {
-			oldSlice[i] = 0
-		}
-		binary.LittleEndian.PutUint32(oldSlice, mib[3])
-		binary.LittleEndian.PutUint64(oldLenSlice, uint64(requiredSize))
-
-		logger.Printf("%-132s %s requested app info for process %s (oldPtr=%s).\n",
+	requiredSize := uintptr(4)
+	if newLen < requiredSize {
+		logger.Printf("%-132s %s failed due to insufficient pointer size.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sysctl"),
-			color.Yellow.Sprintf("0x%X", mib[3]),
-			color.Yellow.Sprintf("0x%X", oldPtr),
 		)
-		return 0
-	case KERN_PROC_PTC:
-		requiredSize := uintptr(16)
-		if providedSize < 8 {
-			logger.Printf("%-132s %s failed due to insufficient pointer size.\n",
-				emu.GlobalModuleManager.GetCallSiteText(),
-				color.Magenta.Sprint("sysctl"),
-			)
-			return ENOMEM
-		}
-		oldSlice := unsafe.Slice((*byte)(unsafe.Pointer(oldPtr)), requiredSize)
+		return ENOMEM
+	}
+	newSlice := unsafe.Slice((*byte)(unsafe.Pointer(newPtr)), 4)
 
-		counter := uint64(0)
-		freq := PTC_FREQUENCY
-		binary.LittleEndian.PutUint64(oldSlice, counter) // Current counter.
-		if providedSize >= 16 {
-			binary.LittleEndian.PutUint64(oldSlice[8:], freq) // Counter frequency.
-		}
-		binary.LittleEndian.PutUint64(oldLenSlice, uint64(requiredSize))
+	// Read flag.
+	flag := binary.LittleEndian.Uint32(newSlice)
 
-		logger.Printf("%-132s %s requested process time counter %s with frequency %s (oldPtr=%s).\n",
+	logger.Printf("%-132s %s set call record %s (newPtr=%s).\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("sysctl"),
+		color.Yellow.Sprintf("0x%X", flag),
+		color.Yellow.Sprintf("0x%X", newPtr),
+	)
+	return 0
+}
+
+func libKernel_ctl_kern_proc_ptc(mib []uint32, namePtr uintptr, nameLen uint32, oldPtr uintptr, oldLenPtr uintptr, newPtr uintptr, newLen uintptr) uintptr {
+	// Initial pointer checks.
+	if oldLenPtr == 0 || oldPtr == 0 {
+		logger.Printf("%-132s %s failed due to invalid pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sysctl"),
-			color.Green.Sprintf("%d", counter),
-			color.Yellow.Sprintf("0x%X", freq),
-			color.Yellow.Sprintf("0x%X", oldPtr),
 		)
 		return 0
 	}
+	oldLenSlice := unsafe.Slice((*byte)(unsafe.Pointer(oldLenPtr)), 8)
+	providedSize := uintptr(binary.LittleEndian.Uint64(oldLenSlice))
 
-	logger.Printf("%-132s %s failed due to unknown OIDs %+v.\n",
+	requiredSize := uintptr(16)
+	if providedSize < 8 {
+		logger.Printf("%-132s %s failed due to insufficient pointer size.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sysctl"),
+		)
+		return ENOMEM
+	}
+	oldSlice := unsafe.Slice((*byte)(unsafe.Pointer(oldPtr)), requiredSize)
+
+	// Write process time counter.
+	counter := uint64(0)
+	freq := PTC_FREQUENCY
+	binary.LittleEndian.PutUint64(oldSlice, counter) // Current counter.
+	if providedSize >= 16 {
+		binary.LittleEndian.PutUint64(oldSlice[8:], freq) // Counter frequency.
+	}
+	binary.LittleEndian.PutUint64(oldLenSlice, uint64(requiredSize))
+
+	logger.Printf("%-132s %s requested process time counter %s with frequency %s (oldPtr=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sysctl"),
-		mib,
+		color.Green.Sprintf("%d", counter),
+		color.Yellow.Sprintf("0x%X", freq),
+		color.Yellow.Sprintf("0x%X", oldPtr),
 	)
-	return ENOENT
+	return 0
 }
 
 func libKernel_ctl_kern_smp(mib []uint32, namePtr uintptr, nameLen uint32, oldPtr uintptr, oldLenPtr uintptr, newPtr uintptr, newLen uintptr) uintptr {

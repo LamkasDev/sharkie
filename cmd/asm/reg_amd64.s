@@ -46,8 +46,6 @@
     MOVQ R13, REG_R13(SP) \
     MOVQ R14, REG_R14(SP) \
     MOVQ R15, REG_R15(SP) \
-    MOVUPS X0, REG_XMM+0(SP) \
-    MOVUPS X1, REG_XMM+16(SP) \
     MOVQ BP, REG_BP(SP)
 
 // RESTORE_REGS restores all general-purpose registers.
@@ -66,8 +64,6 @@
     MOVQ REG_R13(SP), R13 \
     MOVQ REG_R14(SP), R14 \
     MOVQ REG_R15(SP), R15 \
-    MOVUPS REG_XMM+0(SP), X0 \
-    MOVUPS REG_XMM+16(SP), X1 \
     MOVQ REG_BP(SP), BP \
     BYTE $0x48; BYTE $0x81; BYTE $0xC4; BYTE $0x80; BYTE $0x01; BYTE $0x00; BYTE $0x00 // ADDQ $384, SP
 

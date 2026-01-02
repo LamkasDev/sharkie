@@ -62,7 +62,8 @@ const (
 
 type Pthread struct {
 	Self         uintptr
-	_            uintptr
+	Lock         uint32
+	Flags        uint32
 	TcbSelf      uintptr
 	_            [104]byte // Padding yippee!
 	StartFunc    uintptr

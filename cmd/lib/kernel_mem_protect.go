@@ -12,7 +12,7 @@ import (
 func libKernel_sceKernelMprotect(addr, length, prot uintptr) uintptr {
 	err := libKernel_sys_mprotect(addr, length, prot)
 	if err == ERR_PTR {
-		return GetErrno() - 0x7FFE0000
+		return GetErrno() - SonyErrorOffset
 	}
 
 	return 0

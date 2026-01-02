@@ -104,9 +104,8 @@ func libKernel_sceKernelWaitSema(handle uintptr, needed uintptr, timeoutPtr uint
 
 	timeout := time.Duration(-1)
 	if timeoutPtr != 0 {
-		timeoutSlice := unsafe.Slice((*byte)(unsafe.Pointer(timeoutPtr)), 4)
-		micros := binary.LittleEndian.Uint32(timeoutSlice)
-		timeout = time.Duration(micros) * time.Microsecond
+		timeoutObj := (*Timeout)(unsafe.Pointer(timeoutPtr))
+		timeout = time.Duration(timeoutObj.Microseconds) * time.Microsecond
 	}
 
 	semaphore.Lock.Lock()

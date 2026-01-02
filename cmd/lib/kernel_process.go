@@ -1,7 +1,6 @@
 package lib
 
 import (
-	"encoding/binary"
 	"time"
 	"unsafe"
 
@@ -47,7 +46,7 @@ func libKernel_sceKernelGetProcParam() uintptr {
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceKernelGetProcParam"),
 			color.Yellow.Sprintf("0x%X", addr),
-			color.Yellow.Sprintf("0x%X", module.ProcessParamSection.PVaddr),
+			color.Yellow.Sprintf("0x%X", module.ProcessParamSection.POffset),
 		)
 		return addr
 	}
@@ -82,16 +81,15 @@ func libKernel_sceKernelNanosleep(timestampPtr uintptr) uintptr {
 		return SCE_KERNEL_ERROR_EINVAL
 	}
 
-	timestampSlice := unsafe.Slice((*byte)(unsafe.Pointer(timestampPtr)), 16)
-	seconds := binary.LittleEndian.Uint64(timestampSlice)
-	nanos := binary.LittleEndian.Uint64(timestampSlice[8:])
+	timestamp := (*Timestamp)(unsafe.Pointer(timestampPtr))
+	timeout := time.Duration(timestamp.Seconds)*time.Second + time.Duration(timestamp.Nanoseconds)*time.Nanosecond
 
 	logger.Printf("%-132s %s sleeping for %ss and %sns.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sceKernelNanosleep"),
-		color.Yellow.Sprintf("0x%X", seconds),
-		color.Yellow.Sprintf("0x%X", nanos),
+		color.Yellow.Sprintf("0x%X", timestamp.Seconds),
+		color.Yellow.Sprintf("0x%X", timestamp.Nanoseconds),
 	)
-	time.Sleep(time.Duration(seconds)*time.Second + time.Duration(nanos)*time.Nanosecond)
+	time.Sleep(timeout)
 	return 0
 }
