@@ -33,16 +33,14 @@ func libKernel_sceKernelGetModuleInfoForUnwind(addr uintptr, flags int32, infoPt
 		return SCE_KERNEL_ERROR_ENOENT
 	}
 	textSection, _ := emu.GetModuleSections(module)
-	infoSlice := unsafe.Slice((*byte)(unsafe.Pointer(infoPtr)), 304)
-	for i := range infoSlice {
-		infoSlice[i] = 0
-	}
-	WriteCString(infoPtr+0x08, module.Name)
-	binary.LittleEndian.PutUint64(infoSlice[0x108:], uint64(module.ExceptionFrameSection.Address))
-	binary.LittleEndian.PutUint64(infoSlice[0x110:], uint64(module.ExceptionFrameDataAddress))
-	binary.LittleEndian.PutUint64(infoSlice[0x118:], module.ExceptionFrameDataSize)
-	binary.LittleEndian.PutUint64(infoSlice[0x120:], uint64(textSection.Address))
-	binary.LittleEndian.PutUint64(infoSlice[0x128:], textSection.LoadedSize)
+
+	moduleInfoForUnwind := (*ModuleInfoForUnwind)(unsafe.Pointer(infoPtr))
+	WriteCString((uintptr)(unsafe.Pointer(&moduleInfoForUnwind.Name[0])), module.Name)
+	moduleInfoForUnwind.ExceptionFrameHeaderAddress = module.ExceptionFrameSection.Address
+	moduleInfoForUnwind.ExceptionFrameAddress = module.ExceptionFrameDataAddress
+	moduleInfoForUnwind.ExceptionFrameSize = module.ExceptionFrameDataSize
+	moduleInfoForUnwind.TextSectionAddress = textSection.Address
+	moduleInfoForUnwind.TextSectionSize = textSection.LoadedSize
 
 	logger.Printf("%-132s %s returned unwind module info for %s (addr=%s, flags=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
@@ -89,7 +87,7 @@ func libKernel_sceKernelGetModuleInfo(handle uintptr, infoPtr uintptr) uintptr {
 	}
 
 	info := (*ModuleInfo)(unsafe.Pointer(infoPtr))
-	info.Size = ModuleInfoSize
+	info.Size = uint64(ModuleInfoSize)
 	WriteCString((uintptr)(unsafe.Pointer(&info.Name[0])), module.Name)
 	segIndex := uint32(0)
 	for _, section := range module.LoadSections {

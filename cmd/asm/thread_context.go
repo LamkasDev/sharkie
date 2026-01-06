@@ -24,12 +24,12 @@ type ThreadContext struct {
 	WindowsSP     uintptr
 	PlaystationSP uintptr
 	GoSP          uintptr
+	LastGoSP      uintptr
 	GoBP          uintptr
 	SavedG        uintptr
 
 	// Execution state.
 	ReturnAddressAnchor uintptr
-	CallReturnAddress   uintptr
 	GlobalStubContext   uintptr
 	GlobalExceptionInfo uintptr
 }

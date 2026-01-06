@@ -1,12 +1,10 @@
 package structs
 
-import "fmt"
-
 type IpmiClient struct {
-	Handle    uint32
-	Name      string
-	ObjPtr    uintptr
-	EventFlag *EventFlag
+	Handle uint32
+	Name   string
+	ObjPtr uintptr
+	Server *IpmiServer
 }
 
 type IpmiPollEventFlag struct {
@@ -22,10 +20,9 @@ func CreateImpiClient(name string, userPtr uintptr) *IpmiClient {
 	defer GlobalIpmiManager.Lock.Unlock()
 
 	client := &IpmiClient{
-		Handle:    GlobalIpmiManager.NextHandle,
-		Name:      name,
-		ObjPtr:    userPtr,
-		EventFlag: NewEventFlag(fmt.Sprintf("%sEvf", name), EVF_ATTR_TH_FIFO|EVF_ATTR_MULTI, 0, 0),
+		Handle: GlobalIpmiManager.NextHandle,
+		Name:   name,
+		ObjPtr: userPtr,
 	}
 	GlobalIpmiManager.Clients[client.Handle] = client
 	GlobalIpmiManager.NextHandle++

@@ -3,6 +3,8 @@ package asm
 import (
 	"reflect"
 	"unsafe"
+
+	"github.com/LamkasDev/sharkie/cmd/logger"
 )
 
 const RegContextSize = 384
@@ -32,6 +34,10 @@ func stubGo() {
 	threadContext := GetCurrentThreadContext()
 	ctx := (*RegContext)(unsafe.Pointer(threadContext.GlobalStubContext))
 	fnPtr := ctx.R11
+
+	if threadContext.LastGoSP != threadContext.GoSP {
+		logger.Printf("Stack changed from 0x%X to 0x%X.\n", threadContext.LastGoSP, threadContext.GoSP)
+	}
 
 	// Look up the stub info.
 	stubName, ok := StubsMap[fnPtr]
@@ -66,7 +72,7 @@ func stubGo() {
 			break
 		default:
 			// RegContextSize + stubAsm return address + original return address + offset.
-			stackOffset := RegContextSize + 8 + uintptr((i-6)*8)
+			stackOffset := RegContextSize + 16 + uintptr((i-6)*8)
 			addr := (*uint64)(unsafe.Pointer(uintptr(unsafe.Pointer(ctx)) + stackOffset))
 			argVal.SetUint(*addr)
 		}
@@ -81,4 +87,5 @@ func stubGo() {
 	if len(results) > 0 {
 		ctx.AX = uintptr(results[0].Uint())
 	}
+	threadContext.LastGoSP = threadContext.GoSP
 }

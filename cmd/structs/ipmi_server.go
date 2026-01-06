@@ -1,9 +1,14 @@
 package structs
 
 type IpmiServer struct {
-	Handle uint32
-	Name   string
-	ObjPtr uintptr
+	Handle    uint32
+	Name      string
+	ObjPtr    uintptr
+	EventFlag *EventFlag
+}
+
+func (server *IpmiServer) CreateEventFlag(name string) {
+	server.EventFlag = CreateEventFlag(name, EVF_ATTR_TH_FIFO|EVF_ATTR_MULTI, 0, 0)
 }
 
 func CreateImpiServer(name string, userPtr uintptr) *IpmiServer {

@@ -7,34 +7,33 @@
 // It does not return.
 // func Run(entry,   stackPtr, argsPtr, arg2 uintptr)
 //          +0(FP)   +8(FP)    +16(FP)  +24(FP)
-TEXT ·Run(SB), NOSPLIT|NOFRAME, $32-32
+TEXT ·Run(SB), NOSPLIT, $0-32
     NO_LOCAL_POINTERS
 
-    MOVQ entry+0(FP), AX        // entry = AX
-    MOVQ stackPtr+8(FP), BX     // stackPtr = BX
-    MOVQ argsPtr+16(FP), DI      // argsPtr = DI
-    SUBQ $32, SP
-
-    // Save Thread Context Pointer into R12.
-    GET_TLS_CONTEXT(R12)
-
-    // We fake call site in case we run into an exception handler.
+    // We fake call site for stub.
     BYTE $0xEB; BYTE $0x05  // JMP +5 bytes
-    CALL ·exceptionHandlerAsm(SB)
+    CALL ·stubAsm(SB)
 
-    // Save fake caller address in case we run into an exception handler.
+    // Setup fake call frame.
     LEAQ ·Run(SB), CX
     ADDQ $7, CX
-    MOVQ CX, CTX_RET_ANCHOR(R12)
+    PUSHQ CX
+
+    // Save Thread Context Pointer into DX.
+    GET_TLS_CONTEXT(DX)
 
     // Save the current Go stack so we can restore it later.
-    MOVQ SP, CTX_GO_SP(R12)
-    MOVQ BP, CTX_GO_BP(R12)
-    MOVQ R14, CTX_SAVED_G(R12)
+    MOVQ SP, CTX_GO_SP(DX)
+    MOVQ BP, CTX_GO_BP(DX)
+    MOVQ R14, CTX_SAVED_G(DX)
+
+    // Load arguments.
+    MOVQ entry+0(FP), AX    // entry = AX
+    MOVQ stackPtr+8(FP), BX // stackPtr = BX
+    MOVQ argsPtr+16(FP), DI // argsPtr = DI
 
     // Switch to the playstation stack.
     ANDQ $-16, BX
-    SUBQ $8, BX
     BYTE $0x48; BYTE $0x89; BYTE $0xDC  // MOVQ BX, SP
 
     // Clear our registers.
@@ -45,37 +44,24 @@ TEXT ·Run(SB), NOSPLIT|NOFRAME, $32-32
     XORQ R9, R9
     XORQ R10, R10
     XORQ R11, R11
-    XORQ R12, R12
-    XORQ BP, BP
 
-    // Far jump to the entry point to set CS.
-    PUSHQ $0x33 // CS segment selector
-    PUSHQ AX    // Entry point address
-    RETFQ
+    // Call entry function.
+    CALL AX
+
+    // Clean up fake call frame (not really, just for balance).
+    POPQ CX
+
+    RET
 
 // This function switches to the game's stack, calls a function and returns.
 // func Call(entry,   stackPtr, arg1,    arg2 uintptr)
 //          +0(FP)   +8(FP)    +16(FP)  +24(FP)
-TEXT ·Call(SB), NOSPLIT|NOFRAME, $48-32
+TEXT ·Call(SB), NOSPLIT, $48-32
     NO_LOCAL_POINTERS
 
-    MOVQ entry+0(FP), AX     // entry = AX
-    MOVQ stackPtr+8(FP), BX  // stackPtr = BX
-    MOVQ arg1+16(FP), DI  // arg1 = DI
-    MOVQ arg2+24(FP), SI  // arg2 = SI
-    SUBQ $48, SP
-
-    // Save Thread Context Pointer into DX.
-    GET_TLS_CONTEXT(DX)
-
-    // We fake call site in case we run into an exception handler.
+    // We fake call site for stub.
     BYTE $0xEB; BYTE $0x05  // JMP +5 bytes
-    CALL ·exceptionHandlerAsm(SB)
-
-    // Save fake caller address in case we run into an exception handler.
-    LEAQ ·Call(SB), CX
-    ADDQ $7, CX
-    MOVQ CX, CTX_RET_ANCHOR(DX)
+    CALL ·stubAsm(SB)
 
     // Save callee-saved registers.
     MOVQ BP, 0(SP)
@@ -85,10 +71,24 @@ TEXT ·Call(SB), NOSPLIT|NOFRAME, $48-32
     MOVQ R14, 32(SP)
     MOVQ R15, 40(SP)
 
+    // Setup fake call frame.
+    LEAQ ·Call(SB), CX
+    ADDQ $7, CX
+    PUSHQ CX
+
+    // Save Thread Context Pointer into DX.
+    GET_TLS_CONTEXT(DX)
+
     // Save the current Go stack so we can restore it later.
     MOVQ SP, CTX_GO_SP(DX)
     MOVQ BP, CTX_GO_BP(DX)
     MOVQ R14, CTX_SAVED_G(DX)
+
+    // Load arguments.
+    MOVQ entry+0(FP), AX    // entry = AX
+    MOVQ stackPtr+8(FP), BX // stackPtr = BX
+    MOVQ arg1+16(FP), DI    // arg1 = DI
+    MOVQ arg2+24(FP), SI    // arg2 = SI
 
     // Switch to the playstation stack.
     ANDQ $-16, BX
@@ -102,19 +102,22 @@ TEXT ·Call(SB), NOSPLIT|NOFRAME, $48-32
     XORQ R10, R10
     XORQ R11, R11
 
-    // Call entry function.
+    // Call function.
     CALL AX
 
     // Save Thread Context Pointer into R12.
-    GET_TLS_CONTEXT(R12)
+    GET_TLS_CONTEXT(DX)
 
     // Switch to the Go stack.
-    MOVQ CTX_GO_SP(R12), BX
+    MOVQ CTX_GO_SP(DX), BX
     BYTE $0x48; BYTE $0x89; BYTE $0xDC  // MOVQ BX, SP
 
+    // Clean up fake call frame.
+    POPQ CX
+
     // Restore Go stack.
-    MOVQ CTX_GO_BP(R12), BP
-    MOVQ CTX_SAVED_G(R12), R14
+    MOVQ CTX_GO_BP(DX), BP
+    MOVQ CTX_SAVED_G(DX), R14
 
     // Restore callee-saved registers.
     MOVQ 40(SP), R15
@@ -124,5 +127,4 @@ TEXT ·Call(SB), NOSPLIT|NOFRAME, $48-32
     MOVQ 8(SP), BX
     MOVQ 0(SP), BP
 
-    ADDQ $48, SP
     RET

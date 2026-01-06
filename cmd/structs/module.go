@@ -5,7 +5,7 @@ import "unsafe"
 const ModuleInfoHandleOffset = uintptr(0x200)
 
 type ModuleInfo struct {
-	Size          uintptr
+	Size          uint64
 	Name          [256]byte
 	Segments      [4]SegmentInfo
 	SegmentsCount uint32
@@ -13,6 +13,18 @@ type ModuleInfo struct {
 }
 
 const ModuleInfoSize = unsafe.Sizeof(ModuleInfo{})
+
+type ModuleInfoForUnwind struct {
+	Size                        uint64
+	Name                        [256]byte
+	ExceptionFrameHeaderAddress uintptr
+	ExceptionFrameAddress       uintptr
+	ExceptionFrameSize          uint64
+	TextSectionAddress          uintptr
+	TextSectionSize             uint64
+}
+
+const ModuleInfoForUnwindSize = unsafe.Sizeof(ModuleInfoForUnwind{})
 
 type SegmentInfo struct {
 	Address    uintptr

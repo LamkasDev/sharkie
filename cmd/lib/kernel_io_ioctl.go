@@ -113,7 +113,7 @@ func libKernel_sys_ioctl(fd, request, argPtr uintptr) uintptr {
 		command := (*DceCommand)(unsafe.Pointer(argPtr))
 
 		switch command.CommandId {
-		case 5:
+		case SCE_DCE_IOCTL_CMD_GET_CONNECTION_STATUS:
 			logger.Printf("%-132s %s tried requesting connection status (handle=%s, param1=%s, param2=%s, param3=%s).\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("ioctl"),
@@ -123,7 +123,7 @@ func libKernel_sys_ioctl(fd, request, argPtr uintptr) uintptr {
 				color.Yellow.Sprintf("0x%X", command.Param3),
 			)
 			return 0
-		case 6:
+		case SCE_DCE_IOCTL_CMD_GET_RESOLUTION_SUPPORT:
 			logger.Printf("%-132s %s tried requesting resolution support (handle=%s, param1=%s, param2=%s, param3=%s).\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("ioctl"),
@@ -133,7 +133,7 @@ func libKernel_sys_ioctl(fd, request, argPtr uintptr) uintptr {
 				color.Yellow.Sprintf("0x%X", command.Param3),
 			)
 			return 0
-		case 9:
+		case SCE_DCE_IOCTL_CMD_GET_ATTR_BUFFER_SIZE:
 			size := GlobalDisplayCoreEngine.AttributeBufferSize
 			if command.Param1 != 0 {
 				// Attribute buffer offset.
@@ -150,16 +150,16 @@ func libKernel_sys_ioctl(fd, request, argPtr uintptr) uintptr {
 				color.Yellow.Sprintf("0x%X", size),
 			)
 			return 0
-		case 19:
+		case SCE_DCE_IOCTL_CMD_GET_RESOLUTION_STATUS:
 			if command.Param1 != 0 {
-				resolutionInfo := (*DceResolutionInfo)(unsafe.Pointer(command.Param1))
+				resolutionInfo := (*DceResolutionStatus)(unsafe.Pointer(command.Param1))
 				resolutionInfo.Width = 1920
 				resolutionInfo.Height = 1080
-				resolutionInfo.CropWidth = 0
-				resolutionInfo.CropHeight = 0
-				resolutionInfo.RefreshRate = 6000
-				resolutionInfo.Interlaced = 0
-				resolutionInfo.Type = 1
+				resolutionInfo.PaneWidth = 1920
+				resolutionInfo.PaneHeight = 1080
+				resolutionInfo.RefreshRate = SCE_DCE_REFRESH_RATE_59_94HZ
+				resolutionInfo.ScreenSizeInches = 50
+				resolutionInfo.Flags = 0
 			}
 			logger.Printf("%-132s %s returned resolution info (handle=%s, param1=%s, param2=%s, param3=%s).\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
@@ -170,9 +170,9 @@ func libKernel_sys_ioctl(fd, request, argPtr uintptr) uintptr {
 				color.Yellow.Sprintf("0x%X", command.Param3),
 			)
 			return 0
-		case 25:
+		case SCE_DCE_IOCTL_CMD_GET_PORT_STATUS_INFO:
 			if command.Param1 != 0 {
-				portStatus := (*DcePortStatus)(unsafe.Pointer(command.Param1))
+				portStatus := (*DcePortStatusInfo)(unsafe.Pointer(command.Param1))
 				portStatus.Connected = 1
 			}
 			logger.Printf("%-132s %s returned port status (handle=%s, param1=%s, param2=%s, param3=%s).\n",
@@ -184,7 +184,7 @@ func libKernel_sys_ioctl(fd, request, argPtr uintptr) uintptr {
 				color.Yellow.Sprintf("0x%X", command.Param3),
 			)
 			return 0
-		case 31:
+		case SCE_DCE_IOCTL_CMD_SET_ATTR_BUFFER_ADDRESS:
 			GlobalDisplayCoreEngine.AttributeBufferAddress = command.Param2
 
 			logger.Printf("%-132s %s set attribute buffer address to %s.\n",

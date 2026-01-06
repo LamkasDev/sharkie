@@ -22,16 +22,15 @@
 #define CTX_WIN_SP 8
 #define CTX_PS_SP 16
 #define CTX_GO_SP 24
-#define CTX_GO_BP 32
-#define CTX_SAVED_G 40
-#define CTX_RET_ANCHOR 48
-#define CTX_CALL_RET 56
+#define CTX_LAST_GO_SP 32
+#define CTX_GO_BP 40
+#define CTX_SAVED_G 48
+#define CTX_RET_ANCHOR 56
 #define CTX_STUB_CTX 64
 #define CTX_EXC_INFO 72
 
 // SAVE_REGS saves all general-purpose registers.
 #define SAVE_REGS \
-    BYTE $0x48; BYTE $0x81; BYTE $0xEC; BYTE $0x80; BYTE $0x01; BYTE $0x00; BYTE $0x00 \ // SUBQ $384, SP
     MOVQ AX, REG_AX(SP) \
     MOVQ BX, REG_BX(SP) \
     MOVQ CX, REG_CX(SP) \
@@ -64,8 +63,7 @@
     MOVQ REG_R13(SP), R13 \
     MOVQ REG_R14(SP), R14 \
     MOVQ REG_R15(SP), R15 \
-    MOVQ REG_BP(SP), BP \
-    BYTE $0x48; BYTE $0x81; BYTE $0xC4; BYTE $0x80; BYTE $0x01; BYTE $0x00; BYTE $0x00 // ADDQ $384, SP
+    MOVQ REG_BP(SP), BP
 
 #define GET_TLS_CONTEXT(REG) \
     MOVQ 0x30(GS), REG \

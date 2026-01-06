@@ -14,68 +14,60 @@ TEXT ·InitSignalsAddr(SB), NOSPLIT, $0
 // It switches to the Go stack, calls the Go exception handler with exception info and returns.
 // LONG NTAPI VectoredHandler(PEXCEPTION_POINTERS ExceptionInfo);
 //                                                +0(RCX)
-TEXT ·exceptionHandlerAsm(SB), NOSPLIT, $0-0
+TEXT ·exceptionHandlerAsm(SB), NOSPLIT, $64-0
     NO_LOCAL_POINTERS
 
     // Save Windows non-volatile registers.
-    PUSHQ BP
-    PUSHQ BX
-    PUSHQ DI
-    PUSHQ SI
-    PUSHQ R12
-    PUSHQ R13
-    PUSHQ R14
-    PUSHQ R15
+    MOVQ BP, 0(SP)
+    MOVQ BX, 8(SP)
+    MOVQ DI, 16(SP)
+    MOVQ SI, 24(SP)
+    MOVQ R12, 32(SP)
+    MOVQ R13, 40(SP)
+    MOVQ R14, 48(SP)
+    MOVQ R15, 56(SP)
 
-    // Save Thread Context Pointer into R13.
-    GET_TLS_CONTEXT(R13)
+    // Save Thread Context Pointer into DX.
+    GET_TLS_CONTEXT(DX)
 
     // Save Windows stack.
-    MOVQ SP, CTX_WIN_SP(R13)
+    MOVQ SP, CTX_WIN_SP(DX)
+    ADDQ $64, CTX_WIN_SP(DX)
 
     // Restore Go stack pointer into scratch register.
-    MOVQ CTX_SAVED_G(R13), R14
-    MOVQ CTX_GO_SP(R13), BX
-    MOVQ CTX_GO_BP(R13), BP
+    MOVQ CTX_SAVED_G(DX), R14
+    MOVQ CTX_GO_SP(DX), BX
+    MOVQ CTX_GO_BP(DX), BP
 
     // Pass the exception info pointer.
-    MOVQ CX, CTX_EXC_INFO(R13)
+    MOVQ CX, CTX_EXC_INFO(DX)
 
     // For real restore Go stack pointer.
     BYTE $0x48; BYTE $0x89; BYTE $0xDC  // MOVQ BX, SP
 
-    // Setup fake call frame.
-    PUSHQ $0
-    MOVQ CTX_RET_ANCHOR(R15), AX
-    PUSHQ AX
-
     // Call the Go exception handler.
     CALL ·exceptionHandlerGo(SB)
 
-    // Clean up fake call frame.
-    POPQ AX
-    POPQ AX
-
-    // Save Thread Context Pointer into R13.
-    GET_TLS_CONTEXT(R13)
+    // Save Thread Context Pointer into DX.
+    GET_TLS_CONTEXT(DX)
 
     // Save Go stack pointer.
-    MOVQ SP, CTX_GO_SP(R13)
-    MOVQ BP, CTX_GO_BP(R13)
+    MOVQ SP, CTX_GO_SP(DX)
+    MOVQ BP, CTX_GO_BP(DX)
 
     // Switch to Windows stack.
-    MOVQ CTX_WIN_SP(R13), BX
+    MOVQ CTX_WIN_SP(DX), BX
     BYTE $0x48; BYTE $0x89; BYTE $0xDC  // MOVQ BX, SP
 
     // Restore Windows non-volatile registers.
-    POPQ R15
-    POPQ R14
-    POPQ R13
-    POPQ R12
-    POPQ SI
-    POPQ DI
-    POPQ BX
-    POPQ BP
+    MOVQ 56(SP), R15
+    MOVQ 48(SP), R14
+    MOVQ 40(SP), R13
+    MOVQ 32(SP), R12
+    MOVQ 24(SP), SI
+    MOVQ 16(SP), DI
+    MOVQ 8(SP), BX
+    MOVQ 0(SP), BP
 
     // Return to Windows.
     RET

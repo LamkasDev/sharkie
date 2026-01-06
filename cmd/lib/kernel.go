@@ -1,8 +1,6 @@
 package lib
 
 import (
-	"unsafe"
-
 	"github.com/LamkasDev/sharkie/cmd/elf"
 	. "github.com/LamkasDev/sharkie/cmd/structs"
 )
@@ -22,10 +20,7 @@ func RegisterKernelStubs() {
 	// Pointer to current program name.
 	progname := elf.RegisterVariableStub("libkernel", "__progname", 8)
 	prognameStrAddr := GlobalGoAllocator.Malloc(32)
-	copy(
-		unsafe.Slice((*byte)(unsafe.Pointer(prognameStrAddr)), 32),
-		"eboot.bin\x00",
-	)
+	WriteCString(prognameStrAddr, "eboot.bin")
 	WriteAddress(progname.Address, prognameStrAddr)
 
 	// Flag used by libc to control signal interrupt behavior.

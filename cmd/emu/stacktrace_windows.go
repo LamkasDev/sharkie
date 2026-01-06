@@ -16,6 +16,9 @@ func SprintStackTrace(ctx *sys_struct.CONTEXT) (result string) {
 	result += SprintAddress(uintptr(ctx.Rip))
 
 	stackPtr := uintptr(ctx.Rsp)
+	if ctx.Rsp <= 0x1000 {
+		return result
+	}
 	stackTop := thread.Stack.Address + structs.StackDefaultSize
 	for i := 0; i < 40; i++ {
 		if stackPtr >= stackTop {

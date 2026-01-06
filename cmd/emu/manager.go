@@ -148,22 +148,15 @@ func GetRealCallerAddress(e *elf.Elf, returnAddr uintptr) uintptr {
 // GetCallSiteText returns text indicating the returnAddr call site.
 func (m *ModuleManager) GetCallSiteText() string {
 	thread := GetCurrentThread()
-	threadName := "??"
-	if thread != nil {
-		threadName = thread.Name
-	}
 	threadContext := asm.GetCurrentThreadContext()
-	if threadContext == nil {
-		return "??\n"
-	}
 
 	ctx := (*asm.RegContext)(unsafe.Pointer(threadContext.GlobalStubContext))
-	returnAddrPtr := uintptr(unsafe.Pointer(ctx)) + asm.RegContextSize
+	returnAddrPtr := uintptr(unsafe.Pointer(ctx)) + asm.RegContextSize + 8
 	returnAddr := *(*uintptr)(unsafe.Pointer(returnAddrPtr))
 	module := GetModuleAtAddress(returnAddr)
 	if module == nil {
 		return fmt.Sprintf("[%s] [unknown address %s]",
-			color.Green.Sprint(threadName),
+			color.Green.Sprint(thread.Name),
 			color.Yellow.Sprintf("0x%X", returnAddr),
 		)
 	}
@@ -175,7 +168,7 @@ func (m *ModuleManager) GetCallSiteText() string {
 		if !ok {
 			return fmt.Sprintf(
 				"[%s] [%s+%s/%s]",
-				color.Green.Sprint(threadName),
+				color.Green.Sprint(thread.Name),
 				color.Blue.Sprint(module.Name),
 				color.Magenta.Sprint("unknown function"),
 				color.Yellow.Sprintf("0x%X", returnAddr-module.BaseAddress),
@@ -186,7 +179,7 @@ func (m *ModuleManager) GetCallSiteText() string {
 	symbol := module.SymbolTable.SymbolsMap[hashIndex]
 	return fmt.Sprintf(
 		"[%s] [%s+%s/%s]",
-		color.Green.Sprint(threadName),
+		color.Green.Sprint(thread.Name),
 		color.Blue.Sprint(module.Name),
 		color.Yellow.Sprintf("0x%X", callerAddress-module.BaseAddress),
 		color.Magenta.Sprintf("%s:%s", symbol.LibraryName, symbol.ReadableName),

@@ -59,10 +59,6 @@ const (
 	IMPI_TERMINATE_CONNECTION_CLIENT = 0x520
 )
 
-const (
-	IMPI_METHOD_SERVICE_INIT = 0x0
-)
-
 type IpmiManager struct {
 	Clients    map[uint32]*IpmiClient
 	Servers    map[uint32]*IpmiServer
@@ -90,23 +86,22 @@ func SetupImpiManager() {
 		"SceShellCoreUtilPowerControl",
 	})
 	CreateImpiServer("SceAppMessaging", 0)
-	CreateImpiServer("SceNpMgrIpc", 0)
-	CreateDefaultEventFlags([]string{
-		"SceNpMgrIpc",
-	})
-	CreateImpiServer("SceNpService", 0)
-	CreateImpiServer("SceNetCtl", 0)
-	CreateImpiServer("SceNpTrophyIpc", 0)
+	npMgrIpc := CreateImpiServer("SceNpMgrIpc", 0)
+	npMgrIpc.CreateEventFlag("SceNpMgrEvf")
+	npService := CreateImpiServer("SceNpService", 0)
+	npService.CreateEventFlag("SceNpServiceEvf")
+	netCtl := CreateImpiServer("SceNetCtl", 0)
+	netCtl.CreateEventFlag("SceNetCtlEvf")
+	npTrophyIpc := CreateImpiServer("SceNpTrophyIpc", 0)
+	npTrophyIpc.CreateEventFlag("SceNpTrophyEvf")
 	CreateImpiServer("SceAppContent", 0)
 	CreateImpiServer("SceMbusIpc", 0)
 	CreateImpiServer("SceSysAudioSystemIpc", 0)
 	CreateDefaultEventFlags([]string{
 		fmt.Sprintf("sceAudioOutMix%x", 1001),
 	})
-	CreateImpiServer("SceAvSettingIpc", 0)
-	CreateDefaultEventFlags([]string{
-		"SceAvSettingEvf",
-	})
+	avSetting := CreateImpiServer("SceAvSettingIpc", 0)
+	avSetting.CreateEventFlag("SceAvSettingEvf")
 	CreateImpiServer("SceSaveData", 0)
 	CreateImpiServer("SceUserService", 0)
 	CreateImpiServer("SceRemoteplayIpc", 0)
