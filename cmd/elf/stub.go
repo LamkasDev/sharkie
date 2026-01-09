@@ -12,11 +12,11 @@ import (
 	"github.com/gookit/color"
 )
 
-var FakeAddressStart = uint64(0xDEAD00000000)
+var FakeAddressStart = uintptr(0xDEAD00000000)
 var FakeAddress = FakeAddressStart
-var FakeAddressMap = make(map[uint64]string)
+var FakeAddressMap = make(map[uintptr]string)
 
-type GetSymbolAddressFunc func(s *ElfSymbol) (uint64, bool)
+type GetSymbolAddressFunc func(s *ElfSymbol) (uintptr, bool)
 type GetDefiningModuleFunc func(s *ElfSymbol) *Elf
 
 var GetSymbolAddress GetSymbolAddressFunc
@@ -84,7 +84,7 @@ func RegisterVariableStub(libraryName, symbolName string, size uintptr) asm.Stub
 func CreateTrampoline(goFuncAddr uintptr) uintptr {
 	// Allocate executable memory for the trampoline.
 	trampolineSize := uintptr(22) // MOV to RAX (10), MOV to R11 (10), JMP RAX (2)
-	trampolineAddr, _ := sys_struct.AllocExecututableMemory(trampolineSize)
+	trampolineAddr, _ := sys_struct.AllocExecutableMemory(trampolineSize)
 
 	// MOV stubAsm, RAX
 	trampoline := []byte{0x48, 0xB8}

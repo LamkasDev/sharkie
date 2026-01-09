@@ -13,10 +13,10 @@ const (
 )
 
 type ElfRelocation struct {
-	Offset uint64
+	Offset uintptr
 	Type   uint32
 	Symbol uint32
-	Addend int64
+	Addend uintptr
 }
 
 type ElfRelocationTable struct {
@@ -38,11 +38,11 @@ func NewRelocationTable(data []byte, tableOffset, tableSize, tableEnt uint64) *E
 		if relOffset+24 > uint64(len(data)) {
 			break
 		}
-		rOffset := binary.LittleEndian.Uint64(data[relOffset:])
+		rOffset := uintptr(binary.LittleEndian.Uint64(data[relOffset:]))
 		rInfo := binary.LittleEndian.Uint64(data[relOffset+8:])
 		rType := uint32(rInfo & 0xFFFFFFFF)
 		rSym := uint32(rInfo >> 32)
-		rAddend := int64(binary.LittleEndian.Uint64(data[relOffset+16:]))
+		rAddend := uintptr(binary.LittleEndian.Uint64(data[relOffset+16:]))
 
 		table.Relocations = append(table.Relocations, ElfRelocation{
 			Offset: rOffset,

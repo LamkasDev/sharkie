@@ -1,3 +1,5 @@
+//go:build windows
+
 package structs
 
 import (
@@ -43,12 +45,7 @@ func ReserveKernelMemory(addr, length uintptr) (uintptr, error) {
 
 func AllocKernelMemory(addr, length, prot, flags uintptr) (uintptr, error) {
 	allocationType := uintptr(windows.MEM_COMMIT)
-	isDirectMemory := addr != 0 &&
-		addr >= GlobalAllocator.DirectMemoryBase &&
-		addr < GlobalAllocator.DirectMemoryBase+GlobalAllocator.DirectMemorySize
-	isGpuMemory := addr != 0 &&
-		addr >= GlobalAllocator.GpuMemoryBase &&
-		addr < GlobalAllocator.GpuMemoryBase+GlobalAllocator.GpuMemorySize
+	isDirectMemory, isGpuMemory := MemoryIsDirectOrGpu(addr)
 	if !isDirectMemory && !isGpuMemory {
 		allocationType |= windows.MEM_RESERVE
 	}

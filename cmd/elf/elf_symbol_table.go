@@ -36,7 +36,7 @@ type ElfSymbol struct {
 	HashIndex    uint64
 	OriginalName string
 	ReadableName string
-	Address      uint64
+	Address      uintptr
 	Type         uint8
 	Binding      uint8
 
@@ -103,7 +103,7 @@ func (e *Elf) NewSymbolTable(data []byte) *ElfSymbolTable {
 		stName := binary.LittleEndian.Uint32(data[symEntryOffset:])
 		stInfo := data[symEntryOffset+4]
 		stShndx := binary.LittleEndian.Uint16(data[symEntryOffset+6:])
-		stValue := binary.LittleEndian.Uint64(data[symEntryOffset+8:])
+		stValue := uintptr(binary.LittleEndian.Uint64(data[symEntryOffset+8:]))
 
 		name := e.DynamicInfo.StringTable[uint64(stName)]
 		symbol := &ElfSymbol{

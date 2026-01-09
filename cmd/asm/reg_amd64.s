@@ -19,7 +19,7 @@
 #define CONTEXT_SIZE 384    // Aligned to 16 bytes
 
 #define CTX_TID 0
-#define CTX_WIN_SP 8
+#define CTX_SYSTEM_SP 8
 #define CTX_PS_SP 16
 #define CTX_GO_SP 24
 #define CTX_LAST_GO_SP 32
@@ -64,8 +64,3 @@
     MOVQ REG_R14(SP), R14 \
     MOVQ REG_R15(SP), R15 \
     MOVQ REG_BP(SP), BP
-
-#define GET_TLS_CONTEXT(REG) \
-    MOVQ 0x30(GS), REG \
-    ADDQ ·GoTlsOffset(SB), REG \
-    MOVQ (REG), REG

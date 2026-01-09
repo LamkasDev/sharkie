@@ -8,19 +8,19 @@ import (
 )
 
 // GetSymbolAddress returns the symbol address for given symbol.
-func GetSymbolAddress(s *elf.ElfSymbol) (uint64, bool) {
+func GetSymbolAddress(s *elf.ElfSymbol) (uintptr, bool) {
 	if stub, ok := asm.Stubs[s.HashIndex]; ok {
 		/* logger.Printf(
 			"Found stubbed symbol %s at %s.\n",
 			color.Blue.Sprint(fullName),
 			color.Yellow.Sprintf("0x%X", stub.Address),
 		) */
-		return uint64(stub.Address), true
+		return stub.Address, true
 	}
 
 	// Let's use a generic stub for now, so we know which functions to patch.
 	if s.LibraryName == "libkernel" && s.Type == elf.STT_FUNC && elf.CanStubFunctionName(s.ReadableName) {
-		return uint64(asm.Stubs[elf.GetSymbolHashIndex("", "__sharkie_generic_stub")].Address), true
+		return asm.Stubs[elf.GetSymbolHashIndex("", "__sharkie_generic_stub")].Address, true
 	}
 
 	if s.Type == elf.STT_OBJECT {
@@ -73,7 +73,7 @@ func GetDefiningModule(s *elf.ElfSymbol) *elf.Elf {
 }
 
 // TryGetSymbolAddress tries returning the symbol address for given symbol from passed module.
-func TryGetSymbolAddress(s *elf.ElfSymbol, module *elf.Elf) (uint64, bool) {
+func TryGetSymbolAddress(s *elf.ElfSymbol, module *elf.Elf) (uintptr, bool) {
 	if module.DynamicInfo == nil {
 		return 0, false
 	}
@@ -98,7 +98,7 @@ func TryGetSymbolAddress(s *elf.ElfSymbol, module *elf.Elf) (uint64, bool) {
 					s.LibraryName,
 					s.ReadableName,
 					module.Name,
-					module.BaseAddress+uintptr(symbol.Address),
+					module.BaseAddress+symbol.Address,
 				))
 			}
 
@@ -108,7 +108,7 @@ func TryGetSymbolAddress(s *elf.ElfSymbol, module *elf.Elf) (uint64, bool) {
 				color.Blue.Sprint(module.Name),
 				color.Yellow.Sprintf("0x%X", module.BaseAddress+uintptr(symbol.Address)),
 			) */
-			return uint64(module.BaseAddress) + symbol.Address, true
+			return module.BaseAddress + symbol.Address, true
 		}
 	}
 

@@ -2,8 +2,10 @@ package patcher
 
 import (
 	"encoding/binary"
+	"runtime"
 	"unsafe"
 
+	"github.com/LamkasDev/sharkie/cmd/asm"
 	"github.com/LamkasDev/sharkie/cmd/elf"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/LamkasDev/sharkie/cmd/sys_struct"
@@ -69,12 +71,14 @@ func (p *Patcher) PatchTcbAccess(instruction gapstone.Instruction, instructionBy
 	}
 
 	// Patch prefix to 0x65 (GS)
-	instructionBytes[prefixOffset] = 0x65
+	if runtime.GOOS == "windows" {
+		instructionBytes[prefixOffset] = 0x65
+	}
 
 	// Patch displacement (last 4 bytes)
 	if len(instruction.Bytes) >= 5 {
 		displacementOffset := len(instruction.Bytes) - 4
-		binary.LittleEndian.PutUint32(instructionBytes[displacementOffset:], uint32(sys_struct.PlaystationTlsOffset))
+		binary.LittleEndian.PutUint32(instructionBytes[displacementOffset:], uint32(asm.PlaystationTlsOffset))
 	}
 
 	/* logger.Printf(
@@ -97,11 +101,15 @@ func (p *Patcher) CreateTcbAccessTrampoline(e *elf.Elf, instruction gapstone.Ins
 
 	// Create trampoline for TCB access with displacement.
 	trampolineAsm := newAsmHelper()
-	trampolineAsm.mov_r64_from_gs_mem(scratchReg, int32(sys_struct.PlaystationTlsOffset))
+	if runtime.GOOS == "windows" {
+		trampolineAsm.mov_r64_from_gs_mem(scratchReg, int32(asm.PlaystationTlsOffset))
+	} else {
+		trampolineAsm.mov_r64_from_fs_mem(scratchReg, int32(asm.PlaystationTlsOffset))
+	}
 	trampolineAsm.mov_r64_from_mem(dstReg, scratchReg, int32(displacement))
 	trampolineCode := trampolineAsm.bytes()
 	trampolineSize := len(trampolineCode) + 5 // 5 bytes for jmp rel32
-	trampolineAddr, _ := sys_struct.AllocExecututableMemory(uintptr(trampolineSize))
+	trampolineAddr, _ := sys_struct.AllocExecutableMemory(uintptr(trampolineSize))
 
 	jumpBackAsm := newAsmHelper()
 	jumpBackSourceAddr := uint64(trampolineAddr) + uint64(len(trampolineCode))
@@ -124,9 +132,6 @@ func (p *Patcher) CreateTcbAccessTrampoline(e *elf.Elf, instruction gapstone.Ins
 	binary.LittleEndian.PutUint32(patch[1:], uint32(rel32Jump))
 	copy(e.Memory[instruction.Address:], patch)
 
-	if instruction.Address == 0x9642 {
-		logger.Printf("")
-	}
 	logger.Printf(
 		"Patched fs:%s TCB access at %s (trampolined to %s).\n",
 		color.Yellow.Sprintf("0x%X", displacement),

@@ -85,6 +85,31 @@ func (a *asmHelper) mov_r64_from_gs_mem(dst uint, disp int32) {
 	a.buf = append(a.buf, dispBytes[:]...)
 }
 
+// mov_r64_from_gs_mem adds `mov dst, fs:[disp32]`
+func (a *asmHelper) mov_r64_from_fs_mem(dst uint, disp int32) {
+	enc, ok := encodeGpr64(dst)
+	if !ok {
+		panic("unsupported register")
+	}
+
+	a.buf = append(a.buf, 0x64) // FS
+
+	rex := byte(0x48) // REX.W
+	if enc.rex != 0 {
+		rex |= 0x04 // REX.R
+	}
+	a.buf = append(a.buf, rex)
+	a.buf = append(a.buf, 0x8B)
+
+	modRM := 0x00<<6 | enc.code<<3 | 0x04
+	a.buf = append(a.buf, modRM)
+	a.buf = append(a.buf, 0x25) // no index, no base, disp32
+
+	var dispBytes [4]byte
+	binary.LittleEndian.PutUint32(dispBytes[:], uint32(disp))
+	a.buf = append(a.buf, dispBytes[:]...)
+}
+
 // mov_r64_from_mem adds `mov dst, [base + disp32]`
 func (a *asmHelper) mov_r64_from_mem(dst, base uint, disp int32) {
 	dstEnc, ok := encodeGpr64(dst)

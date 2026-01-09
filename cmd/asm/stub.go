@@ -35,6 +35,9 @@ func stubGo() {
 	ctx := (*RegContext)(unsafe.Pointer(threadContext.GlobalStubContext))
 	fnPtr := ctx.R11
 
+	logger.Printf("stubGo: ctx=0x%X, PS_SP=0x%X, GO_SP=0x%X\n",
+		uintptr(unsafe.Pointer(threadContext)), threadContext.PlaystationSP, threadContext.GoSP)
+
 	if threadContext.LastGoSP != threadContext.GoSP {
 		logger.Printf("Stack changed from 0x%X to 0x%X.\n", threadContext.LastGoSP, threadContext.GoSP)
 	}
@@ -72,7 +75,7 @@ func stubGo() {
 			break
 		default:
 			// RegContextSize + stubAsm return address + original return address + offset.
-			stackOffset := RegContextSize + 16 + uintptr((i-6)*8)
+			stackOffset := RegContextSize + 8 + uintptr((i-6)*8)
 			addr := (*uint64)(unsafe.Pointer(uintptr(unsafe.Pointer(ctx)) + stackOffset))
 			argVal.SetUint(*addr)
 		}

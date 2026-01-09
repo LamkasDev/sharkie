@@ -151,7 +151,7 @@ func (m *ModuleManager) GetCallSiteText() string {
 	threadContext := asm.GetCurrentThreadContext()
 
 	ctx := (*asm.RegContext)(unsafe.Pointer(threadContext.GlobalStubContext))
-	returnAddrPtr := uintptr(unsafe.Pointer(ctx)) + asm.RegContextSize + 8
+	returnAddrPtr := uintptr(unsafe.Pointer(ctx)) + asm.RegContextSize
 	returnAddr := *(*uintptr)(unsafe.Pointer(returnAddrPtr))
 	module := GetModuleAtAddress(returnAddr)
 	if module == nil {

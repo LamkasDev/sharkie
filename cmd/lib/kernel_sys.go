@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"unsafe"
 
+	"github.com/LamkasDev/sharkie/cmd/asm"
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	. "github.com/LamkasDev/sharkie/cmd/structs"
@@ -99,16 +100,7 @@ func libKernel_sys_sysarch(number uintptr, argsPtr uintptr) uintptr {
 		argsPtrSlice := unsafe.Slice((*byte)(unsafe.Pointer(argsPtr)), 8)
 		tcbBaseAddr := uintptr(binary.LittleEndian.Uint64(argsPtrSlice))
 		thread.Tcb = (*Tcb)(unsafe.Pointer(tcbBaseAddr))
-
-		ret, _, _ := sys_struct.TlsSetValue.Call(sys_struct.PlaystationTlsSlot, tcbBaseAddr)
-		if ret == 0 {
-			logger.Printf("%-132s %s failed setting TCB base.\n",
-				emu.GlobalModuleManager.GetCallSiteText(),
-				color.Magenta.Sprint("sys_sysarch"),
-			)
-			SetErrno(EPERM)
-			return ERR_PTR
-		}
+		sys_struct.SetTlsSlot(asm.PlaystationTlsSlot, tcbBaseAddr)
 
 		logger.Printf(
 			"%-132s %s set TCB base to %s.\n",

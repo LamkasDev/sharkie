@@ -1,4 +1,4 @@
-//go:build windows && amd64
+//go:build amd64
 
 #include "reg_amd64.s"
 #include "funcdata.h"
@@ -20,7 +20,8 @@ TEXT ·Run(SB), NOSPLIT, $0-32
     PUSHQ CX
 
     // Save Thread Context Pointer into DX.
-    GET_TLS_CONTEXT(DX)
+    CALL ·GetTLSContext(SB)
+    MOVQ AX, DX
 
     // Save the current Go stack so we can restore it later.
     MOVQ SP, CTX_GO_SP(DX)
@@ -77,7 +78,8 @@ TEXT ·Call(SB), NOSPLIT, $48-32
     PUSHQ CX
 
     // Save Thread Context Pointer into DX.
-    GET_TLS_CONTEXT(DX)
+    CALL ·GetTLSContext(SB)
+    MOVQ AX, DX
 
     // Save the current Go stack so we can restore it later.
     MOVQ SP, CTX_GO_SP(DX)
@@ -105,8 +107,9 @@ TEXT ·Call(SB), NOSPLIT, $48-32
     // Call function.
     CALL AX
 
-    // Save Thread Context Pointer into R12.
-    GET_TLS_CONTEXT(DX)
+    // Save Thread Context Pointer into DX.
+    CALL ·GetTLSContext(SB)
+    MOVQ AX, DX
 
     // Switch to the Go stack.
     MOVQ CTX_GO_SP(DX), BX

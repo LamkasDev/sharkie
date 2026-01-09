@@ -1,4 +1,4 @@
-//go:build windows && amd64
+//go:build linux && amd64
 
 #include "reg_amd64.s"
 #include "funcdata.h"
@@ -12,39 +12,45 @@ TEXT ·InitSignalsAddr(SB), NOSPLIT, $0
 
 // This function is the assembly exception handler.
 // It switches to the Go stack, calls the Go exception handler with exception info and returns.
-// LONG NTAPI VectoredHandler(PEXCEPTION_POINTERS ExceptionInfo);
-//                                                +0(RCX)
-TEXT ·exceptionHandlerAsm(SB), NOSPLIT, $64-0
+// void signalHandlerAsm(int sig, siginfo_t *info, void *ucontext);
+//                       (DI)     (SI)             (DX)
+TEXT ·exceptionHandlerAsm(SB), NOSPLIT, $80-0
     NO_LOCAL_POINTERS
 
-    // Save Windows non-volatile registers.
+    // Save Linux non-volatile registers.
     MOVQ BP, 0(SP)
     MOVQ BX, 8(SP)
-    MOVQ DI, 16(SP)
-    MOVQ SI, 24(SP)
-    MOVQ R12, 32(SP)
-    MOVQ R13, 40(SP)
-    MOVQ R14, 48(SP)
-    MOVQ R15, 56(SP)
+    MOVQ R12, 16(SP)
+    MOVQ R13, 24(SP)
+    MOVQ R14, 32(SP)
+    MOVQ R15, 40(SP)
 
-    // Save exception info pointer.
-    MOVQ CX, R12
+    // Save signal info.
+    MOVQ DI, 48(SP) // sig
+    MOVQ SI, 56(SP) // info
+    MOVQ DX, 64(SP) // ucontext
 
     // Save Thread Context Pointer into DX.
     CALL ·GetTLSContext(SB)
     MOVQ AX, DX
 
-    // Save Windows stack.
+    // Save Linux stack.
     MOVQ SP, CTX_SYSTEM_SP(DX)
-    ADDQ $64, CTX_SYSTEM_SP(DX)
+    ADDQ $80, CTX_SYSTEM_SP(DX)
 
     // Restore Go stack pointer into scratch register.
     MOVQ CTX_SAVED_G(DX), R14
     MOVQ CTX_GO_SP(DX), BX
     MOVQ CTX_GO_BP(DX), BP
 
-    // Pass the exception info pointer.
-    MOVQ R12, CTX_EXC_INFO(DX)
+    // Create an exception info struct and pass the pointer.
+    SUBQ $24, BX
+    MOVQ 56(SP), AX // info
+    MOVQ AX, 0(BX)
+    MOVQ 64(SP), AX // ucontext
+    MOVQ AX, 8(BX)
+    MOVQ BX, CTX_EXC_INFO(DX)
+    ADDQ $24, BX
 
     // For real restore Go stack pointer.
     BYTE $0x48; BYTE $0x89; BYTE $0xDC  // MOVQ BX, SP
@@ -60,19 +66,17 @@ TEXT ·exceptionHandlerAsm(SB), NOSPLIT, $64-0
     MOVQ SP, CTX_GO_SP(DX)
     MOVQ BP, CTX_GO_BP(DX)
 
-    // Switch to Windows stack.
+    // Switch to Linux stack.
     MOVQ CTX_SYSTEM_SP(DX), BX
     BYTE $0x48; BYTE $0x89; BYTE $0xDC  // MOVQ BX, SP
 
-    // Restore Windows non-volatile registers.
-    MOVQ 56(SP), R15
-    MOVQ 48(SP), R14
-    MOVQ 40(SP), R13
-    MOVQ 32(SP), R12
-    MOVQ 24(SP), SI
-    MOVQ 16(SP), DI
+    // Restore Linux non-volatile registers.
+    MOVQ 40(SP), R15
+    MOVQ 32(SP), R14
+    MOVQ 24(SP), R13
+    MOVQ 16(SP), R12
     MOVQ 8(SP), BX
     MOVQ 0(SP), BP
 
-    // Return to Windows.
+    // Return to Linux.
     RET

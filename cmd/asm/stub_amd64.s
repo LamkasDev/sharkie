@@ -1,4 +1,4 @@
-//go:build windows && amd64
+//go:build amd64
 
 #include "reg_amd64.s"
 #include "funcdata.h"
@@ -14,14 +14,16 @@ TEXT ·InitStubAddr(SB), NOSPLIT, $0
 // The target function's address is passed in R11.
 // Arguments are passed in registers (RCX, RDX, R8, R9) and on the stack.
 // The return address is expected to be on the top of the stack.
-TEXT ·stubAsm(SB), NOSPLIT, $384-0
+TEXT ·stubAsm(SB), NOSPLIT|NOFRAME, $0-0
     NO_LOCAL_POINTERS
+    BYTE $0x48; BYTE $0x81; BYTE $0xEC; BYTE $0x80; BYTE $0x01; BYTE $0x00; BYTE $0x00 // SUBQ $384, SP
 
     // Save all general-purpose registers.
     SAVE_REGS
 
     // Save Thread Context Pointer into R12.
-    GET_TLS_CONTEXT(R12)
+    CALL ·GetTLSContext(SB)
+    MOVQ AX, R12
 
     // Save playstation stack.
     MOVQ SP, CTX_PS_SP(R12)
@@ -40,6 +42,10 @@ TEXT ·stubAsm(SB), NOSPLIT, $384-0
     // Call the Go trampoline function.
     CALL ·stubGo(SB)
 
+    // Save Thread Context Pointer into R12.
+    CALL ·GetTLSContext(SB)
+    MOVQ AX, R12
+
     // Save Go stack.
     MOVQ SP, CTX_GO_SP(R12)
     MOVQ BP, CTX_GO_BP(R12)
@@ -52,4 +58,5 @@ TEXT ·stubAsm(SB), NOSPLIT, $384-0
     RESTORE_REGS
 
     // Return to the game code.
+    BYTE $0x48; BYTE $0x81; BYTE $0xC4; BYTE $0x80; BYTE $0x01; BYTE $0x00; BYTE $0x00 // ADDQ $384, SP
     RET

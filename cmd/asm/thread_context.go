@@ -1,7 +1,6 @@
 package asm
 
 import (
-	"sync"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/sys_struct"
@@ -15,13 +14,16 @@ var (
 	// TLS configuration.
 	GoTlsSlot   uintptr
 	GoTlsOffset uintptr
+
+	PlaystationTlsSlot   uintptr
+	PlaystationTlsOffset uintptr
 )
 
 type ThreadContext struct {
 	ThreadId uintptr
 
 	// Stack switching.
-	WindowsSP     uintptr
+	SystemSP      uintptr
 	PlaystationSP uintptr
 	GoSP          uintptr
 	LastGoSP      uintptr
@@ -34,35 +36,23 @@ type ThreadContext struct {
 	GlobalExceptionInfo uintptr
 }
 
-func AllocGoTlsSlot() {
-	slot, _, err := sys_struct.TlsAlloc.Call()
-	if slot == 0 {
-		panic(err)
-	}
-	GoTlsSlot = slot
-	GoTlsOffset = 0x1480 + slot*8
-}
-
-var ThreadContexts = make(map[int32]*ThreadContext)
-var ThreadContextLock sync.Mutex
-
 func NewThreadContext(threadId int32, stackPtr uintptr) *ThreadContext {
-	threadContext := &ThreadContext{
+	return &ThreadContext{
 		ThreadId:      uintptr(threadId),
 		PlaystationSP: stackPtr,
-	}
-	ThreadContextLock.Lock()
-	ThreadContexts[threadId] = threadContext
-	ThreadContextLock.Unlock()
-
-	return threadContext
-}
-
-func SetThreadContext(ctx *ThreadContext) {
-	status, _, err := sys_struct.TlsSetValue.Call(GoTlsSlot, uintptr(unsafe.Pointer(ctx)))
-	if status == 0 {
-		panic(err)
 	}
 }
 
 func GetCurrentThreadContext() *ThreadContext
+
+func SetThreadContext(ctx *ThreadContext) {
+	sys_struct.SetTlsSlot(GoTlsSlot, uintptr(unsafe.Pointer(ctx)))
+}
+
+func AllocTlsSlots() {
+	GoTlsSlot, GoTlsOffset = sys_struct.AllocTlsSlot()
+	PlaystationTlsSlot, PlaystationTlsOffset = sys_struct.AllocTlsSlot()
+	if GoTlsSlot >= 64 || PlaystationTlsSlot >= 64 {
+		panic("tls slot is too high, this is not supported")
+	}
+}

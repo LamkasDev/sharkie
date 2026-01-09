@@ -114,15 +114,13 @@ func GetThreadForPtr(threadPtr uintptr) *Thread {
 	return nil
 }
 
+// Setup sets the current thread's context and TLS.
 func (t *Thread) Setup() {
 	asm.SetThreadContext(asm.NewThreadContext(t.Id, t.Stack.CurrentPointer))
 
 	// Allocate and set up the TCB.
 	tcbAddr := uintptr(unsafe.Pointer(t.Tcb))
-	ret, _, err := sys_struct.TlsSetValue.Call(sys_struct.PlaystationTlsSlot, tcbAddr)
-	if ret == 0 {
-		panic(err)
-	}
+	sys_struct.SetTlsSlot(asm.PlaystationTlsSlot, tcbAddr)
 	logger.Printf(
 		"[%s] TCB allocated at %s (TLS at %s, %s bytes).\n",
 		color.Green.Sprint(t.Name),
@@ -137,10 +135,14 @@ func (t *Thread) Call(funcAddr uintptr, arg uintptr) {
 	stackPtr := t.Stack.CurrentPointer
 	stackPtr &^= 15
 
+	logger.Printf("BEFORE Call: CurrentPointer=0x%X, stackPtr=0x%X\n", t.Stack.CurrentPointer, stackPtr)
+
 	// Call the assembly trampoline and call funcAddr function.
 	// asm.GuestEnter()
 	asm.Call(funcAddr, stackPtr, arg, 0)
 	// asm.GuestLeave()
+
+	logger.Printf("AFTER Call: CurrentPointer=0x%X\n", t.Stack.CurrentPointer)
 }
 
 // Run pushes arguments on stack and calls the program's entry point.

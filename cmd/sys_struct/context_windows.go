@@ -10,7 +10,6 @@ import (
 
 // SprintContext prints the given context.
 func SprintContext(ctx *CONTEXT) (result string) {
-	tcbAddress, _, _ := TlsGetValue.Call(PlaystationTlsSlot)
 	result = "Context:\n"
 	result += SprintRegister("RAX", ctx.Rax)
 	result += SprintRegister("RBX", ctx.Rbx)
@@ -44,17 +43,6 @@ func SprintContext(ctx *CONTEXT) (result string) {
 		color.Blue.Sprint("SS"),
 		color.Yellow.Sprintf("%d", ctx.SegSs),
 	)
-	result += SprintRegister("TCB", uint64(tcbAddress))
 
 	return result
-}
-
-// SprintRegister prints the given register and it's value.
-func SprintRegister(register string, value uint64) string {
-	return fmt.Sprintf(
-		"  %42s = %s (%s)\n",
-		color.Blue.Sprint(register),
-		color.Yellow.Sprintf("0x%016X", value),
-		color.Yellow.Sprintf("%d", value),
-	)
 }

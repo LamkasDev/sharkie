@@ -2,7 +2,6 @@ package patcher
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	"os"
 	"path"
@@ -11,7 +10,6 @@ import (
 
 	"github.com/LamkasDev/sharkie/cmd/elf"
 	"github.com/LamkasDev/sharkie/cmd/logger"
-	"github.com/LamkasDev/sharkie/cmd/sys_struct"
 	"github.com/bpfsnoop/gapstone"
 	"github.com/gookit/color"
 )
@@ -51,11 +49,6 @@ func NewPatcher() *Patcher {
 
 // Patch patches the ELF file.
 func (p *Patcher) Patch(e *elf.Elf) error {
-	sys_struct.PlaystationTlsOnce.Do(sys_struct.AllocPlaystationTlsSlot)
-	if sys_struct.PlaystationTlsSlot >= 64 {
-		return errors.New("tls slot is too high, cannot patch tcb access")
-	}
-
 	p.NeededTcbAccessTrampolines = []gapstone.Instruction{}
 	patchPath := filepath.Join(p.PatchesDirectory, fmt.Sprintf("%s.patch", e.Name))
 	if !p.ForceGenerate {

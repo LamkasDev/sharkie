@@ -32,17 +32,17 @@ func ProcessRelocationTable(e *elf.Elf, table *elf.ElfRelocationTable, tableName
 	for _, r := range table.Relocations {
 		switch r.Type {
 		case elf.R_AMD64_RELATIVE:
-			newAddr := uint64(int64(e.BaseAddress) + r.Addend)
-			if r.Offset+8 <= uint64(len(e.Memory)) {
-				binary.LittleEndian.PutUint64(e.Memory[r.Offset:], newAddr)
+			newAddr := e.BaseAddress + r.Addend
+			if r.Offset+8 <= uintptr(len(e.Memory)) {
+				binary.LittleEndian.PutUint64(e.Memory[r.Offset:], uint64(newAddr))
 				relativeCount++
 			}
 			break
 		case elf.R_AMD64_64:
 			if r.Symbol == 0 {
-				newAddr := uint64(int64(e.BaseAddress) + r.Addend)
-				if r.Offset+8 <= uint64(len(e.Memory)) {
-					binary.LittleEndian.PutUint64(e.Memory[r.Offset:], newAddr)
+				newAddr := e.BaseAddress + r.Addend
+				if r.Offset+8 <= uintptr(len(e.Memory)) {
+					binary.LittleEndian.PutUint64(e.Memory[r.Offset:], uint64(newAddr))
 					relativeCount++
 				}
 				break
@@ -54,20 +54,20 @@ func ProcessRelocationTable(e *elf.Elf, table *elf.ElfRelocationTable, tableName
 			}
 			symbol := e.SymbolTable.Symbols[r.Symbol]
 			if addr, ok := elf.GetSymbolAddress(symbol); ok {
-				newAddr := addr + uint64(r.Addend)
-				if r.Offset+8 <= uint64(len(e.Memory)) {
-					e.CallerToFunctionName[uintptr(r.Offset)] = symbol.HashIndex
-					binary.LittleEndian.PutUint64(e.Memory[r.Offset:], newAddr)
+				newAddr := addr + r.Addend
+				if r.Offset+8 <= uintptr(len(e.Memory)) {
+					e.CallerToFunctionName[r.Offset] = symbol.HashIndex
+					binary.LittleEndian.PutUint64(e.Memory[r.Offset:], uint64(newAddr))
 					externalCount++
 				}
 			} else {
 				elf.FakeAddressMap[elf.FakeAddress] = fmt.Sprintf("%s:%s", symbol.LibraryName, symbol.ReadableName)
-				newAddr := elf.FakeAddress + uint64(r.Addend)
+				newAddr := elf.FakeAddress + r.Addend
 				if r.Addend != 0 {
 					logger.Print(color.Gray.Sprintf("  Unhandled addend %d.\n", r.Addend))
 				}
-				if r.Offset+8 <= uint64(len(e.Memory)) {
-					binary.LittleEndian.PutUint64(e.Memory[r.Offset:], newAddr)
+				if r.Offset+8 <= uintptr(len(e.Memory)) {
+					binary.LittleEndian.PutUint64(e.Memory[r.Offset:], uint64(newAddr))
 					externalCount++
 				}
 				logger.Print(color.Gray.Sprintf("  Added fake address for %s:%s.\n", symbol.LibraryName, symbol.ReadableName))
@@ -92,7 +92,7 @@ func ProcessRelocationTable(e *elf.Elf, table *elf.ElfRelocationTable, tableName
 					))
 				}
 			}
-			if r.Offset+8 <= uint64(len(e.Memory)) {
+			if r.Offset+8 <= uintptr(len(e.Memory)) {
 				binary.LittleEndian.PutUint64(e.Memory[r.Offset:], moduleIndex)
 			}
 			break
@@ -103,10 +103,10 @@ func ProcessRelocationTable(e *elf.Elf, table *elf.ElfRelocationTable, tableName
 			}
 			symbol := e.SymbolTable.Symbols[r.Symbol]
 
-			newAddr := symbol.Address + uint64(r.Addend)
-			if r.Offset+8 <= uint64(len(e.Memory)) {
-				e.CallerToFunctionName[uintptr(r.Offset)] = symbol.HashIndex
-				binary.LittleEndian.PutUint64(e.Memory[r.Offset:], newAddr)
+			newAddr := symbol.Address + r.Addend
+			if r.Offset+8 <= uintptr(len(e.Memory)) {
+				e.CallerToFunctionName[r.Offset] = symbol.HashIndex
+				binary.LittleEndian.PutUint64(e.Memory[r.Offset:], uint64(newAddr))
 			}
 			break
 		default:

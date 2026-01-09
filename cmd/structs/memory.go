@@ -197,6 +197,17 @@ func (allocator *GoAllocator) Realloc(ptr uintptr, newSize uintptr) uintptr {
 	return newAddress
 }
 
+func MemoryIsDirectOrGpu(addr uintptr) (bool, bool) {
+	isDirectMemory := addr != 0 &&
+		addr >= GlobalAllocator.DirectMemoryBase &&
+		addr < GlobalAllocator.DirectMemoryBase+GlobalAllocator.DirectMemorySize
+	isGpuMemory := addr != 0 &&
+		addr >= GlobalAllocator.GpuMemoryBase &&
+		addr < GlobalAllocator.GpuMemoryBase+GlobalAllocator.GpuMemorySize
+
+	return isDirectMemory, isGpuMemory
+}
+
 func MemoryProtName(prot uintptr) string {
 	name := ""
 	if (prot&PROT_READ) != 0 || (prot&PROT_GPU_READ) != 0 {

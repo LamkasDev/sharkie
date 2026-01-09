@@ -62,7 +62,7 @@ func CreateFiosTrampoline(originalAddress uintptr) uintptr {
 	// RET                  ; Return to game
 	trampoline = append(trampoline, 0xC3)
 
-	trampolineAddr, err := sys_struct.AllocExecututableMemory(uintptr(len(trampoline)))
+	trampolineAddr, err := sys_struct.AllocExecutableMemory(uintptr(len(trampoline)))
 	if err != nil {
 		panic(err)
 	}

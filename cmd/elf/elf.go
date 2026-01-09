@@ -122,7 +122,7 @@ func NewElf(data []byte) *Elf {
 	e.SymbolTable = e.NewSymbolTable(data)
 
 	// Allocate memory and load sections.
-	e.BaseAddress, _ = sys_struct.AllocExecututableMemory(uintptr(e.MemSize))
+	e.BaseAddress, _ = sys_struct.AllocExecutableMemory(uintptr(e.MemSize))
 	e.Memory = unsafe.Slice((*byte)(unsafe.Pointer(e.BaseAddress)), e.MemSize)
 	logger.Printf(
 		"PT_LOAD data loaded into memory at %s (%s bytes).\n",

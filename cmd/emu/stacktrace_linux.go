@@ -1,4 +1,4 @@
-//go:build windows
+//go:build linux
 
 package emu
 
@@ -13,10 +13,10 @@ import (
 func SprintStackTrace(ctx *sys_struct.SIGNAL_CONTEXT) (result string) {
 	thread := GetCurrentThread()
 	result = "Stack trace:\n"
-	result += SprintAddress(uintptr(ctx.Rip))
+	result += SprintAddress(ctx.GetRegister(sys_struct.REG_RIP))
 
-	stackPtr := uintptr(ctx.Rsp)
-	if ctx.Rsp <= 0x1000 {
+	stackPtr := ctx.GetRegister(sys_struct.REG_RSP)
+	if ctx.GetRegister(sys_struct.REG_RSP) <= 0x1000 {
 		return result
 	}
 	stackTop := thread.Stack.Address + structs.StackDefaultSize

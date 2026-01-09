@@ -33,8 +33,7 @@ func ExceptionHandlerGo() uintptr {
 				color.Blue.Sprint(name),
 				color.Yellow.Sprintf("0x%X", ctx.Rip),
 			)
-			result += SprintStackTrace(ctx)
-			result += sys_struct.SprintContext(ctx)
+			result += SprintException(ctx)
 			logger.Print(result)
 
 			// The return address is on the stack. We need to pop it into RIP.
@@ -51,8 +50,7 @@ func ExceptionHandlerGo() uintptr {
 			color.Yellow.Sprintf("0x%X", ctx.Rip),
 			color.Yellow.Sprintf("0x%X", exceptionInfo.ExceptionRecord.ExceptionInformation[1]),
 		)
-		result += sys_struct.SprintContext(ctx)
-		result += SprintStackTrace(ctx)
+		result += SprintException(ctx)
 		logger.Print(result)
 		logger.CleanupAndExit()
 		break
@@ -63,8 +61,7 @@ func ExceptionHandlerGo() uintptr {
 			color.Red.Sprint("EXCEPTION_SINGLE_STEP"),
 			color.Yellow.Sprintf("0x%X", ctx.Rip),
 		)
-		result += sys_struct.SprintContext(ctx)
-		result += SprintStackTrace(ctx)
+		result += SprintException(ctx)
 		logger.Print(result)
 		ctx.Dr6 = 0
 
@@ -73,17 +70,24 @@ func ExceptionHandlerGo() uintptr {
 		result := fmt.Sprintf(
 			"[%s] Trapped exception code %s at %s...\n",
 			color.Green.Sprint(thread.Name),
-			color.Red.Sprint(code),
+			color.Red.Sprintf("0x%X", code),
 			color.Yellow.Sprintf("0x%X", ctx.Rip),
 		)
-		result += sys_struct.SprintContext(ctx)
-		result += SprintStackTrace(ctx)
+		result += SprintException(ctx)
 		logger.Print(result)
 		logger.CleanupAndExit()
 		break
 	}
 
 	return sys_struct.EXCEPTION_CONTINUE_SEARCH
+}
+
+func SprintException(ctx *sys_struct.CONTEXT) (result string) {
+	result += sys_struct.SprintContext(ctx)
+	result += sys_struct.SprintRegister("TCB", uint64(uintptr(unsafe.Pointer(asm.GetCurrentThreadContext()))))
+	result += SprintStackTrace(ctx)
+
+	return result
 }
 
 // SetupSignalHandler registers the assembly trampoline as the Vectored Exception Handler.

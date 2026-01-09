@@ -2,7 +2,7 @@
 
 package sys_struct
 
-// CONTEXT contains processor state, used for exception handling.
+// SIGNAL_CONTEXT contains processor state, used for exception handling.
 // https://learn.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-context
 type CONTEXT struct {
 	P1Home               uint64
@@ -71,24 +71,7 @@ type EXCEPTION_POINTERS struct {
 	ContextRecord   *CONTEXT
 }
 
-// EXCEPTION_CONTINUE_EXECUTION (-1)
-//
-//	Exception is dismissed. Continue execution at the point where the exception occurred.
-//
-// EXCEPTION_CONTINUE_SEARCH (0)
-//
-//	Exception isn't recognized. Continue to search up the stack for a handler, first for containing try-except statements, then for handlers with the next highest precedence.
-//
-// EXCEPTION_EXECUTE_HANDLER (1)
-//
-//	Exception is recognized. Transfer control to the exception handler by executing the __except compound statement, then continue execution after the __except block.
-//
-// https://learn.microsoft.com/en-us/cpp/cpp/try-except-statement?view=msvc-170#remarks
 const (
-	EXCEPTION_CONTINUE_EXECUTION = 0xFFFFFFFF
-	EXCEPTION_CONTINUE_SEARCH    = 0
-	EXCEPTION_EXECUTE_HANDLER    = 1
-
 	EXCEPTION_ACCESS_VIOLATION = 0xC0000005
 	EXCEPTION_SINGLE_STEP      = 0x80000004
 )
