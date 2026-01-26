@@ -113,16 +113,9 @@ func libKernel_pthread_create_name_np(threadPtr, attrHandlePtr, entryPoint, arg,
 		WriteAddress(threadPtr, pthreadAddr)
 	}
 
-	threadName := thread.Name
 	go func() {
-		runtime.LockOSThread()
-		defer runtime.UnlockOSThread()
-
-		thread.Setup()
 		thread.Call(entryPoint, arg)
-		logger.Printf("Thread %s exited.\n",
-			color.Blue.Sprint(threadName),
-		)
+		logger.Printf("Thread %s exited.\n", color.Blue.Sprint(thread.Name))
 	}()
 
 	logger.Printf("%-132s %s created thread %s at %s (%s at %s).\n",

@@ -34,6 +34,15 @@ type ThreadContext struct {
 	ReturnAddressAnchor uintptr
 	GlobalStubContext   uintptr
 	GlobalExceptionInfo uintptr
+
+	// Saved state for Call.
+	CallSavedBP  uintptr
+	CallSavedBX  uintptr
+	CallSavedR12 uintptr
+	CallSavedR13 uintptr
+	CallSavedR14 uintptr
+	CallSavedR15 uintptr
+	CallSavedSP  uintptr
 }
 
 func NewThreadContext(threadId int32, stackPtr uintptr) *ThreadContext {

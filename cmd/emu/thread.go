@@ -3,6 +3,7 @@ package emu
 import (
 	"errors"
 	"fmt"
+	"runtime"
 	"strings"
 	"sync"
 	"unsafe"
@@ -67,19 +68,20 @@ func NewThread(namePtr, stackSize uintptr) *Thread {
 
 func CreateThread(namePtr, stackSize uintptr) *Thread {
 	thread := NewThread(namePtr, stackSize)
-
-	// Clear a 128-byte red zone and align to 16-bytes.
-	// https://wiki.osdev.org/System_V_ABI
-	stackPtr := thread.Stack.ArgumentsAddress - 128
-	stackPtr &^= 15
 	logger.Printf(
 		"[%s] Stack of %s bytes allocated at %s (top %s).\n",
 		color.Green.Sprint(thread.Name),
 		color.Yellow.Sprintf("0x%X", stackSize),
 		color.Yellow.Sprintf("0x%X", thread.Stack.Address),
-		color.Yellow.Sprintf("0x%X", stackPtr),
+		color.Yellow.Sprintf("0x%X", thread.Stack.Top),
 	)
-	thread.Stack.CurrentPointer = stackPtr
+	logger.Printf(
+		"[%s] TCB allocated at %s (TLS at %s, %s bytes).\n",
+		color.Green.Sprint(thread.Name),
+		color.Yellow.Sprintf("0x%X", uintptr(unsafe.Pointer(thread.Tcb))),
+		color.Yellow.Sprintf("0x%X", uint64(uintptr(unsafe.Pointer(thread.Tcb)))-linker.GlobalLinker.StaticTlsSize),
+		color.Gray.Sprint(linker.GlobalLinker.StaticTlsSize),
+	)
 
 	ThreadLock.Lock()
 	ThreadRepo[thread.Id] = thread
@@ -117,32 +119,45 @@ func GetThreadForPtr(threadPtr uintptr) *Thread {
 // Setup sets the current thread's context and TLS.
 func (t *Thread) Setup() {
 	asm.SetThreadContext(asm.NewThreadContext(t.Id, t.Stack.CurrentPointer))
-
-	// Allocate and set up the TCB.
-	tcbAddr := uintptr(unsafe.Pointer(t.Tcb))
-	sys_struct.SetTlsSlot(asm.PlaystationTlsSlot, tcbAddr)
-	logger.Printf(
-		"[%s] TCB allocated at %s (TLS at %s, %s bytes).\n",
-		color.Green.Sprint(t.Name),
-		color.Yellow.Sprintf("0x%X", tcbAddr),
-		color.Yellow.Sprintf("0x%X", uint64(tcbAddr)-linker.GlobalLinker.StaticTlsSize),
-		color.Gray.Sprint(linker.GlobalLinker.StaticTlsSize),
-	)
+	sys_struct.SetTlsSlot(asm.PlaystationTlsSlot, uintptr(unsafe.Pointer(t.Tcb)))
 }
 
-// Call calls function at specified address.
-func (t *Thread) Call(funcAddr uintptr, arg uintptr) {
-	stackPtr := t.Stack.CurrentPointer
+// CallUnsafe calls a function at specified address.
+// The stack it returns on is no longer expandable as it might have split during guest execution.
+// Use Call to avoid this behaviour.
+func (t *Thread) CallUnsafe(funcAddr uintptr, arg uintptr) {
+	// Clear a 128-byte red zone and align to 16-bytes.
+	// https://wiki.osdev.org/System_V_ABI
+	stackPtr := t.Stack.CurrentPointer - 128
 	stackPtr &^= 15
-
-	logger.Printf("BEFORE Call: CurrentPointer=0x%X, stackPtr=0x%X\n", t.Stack.CurrentPointer, stackPtr)
 
 	// Call the assembly trampoline and call funcAddr function.
 	// asm.GuestEnter()
 	asm.Call(funcAddr, stackPtr, arg, 0)
 	// asm.GuestLeave()
+}
 
-	logger.Printf("AFTER Call: CurrentPointer=0x%X\n", t.Stack.CurrentPointer)
+// Call sets up the current goroutine and calls a function at specified address.
+// The stack it returns on is no longer expandable as it might have split during guest execution.
+// This however doesn't matter as long as you use it within a fresh goroutine.
+// It's aimed to be used asynchronously like 'go Call(...)' or for a more complete solution see CallSync.
+func (t *Thread) Call(funcAddr uintptr, arg uintptr) {
+	sys_struct.GrowGoStack(8)
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
+	t.Setup()
+	t.CallUnsafe(funcAddr, arg)
+}
+
+// CallAndWait creates a new goroutine, calls a function at specified address and waits until it finishes.
+// The stack it returns on is guaranteed to be safe even after guest execution.
+func (t *Thread) CallAndWait(funcAddr uintptr, arg uintptr) {
+	var wg sync.WaitGroup
+	wg.Go(func() {
+		t.Call(funcAddr, arg)
+	})
+	wg.Wait()
 }
 
 // Run pushes arguments on stack and calls the program's entry point.
@@ -156,7 +171,7 @@ func (t *Thread) Run(e *elf.Elf) {
 
 	// Clear a 128-byte red zone and align to 16-bytes.
 	// https://wiki.osdev.org/System_V_ABI
-	stackPtr := t.Stack.ArgumentsAddress - 128
+	stackPtr := t.Stack.CurrentPointer - 128
 	stackPtr &^= 15
 
 	// Call the assembly trampoline and jump into game code.

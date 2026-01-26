@@ -12,26 +12,30 @@ const StackMinimumSize = 0x4000
 const StackArgumentsSize = uintptr(256)
 
 type Stack struct {
-	Address          uintptr
-	ArgumentsAddress uintptr
-	ArgumentsOffset  uintptr
-	Contents         []byte
-	CurrentPointer   uintptr
+	Address                 uintptr
+	Top                     uintptr
+	ArgumentsAddress        uintptr
+	ArgumentsCurrentPointer uintptr
+	Contents                []byte
+	CurrentPointer          uintptr
 }
 
 // NewStack creates a new stack with the defined size.
 func NewStack(stackSize uintptr) *Stack {
-	addr, err := AllocKernelMemory(0, stackSize, PROT_READ|PROT_WRITE|PROT_EXEC, MAP_ANON|MAP_PRIVATE)
-	if addr == 0 {
+	stackPtr, err := AllocKernelMemory(0, stackSize, PROT_READ|PROT_WRITE|PROT_EXEC, MAP_ANON|MAP_PRIVATE)
+	if stackPtr == 0 {
 		panic(err)
 	}
+	stackPtr &^= 15
+	stackTop := stackPtr + stackSize
 
 	return &Stack{
-		Address:          addr,
-		ArgumentsAddress: addr + (stackSize - StackArgumentsSize),
-		ArgumentsOffset:  stackSize - StackArgumentsSize,
-		Contents:         unsafe.Slice((*byte)(unsafe.Pointer(addr)), stackSize),
-		CurrentPointer:   addr + (stackSize - StackArgumentsSize),
+		Address:                 stackPtr,
+		Top:                     stackTop,
+		ArgumentsAddress:        stackTop - StackArgumentsSize,
+		ArgumentsCurrentPointer: stackTop - StackArgumentsSize,
+		Contents:                unsafe.Slice((*byte)(unsafe.Pointer(stackPtr)), stackSize),
+		CurrentPointer:          stackTop - StackArgumentsSize,
 	}
 }
 
@@ -39,9 +43,9 @@ func NewStack(stackSize uintptr) *Stack {
 // Next argument will also be aligned on 8-byte boundary as per System V ABI AMD64.
 // https://c9x.me/compile/doc/abi.html
 func (s *Stack) PushUint32(v uint32) uintptr {
-	addr := s.Address + s.ArgumentsOffset
-	binary.LittleEndian.PutUint32(s.Contents[s.ArgumentsOffset:], v)
-	s.ArgumentsOffset += 8
+	addr := s.ArgumentsCurrentPointer
+	binary.LittleEndian.PutUint32(s.Contents[s.ArgumentsCurrentPointer:], v)
+	s.ArgumentsCurrentPointer += 8
 	return addr
 }
 
@@ -49,9 +53,9 @@ func (s *Stack) PushUint32(v uint32) uintptr {
 // Next argument will also be aligned on 8-byte boundary as per System V ABI AMD64.
 // https://c9x.me/compile/doc/abi.html
 func (s *Stack) PushUint64(v uint64) uintptr {
-	addr := s.Address + s.ArgumentsOffset
-	binary.LittleEndian.PutUint64(s.Contents[s.ArgumentsOffset:], v)
-	s.ArgumentsOffset += 8
+	addr := s.ArgumentsCurrentPointer
+	binary.LittleEndian.PutUint64(s.Contents[s.ArgumentsCurrentPointer:], v)
+	s.ArgumentsCurrentPointer += 8
 	return addr
 }
 
@@ -59,10 +63,10 @@ func (s *Stack) PushUint64(v uint64) uintptr {
 // Next argument will also be aligned on 8-byte boundary as per System V ABI AMD64.
 // https://c9x.me/compile/doc/abi.html
 func (s *Stack) PushString(v string) uintptr {
-	addr := s.Address + s.ArgumentsOffset
-	copy(s.Contents[s.ArgumentsOffset:], v)
+	addr := s.ArgumentsCurrentPointer
+	copy(s.Contents[s.ArgumentsCurrentPointer:], v)
 	vLength := uintptr(len(v))
 	padding := (StackAlignment - (vLength % StackAlignment)) % StackAlignment
-	s.ArgumentsOffset += vLength + padding
+	s.ArgumentsCurrentPointer += vLength + padding
 	return addr
 }
