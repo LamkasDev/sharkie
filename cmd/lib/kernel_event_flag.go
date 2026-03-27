@@ -13,10 +13,10 @@ import (
 
 // 0x00000000000231C0
 // __int64 __fastcall sceKernelCreateEventFlag(_QWORD *, __int64, unsigned int, __int64, __int64)
-func libKernel_sceKernelCreateEventFlag(efHandlePtr, namePtr, attr, initPattern, optParamPtr uintptr) uintptr {
+func libKernel_sceKernelCreateEventFlag(handlePtr, namePtr, attr, initPattern, optParamPtr uintptr) uintptr {
 	// This is correct, btw.
-	if efHandlePtr == 0 || optParamPtr != 0 {
-		logger.Printf("%-132s %s failed due to invalid pointer.\n",
+	if handlePtr == 0 || optParamPtr != 0 {
+		logger.Printf("%-132s %s failed due to invalid handle pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceKernelCreateEventFlag"),
 		)
@@ -28,8 +28,8 @@ func libKernel_sceKernelCreateEventFlag(efHandlePtr, namePtr, attr, initPattern,
 		return GetErrno() - SonyErrorOffset
 	}
 
-	efHandleSlice := unsafe.Slice((*byte)(unsafe.Pointer(efHandlePtr)), 4)
-	binary.LittleEndian.PutUint32(efHandleSlice, uint32(handle))
+	efHandleSlice := unsafe.Slice((*byte)(unsafe.Pointer(handlePtr)), 8)
+	binary.LittleEndian.PutUint64(efHandleSlice, uint64(handle))
 
 	return 0
 }
@@ -74,6 +74,10 @@ func libKernel_sys_evf_create(namePtr uintptr, attr uint32, initPattern uint64) 
 // __int64 __fastcall sceKernelOpenEventFlag(_QWORD *, __int64)
 func libKernel_sceKernelOpenEventFlag(handlePtr uintptr, namePtr uintptr) uintptr {
 	if handlePtr == 0 || namePtr == 0 {
+		logger.Printf("%-132s %s failed due to invalid handle pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceKernelOpenEventFlag"),
+		)
 		return SCE_KERNEL_ERROR_EINVAL
 	}
 	name := ReadCString(namePtr)
@@ -97,8 +101,8 @@ func libKernel_sceKernelOpenEventFlag(handlePtr uintptr, namePtr uintptr) uintpt
 		return SCE_KERNEL_ERROR_ENOENT
 	}
 
-	handleSlice := unsafe.Slice((*byte)(unsafe.Pointer(handlePtr)), 4)
-	binary.LittleEndian.PutUint32(handleSlice, uint32(foundEventFlag.Handle))
+	handleSlice := unsafe.Slice((*byte)(unsafe.Pointer(handlePtr)), 8)
+	binary.LittleEndian.PutUint64(handleSlice, uint64(foundEventFlag.Handle))
 
 	logger.Printf("%-132s %s opened event flag %s (name=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
@@ -123,6 +127,11 @@ func libKernel_sceKernelWaitEventFlag(handle, waitPattern, waitMode, outPatternP
 func libKernel_sys_evf_wait(handle uintptr, waitPattern uint64, waitMode uint32, outPatternPtr uintptr, timeoutPtr uintptr) uintptr {
 	eventFlag := GetEventFlag(handle)
 	if eventFlag == nil {
+		logger.Printf("%-132s %s failed due to unknown event flag handle %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sys_evf_wait"),
+			color.Yellow.Sprintf("0x%X", handle),
+		)
 		return SCE_KERNEL_ERROR_ENOENT
 	}
 
@@ -154,7 +163,7 @@ func libKernel_sys_evf_wait(handle uintptr, waitPattern uint64, waitMode uint32,
 			logger.Printf("%-132s %s finished waiting on event flag %s.\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("sys_evf_wait"),
-				color.Blue.Sprint(eventFlag.Name),
+				GetEventFlagName(eventFlag),
 			)
 			return 0
 		}
@@ -164,7 +173,7 @@ func libKernel_sys_evf_wait(handle uintptr, waitPattern uint64, waitMode uint32,
 				logger.Printf("%-132s %s timed out event flag %s.\n",
 					emu.GlobalModuleManager.GetCallSiteText(),
 					color.Magenta.Sprint("sys_evf_wait"),
-					color.Blue.Sprint(eventFlag.Name),
+					GetEventFlagName(eventFlag),
 				)
 				return SCE_KERNEL_ERROR_TIMEDOUT
 			}
@@ -174,7 +183,7 @@ func libKernel_sys_evf_wait(handle uintptr, waitPattern uint64, waitMode uint32,
 		logger.Printf("%-132s %s waiting on event flag %s for %s microseconds.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sys_evf_wait"),
-			color.Blue.Sprint(eventFlag.Name),
+			GetEventFlagName(eventFlag),
 			color.Yellow.Sprintf("0x%X", timeout.Microseconds()),
 		)
 		if timeout == -1 {
@@ -185,7 +194,7 @@ func libKernel_sys_evf_wait(handle uintptr, waitPattern uint64, waitMode uint32,
 				logger.Printf("%-132s %s timed out on event flag %s.\n",
 					emu.GlobalModuleManager.GetCallSiteText(),
 					color.Magenta.Sprint("sys_evf_wait"),
-					color.Blue.Sprint(eventFlag.Name),
+					GetEventFlagName(eventFlag),
 				)
 				return SCE_KERNEL_ERROR_TIMEDOUT
 			}
@@ -207,6 +216,11 @@ func libKernel_sceKernelPollEventFlag(handle, waitPattern, waitMode, outPatternP
 func libKernel_sys_evf_trywait(handle uintptr, waitPattern uint64, waitMode uint32, outPatternPtr uintptr) uintptr {
 	eventFlag := GetEventFlag(handle)
 	if eventFlag == nil {
+		logger.Printf("%-132s %s failed due unknown event flag handle %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sys_evf_trywait"),
+			color.Yellow.Sprintf("0x%X", handle),
+		)
 		return SCE_KERNEL_ERROR_ENOENT
 	}
 
@@ -230,7 +244,7 @@ func libKernel_sys_evf_trywait(handle uintptr, waitPattern uint64, waitMode uint
 		logger.Printf("%-132s %s finished waiting on event flag %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sys_evf_trywait"),
-			color.Blue.Sprint(eventFlag.Name),
+			GetEventFlagName(eventFlag),
 		)
 		return 0
 	}
@@ -238,7 +252,7 @@ func libKernel_sys_evf_trywait(handle uintptr, waitPattern uint64, waitMode uint
 	logger.Printf("%-132s %s tried waiting on event flag %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sys_evf_trywait"),
-		color.Blue.Sprint(eventFlag.Name),
+		GetEventFlagName(eventFlag),
 	)
 	return SCE_KERNEL_ERROR_TIMEDOUT
 }
@@ -257,6 +271,11 @@ func libKernel_sceKernelSetEventFlag(handle, bits uintptr) uintptr {
 func libKernel_sys_evf_set(handle uintptr, bits uint64) uintptr {
 	eventFlag := GetEventFlag(handle)
 	if eventFlag == nil {
+		logger.Printf("%-132s %s failed due unknown event flag handle %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sys_evf_set"),
+			color.Yellow.Sprintf("0x%X", handle),
+		)
 		return SCE_KERNEL_ERROR_ENOENT
 	}
 
@@ -268,7 +287,7 @@ func libKernel_sys_evf_set(handle uintptr, bits uint64) uintptr {
 	logger.Printf("%-132s %s set event flag %s to %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sys_evf_set"),
-		color.Blue.Sprint(eventFlag.Name),
+		GetEventFlagName(eventFlag),
 		color.Yellow.Sprintf("0x%X", bits),
 	)
 	return 0

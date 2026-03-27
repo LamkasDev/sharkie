@@ -26,7 +26,7 @@ func ExceptionHandlerGo() uintptr {
 
 	switch code {
 	case sys_struct.EXCEPTION_ACCESS_VIOLATION:
-		if name, ok := elf.FakeAddressMap[ctx.Rip]; ok {
+		if name, ok := elf.FakeAddressMap[uintptr(ctx.Rip)]; ok {
 			result := fmt.Sprintf(
 				"[%s] Called external symbol %s at %s...\n",
 				color.Green.Sprint(thread.Name),

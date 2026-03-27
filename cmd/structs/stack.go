@@ -14,9 +14,9 @@ const StackArgumentsSize = uintptr(256)
 type Stack struct {
 	Address                 uintptr
 	Top                     uintptr
+	Size                    uintptr
 	ArgumentsAddress        uintptr
 	ArgumentsCurrentPointer uintptr
-	Contents                []byte
 	CurrentPointer          uintptr
 }
 
@@ -26,16 +26,19 @@ func NewStack(stackSize uintptr) *Stack {
 	if stackPtr == 0 {
 		panic(err)
 	}
+
+	// Clear a 128-byte red zone and align to 16-bytes.
+	// https://wiki.osdev.org/System_V_ABI
 	stackPtr &^= 15
 	stackTop := stackPtr + stackSize
 
 	return &Stack{
 		Address:                 stackPtr,
 		Top:                     stackTop,
+		Size:                    stackSize,
 		ArgumentsAddress:        stackTop - StackArgumentsSize,
 		ArgumentsCurrentPointer: stackTop - StackArgumentsSize,
-		Contents:                unsafe.Slice((*byte)(unsafe.Pointer(stackPtr)), stackSize),
-		CurrentPointer:          stackTop - StackArgumentsSize,
+		CurrentPointer:          stackTop - StackArgumentsSize - 128,
 	}
 }
 
@@ -44,7 +47,7 @@ func NewStack(stackSize uintptr) *Stack {
 // https://c9x.me/compile/doc/abi.html
 func (s *Stack) PushUint32(v uint32) uintptr {
 	addr := s.ArgumentsCurrentPointer
-	binary.LittleEndian.PutUint32(s.Contents[s.ArgumentsCurrentPointer:], v)
+	binary.LittleEndian.PutUint32(unsafe.Slice((*byte)(unsafe.Pointer(s.ArgumentsCurrentPointer)), 4), v)
 	s.ArgumentsCurrentPointer += 8
 	return addr
 }
@@ -54,7 +57,7 @@ func (s *Stack) PushUint32(v uint32) uintptr {
 // https://c9x.me/compile/doc/abi.html
 func (s *Stack) PushUint64(v uint64) uintptr {
 	addr := s.ArgumentsCurrentPointer
-	binary.LittleEndian.PutUint64(s.Contents[s.ArgumentsCurrentPointer:], v)
+	binary.LittleEndian.PutUint64(unsafe.Slice((*byte)(unsafe.Pointer(s.ArgumentsCurrentPointer)), 8), v)
 	s.ArgumentsCurrentPointer += 8
 	return addr
 }
@@ -64,8 +67,8 @@ func (s *Stack) PushUint64(v uint64) uintptr {
 // https://c9x.me/compile/doc/abi.html
 func (s *Stack) PushString(v string) uintptr {
 	addr := s.ArgumentsCurrentPointer
-	copy(s.Contents[s.ArgumentsCurrentPointer:], v)
 	vLength := uintptr(len(v))
+	copy(unsafe.Slice((*byte)(unsafe.Pointer(s.ArgumentsCurrentPointer)), vLength), v)
 	padding := (StackAlignment - (vLength % StackAlignment)) % StackAlignment
 	s.ArgumentsCurrentPointer += vLength + padding
 	return addr

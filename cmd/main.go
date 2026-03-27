@@ -20,7 +20,7 @@ func main() {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 	logger.StartLogging()
-	logger.StartProfiling()
+	// logger.StartProfiling()
 
 	logger.Printf("hi from %s :3\n", color.Blue.Sprint("sharkie"))
 	asm.ExceptionHandler = emu.ExceptionHandlerGo

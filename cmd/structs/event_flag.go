@@ -3,6 +3,8 @@ package structs
 import (
 	"fmt"
 	"sync"
+
+	"github.com/gookit/color"
 )
 
 var (
@@ -76,6 +78,14 @@ func CheckEventFlagCondition(current, wait uint64, mode uint32) bool {
 	}
 
 	return (current & wait) == wait
+}
+
+func GetEventFlagName(eventFlag *EventFlag) string {
+	if eventFlag.Name == "" {
+		return color.Yellow.Sprintf("0x%X", eventFlag.Handle)
+	}
+
+	return color.Blue.Sprint(eventFlag.Name)
 }
 
 func CreateDefaultEventFlags(names []string) {

@@ -31,10 +31,11 @@ func libKernel___tls_get_addr(tlsIndexPtr uintptr) uintptr {
 		return 0
 	}
 
-	logger.Printf("%-132s %s returning tls address %s for module %s (offset=%s).\n",
+	logger.Printf("%-132s %s returning tls address %s for %s (moduleId=%s, offset=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("__tls_get_addr"),
 		color.Yellow.Sprintf("0x%X", address),
+		color.Blue.Sprint(emu.GlobalModuleManager.Modules[tlsIndex.ModuleId].Name),
 		color.Green.Sprintf("%d", tlsIndex.ModuleId),
 		color.Yellow.Sprintf("0x%X", tlsIndex.Offset),
 	)

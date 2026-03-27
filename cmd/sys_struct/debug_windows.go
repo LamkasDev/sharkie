@@ -39,7 +39,7 @@ func SetHardwareBreakpoint(slot int, address uintptr, breakType, size int) error
 	}
 
 	// Get thread context with debug registers.
-	var ctx SIGNAL_CONTEXT
+	var ctx CONTEXT
 	ctx.ContextFlags = CONTEXT_DEBUG_REGISTERS
 
 	ret, _, err := GetThreadContext.Call(uintptr(windows.CurrentThread()), uintptr(unsafe.Pointer(&ctx)))

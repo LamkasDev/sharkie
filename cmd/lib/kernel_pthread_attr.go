@@ -124,7 +124,7 @@ func libKernel_scePthreadAttrGet(threadPtr uintptr, attrHandlePtr uintptr) uintp
 
 	thread := emu.GetCurrentThread()
 	attr.StackAddress = thread.Stack.Address
-	attr.StackSize = uintptr(len(thread.Stack.Contents))
+	attr.StackSize = thread.Stack.Size
 	attr.GuardSize = GuardPageSize
 
 	logger.Printf("%-132s %s assigned thread attributes (threadPtr=%s, attrHandlePtr=%s).\n",

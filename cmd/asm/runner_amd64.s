@@ -80,9 +80,9 @@ TEXT ·Call(SB), NOSPLIT|NOFRAME, $0-32
     MOVQ R13, CTX_CALL_SAVED_R13(DX)
     MOVQ R14, CTX_CALL_SAVED_R14(DX)
     MOVQ R15, CTX_CALL_SAVED_R15(DX)
+    MOVQ SP, CTX_CALL_SAVED_SP(DX)
 
     // Save the current Go stack so we can restore it later.
-    MOVQ SP, CTX_CALL_SAVED_SP(DX)
     MOVQ SP, CTX_GO_SP(DX)
     MOVQ BP, CTX_GO_BP(DX)
     MOVQ R14, CTX_SAVED_G(DX)

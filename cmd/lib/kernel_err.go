@@ -35,7 +35,14 @@ func SetErrno(err uintptr) {
 // 0x0000000000002C70
 // void *_error()
 func libKernel___error() uintptr {
-	return GetErrnoAddress()
+	address := GetErrnoAddress()
+	logger.Printf("%-132s %s returning %s.\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("_error"),
+		color.Red.Sprintf("0x%X", address),
+	)
+
+	return address
 }
 
 // 0x0000000000014E50

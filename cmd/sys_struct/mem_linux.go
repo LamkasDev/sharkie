@@ -4,8 +4,6 @@ package sys_struct
 
 import (
 	"syscall"
-
-	"github.com/LamkasDev/sharkie/cmd/structs"
 )
 
 // AllocExecutableMemory allocates a chunk of executable memory with the defined size.
@@ -16,7 +14,7 @@ func AllocExecutableMemory(size uintptr) (uintptr, error) {
 		size,
 		syscall.PROT_READ|syscall.PROT_WRITE|syscall.PROT_EXEC,
 		syscall.MAP_PRIVATE|syscall.MAP_ANONYMOUS,
-		structs.ERR_PTR,
+		^uintptr(0),
 		0,
 	)
 	if err != 0 {

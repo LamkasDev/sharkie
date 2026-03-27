@@ -126,14 +126,9 @@ func (t *Thread) Setup() {
 // The stack it returns on is no longer expandable as it might have split during guest execution.
 // Use Call to avoid this behaviour.
 func (t *Thread) CallUnsafe(funcAddr uintptr, arg uintptr) {
-	// Clear a 128-byte red zone and align to 16-bytes.
-	// https://wiki.osdev.org/System_V_ABI
-	stackPtr := t.Stack.CurrentPointer - 128
-	stackPtr &^= 15
-
 	// Call the assembly trampoline and call funcAddr function.
 	// asm.GuestEnter()
-	asm.Call(funcAddr, stackPtr, arg, 0)
+	asm.Call(funcAddr, t.Stack.CurrentPointer, arg, 0)
 	// asm.GuestLeave()
 }
 
@@ -142,7 +137,7 @@ func (t *Thread) CallUnsafe(funcAddr uintptr, arg uintptr) {
 // This however doesn't matter as long as you use it within a fresh goroutine.
 // It's aimed to be used asynchronously like 'go Call(...)' or for a more complete solution see CallSync.
 func (t *Thread) Call(funcAddr uintptr, arg uintptr) {
-	sys_struct.GrowGoStack(8)
+	sys_struct.GrowGoStack(64)
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
@@ -169,11 +164,6 @@ func (t *Thread) Run(e *elf.Elf) {
 	t.Stack.PushUint64(uint64(strAddr))
 	t.Stack.PushUint64(0)
 
-	// Clear a 128-byte red zone and align to 16-bytes.
-	// https://wiki.osdev.org/System_V_ABI
-	stackPtr := t.Stack.CurrentPointer - 128
-	stackPtr &^= 15
-
 	// Call the assembly trampoline and jump into game code.
 	entry := e.BaseAddress + uintptr(e.EntryAddress)
 	logger.Printf(
@@ -181,7 +171,7 @@ func (t *Thread) Run(e *elf.Elf) {
 		color.Yellow.Sprintf("0x%X", entry),
 	)
 	// asm.GuestEnter()
-	asm.Run(entry, stackPtr, argsPtr, 0)
+	asm.Run(entry, t.Stack.CurrentPointer, argsPtr, 0)
 	// asm.GuestLeave()
 
 	// This should not be reached.
@@ -191,7 +181,7 @@ func (t *Thread) Run(e *elf.Elf) {
 // SafeReadUint64 safely reads a uint64 value from the stack.
 func (t *Thread) SafeReadUint64(address uintptr) (uint64, bool) {
 	if t.Stack != nil {
-		if address >= t.Stack.Address && address+8 <= t.Stack.Address+uintptr(len(t.Stack.Contents)) {
+		if address >= t.Stack.Address && address+8 <= t.Stack.Address+t.Stack.Size {
 			return *(*uint64)(unsafe.Pointer(address)), true
 		}
 	}

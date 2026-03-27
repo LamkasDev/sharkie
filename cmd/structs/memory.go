@@ -73,8 +73,9 @@ type Allocator struct {
 }
 
 type GoAllocator struct {
-	Allocator *gomem.ScalableMemoryAllocator
-	Lock      sync.Mutex
+	Allocator   *gomem.ScalableMemoryAllocator
+	Allocations map[uintptr][]byte
+	Lock        sync.Mutex
 }
 
 func SetupAllocator() {
@@ -113,8 +114,9 @@ func NewAllocator() *Allocator {
 // NewGoAllocator creates a new instance of GoAllocator.
 func NewGoAllocator() *GoAllocator {
 	goAllocator := &GoAllocator{
-		Allocator: gomem.NewScalableMemoryAllocator(1024),
-		Lock:      sync.Mutex{},
+		Allocator:   gomem.NewScalableMemoryAllocator(1024),
+		Allocations: map[uintptr][]byte{},
+		Lock:        sync.Mutex{},
 	}
 
 	return goAllocator
@@ -124,18 +126,19 @@ func (allocator *GoAllocator) Malloc(size uintptr) uintptr {
 	if size == 0 {
 		size = 1
 	}
+	allocator.Lock.Lock()
+	defer allocator.Lock.Unlock()
 
 	// We need 16-bytes for header and 15-bytes for worst case alignment.
 	allocatedSize := size + AllocationHeaderSize + (AllocationAlignment - 1)
-	allocator.Lock.Lock()
 	dataSlice := allocator.Allocator.Malloc(int(allocatedSize))
-	allocator.Lock.Unlock()
 	if len(dataSlice) == 0 {
 		return 0
 	}
 	address := uintptr(unsafe.Pointer(&dataSlice[0]))
 	alignedAddress := (address + AllocationHeaderSize + (AllocationAlignment - 1)) & ^uintptr(AllocationAlignment-1)
 	headerAddress := alignedAddress - AllocationHeaderSize
+	allocator.Allocations[address] = dataSlice
 
 	// Write header (0 - original pointer, 8 - allocated size).
 	headerSlice := unsafe.Slice((*byte)(unsafe.Pointer(headerAddress)), AllocationHeaderSize)
@@ -149,15 +152,16 @@ func (allocator *GoAllocator) Free(ptr uintptr) bool {
 	if ptr == 0 {
 		return true
 	}
+	allocator.Lock.Lock()
+	defer allocator.Lock.Unlock()
 
 	// Read header (0 - original pointer, 8 - allocated size).
 	headerAddr := ptr - AllocationHeaderSize
 	address := *(*uintptr)(unsafe.Pointer(headerAddr))
 	allocatedSize := *(*uintptr)(unsafe.Pointer(headerAddr + 8))
 	dataSlice := unsafe.Slice((*byte)(unsafe.Pointer(address)), allocatedSize)
+	delete(allocator.Allocations, address)
 
-	allocator.Lock.Lock()
-	defer allocator.Lock.Unlock()
 	return allocator.Allocator.Free(dataSlice)
 }
 

@@ -3,9 +3,11 @@ package lib
 import (
 	"encoding/binary"
 	"runtime"
+	"strings"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
+	"github.com/LamkasDev/sharkie/cmd/linker"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	. "github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/gookit/color"
@@ -118,14 +120,24 @@ func libKernel_pthread_create_name_np(threadPtr, attrHandlePtr, entryPoint, arg,
 		logger.Printf("Thread %s exited.\n", color.Blue.Sprint(thread.Name))
 	}()
 
-	logger.Printf("%-132s %s created thread %s at %s (%s at %s).\n",
+	logger.Printf("%-132s %s created thread %s at %s (%s at %s, arg=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("pthread_create_name_np"),
 		color.Blue.Sprint(thread.Name),
 		color.Yellow.Sprintf("0x%X", pthreadAddr),
 		color.Blue.Sprint(module.Name),
 		color.Yellow.Sprintf("0x%X", entryPoint-module.BaseAddress),
+		color.Yellow.Sprintf("0x%X", arg),
 	)
+	if strings.Contains(thread.Name, "Rebuild Chunk") {
+		tls := uintptr(unsafe.Pointer(thread.Tcb)) - uintptr(linker.GlobalLinker.StaticTlsSize)
+		argValue := unsafe.Slice((*byte)(unsafe.Pointer(arg)), 8)
+		logger.Printf("%-132s passed value contains %s (relative in tls %s).\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Yellow.Sprintf("0x%X", binary.LittleEndian.Uint64(argValue)),
+			color.Yellow.Sprintf("0x%X", arg-tls),
+		)
+	}
 	return 0
 }
 

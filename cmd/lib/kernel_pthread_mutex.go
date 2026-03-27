@@ -37,10 +37,10 @@ func libKernel_scePthreadMutexInit(mutexHandlePtr uintptr, attrPtr uintptr, name
 
 	// TODO: emulate __sys_namedobj_create?
 
-	logger.Printf("%-132s %s created mutex named %s.\n",
+	logger.Printf("%-132s %s named mutex %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("scePthreadMutexInit"),
-		color.Blue.Sprint(name),
+		GetMutexNameText(mutex, mutexAddr),
 	)
 	return 0
 }

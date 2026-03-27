@@ -1,12 +1,17 @@
 package asm
 
 import (
+	"runtime"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/sys_struct"
 )
 
 var (
+	// ThreadRepo maps thread IDs to host thread contexts.
+	ThreadContextRepo   = map[int32]*ThreadContext{}
+	ThreadContextPinner = runtime.Pinner{}
+
 	// Global constants.
 	StubAddr             uintptr
 	ExceptionHandlerAddr uintptr
@@ -46,10 +51,14 @@ type ThreadContext struct {
 }
 
 func NewThreadContext(threadId int32, stackPtr uintptr) *ThreadContext {
-	return &ThreadContext{
+	threadContext := &ThreadContext{
 		ThreadId:      uintptr(threadId),
 		PlaystationSP: stackPtr,
 	}
+	ThreadContextRepo[threadId] = threadContext
+	ThreadContextPinner.Pin(threadContext)
+
+	return threadContext
 }
 
 func GetCurrentThreadContext() *ThreadContext

@@ -37,6 +37,7 @@ func StopLogging() {
 }
 
 func CleanupAndExit() {
+	fmt.Println("Exiting...")
 	StopProfiling()
 	StopLogging()
 	os.Exit(0)

@@ -3,7 +3,7 @@
 package sys_struct
 
 func AllocTlsSlot() (uintptr, uintptr) {
-	slot, _, err := sys_struct.TlsAlloc.Call()
+	slot, _, err := TlsAlloc.Call()
 	if slot == 0 {
 		panic(err)
 	}
@@ -12,7 +12,7 @@ func AllocTlsSlot() (uintptr, uintptr) {
 }
 
 func SetTlsSlot(slot uintptr, value uintptr) {
-	status, _, err := sys_struct.TlsSetValue.Call(slot, value)
+	status, _, err := TlsSetValue.Call(slot, value)
 	if status == 0 {
 		panic(err)
 	}

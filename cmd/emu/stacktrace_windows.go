@@ -10,7 +10,7 @@ import (
 )
 
 // SprintStackTrace prints the stack trace from given context.
-func SprintStackTrace(ctx *sys_struct.SIGNAL_CONTEXT) (result string) {
+func SprintStackTrace(ctx *sys_struct.CONTEXT) (result string) {
 	thread := GetCurrentThread()
 	result = "Stack trace:\n"
 	result += SprintAddress(uintptr(ctx.Rip))

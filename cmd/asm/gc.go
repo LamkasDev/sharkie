@@ -1,6 +1,7 @@
 package asm
 
 import (
+	"fmt"
 	"runtime"
 	"runtime/debug"
 	"sync/atomic"
@@ -38,6 +39,7 @@ func CheckAndRunGC() {
 	}
 
 	// Wait for all threads to return.
+	fmt.Println("GC waiting for threads")
 	GCFence.Store(true)
 	start := time.Now()
 	for ActiveGuestThreads.Load() != 0 {
@@ -49,7 +51,9 @@ func CheckAndRunGC() {
 
 	// Perform GC, stopping all threads from exiting until done.
 	NeedsGC.Store(false)
+	fmt.Println("GC starting")
 	runtime.GC()
+	fmt.Println("GC finished")
 	GCFence.Store(false)
 	GCInProgress.Store(false)
 }
