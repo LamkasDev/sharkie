@@ -36,7 +36,6 @@ TEXT ·exceptionHandlerAsm(SB), NOSPLIT, $80-0
 
     // Save Linux stack.
     MOVQ SP, CTX_SYSTEM_SP(DX)
-    ADDQ $80, CTX_SYSTEM_SP(DX)
 
     // Restore Go stack pointer into scratch register.
     MOVQ CTX_SAVED_G(DX), R14
@@ -44,13 +43,12 @@ TEXT ·exceptionHandlerAsm(SB), NOSPLIT, $80-0
     MOVQ CTX_GO_BP(DX), BP
 
     // Create an exception info struct and pass the pointer.
-    SUBQ $24, BX
     MOVQ 56(SP), AX // info
-    MOVQ AX, 0(BX)
+    MOVQ AX, CTX_EXC_INFO_BUF(DX)
     MOVQ 64(SP), AX // ucontext
-    MOVQ AX, 8(BX)
-    MOVQ BX, CTX_EXC_INFO(DX)
-    ADDQ $24, BX
+    MOVQ AX, CTX_EXC_INFO_BUF+8(DX)
+    LEAQ CTX_EXC_INFO_BUF(DX), AX
+    MOVQ AX, CTX_EXC_INFO(DX)
 
     // For real restore Go stack pointer.
     BYTE $0x48; BYTE $0x89; BYTE $0xDC  // MOVQ BX, SP

@@ -36,18 +36,17 @@ type ThreadContext struct {
 	SavedG        uintptr
 
 	// Execution state.
-	ReturnAddressAnchor uintptr
-	GlobalStubContext   uintptr
-	GlobalExceptionInfo uintptr
+	ReturnAddressAnchor       uintptr
+	GlobalStubContext         uintptr
+	GlobalExceptionInfo       uintptr    // For Windows.
+	GlobalExceptionInfoBuffer [2]uintptr // For Linux.
 
 	// Saved state for Call.
-	CallSavedBP  uintptr
 	CallSavedBX  uintptr
 	CallSavedR12 uintptr
 	CallSavedR13 uintptr
 	CallSavedR14 uintptr
 	CallSavedR15 uintptr
-	CallSavedSP  uintptr
 }
 
 func NewThreadContext(threadId int32, stackPtr uintptr) *ThreadContext {

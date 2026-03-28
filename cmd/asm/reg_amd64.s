@@ -28,13 +28,12 @@
 #define CTX_RET_ANCHOR 56
 #define CTX_STUB_CTX 64
 #define CTX_EXC_INFO 72
-#define CTX_CALL_SAVED_BP 80
-#define CTX_CALL_SAVED_BX 88
-#define CTX_CALL_SAVED_R12 96
-#define CTX_CALL_SAVED_R13 104
-#define CTX_CALL_SAVED_R14 112
-#define CTX_CALL_SAVED_R15 120
-#define CTX_CALL_SAVED_SP 128
+#define CTX_EXC_INFO_BUF 80
+#define CTX_CALL_SAVED_BX 96
+#define CTX_CALL_SAVED_R12 104
+#define CTX_CALL_SAVED_R13 112
+#define CTX_CALL_SAVED_R14 120
+#define CTX_CALL_SAVED_R15 128
 
 // SAVE_REGS saves all general-purpose registers.
 #define SAVE_REGS \

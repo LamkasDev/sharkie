@@ -74,13 +74,11 @@ TEXT ·Call(SB), NOSPLIT|NOFRAME, $0-32
     MOVQ AX, DX
 
     // Save callee-saved registers.
-    MOVQ BP, CTX_CALL_SAVED_BP(DX)
     MOVQ BX, CTX_CALL_SAVED_BX(DX)
     MOVQ R12, CTX_CALL_SAVED_R12(DX)
     MOVQ R13, CTX_CALL_SAVED_R13(DX)
     MOVQ R14, CTX_CALL_SAVED_R14(DX)
     MOVQ R15, CTX_CALL_SAVED_R15(DX)
-    MOVQ SP, CTX_CALL_SAVED_SP(DX)
 
     // Save the current Go stack so we can restore it later.
     MOVQ SP, CTX_GO_SP(DX)
@@ -112,7 +110,7 @@ TEXT ·Call(SB), NOSPLIT|NOFRAME, $0-32
     MOVQ AX, DX
 
     // Restore Go stack.
-    MOVQ CTX_CALL_SAVED_SP(DX), BX
+    MOVQ CTX_GO_SP(DX), BX
     BYTE $0x48; BYTE $0x89; BYTE $0xDC  // MOVQ BX, SP
 
     // Clean up fake call frame.
@@ -124,6 +122,6 @@ TEXT ·Call(SB), NOSPLIT|NOFRAME, $0-32
     MOVQ CTX_CALL_SAVED_R13(DX), R13
     MOVQ CTX_CALL_SAVED_R12(DX), R12
     MOVQ CTX_CALL_SAVED_BX(DX), BX
-    MOVQ CTX_CALL_SAVED_BP(DX), BP
+    MOVQ CTX_GO_BP(DX), BP
 
     RET

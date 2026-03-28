@@ -125,7 +125,20 @@ func (m *ModuleManager) RunModuleInitializers(module *elf.Elf, visited map[strin
 		return
 	}
 
-	// Call initialization functions.
+	// Call	module_start function on shared libraries.
+	if module.EntryAddress != 0 && module != m.CurrentModule {
+		moduleStart := module.BaseAddress + uintptr(module.EntryAddress)
+		logger.Printf(
+			"Calling %s's %s function at %s (relative=%s)...\n",
+			color.Blue.Sprint(module.Name),
+			color.Magenta.Sprint("module_start"),
+			color.Yellow.Sprintf("0x%X", moduleStart),
+			color.Yellow.Sprintf("0x%X", module.EntryAddress),
+		)
+		m.MainThread.CallAndWait(moduleStart, 0)
+	}
+
+	// Call C++ initialization functions.
 	if !isSelfContained {
 		for _, funcAddr := range module.DynamicInfo.PreInitArray {
 			logger.Printf(

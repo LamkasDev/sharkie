@@ -127,9 +127,9 @@ func (t *Thread) Setup() {
 // Use Call to avoid this behaviour.
 func (t *Thread) CallUnsafe(funcAddr uintptr, arg uintptr) {
 	// Call the assembly trampoline and call funcAddr function.
-	// asm.GuestEnter()
+	asm.GuestEnter()
 	asm.Call(funcAddr, t.Stack.CurrentPointer, arg, 0)
-	// asm.GuestLeave()
+	asm.GuestLeave()
 }
 
 // Call sets up the current goroutine and calls a function at specified address.
@@ -137,7 +137,6 @@ func (t *Thread) CallUnsafe(funcAddr uintptr, arg uintptr) {
 // This however doesn't matter as long as you use it within a fresh goroutine.
 // It's aimed to be used asynchronously like 'go Call(...)' or for a more complete solution see CallSync.
 func (t *Thread) Call(funcAddr uintptr, arg uintptr) {
-	sys_struct.GrowGoStack(64)
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
@@ -170,9 +169,9 @@ func (t *Thread) Run(e *elf.Elf) {
 		"Jumping to entry point %s...\n",
 		color.Yellow.Sprintf("0x%X", entry),
 	)
-	// asm.GuestEnter()
+	asm.GuestEnter()
 	asm.Run(entry, t.Stack.CurrentPointer, argsPtr, 0)
-	// asm.GuestLeave()
+	asm.GuestLeave()
 
 	// This should not be reached.
 	logger.Println("Returned from run - this should not happen.")

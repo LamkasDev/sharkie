@@ -21,12 +21,12 @@ func SetupCooperativeGC() {
 	debug.SetGCPercent(-1)
 
 	// Start a background ticker to signal for a GC.
-	/* go func() {
+	go func() {
 		ticker := time.NewTicker(2 * time.Second)
 		for range ticker.C {
 			NeedsGC.Store(true)
 		}
-	}() */
+	}()
 }
 
 // CheckAndRunGC checks if we should GC, waits until all threads are back and sweeps.
@@ -39,7 +39,7 @@ func CheckAndRunGC() {
 	}
 
 	// Wait for all threads to return.
-	fmt.Println("GC waiting for threads")
+	fmt.Println("GC waiting for threads...")
 	GCFence.Store(true)
 	start := time.Now()
 	for ActiveGuestThreads.Load() != 0 {
@@ -51,9 +51,9 @@ func CheckAndRunGC() {
 
 	// Perform GC, stopping all threads from exiting until done.
 	NeedsGC.Store(false)
-	fmt.Println("GC starting")
+	fmt.Println("GC starting...")
 	runtime.GC()
-	fmt.Println("GC finished")
+	fmt.Println("GC finished.")
 	GCFence.Store(false)
 	GCInProgress.Store(false)
 }

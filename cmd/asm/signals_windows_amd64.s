@@ -36,7 +36,6 @@ TEXT ·exceptionHandlerAsm(SB), NOSPLIT, $64-0
 
     // Save Windows stack.
     MOVQ SP, CTX_SYSTEM_SP(DX)
-    ADDQ $64, CTX_SYSTEM_SP(DX)
 
     // Restore Go stack pointer into scratch register.
     MOVQ CTX_SAVED_G(DX), R14
