@@ -124,6 +124,7 @@ func (m *ModuleManager) RunModuleInitializers(module *elf.Elf, visited map[strin
 	if skipOwnInit {
 		return
 	}
+	m.CurrentModule = module
 
 	// Call	module_start function on shared libraries.
 	if module.EntryAddress != 0 && module != m.CurrentModule {
@@ -177,8 +178,8 @@ func (m *ModuleManager) RunModuleInitializers(module *elf.Elf, visited map[strin
 
 // RunModule runs module specified by name.
 func (m *ModuleManager) RunModule(name string) {
-	m.CurrentModule = m.ModulesMap[name]
-	if m.CurrentModule == nil {
+	module := m.ModulesMap[name]
+	if module == nil {
 		log.Panicf("Module %s is not loaded!\n", name)
 	}
 
@@ -190,6 +191,8 @@ func (m *ModuleManager) RunModule(name string) {
 	m.MainThread.Setup()
 
 	visited := make(map[string]bool)
-	m.RunModuleInitializers(m.CurrentModule, visited, true)
+	m.RunModuleInitializers(module, visited, true)
+
+	m.CurrentModule = module
 	m.MainThread.Run(m.CurrentModule)
 }

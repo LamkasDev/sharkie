@@ -44,10 +44,11 @@ func ExceptionHandlerGo() uintptr {
 		}
 
 		result := fmt.Sprintf(
-			"[%s] Trapped %s at %s...\nAttempted to access address: %s\n",
+			"[%s] Trapped %s at %s (%s)...\nAttempted to access address: %s\n",
 			color.Green.Sprint(thread.Name),
 			color.Red.Sprint("EXCEPTION_ACCESS_VIOLATION"),
 			color.Yellow.Sprintf("0x%X", ctx.Rip),
+			GlobalModuleManager.GetCallSiteTextShort(),
 			color.Yellow.Sprintf("0x%X", exceptionInfo.ExceptionRecord.ExceptionInformation[1]),
 		)
 		result += SprintException(ctx)
@@ -56,10 +57,11 @@ func ExceptionHandlerGo() uintptr {
 		break
 	case sys_struct.EXCEPTION_SINGLE_STEP:
 		result := fmt.Sprintf(
-			"[%s] Trapped %s at %s...\n",
+			"[%s] Trapped %s at %s (%s)...\n",
 			color.Green.Sprint(thread.Name),
 			color.Red.Sprint("EXCEPTION_SINGLE_STEP"),
 			color.Yellow.Sprintf("0x%X", ctx.Rip),
+			GlobalModuleManager.GetCallSiteTextShort(),
 		)
 		result += SprintException(ctx)
 		logger.Print(result)
@@ -68,10 +70,11 @@ func ExceptionHandlerGo() uintptr {
 		return sys_struct.EXCEPTION_CONTINUE_EXECUTION
 	default:
 		result := fmt.Sprintf(
-			"[%s] Trapped exception code %s at %s...\n",
+			"[%s] Trapped exception code %s at %s (%s)...\n",
 			color.Green.Sprint(thread.Name),
 			color.Red.Sprintf("0x%X", code),
 			color.Yellow.Sprintf("0x%X", ctx.Rip),
+			GlobalModuleManager.GetCallSiteTextShort(),
 		)
 		result += SprintException(ctx)
 		logger.Print(result)

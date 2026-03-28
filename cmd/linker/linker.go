@@ -49,6 +49,14 @@ func (l *Linker) Link(e *elf.Elf) error {
 			Binding:      elf.STB_LOCAL,
 		})
 		e.SymbolTable.RegisterSymbol(&elf.ElfSymbol{
+			HashIndex:    elf.GetSymbolHashIndex("libkernel", "sub_1D90"),
+			LibraryName:  "libkernel",
+			ReadableName: "sub_1D90",
+			Address:      0x0000000000001D90,
+			Type:         elf.STT_FUNC,
+			Binding:      elf.STB_LOCAL,
+		})
+		e.SymbolTable.RegisterSymbol(&elf.ElfSymbol{
 			HashIndex:    elf.GetSymbolHashIndex("libkernel", "sub_2BA0"),
 			LibraryName:  "libkernel",
 			ReadableName: "sub_2BA0",

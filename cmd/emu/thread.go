@@ -166,8 +166,10 @@ func (t *Thread) Run(e *elf.Elf) {
 	// Call the assembly trampoline and jump into game code.
 	entry := e.BaseAddress + uintptr(e.EntryAddress)
 	logger.Printf(
-		"Jumping to entry point %s...\n",
+		"Jumping to %s's entry point %s (relative=%s)...\n",
+		color.Blue.Sprintf("%s", e.Name),
 		color.Yellow.Sprintf("0x%X", entry),
+		color.Yellow.Sprintf("0x%X", e.EntryAddress),
 	)
 	asm.GuestEnter()
 	asm.Run(entry, t.Stack.CurrentPointer, argsPtr, 0)

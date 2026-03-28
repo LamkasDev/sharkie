@@ -6,17 +6,31 @@ import (
 	"syscall"
 )
 
-func ReserveKernelMemory(addr, length uintptr) (uintptr, error) {
-	flags := syscall.MAP_PRIVATE | syscall.MAP_ANONYMOUS
+// MemoryProtToLinuxProt converts memory protection flags to Linux mmap/mprotect flags.
+func MemoryProtToLinuxProt(prot uintptr) uintptr {
+	return prot & uintptr(syscall.PROT_READ|syscall.PROT_WRITE|syscall.PROT_EXEC)
+}
+
+// MemoryProtToLinuxProt converts memory flags to Linux mmap/mprotect flags.
+func MemoryFlagsToLinuxFlags(flags, addr uintptr) uintptr {
+	flags = flags&uintptr(syscall.MAP_SHARED|syscall.MAP_PRIVATE|syscall.MAP_FIXED) | syscall.MAP_ANONYMOUS
 	if addr != 0 {
 		flags |= syscall.MAP_FIXED
 	}
+	if flags&(syscall.MAP_SHARED|syscall.MAP_PRIVATE) == 0 {
+		flags |= syscall.MAP_PRIVATE
+	}
+
+	return flags
+}
+
+func ReserveKernelMemory(addr, length uintptr) (uintptr, error) {
 	allocatedAddr, _, err := syscall.Syscall6(
 		syscall.SYS_MMAP,
 		addr,
 		length,
 		uintptr(syscall.PROT_NONE),
-		uintptr(flags),
+		MemoryFlagsToLinuxFlags(0, addr),
 		ERR_PTR,
 		0,
 	)
@@ -30,21 +44,17 @@ func ReserveKernelMemory(addr, length uintptr) (uintptr, error) {
 func AllocKernelMemory(addr, length, prot, flags uintptr) (uintptr, error) {
 	isDirectMemory, isGpuMemory := MemoryIsDirectOrGpu(addr)
 	if isDirectMemory || isGpuMemory {
-		if _, err := ProtectKernelMemory(addr, length, flags); err != nil {
+		if _, err := ProtectKernelMemory(addr, length, prot); err != nil {
 			return 0, err
 		}
 		return addr, nil
-	}
-	flags |= syscall.MAP_ANONYMOUS
-	if addr != 0 {
-		flags |= syscall.MAP_FIXED
 	}
 	allocatedAddr, _, err := syscall.Syscall6(
 		syscall.SYS_MMAP,
 		addr,
 		length,
-		prot,
-		flags,
+		MemoryProtToLinuxProt(prot),
+		MemoryFlagsToLinuxFlags(flags, addr),
 		ERR_PTR,
 		0,
 	)
@@ -77,7 +87,7 @@ func ProtectKernelMemory(addr, length, prot uintptr) (uintptr, error) {
 		syscall.SYS_MPROTECT,
 		addr,
 		length,
-		prot,
+		MemoryProtToLinuxProt(prot),
 	)
 	if err != 0 {
 		return 0, err

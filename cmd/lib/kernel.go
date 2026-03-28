@@ -187,6 +187,7 @@ func RegisterKernelStubs() {
 	elf.RegisterStub("libkernel", "sceKernelGetCompiledSdkVersion", libKernel_sceKernelGetCompiledSdkVersion)
 	elf.RegisterStub("libkernel", "sceKernelLoadStartModuleForSysmodule", libKernel_sceKernelLoadStartModuleForSysmodule)
 	elf.RegisterStub("libkernel", "sceKernelLoadStartModule", libKernel_sceKernelLoadStartModule)
+	elf.RegisterStub("libkernel", "sub_1D90", libKernel_sys_dynlib_process_needed_and_relocate)
 
 	// App functions.
 	elf.RegisterStub("libkernel", "sceKernelGetAppInfo", libKernel_sceKernelGetAppInfo)

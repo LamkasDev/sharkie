@@ -93,17 +93,19 @@ func processKeventWait(equeue *Equeue, eventlistPtr, nevents, timestampPtr uintp
 	timeout := time.Duration(-1)
 	if timestampPtr != 0 {
 		timestamp := (*Timestamp)(unsafe.Pointer(timestampPtr))
-		timeout = time.Duration(timestamp.Seconds)*time.Second + time.Duration(timestamp.Nanoseconds)*time.Nanosecond
+		timeout = time.Duration(timestamp.Seconds)*time.Second +
+			time.Duration(timestamp.Nanoseconds)*time.Nanosecond
 	}
-	logger.Printf("%-132s %s waiting on %s for %s microseconds.\n",
+	logger.Printf("%-132s %s waiting on %s for %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("processKeventWait"),
 		color.Blue.Sprint(equeue.Name),
-		color.Yellow.Sprintf("0x%X", timeout.Microseconds()),
+		color.Yellow.Sprint(timeout.String()),
 	)
 
 	eventSlice := unsafe.Slice((*Kevent)(unsafe.Pointer(eventlistPtr)), nevents)
-	if timeout == 0 {
+	switch {
+	case timeout == 0:
 		// Non-blocking poll.
 		select {
 		case event := <-equeue.Events:
@@ -121,7 +123,7 @@ func processKeventWait(equeue *Equeue, eventlistPtr, nevents, timestampPtr uintp
 			)
 			return 0
 		}
-	} else if timeout > 0 {
+	case timeout > 0:
 		// Timeout wait.
 		select {
 		case event := <-equeue.Events:
@@ -141,7 +143,7 @@ func processKeventWait(equeue *Equeue, eventlistPtr, nevents, timestampPtr uintp
 			)
 			return 0
 		}
-	} else {
+	default:
 		// Infinite wait.
 		event := <-equeue.Events
 		eventSlice[0] = event

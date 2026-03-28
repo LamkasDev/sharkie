@@ -166,6 +166,12 @@ func libKernel_sys_dynlib_get_info_ex(handle uint32, flags uint32, infoPtr uintp
 	return 0
 }
 
+// 0x0000000000001D90
+// __int64 __fastcall sub_1D90()
+func libKernel_sys_dynlib_process_needed_and_relocate() uintptr {
+	return 0
+}
+
 // 0x0000000000016BE0
 // __int64 sceKernelIsInSandbox()
 func libKernel_sceKernelIsInSandbox() uintptr {

@@ -83,19 +83,22 @@ func libKernel_sceKernelWaitEqueue(handle, eventPtr, num, resultPtr, timeoutPtr 
 		return ERR_PTR
 	}
 
-	timestamp := &Timestamp{}
+	timestampPtr := uintptr(0)
 	if timeoutPtr != 0 {
 		timeout := (*Timeout)(unsafe.Pointer(timeoutPtr))
-		timestamp.Seconds = uint64(timeout.Microseconds / 1_000_000)
-		timestamp.Nanoseconds = uint64((timeout.Microseconds % 1_000_000) * 1000)
+		timestamp := Timestamp{
+			Seconds:     uint64(timeout.Microseconds / 1_000_000),
+			Nanoseconds: uint64((timeout.Microseconds % 1_000_000) * 1000),
+		}
+		timestampPtr = uintptr(unsafe.Pointer(&timestamp))
 	}
 
-	err := processKeventWait(equeue, eventPtr, num, (uintptr)(unsafe.Pointer(timestamp)))
+	count := processKeventWait(equeue, eventPtr, num, timestampPtr)
 	if resultPtr != 0 {
-		resultSlice := unsafe.Slice((*byte)(unsafe.Pointer(resultPtr)), 8)
-		binary.LittleEndian.PutUint64(resultSlice, uint64(err))
+		resultSlice := unsafe.Slice((*byte)(unsafe.Pointer(resultPtr)), 4)
+		binary.LittleEndian.PutUint32(resultSlice, uint32(count))
 	}
-	if err == 0 && timeoutPtr != 0 {
+	if count == 0 {
 		return SCE_KERNEL_ERROR_TIMEDOUT
 	}
 
@@ -115,29 +118,15 @@ func libKernel_sceKernelAddUserEvent(handle, eventId uintptr) uintptr {
 		SetErrno(EFAULT)
 		return ERR_PTR
 	}
+	equeue.Lock.Lock()
+	defer equeue.Lock.Unlock()
+	equeue.UserEvents[eventId] = true
 
-	event := Kevent{
-		Id:     uint64(eventId),
-		Filter: EVFILT_USER,
-		Flags:  EV_ADD | EV_ENABLE,
-	}
-	select {
-	case equeue.Events <- event:
-		logger.Printf("%-132s %s sent user event %s on %s.\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("sceKernelAddUserEvent"),
-			color.Yellow.Sprintf("0x%X", eventId),
-			color.Blue.Sprint(equeue.Name),
-		)
-		return 0
-	default:
-		logger.Printf("%-132s %s failed due to full queue %s.\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("sceKernelAddUserEvent"),
-			color.Blue.Sprint(equeue.Name),
-		)
-		return 0
-	}
-
+	logger.Printf("%-132s %s registered user event %s on %s.\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("sceKernelAddUserEvent"),
+		color.Yellow.Sprintf("0x%X", eventId),
+		color.Blue.Sprint(equeue.Name),
+	)
 	return 0
 }
