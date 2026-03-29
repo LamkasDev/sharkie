@@ -13,6 +13,7 @@ func RegisterStubs() {
 	RegisterKernelStubs()
 	RegisterSceLibcInternalStubs()
 	RegisterLibcStubs()
+	RegisterVideoOutStubs()
 }
 
 func Abort() uintptr {

@@ -21,6 +21,6 @@ type Kevent struct {
 	Filter      int16
 	Flags       uint16
 	FilterFlags uint32
-	FilterData  int64
+	FilterData  uint64
 	UserData    uintptr
 }

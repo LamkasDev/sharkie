@@ -51,14 +51,31 @@ func processKeventChange(equeue *Equeue, event Kevent) {
 				ticker := time.NewTicker(16666 * time.Microsecond)
 				defer ticker.Stop()
 
+				vblankCount := uint64(0)
+				counter := uint64(0)
 				vblankEvent := Kevent{
-					Id:       event.Id,
-					Filter:   event.Filter,
-					UserData: event.UserData,
+					Id:          event.Id,
+					Filter:      event.Filter,
+					Flags:       0,
+					FilterFlags: event.FilterFlags,
+					UserData:    event.UserData,
 				}
+
 				for {
 					select {
 					case <-ticker.C:
+						vblankCount++
+
+						// Lower 12-bits of TSC ticks, small counter (up to 15), total events shifted by 16-bits.
+						timeBits := uint64(readTsc() & 0xFFF)
+						if counter != 0xF {
+							counter++
+						}
+						counterBits := counter << 12
+						vblankHint := vblankCount << 16
+						flipArgBits := vblankHint & 0xFFFFFFFFFFFF0000
+						vblankEvent.FilterData = timeBits | counterBits | flipArgBits
+
 						select {
 						case equeue.Events <- vblankEvent:
 							// Event sent.
