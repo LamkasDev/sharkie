@@ -1,6 +1,11 @@
-package structs
+package dce
 
 import "unsafe"
+
+const (
+	SCE_DCE_IOCTL_CMD              = 0xC0308203
+	SCE_DCE_IOCTL_REGISTER_BUFFERS = 0xC0308207
+)
 
 const (
 	SCE_DCE_IOCTL_CMD_SET_IMAGE_ADDRESS        = 1
@@ -29,32 +34,27 @@ const (
 	SCE_DCE_IOCTL_CMD_GET_STATUS_FOR_WEBCORE   = 36
 )
 
-const (
-	SCE_DCE_REFRESH_RATE_UNKNOWN  = 0
-	SCE_DCE_REFRESH_RATE_23_98HZ  = 1
-	SCE_DCE_REFRESH_RATE_50HZ     = 2
-	SCE_DCE_REFRESH_RATE_59_94HZ  = 3
-	SCE_DCE_REFRESH_RATE_119_88HZ = 13
-	SCE_DCE_REFRESH_RATE_89_91HZ  = 35
-	SCE_DCE_REFRESH_RATE_ANY      = 0xFFFFFFFFFFFFFFFF
-)
-
-type DceResolutionStatus struct {
-	Width            uint32
-	Height           uint32
-	PaneWidth        uint32
-	PaneHeight       uint32
-	RefreshRate      uint64
-	ScreenSizeInches float32
-	Flags            uint16
-	_                [14]byte
+type DceCommand struct {
+	CommandId uint32
+	_         [4]byte
+	Handle    uintptr
+	Param1    uintptr
+	Param2    uintptr
+	Param3    uintptr
+	_         [8]byte
 }
 
-const DceResolutionStatusSize = unsafe.Sizeof(DceResolutionStatus{})
+const DceCommandSize = unsafe.Sizeof(DceCommand{})
 
-type DcePortStatusInfo struct {
-	Connected uint8
-	_         [47]byte
+type DceRegisterBuffers struct {
+	CommandId uint32
+	_         [4]byte
+	Handle    uint32
+	Index     uint32
+	Address   uint64
+	Size      uint64
+	Flags     uint64
+	_         [8]byte
 }
 
-const DcePortStatusInfoSize = unsafe.Sizeof(DcePortStatusInfo{})
+const DceRegisterBuffersSize = unsafe.Sizeof(DceRegisterBuffers{})

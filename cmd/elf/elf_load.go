@@ -7,25 +7,28 @@ import (
 	"github.com/gookit/color"
 )
 
+// Program header flags indicating segment permissions.
 const (
-	PF_X = 1 // Execute
-	PF_W = 2 // Write
-	PF_R = 4 // Read
+	PF_X = 1 // Execute permission
+	PF_W = 2 // Write permission
+	PF_R = 4 // Read permission
 )
 
+// ElfLoadSection represents a PT_LOAD program header entry in an ELF file.
 type ElfLoadSection struct {
-	PType   uint32
-	PFlags  uint32
-	POffset uint64
-	PVaddr  uint64
-	PFilesz uint64
-	PMemsz  uint64
+	PType   uint32 // Type of segment
+	PFlags  uint32 // Segment flags
+	POffset uint64 // Offset of the segment in file
+	PVaddr  uint64 // Virtual address where the segment should be loaded
+	PFilesz uint64 // Size of the segment in file
+	PMemsz  uint64 // Size of the segment in memory
 
-	Address    uintptr
-	LoadedSize uint64
+	Address    uintptr // Address where the section is actually loaded
+	LoadedSize uint64  // Size of the section that is actually loaded
 }
 
-// NewLoadSection loads the PT_LOAD section at offset.
+// NewLoadSection creates a new ElfLoadSection by parsing the program header entry
+// from the ELF data at the given offset.
 func (e *Elf) NewLoadSection(data []byte, offset uint64) *ElfLoadSection {
 	pType := binary.LittleEndian.Uint32(data[offset:])
 	pFlags := binary.LittleEndian.Uint32(data[offset+0x04:])
@@ -44,7 +47,8 @@ func (e *Elf) NewLoadSection(data []byte, offset uint64) *ElfLoadSection {
 	}
 }
 
-// ProcessLoadSection copies data the by PT_LOAD section into memory.
+// ProcessLoadSection copies the data specified by the ElfLoadSection from an ELF file
+// into allocated memory space for the ELF.
 func ProcessLoadSection(e *Elf, s *ElfLoadSection, data []byte) {
 	if s.PFilesz == 0 {
 		return

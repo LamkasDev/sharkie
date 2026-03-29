@@ -1,6 +1,7 @@
 //go:build linux && amd64
 
 #include "reg_amd64.s"
+#include "thread_context_amd64.s"
 #include "funcdata.h"
 
 // InitSignalsAddr is called from Go's init function.

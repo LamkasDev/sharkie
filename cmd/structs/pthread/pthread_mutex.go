@@ -1,8 +1,9 @@
-package structs
+package pthread
 
 import (
 	"unsafe"
 
+	"github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/gookit/color"
 )
 
@@ -66,7 +67,7 @@ func GetMutexNameText(m *PthreadMutex, addr uintptr) string {
 		return color.Yellow.Sprintf("0x%X", addr)
 	}
 
-	name := ReadCString(m.NamePtr)
+	name := structs.ReadCString(m.NamePtr)
 	if name == "" {
 		return color.Yellow.Sprintf("0x%X", addr)
 	}

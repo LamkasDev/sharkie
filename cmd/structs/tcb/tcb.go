@@ -1,6 +1,17 @@
-package structs
+package tcb
 
-import "unsafe"
+import (
+	"unsafe"
+
+	"github.com/LamkasDev/sharkie/cmd/structs/pthread"
+)
+
+var (
+	// TlsBaseRepo maps module indexes to host TLS base addresses.
+	TlsBaseRepo = map[uint64]uintptr{}
+)
+
+const TcbAlignment = 64
 
 // DtvEntry represent an entry in a dynamic thread vector.
 // https://github.com/shadps4-emu/shadPS4/blob/9e287564ced1c7d84a5a165ce4ad6ba85d561ee1/src/core/tls.h#L22
@@ -16,7 +27,7 @@ const DtvEntrySize = unsafe.Sizeof(DtvEntry{})
 type Tcb struct {
 	Self   *Tcb
 	Dtv    *DtvEntry
-	Thread *Pthread
+	Thread *pthread.Pthread
 	Fiber  uintptr
 }
 
@@ -28,9 +39,4 @@ type TlsIndex struct {
 	Offset   uintptr
 }
 
-const TcbAlignment = 64
-
-var (
-	// TlsBaseRepo maps module indexes to host TLS base addresses.
-	TlsBaseRepo = map[uint64]uintptr{}
-)
+const TlsIndexSize = unsafe.Sizeof(TlsIndex{})

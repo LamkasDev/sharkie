@@ -7,7 +7,6 @@ import (
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/asm"
-	"github.com/LamkasDev/sharkie/cmd/elf"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/LamkasDev/sharkie/cmd/sys_struct"
 	"github.com/gookit/color"
@@ -26,23 +25,6 @@ func ExceptionHandlerGo() uintptr {
 
 	switch code {
 	case sys_struct.EXCEPTION_ACCESS_VIOLATION:
-		if name, ok := elf.FakeAddressMap[uintptr(ctx.Rip)]; ok {
-			result := fmt.Sprintf(
-				"[%s] Called external symbol %s at %s...\n",
-				color.Green.Sprint(thread.Name),
-				color.Blue.Sprint(name),
-				color.Yellow.Sprintf("0x%X", ctx.Rip),
-			)
-			result += SprintException(ctx)
-			logger.Print(result)
-
-			// The return address is on the stack. We need to pop it into RIP.
-			ctx.Rip = *(*uint64)(unsafe.Pointer(uintptr(ctx.Rsp)))
-			ctx.Rsp += 8
-
-			return sys_struct.EXCEPTION_CONTINUE_EXECUTION
-		}
-
 		result := fmt.Sprintf(
 			"[%s] Trapped %s at %s (%s)...\nAttempted to access address: %s\n",
 			color.Green.Sprint(thread.Name),

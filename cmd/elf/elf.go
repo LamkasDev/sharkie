@@ -1,3 +1,4 @@
+// Package elf handles ELF (Executable Linkable File) parsing.
 package elf
 
 import (
@@ -9,48 +10,51 @@ import (
 	"github.com/gookit/color"
 )
 
-// https://github.com/shadps4-emu/shadPS4/blob/9e287564ced1c7d84a5a165ce4ad6ba85d561ee1/src/core/loader/elf.h#L264
+// Program header types as defined in ELF specification.
 const (
-	PT_LOAD           = 1
-	PT_DYNAMIC        = 2
-	PT_TLS            = 7
-	PT_SCE_DYNLIBDATA = 0x61000000
-	PT_SCE_PROCPARAM  = 0x61000001
-	PT_GNU_EH_FRAME   = 0x6474e550
+	PT_LOAD           = 1          // Loadable segment
+	PT_DYNAMIC        = 2          // Dynamic linking information
+	PT_TLS            = 7          // Thread-local storage segment
+	PT_SCE_DYNLIBDATA = 0x61000000 // SCE-specific dynamic library data
+	PT_SCE_PROCPARAM  = 0x61000001 // SCE-specific process parameters
+	PT_GNU_EH_FRAME   = 0x6474e550 // GNU exception handling frame
 )
 
+// Exception frame encoding constants.
 const (
-	EFRAME_PCREL  = 0x10
-	EFRAME_SDATA4 = 0x0B
+	EFRAME_PCREL  = 0x10 // PC-relative encoding
+	EFRAME_SDATA4 = 0x0B // Signed 4-byte data
 )
 
+// Elf represents a parsed ELF (Executable and Linkable Format) file.
 type Elf struct {
-	ModuleIndex  uint64
-	Name         string
+	ModuleIndex uint64
+	Name        string
+	Path        string
+	Linked      bool
+
 	BaseAddress  uintptr
 	EntryAddress uint64
 	Memory       []byte
 
-	MemSize                   uint64
-	DynLibDataOffset          uint64
-	LoadSections              []*ElfLoadSection
-	ExceptionFrameSection     *ElfLoadSection
-	ExceptionFrameDataAddress uintptr
-	ExceptionFrameDataSize    uint64
-	ProcessParamSection       *ElfLoadSection
-	TlsSection                *ElfTlsSection
-	DynamicInfo               *ElfDynamicSection
-	SymbolTable               *ElfSymbolTable
-	RelaRelocationTable       *ElfRelocationTable
-	PltRelocationTable        *ElfRelocationTable
+	MemSize                   uint64              // Bytes of memory allocated for the ELF
+	DynLibDataOffset          uint64              // Offset to dynamic library data
+	LoadSections              []*ElfLoadSection   // List of loadable sections
+	ExceptionFrameSection     *ElfLoadSection     // Section containing exception handling frames
+	ExceptionFrameDataAddress uintptr             // Address of exception frame data
+	ExceptionFrameDataSize    uint64              // Size of exception frame data
+	ProcessParamSection       *ElfLoadSection     // Section containing process parameters
+	TlsSection                *ElfTlsSection      // Section containing thread-local storage information
+	DynamicInfo               *ElfDynamicSection  // Dynamic linking information
+	SymbolTable               *ElfSymbolTable     // Symbol table
+	RelaRelocationTable       *ElfRelocationTable // Rela relocation table
+	PltRelocationTable        *ElfRelocationTable // PLT relocation table
 
-	// Temporary, used for mapping generic stub callers.
+	// Temporary.
 	CallerToFunctionName map[uintptr]uint64
-	Path                 string
-	Linked               bool
 }
 
-// NewElf creates a new instance of Elf based on file contents.
+// NewElf creates a new instance of Elf by parsing the provided file data.
 func NewElf(data []byte) *Elf {
 	e := &Elf{
 		LoadSections:         []*ElfLoadSection{},
@@ -68,7 +72,7 @@ func NewElf(data []byte) *Elf {
 	phNum := int(binary.LittleEndian.Uint16(data[0x38:]))
 
 	// Iterate over sections and process independent ones.
-	for i := 0; i < phNum; i++ {
+	for i := range phNum {
 		offset := phOff + i*phEntSize
 		pType := binary.LittleEndian.Uint32(data[offset:])
 		switch pType {
@@ -79,29 +83,23 @@ func NewElf(data []byte) *Elf {
 				e.MemSize = size
 			}
 			e.LoadSections = append(e.LoadSections, loadSection)
-			break
 		case PT_SCE_DYNLIBDATA:
 			e.DynLibDataOffset = binary.LittleEndian.Uint64(data[offset+0x08:])
-			break
 		case PT_TLS:
 			e.TlsSection = e.NewTlsSection(data, uint64(offset))
-			break
 		case PT_DYNAMIC:
-			break
+			_ = 0
 		case PT_GNU_EH_FRAME:
 			e.ExceptionFrameSection = e.NewLoadSection(data, uint64(offset))
-			break
 		case PT_SCE_PROCPARAM:
 			e.ProcessParamSection = e.NewLoadSection(data, uint64(offset))
-			break
 		default:
 			logger.Print(color.Gray.Sprintf("  Unhandled ELF section type %d.\n", pType))
-			break
 		}
 	}
 
 	// We need to make sure PT_SCE_DYNLIBDATA was loaded first.
-	for i := 0; i < phNum; i++ {
+	for i := range phNum {
 		offset := phOff + i*phEntSize
 		pType := binary.LittleEndian.Uint32(data[offset:])
 		switch pType {
@@ -109,7 +107,6 @@ func NewElf(data []byte) *Elf {
 			dynamicOffset := binary.LittleEndian.Uint64(data[offset+0x08:])
 			dynamicSize := binary.LittleEndian.Uint64(data[offset+0x20:])
 			e.DynamicInfo = e.NewDynamicSection(data, dynamicOffset, dynamicSize)
-			break
 		}
 	}
 
@@ -137,46 +134,7 @@ func NewElf(data []byte) *Elf {
 		ProcessLoadSection(e, e.ProcessParamSection, data)
 	}
 	if e.ExceptionFrameSection != nil {
-		// Now we need to actually parse the section and figure out the exception frame address.
-		headerAddr := e.BaseAddress + uintptr(e.ExceptionFrameSection.PVaddr)
-		memOffset := uintptr(e.ExceptionFrameSection.PVaddr)
-
-		e.ExceptionFrameSection.Address = headerAddr
-		e.ExceptionFrameSection.LoadedSize = e.ExceptionFrameSection.PMemsz
-
-		// Ensure we can read the header.
-		if uint64(memOffset+8) <= e.MemSize {
-			encoding := e.Memory[memOffset+1]
-			switch encoding {
-			case EFRAME_PCREL | EFRAME_SDATA4:
-				relOffset := int32(binary.LittleEndian.Uint32(e.Memory[memOffset+4:]))
-				dataAddr := uintptr(int64(headerAddr) + 4 + int64(relOffset))
-				e.ExceptionFrameDataAddress = dataAddr
-
-				// Not sure how big it is, really. Let's just let it run until 0.
-				if dataAddr >= e.BaseAddress {
-					offset := uint64(dataAddr - e.BaseAddress)
-					if offset < e.MemSize {
-						e.ExceptionFrameDataSize = e.MemSize - offset
-					}
-				}
-
-				logger.Printf("Resolved %s data via header (headerAddr=%s, dataAddr=%s, size=%s).\n",
-					color.Blue.Sprint(".eh_frame"),
-					color.Yellow.Sprintf("0x%X", headerAddr),
-					color.Yellow.Sprintf("0x%X", dataAddr),
-					color.Green.Sprint(e.ExceptionFrameDataSize),
-				)
-				break
-			default:
-				logger.Print(color.Gray.Sprintf(
-					"Unknown .eh_frame_hdr encoding 0x%X, assuming data follows header.\n",
-					encoding,
-				))
-				e.ExceptionFrameDataAddress = headerAddr + uintptr(e.ExceptionFrameSection.PMemsz)
-				break
-			}
-		}
+		ProcessExceptionFrameSection(e)
 	}
 
 	logger.Printf(
@@ -189,7 +147,7 @@ func NewElf(data []byte) *Elf {
 }
 
 // GetAlignedSize returns memsz aligned on align boundary.
-// https://github.com/shadps4-emu/shadPS4/blob/9e287564ced1c7d84a5a165ce4ad6ba85d561ee1/src/core/module.cpp#L24
+// It calculates the smallest multiple of 'align' that is greater than or equal to 'memsz'.
 func GetAlignedSize(memsz uint64, align uint64) uint64 {
 	if align > 0 {
 		return (memsz + (align - 1)) & ^(align - 1)

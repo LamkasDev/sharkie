@@ -9,6 +9,10 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/lib"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/LamkasDev/sharkie/cmd/structs"
+	"github.com/LamkasDev/sharkie/cmd/structs/dce"
+	"github.com/LamkasDev/sharkie/cmd/structs/fs"
+	"github.com/LamkasDev/sharkie/cmd/structs/gc"
+	"github.com/LamkasDev/sharkie/cmd/structs/ipmi"
 	"github.com/LamkasDev/sharkie/cmd/symbol"
 	"github.com/gookit/color"
 )
@@ -32,12 +36,12 @@ func main() {
 	asm.AllocTlsSlots()
 	emu.SetupSignalHandler()
 	structs.SetupAllocator()
-	structs.SetupFilesystem()
+	fs.SetupFilesystem()
 	structs.SetupSemaphores()
 	structs.SetupEventFlags()
-	structs.SetupImpiManager()
-	structs.SetupGraphicsController()
-	structs.SetupDisplayCoreEngine()
+	ipmi.SetupImpiManager()
+	gc.SetupGraphicsController()
+	dce.SetupDisplayCoreEngine()
 
 	symbol.LoadSymbolMap("data/aerolib.csv")
 	lib.RegisterStubs()

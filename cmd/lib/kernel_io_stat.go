@@ -6,6 +6,7 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	. "github.com/LamkasDev/sharkie/cmd/structs"
+	. "github.com/LamkasDev/sharkie/cmd/structs/fs"
 	"github.com/gookit/color"
 )
 

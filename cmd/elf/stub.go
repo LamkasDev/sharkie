@@ -3,6 +3,7 @@ package elf
 import (
 	"encoding/binary"
 	"reflect"
+	"slices"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/asm"
@@ -12,41 +13,45 @@ import (
 	"github.com/gookit/color"
 )
 
-var FakeAddressStart = uintptr(0xDEAD00000000)
-var FakeAddress = FakeAddressStart
-var FakeAddressMap = make(map[uintptr]string)
-
+// GetSymbolAddressFunc defines the signature for a function that retrieves a symbol's address.
 type GetSymbolAddressFunc func(s *ElfSymbol) (uintptr, bool)
+
+// GetDefiningModuleFunc defines the signature for a function that retrieves a symbol's defining module.
 type GetDefiningModuleFunc func(s *ElfSymbol) *Elf
 
+// GetSymbolAddress is a global function to retrieve a symbol's address.
 var GetSymbolAddress GetSymbolAddressFunc
+
+// GetDefiningModule is a global function to retrieve a symbol's defining module.
 var GetDefiningModule GetDefiningModuleFunc
 
-// RegisterStub registers a new stub specified by library and symbol name pointing to function f.
-func RegisterStub(libraryName, symbolName string, f interface{}) asm.StubInfo {
-	fn := reflect.ValueOf(f)
+// RegisterStub registers a new stub for a Go function, creating an assembly trampoline.
+// It associates the stub with a library and symbol name.
+func RegisterStub(libraryName, symbolName string, goFn any) asm.StubInfo {
+	goFunc := reflect.ValueOf(goFn)
 	stub := asm.StubInfo{
 		LibraryName: libraryName,
 		SymbolName:  symbolName,
-		Address:     CreateTrampoline(fn.Pointer()),
-		FuncValue:   fn,
-		FuncType:    fn.Type(),
+		Address:     CreateTrampoline(goFunc.Pointer()),
+		FuncValue:   goFunc,
+		FuncType:    goFunc.Type(),
 	}
 	hashIndex := GetSymbolHashIndex(libraryName, symbolName)
 	asm.Stubs[hashIndex] = stub
-	asm.StubsMap[fn.Pointer()] = hashIndex
+	asm.StubsMap[goFunc.Pointer()] = hashIndex
 	asm.StubsTrampolineMap[stub.Address] = hashIndex
 	logger.Printf(
 		"Registered %s assembly trampoline at %s to Go function at %s...\n",
 		color.Blue.Sprintf("%s:%s", libraryName, symbolName),
 		color.Yellow.Sprintf("0x%X", stub.Address),
-		color.Yellow.Sprintf("0x%X", fn.Pointer()),
+		color.Yellow.Sprintf("0x%X", goFunc.Pointer()),
 	)
 
 	return stub
 }
 
-// RegisterAssemblyStub registers a new stub specified by library and symbol name pointing to function address.
+// RegisterAssemblyStub registers a new stub for an assembly function.
+// It associates the stub with a library and symbol name.
 func RegisterAssemblyStub(libraryName, symbolName string, functionAddress uintptr) asm.StubInfo {
 	stub := asm.StubInfo{
 		LibraryName: libraryName,
@@ -66,7 +71,8 @@ func RegisterAssemblyStub(libraryName, symbolName string, functionAddress uintpt
 	return stub
 }
 
-// RegisterVariableStub registers a new variable stub specified by library and symbol name of size.
+// RegisterVariableStub registers a new stub for a global variable.
+// It allocates memory for the variable and associates it with a library and symbol name.
 func RegisterVariableStub(libraryName, symbolName string, size uintptr) asm.StubInfo {
 	addr := GlobalGoAllocator.Malloc(size)
 	hashIndex := GetSymbolHashIndex(libraryName, symbolName)
@@ -80,7 +86,7 @@ func RegisterVariableStub(libraryName, symbolName string, size uintptr) asm.Stub
 	return stub
 }
 
-// CreateTrampoline generates a trampoline for a given Go function.
+// CreateTrampoline generates an assembly trampoline that calls the specified Go function.
 func CreateTrampoline(goFuncAddr uintptr) uintptr {
 	// Allocate executable memory for the trampoline.
 	trampolineSize := uintptr(22) // MOV to RAX (10), MOV to R11 (10), JMP RAX (2)
@@ -106,18 +112,14 @@ func CreateTrampoline(goFuncAddr uintptr) uintptr {
 	return trampolineAddr
 }
 
+// NativeFunctionNames lists names of functions that should not be stubbed.
 var NativeFunctionNames = []string{
 	"pthread_once",
 	"scePthreadOnce",
 	"sceKernelSetCallRecord",
 }
 
+// CanStubFunctionName checks if a given function name is eligible for stubbing.
 func CanStubFunctionName(funcName string) bool {
-	for _, nativeFuncName := range NativeFunctionNames {
-		if nativeFuncName == funcName {
-			return false
-		}
-	}
-
-	return true
+	return !slices.Contains(NativeFunctionNames, funcName)
 }

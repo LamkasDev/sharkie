@@ -1,8 +1,10 @@
-package structs
+package ipmi
 
 import (
 	"fmt"
 	"sync"
+
+	"github.com/LamkasDev/sharkie/cmd/structs"
 )
 
 var GlobalIpmiManager *IpmiManager
@@ -80,7 +82,7 @@ func SetupImpiManager() {
 	GlobalIpmiManager = NewIpmiManager()
 	CreateImpiServer("SceLncService", 0)
 	CreateImpiServer("SceShellCoreUtil", 0)
-	CreateDefaultEventFlags([]string{
+	structs.CreateDefaultEventFlags([]string{
 		"SceShellCoreUtilAppFocus",
 		"SceShellCoreUtilCtrlFocus",
 		"SceShellCoreUtilPowerControl",
@@ -97,7 +99,7 @@ func SetupImpiManager() {
 	CreateImpiServer("SceAppContent", 0)
 	CreateImpiServer("SceMbusIpc", 0)
 	CreateImpiServer("SceSysAudioSystemIpc", 0)
-	CreateDefaultEventFlags([]string{
+	structs.CreateDefaultEventFlags([]string{
 		fmt.Sprintf("sceAudioOutMix%x", 1001),
 	})
 	avSetting := CreateImpiServer("SceAvSettingIpc", 0)

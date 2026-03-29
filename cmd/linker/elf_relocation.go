@@ -2,7 +2,6 @@ package linker
 
 import (
 	"encoding/binary"
-	"fmt"
 
 	"github.com/LamkasDev/sharkie/cmd/elf"
 	"github.com/LamkasDev/sharkie/cmd/logger"
@@ -37,7 +36,6 @@ func ProcessRelocationTable(e *elf.Elf, table *elf.ElfRelocationTable, tableName
 				binary.LittleEndian.PutUint64(e.Memory[r.Offset:], uint64(newAddr))
 				relativeCount++
 			}
-			break
 		case elf.R_AMD64_64:
 			if r.Symbol == 0 {
 				newAddr := e.BaseAddress + r.Addend
@@ -61,19 +59,8 @@ func ProcessRelocationTable(e *elf.Elf, table *elf.ElfRelocationTable, tableName
 					externalCount++
 				}
 			} else {
-				elf.FakeAddressMap[elf.FakeAddress] = fmt.Sprintf("%s:%s", symbol.LibraryName, symbol.ReadableName)
-				newAddr := elf.FakeAddress + r.Addend
-				if r.Addend != 0 {
-					logger.Print(color.Gray.Sprintf("  Unhandled addend %d.\n", r.Addend))
-				}
-				if r.Offset+8 <= uintptr(len(e.Memory)) {
-					binary.LittleEndian.PutUint64(e.Memory[r.Offset:], uint64(newAddr))
-					externalCount++
-				}
-				logger.Print(color.Gray.Sprintf("  Added fake address for %s:%s.\n", symbol.LibraryName, symbol.ReadableName))
-				elf.FakeAddress += 8
+				logger.Print(color.Gray.Sprintf("  Skipped fake address for %s:%s.\n", symbol.LibraryName, symbol.ReadableName))
 			}
-			break
 		case elf.R_AMD64_DTPMOD64:
 			// TODO: handle symbols outside of current module (rewrite GetSymbolAddress to FindSymbol or smth).
 			if int(r.Symbol) >= len(e.SymbolTable.Symbols) {
@@ -95,7 +82,6 @@ func ProcessRelocationTable(e *elf.Elf, table *elf.ElfRelocationTable, tableName
 			if r.Offset+8 <= uintptr(len(e.Memory)) {
 				binary.LittleEndian.PutUint64(e.Memory[r.Offset:], moduleIndex)
 			}
-			break
 		case elf.R_AMD64_DTPOFF64:
 			// TODO: handle symbols outside of current module (rewrite GetSymbolAddress to FindSymbol or smth).
 			if int(r.Symbol) >= len(e.SymbolTable.Symbols) {
@@ -108,13 +94,11 @@ func ProcessRelocationTable(e *elf.Elf, table *elf.ElfRelocationTable, tableName
 				e.CallerToFunctionName[r.Offset] = symbol.HashIndex
 				binary.LittleEndian.PutUint64(e.Memory[r.Offset:], uint64(newAddr))
 			}
-			break
 		default:
 			logger.Print(color.Gray.Sprintf(
 				"  Unhandled relocation type %d.\n",
 				r.Type,
 			))
-			break
 		}
 	}
 	logger.Printf(

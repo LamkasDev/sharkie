@@ -1,9 +1,10 @@
 //go:build amd64
 
 #include "reg_amd64.s"
+#include "thread_context_amd64.s"
 #include "funcdata.h"
 
-// This function switches to the game's stack and jumps to its entry point.
+// Run switches to the game's stack and jumps to specified entry point.
 // It does not return.
 // func Run(entry,   stackPtr, argsPtr, arg2 uintptr)
 //          +0(FP)   +8(FP)    +16(FP)  +24(FP)
@@ -53,8 +54,8 @@ TEXT ·Run(SB), NOSPLIT, $0-32
 
     RET
 
-// This function switches to the game's stack, calls a function and returns.
-// We can't expand the caller's stack afterwards or there will be trouble (split stack overflow).
+// Call switches to the game's stack, calls a function at specified entry point and returns.
+// We can't expand the caller's stack afterward or there will be trouble (split-stack overflow).
 // func Call(entry,   stackPtr, arg1,    arg2 uintptr)
 //          +0(FP)   +8(FP)    +16(FP)  +24(FP)
 TEXT ·Call(SB), NOSPLIT|NOFRAME, $0-32

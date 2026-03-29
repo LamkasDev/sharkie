@@ -7,8 +7,7 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/logger"
 )
 
-const RegContextSize = 384
-
+// StubInfo holds information about a stubbed function.
 type StubInfo struct {
 	LibraryName string
 	SymbolName  string
@@ -17,14 +16,19 @@ type StubInfo struct {
 	FuncType    reflect.Type
 }
 
+// Stubs stores information about stubbed functions, indexed by a calculated hash.
 var Stubs = make(map[uint64]StubInfo)
+
+// StubsMap maps original function addresses to their corresponding hash indexes in Stubs.
 var StubsMap = make(map[uintptr]uint64)
+
+// StubsTrampolineMap maps addresses of the stub trampolines to their corresponding hash indexes in Stubs.
 var StubsTrampolineMap = make(map[uintptr]uint64)
 
+// InitStubAddr initializes the address of the stub assembly function.
 func InitStubAddr()
 
-// stubGo is a Go function that acts as a trampoline to call the target function.
-// It is called from stubAsm.
+// stubGo is a trampoline to call the target Go function from stubAsm.
 func stubGo() {
 	GuestLeave()
 	defer GuestEnter()
@@ -39,44 +43,40 @@ func stubGo() {
 		logger.Printf("Stack changed from 0x%X to 0x%X.\n", threadContext.LastGoSP, threadContext.GoSP)
 	}
 
-	// Look up the stub info.
+	// Look up stub info using the function pointer.
 	stubName, ok := StubsMap[fnPtr]
 	if !ok {
 		panic("stub not found")
 	}
 	stubInfo := Stubs[stubName]
 
-	// Prepare arguments.
+	// Prepare arguments for the Go function call.
 	arguments := make([]reflect.Value, stubInfo.FuncType.NumIn())
-	for i := 0; i < len(arguments); i++ {
-		argType := stubInfo.FuncType.In(i)
-		argVal := reflect.New(argType).Elem()
-		switch i {
+	for argIndex := range arguments {
+		argType := stubInfo.FuncType.In(argIndex)
+		argValue := reflect.New(argType).Elem()
+
+		// Map guest registers to Go function arguments.
+		switch argIndex {
 		case 0:
-			argVal.SetUint(uint64(ctx.DI))
-			break
+			argValue.SetUint(uint64(ctx.DI))
 		case 1:
-			argVal.SetUint(uint64(ctx.SI))
-			break
+			argValue.SetUint(uint64(ctx.SI))
 		case 2:
-			argVal.SetUint(uint64(ctx.DX))
-			break
+			argValue.SetUint(uint64(ctx.DX))
 		case 3:
-			argVal.SetUint(uint64(ctx.CX))
-			break
+			argValue.SetUint(uint64(ctx.CX))
 		case 4:
-			argVal.SetUint(uint64(ctx.R8))
-			break
+			argValue.SetUint(uint64(ctx.R8))
 		case 5:
-			argVal.SetUint(uint64(ctx.R9))
-			break
+			argValue.SetUint(uint64(ctx.R9))
 		default:
 			// RegContextSize + stubAsm return address + original return address + offset.
-			stackOffset := RegContextSize + 8 + uintptr((i-6)*8)
-			addr := (*uint64)(unsafe.Pointer(uintptr(unsafe.Pointer(ctx)) + stackOffset))
-			argVal.SetUint(*addr)
+			stackOffset := RegContextSize + 8 + uintptr((argIndex-6)*8)
+			addr := (*uint64)(unsafe.Add(unsafe.Pointer(ctx), stackOffset))
+			argValue.SetUint(*addr)
 		}
-		arguments[i] = argVal
+		arguments[argIndex] = argValue
 	}
 
 	// Call the function.

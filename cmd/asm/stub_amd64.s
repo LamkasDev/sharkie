@@ -1,6 +1,7 @@
 //go:build amd64
 
 #include "reg_amd64.s"
+#include "thread_context_amd64.s"
 #include "funcdata.h"
 
 // InitStubAddr is called from Go's init function.
@@ -10,10 +11,10 @@ TEXT ·InitStubAddr(SB), NOSPLIT, $0
     MOVQ AX, ·StubAddr(SB)
     RET
 
-// stubAsm is a generic stub that can call any Go function.
-// The target function's address is passed in R11.
-// Arguments are passed in registers (RCX, RDX, R8, R9) and on the stack.
-// The return address is expected to be on the top of the stack.
+// stubAsm is a generic stub that can call any Go function and is entered from guest code.
+// The target Go function's address is expected to be in R11.
+// Arguments for the Go function are passed in guest registers (DI, SI, DX, CX, R8, R9) and on the guest stack.
+// The return address for guest code is expected to be on the top of the guest stack.
 TEXT ·stubAsm(SB), NOSPLIT|NOFRAME, $0-0
     NO_LOCAL_POINTERS
     BYTE $0x48; BYTE $0x81; BYTE $0xEC; BYTE $0x80; BYTE $0x01; BYTE $0x00; BYTE $0x00 // SUBQ $384, SP

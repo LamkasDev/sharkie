@@ -6,6 +6,8 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/linker"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	. "github.com/LamkasDev/sharkie/cmd/structs"
+	. "github.com/LamkasDev/sharkie/cmd/structs/pthread"
+	. "github.com/LamkasDev/sharkie/cmd/structs/tcb"
 	"github.com/gookit/color"
 )
 

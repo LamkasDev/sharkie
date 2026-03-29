@@ -3,6 +3,7 @@
 #include "textflag.h"
 #include "funcdata.h"
 
+// GetTLSContext returns the TLS context pointer for the current thread.
 TEXT ·GetTLSContext(SB), NOSPLIT, $0-0
     NO_LOCAL_POINTERS
 
@@ -11,6 +12,7 @@ TEXT ·GetTLSContext(SB), NOSPLIT, $0-0
     MOVQ (AX), AX
     RET
 
+// GetCurrentThreadContext returns ThreadContext for the current thread.
 TEXT ·GetCurrentThreadContext(SB), NOSPLIT, $0-8
     NO_LOCAL_POINTERS
 

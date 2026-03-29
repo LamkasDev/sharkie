@@ -1,3 +1,4 @@
+// Package emu handles high-level emulation setup.
 package emu
 
 import (

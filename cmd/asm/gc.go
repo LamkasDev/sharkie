@@ -1,23 +1,31 @@
 package asm
 
 import (
-	"fmt"
 	"runtime"
 	"runtime/debug"
 	"sync/atomic"
 	"time"
+
+	"github.com/LamkasDev/sharkie/cmd/logger"
 )
 
 var (
-	NeedsGC            atomic.Bool
-	GCFence            atomic.Bool
-	GCInProgress       atomic.Bool
+	// NeedsGC indicates if a GC cycle is required.
+	NeedsGC atomic.Bool
+
+	// GCInProgress indicates if a GC cycle is currently running.
+	GCInProgress atomic.Bool
+
+	// GCFence acts as a barrier, preventing guest threads from re-entering guest code during GC.
+	GCFence atomic.Bool
+
+	// ActiveGuestThreads counts the number of guest threads currently executing guest code.
 	ActiveGuestThreads atomic.Int32
 )
 
 // SetupCooperativeGC disables automatic GC and starts a ticker.
 func SetupCooperativeGC() {
-	// Prevent automatic GC while we're on playstation stack.
+	// Prevent automatic GC while we're on guest stack.
 	debug.SetGCPercent(-1)
 
 	// Start a background ticker to signal for a GC.
@@ -39,7 +47,7 @@ func CheckAndRunGC() {
 	}
 
 	// Wait for all threads to return.
-	fmt.Println("GC waiting for threads...")
+	logger.Println("GC waiting for threads...")
 	GCFence.Store(true)
 	start := time.Now()
 	for ActiveGuestThreads.Load() != 0 {
@@ -51,13 +59,14 @@ func CheckAndRunGC() {
 
 	// Perform GC, stopping all threads from exiting until done.
 	NeedsGC.Store(false)
-	fmt.Println("GC starting...")
+	logger.Println("GC starting...")
 	runtime.GC()
-	fmt.Println("GC finished.")
+	logger.Println("GC finished.")
 	GCFence.Store(false)
 	GCInProgress.Store(false)
 }
 
+// GuestEnter needs to be called everytime we transition from Go to guest code.
 func GuestEnter() {
 	for GCFence.Load() {
 		runtime.Gosched()
@@ -65,6 +74,7 @@ func GuestEnter() {
 	ActiveGuestThreads.Add(1)
 }
 
+// GuestLeave needs to be called everytime we transition from guest to Go code.
 func GuestLeave() {
 	ActiveGuestThreads.Add(-1)
 }

@@ -1,4 +1,4 @@
-package structs
+package ipmi
 
 import (
 	"unsafe"

@@ -1,14 +1,16 @@
-package structs
+package ipmi
+
+import "github.com/LamkasDev/sharkie/cmd/structs"
 
 type IpmiServer struct {
 	Handle    uint32
 	Name      string
 	ObjPtr    uintptr
-	EventFlag *EventFlag
+	EventFlag *structs.EventFlag
 }
 
 func (server *IpmiServer) CreateEventFlag(name string) {
-	server.EventFlag = CreateEventFlag(name, EVF_ATTR_TH_FIFO|EVF_ATTR_MULTI, 0, 0)
+	server.EventFlag = structs.CreateEventFlag(name, structs.EVF_ATTR_TH_FIFO|structs.EVF_ATTR_MULTI, 0, 0)
 }
 
 func CreateImpiServer(name string, userPtr uintptr) *IpmiServer {

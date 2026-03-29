@@ -1,0 +1,27 @@
+version: "2"
+linters:
+  default: all
+  disable:
+    - depguard
+    - wsl
+    - wsl_v5
+    - nlreturn
+    - mnd
+    - gochecknoglobals
+    - dupword
+    - noinlineerr
+  settings:
+    gosec:
+      excludes:
+        - G103
+    govet:
+      disable:
+        - unsafeptr
+  exclusions:
+    rules:
+      - path: "cmd/lib/|"
+        linters: [ godot ]
+        text: "should end"
+      - path: "cmd/asm/|"
+        linters: [ unused ]
+        text: "is unused"

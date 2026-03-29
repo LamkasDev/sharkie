@@ -1,4 +1,4 @@
-package structs
+package ipmi
 
 type IpmiClient struct {
 	Handle uint32

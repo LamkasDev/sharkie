@@ -11,7 +11,7 @@ import (
 func RegisterFiosStubs() {
 	fiosModule := GlobalModuleManager.ModulesMap["libSceFios2.sprx"]
 	originalSymbol := fiosModule.SymbolTable.SymbolsMap[elf.GetSymbolHashIndex("libSceFios2", "sceFiosInitialize")]
-	originalAddress := fiosModule.BaseAddress + uintptr(originalSymbol.Address)
+	originalAddress := fiosModule.BaseAddress + originalSymbol.Address
 
 	elf.RegisterAssemblyStub("libSceFios2", "sceFiosInitialize", CreateFiosTrampoline(originalAddress))
 }

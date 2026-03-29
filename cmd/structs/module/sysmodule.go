@@ -1,4 +1,4 @@
-package structs
+package module
 
 const (
 	ORBIS_SYSMODULE_INVALID                       = 0x0000

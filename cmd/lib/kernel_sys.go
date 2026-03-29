@@ -8,6 +8,8 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	. "github.com/LamkasDev/sharkie/cmd/structs"
+	. "github.com/LamkasDev/sharkie/cmd/structs/mutex"
+	. "github.com/LamkasDev/sharkie/cmd/structs/tcb"
 	"github.com/LamkasDev/sharkie/cmd/sys_struct"
 	"github.com/gookit/color"
 )

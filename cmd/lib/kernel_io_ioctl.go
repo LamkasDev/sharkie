@@ -8,6 +8,9 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	. "github.com/LamkasDev/sharkie/cmd/structs"
+	. "github.com/LamkasDev/sharkie/cmd/structs/dce"
+	. "github.com/LamkasDev/sharkie/cmd/structs/fs"
+	. "github.com/LamkasDev/sharkie/cmd/structs/gc"
 	"github.com/gookit/color"
 )
 
@@ -104,9 +107,9 @@ func libKernel_sys_ioctl(fd, request, argPtr uintptr) uintptr {
 		logger.Printf("%-132s %s tried submitting command buffers (count=%s, flags=%s, buffersPtr=%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("ioctl"),
+			color.Yellow.Sprintf("0x%X", submitCommandBuffers.ContextId),
 			color.Yellow.Sprintf("0x%X", submitCommandBuffers.Count),
-			color.Yellow.Sprintf("0x%X", submitCommandBuffers.Flags),
-			color.Yellow.Sprintf("0x%X", submitCommandBuffers.BuffersPtr),
+			color.Yellow.Sprintf("0x%X", submitCommandBuffers.IndirectBuffersPtr),
 		)
 		return 0
 	case SCE_DCE_IOCTL_CMD:
