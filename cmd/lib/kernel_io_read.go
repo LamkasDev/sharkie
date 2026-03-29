@@ -1,6 +1,7 @@
 package lib
 
 import (
+	"io"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
@@ -46,60 +47,28 @@ func libKernel_sys_read(fd uintptr, bufPtr uintptr, length uintptr) uintptr {
 		SetErrno(EFAULT)
 		return 0
 	}
-	GlobalFilesystem.Lock.Lock()
-	defer GlobalFilesystem.Lock.Unlock()
 
-	file, ok := GlobalFilesystem.Descriptors[FileDescriptor(fd)]
-	if !ok {
-		logger.Printf("%-132s %s failed due to unknown file %s.\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("_read"),
-			color.Yellow.Sprintf("0x%X", fd),
-		)
-		SetErrno(ENOENT)
-		return ERR_PTR
-	}
-	fileData, err := GlobalFilesystem.ReadFull(file.Path)
-	if err != nil {
+	buffer := unsafe.Slice((*byte)(unsafe.Pointer(bufPtr)), length)
+	readBytes, err := GlobalFilesystem.ReadFd(FileDescriptor(fd), buffer)
+	if err != nil && err != io.EOF {
 		logger.Printf("%-132s %s failed due to read error on %s (%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("_read"),
-			color.Blue.Sprint(file.Path),
+			color.Yellow.Sprintf("0x%X", fd),
 			err.Error(),
 		)
 		SetErrno(EFAULT)
 		return ERR_PTR
 	}
 
-	// Check if cursor is beyond the end of the file.
-	if file.Cursor >= uintptr(len(fileData)) {
-		logger.Printf("%-132s %s ignored read of %s bytes from file %s (cursor EOF).\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("_read"),
-			color.Yellow.Sprintf("0x%X", length),
-			color.Blue.Sprint(file.Path),
-		)
-		return 0
-	}
-
-	// Calculate bytes available from cursor.
-	availableBytes := uintptr(len(fileData)) - file.Cursor
-	readBytes := length
-	if readBytes > availableBytes {
-		readBytes = availableBytes
-	}
-	buffer := unsafe.Slice((*byte)(unsafe.Pointer(bufPtr)), readBytes)
-	copy(buffer, fileData[file.Cursor:file.Cursor+readBytes])
-	file.Cursor += readBytes
-
-	logger.Printf("%-132s %s read %s bytes from file %s (length=%s).\n",
+	logger.Printf("%-132s %s read %s bytes from %s (length=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("_read"),
 		color.Yellow.Sprintf("0x%X", readBytes),
-		color.Blue.Sprint(file.Path),
+		color.Yellow.Sprintf("0x%X", fd),
 		color.Yellow.Sprintf("0x%X", length),
 	)
-	return readBytes
+	return uintptr(readBytes)
 }
 
 // 0x0000000000016520
@@ -134,10 +103,10 @@ func libKernel_sys_pread(fd uintptr, bufPtr uintptr, length uintptr, offset uint
 		SetErrno(EFAULT)
 		return 0
 	}
-	GlobalFilesystem.Lock.Lock()
-	defer GlobalFilesystem.Lock.Unlock()
 
+	GlobalFilesystem.Lock.Lock()
 	file, ok := GlobalFilesystem.Descriptors[FileDescriptor(fd)]
+	GlobalFilesystem.Lock.Unlock()
 	if !ok {
 		logger.Printf("%-132s %s failed due to unknown file %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -147,45 +116,30 @@ func libKernel_sys_pread(fd uintptr, bufPtr uintptr, length uintptr, offset uint
 		SetErrno(ENOENT)
 		return ERR_PTR
 	}
-	fileData, err := GlobalFilesystem.ReadFull(file.Path)
-	if err != nil {
+
+	buffer := unsafe.Slice((*byte)(unsafe.Pointer(bufPtr)), length)
+	currentOffset, _ := file.File.Seek(0, io.SeekCurrent)
+	_, _ = file.File.Seek(int64(offset), io.SeekStart)
+	readBytes, err := file.File.Read(buffer)
+	_, _ = file.File.Seek(currentOffset, io.SeekStart)
+	if err != nil && err != io.EOF {
 		logger.Printf("%-132s %s failed due to read error on %s (%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("pread_0"),
-			color.Blue.Sprint(file.Path),
+			color.Yellow.Sprintf("0x%X", fd),
 			err.Error(),
 		)
 		SetErrno(EFAULT)
 		return ERR_PTR
 	}
 
-	// Check if offset is beyond the end of the file.
-	if offset >= uintptr(len(fileData)) {
-		logger.Printf("%-132s %s ignored read of %s bytes from file %s (offset EOF).\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("pread_0"),
-			color.Yellow.Sprintf("0x%X", length),
-			color.Blue.Sprint(file.Path),
-		)
-		return 0
-	}
-
-	// Calculate bytes available from specific offset.
-	availableBytes := uintptr(len(fileData)) - offset
-	readBytes := length
-	if readBytes > availableBytes {
-		readBytes = availableBytes
-	}
-	buffer := unsafe.Slice((*byte)(unsafe.Pointer(bufPtr)), readBytes)
-	copy(buffer, fileData[offset:offset+readBytes])
-
-	logger.Printf("%-132s %s read %s bytes from file %s at offset %s (length=%s).\n",
+	logger.Printf("%-132s %s read %s bytes from %s at offset %s (length=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("pread_0"),
 		color.Yellow.Sprintf("0x%X", readBytes),
-		color.Blue.Sprint(file.Path),
+		color.Yellow.Sprintf("0x%X", fd),
 		color.Yellow.Sprintf("0x%X", offset),
 		color.Yellow.Sprintf("0x%X", length),
 	)
-	return readBytes
+	return uintptr(readBytes)
 }

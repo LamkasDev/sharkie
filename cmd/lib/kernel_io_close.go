@@ -37,9 +37,8 @@ func libKernel__close(fd uintptr) uintptr {
 
 func libKernel_sys_close(fd uintptr) uintptr {
 	GlobalFilesystem.Lock.Lock()
-	defer GlobalFilesystem.Lock.Unlock()
-
 	file, ok := GlobalFilesystem.Descriptors[FileDescriptor(fd)]
+	GlobalFilesystem.Lock.Unlock()
 	if !ok {
 		logger.Printf("%-132s %s failed due to unknown file %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -50,7 +49,7 @@ func libKernel_sys_close(fd uintptr) uintptr {
 		return ERR_PTR
 	}
 
-	if err := GlobalFilesystem.Close(file.Path); err != nil {
+	if err := GlobalFilesystem.Close(FileDescriptor(fd)); err != nil {
 		logger.Printf("%-132s %s failed due to close error on %s (%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("_close"),

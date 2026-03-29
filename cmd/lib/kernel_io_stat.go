@@ -33,18 +33,19 @@ func libKernel_stat(pathPtr uintptr, statPtr uintptr) uintptr {
 	}
 
 	path := GetUsablePath(ReadCString(pathPtr))
-	file, ok := GlobalFilesystem.Files[path]
-	if !ok {
-		logger.Printf("%-132s %s failed due to unknown file %s.\n",
+	fd, err := GlobalFilesystem.Open(path, 0, 0)
+	if err != nil {
+		logger.Printf("%-132s %s failed due to open error on %s (%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("stat"),
 			color.Blue.Sprint(path),
+			err.Error(),
 		)
 		SetErrno(ENOENT)
 		return ERR_PTR
 	}
 
-	return libKernel_fstat(uintptr(file.Descriptor), statPtr)
+	return libKernel_fstat(uintptr(fd), statPtr)
 }
 
 // 0x0000000000016400
@@ -69,10 +70,10 @@ func libKernel_fstat(fd uintptr, statPtr uintptr) uintptr {
 		SetErrno(EFAULT)
 		return ERR_PTR
 	}
-	GlobalFilesystem.Lock.Lock()
-	defer GlobalFilesystem.Lock.Unlock()
 
+	GlobalFilesystem.Lock.Lock()
 	file, ok := GlobalFilesystem.Descriptors[FileDescriptor(fd)]
+	GlobalFilesystem.Lock.Unlock()
 	if !ok {
 		logger.Printf("%-132s %s failed due to unknown file %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -82,12 +83,13 @@ func libKernel_fstat(fd uintptr, statPtr uintptr) uintptr {
 		SetErrno(ENOENT)
 		return ERR_PTR
 	}
+
 	fileStat, err := file.File.Stat()
 	if err != nil {
 		logger.Printf("%-132s %s failed due to stat error on %s (%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("fstat"),
-			color.Blue.Sprint(file.Path),
+			color.Yellow.Sprintf("0x%X", fd),
 			err.Error(),
 		)
 		SetErrno(EFAULT)
@@ -116,7 +118,7 @@ func libKernel_fstat(fd uintptr, statPtr uintptr) uintptr {
 	logger.Printf("%-132s %s returned file stat for %s (size=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("fstat"),
-		color.Yellow.Sprintf("0x%X", file.Descriptor),
+		color.Yellow.Sprintf("0x%X", fd),
 		color.Yellow.Sprintf("0x%X", stat.Size),
 	)
 	return 0

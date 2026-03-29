@@ -44,11 +44,9 @@ func libKernel_sys_open(pathPtr uintptr, flags uintptr, mode uintptr) uintptr {
 		SetErrno(EFAULT)
 		return ERR_PTR
 	}
-	GlobalFilesystem.Lock.Lock()
-	defer GlobalFilesystem.Lock.Unlock()
 
 	path := GetUsablePath(ReadCString(pathPtr))
-	file, err := GlobalFilesystem.Open(path, 0, mode)
+	fd, err := GlobalFilesystem.Open(path, 0, mode)
 	if err != nil {
 		logger.Printf("%-132s %s failed due to open error on %s (%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -63,10 +61,10 @@ func libKernel_sys_open(pathPtr uintptr, flags uintptr, mode uintptr) uintptr {
 	logger.Printf("%-132s %s opened file %s (path=%s, flags=%s, mode=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("_open"),
-		color.Yellow.Sprintf("0x%X", file.Descriptor),
+		color.Yellow.Sprintf("0x%X", fd),
 		color.Blue.Sprint(path),
 		color.Yellow.Sprintf("0x%X", flags),
 		color.Yellow.Sprintf("0x%X", mode),
 	)
-	return uintptr(file.Descriptor)
+	return uintptr(fd)
 }

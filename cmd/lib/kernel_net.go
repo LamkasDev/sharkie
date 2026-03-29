@@ -7,6 +7,7 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	. "github.com/LamkasDev/sharkie/cmd/structs"
 	. "github.com/LamkasDev/sharkie/cmd/structs/fs"
+	. "github.com/LamkasDev/sharkie/cmd/structs/net"
 	"github.com/gookit/color"
 )
 
@@ -51,34 +52,24 @@ func libKernel___sys_socketex(namePtr uintptr, domain uintptr, sockType uintptr,
 		name = ReadCString(namePtr)
 	}
 
-	file, err := GlobalFilesystem.Open(name, SCE_O_CREAT, 0)
-	if err != nil {
-		logger.Printf("%-132s %s failed due to open error on %s (%s).\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("__sys_socketex"),
-			color.Blue.Sprint(name),
-			err.Error(),
-		)
-		SetErrno(ENOENT)
-		return ERR_PTR
-	}
-	file.ExtraData = &Socket{
+	socket := &Socket{
 		Name:     name,
 		Domain:   int32(domain),
 		Type:     int32(sockType),
 		Protocol: int32(protocol),
 	}
+	fd := GlobalFilesystem.AllocateFd(name, socket)
 
 	logger.Printf("%-132s %s created socket %s (name=%s, domain=%s, sockType=%s, protocol=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("__sys_socketex"),
-		color.Yellow.Sprintf("0x%X", file.Descriptor),
+		color.Yellow.Sprintf("0x%X", fd),
 		color.Blue.Sprint(name),
 		color.Yellow.Sprintf("0x%X", domain),
 		color.Yellow.Sprintf("0x%X", sockType),
 		color.Yellow.Sprintf("0x%X", protocol),
 	)
-	return uintptr(file.Descriptor)
+	return uintptr(fd)
 }
 
 // 0x0000000000000C90

@@ -1,6 +1,6 @@
-build
-fs
-.venv
-.idea
+/build
+/fs
+/.venv
+/.idea
 sharkie.prof
 sharkie.log

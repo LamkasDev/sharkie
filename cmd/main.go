@@ -13,6 +13,7 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/structs/fs"
 	"github.com/LamkasDev/sharkie/cmd/structs/gc"
 	"github.com/LamkasDev/sharkie/cmd/structs/ipmi"
+	"github.com/LamkasDev/sharkie/cmd/structs/rng"
 	"github.com/LamkasDev/sharkie/cmd/symbol"
 	"github.com/gookit/color"
 )
@@ -42,6 +43,7 @@ func main() {
 	ipmi.SetupImpiManager()
 	gc.SetupGraphicsController()
 	dce.SetupDisplayCoreEngine()
+	rng.SetupRngDevice()
 
 	symbol.LoadSymbolMap("data/aerolib.csv")
 	lib.RegisterStubs()
