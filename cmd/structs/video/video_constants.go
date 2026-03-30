@@ -1,6 +1,6 @@
 package video
 
-type VideoOutPixelFormat int16
+type VideoOutPixelFormat uint32
 
 const (
 	VideoOutPixelFormat_A8R8G8B8_SRGB    = VideoOutPixelFormat(0x0000)
@@ -8,14 +8,14 @@ const (
 	VideoOutPixelFormat_A2R10G10B10_SRGB = VideoOutPixelFormat(0x6000)
 )
 
-type VideoOutTilingMode int8
+type VideoOutTilingMode uint32
 
 const (
 	VideoOutTilingModeTile   = VideoOutTilingMode(0)
 	VideoOutTilingModeLinear = VideoOutTilingMode(1)
 )
 
-type VideoOutAspectRatio int8
+type VideoOutAspectRatio uint32
 
 const VideoOutAspectRatio_16_9 = VideoOutAspectRatio(0)
 
@@ -24,5 +24,6 @@ const (
 	SCE_VIDEO_OUT_ERROR_INVALID_HANDLE   = uintptr(0x80A2000B)
 	SCE_VIDEO_OUT_ERROR_INVALID_POINTER  = uintptr(0x80A20011)
 	SCE_VIDEO_OUT_ERROR_UNSUPPORTED_MODE = uintptr(0x80A2001B)
+	SCE_VIDEO_OUT_ERROR_FLIP_QUEUE_FULL  = uintptr(0x80A20032)
 	SCE_VIDEO_OUT_ERROR_NOT_IMPLEMENTED  = uintptr(0x80A200FF)
 )

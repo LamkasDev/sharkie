@@ -13,6 +13,7 @@ func RegisterStubs() {
 	RegisterKernelStubs()
 	RegisterSceLibcInternalStubs()
 	RegisterLibcStubs()
+	RegisterGnmDriverStubs()
 	RegisterVideoOutStubs()
 }
 

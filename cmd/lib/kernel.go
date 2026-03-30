@@ -137,6 +137,9 @@ func RegisterKernelStubs() {
 	elf.RegisterStub("libkernel", "scePthreadSetaffinity", libKernel_scePthreadSetaffinity)
 	elf.RegisterStub("libkernel", "pthread_exit", libKernel_pthread_exit)
 	elf.RegisterStub("libkernel", "scePthreadExit", libKernel_scePthreadExit)
+	elf.RegisterStub("libkernel", "scePthreadRwlockRdlock", libKernel_scePthreadRwlockRdlock)
+	elf.RegisterStub("libkernel", "scePthreadRwlockWrlock", libKernel_scePthreadRwlockWrlock)
+	elf.RegisterStub("libkernel", "scePthreadRwlockUnlock", libKernel_scePthreadRwlockUnlock)
 
 	// Mutex functions.
 	elf.RegisterStub("libkernel", "pthread_mutexattr_init", libKernel_pthread_mutexattr_init)

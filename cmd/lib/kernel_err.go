@@ -36,7 +36,7 @@ func SetErrno(err uintptr) {
 // void *_error()
 func libKernel___error() uintptr {
 	address := GetErrnoAddress()
-	logger.Printf("%-132s %s returning %s.\n",
+	logger.Printf("%-132s %s returned %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("_error"),
 		color.Red.Sprintf("0x%X", address),
@@ -50,7 +50,7 @@ func libKernel___error() uintptr {
 func libKernel_sceKernelError(err uintptr) uintptr {
 	if err != 0 {
 		err -= SonyErrorOffset
-		logger.Printf("%-132s %s returning %s.\n",
+		logger.Printf("%-132s %s returned %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceKernelError"),
 			color.Red.Sprintf("0x%X", err),

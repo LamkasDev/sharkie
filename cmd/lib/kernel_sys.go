@@ -258,7 +258,7 @@ func libKernel___sys_get_proc_type_info(infoPtr uintptr) uintptr {
 	binary.LittleEndian.PutUint32(infoSlice[4:], PROC_TYPE_BIG_APP)
 	binary.LittleEndian.PutUint32(infoSlice[8:], flags)
 
-	logger.Printf("%-132s %s returning process type info (infoPtr=%s).\n",
+	logger.Printf("%-132s %s returned process type info (infoPtr=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("__sys_get_proc_type_info"),
 		color.Yellow.Sprintf("0x%X", infoPtr),

@@ -242,12 +242,21 @@ func (shFs *SharkieFilesystem) InitializeSystemFiles() error {
 		return err
 	}
 
-	// Actual devices.
+	// Actual devices (keeping the real file for now).
+	if _, err := shFs.Create(GetUsablePath("/dev/rng")); err != nil {
+		return err
+	}
 	shFs.Devices[GetUsablePath("/dev/rng")] = func() PosixFile {
 		return rng.GlobalRngDevice
 	}
+	if _, err := shFs.Create(GetUsablePath("/dev/gc")); err != nil {
+		return err
+	}
 	shFs.Devices[GetUsablePath("/dev/gc")] = func() PosixFile {
 		return gc.GlobalGraphicsController
+	}
+	if _, err := shFs.Create(GetUsablePath("/dev/dce")); err != nil {
+		return err
 	}
 	shFs.Devices[GetUsablePath("/dev/dce")] = func() PosixFile {
 		return dce.GlobalDisplayCoreEngine

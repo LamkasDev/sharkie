@@ -12,6 +12,7 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/structs/dce"
 	"github.com/LamkasDev/sharkie/cmd/structs/fs"
 	"github.com/LamkasDev/sharkie/cmd/structs/gc"
+	"github.com/LamkasDev/sharkie/cmd/structs/gpu"
 	"github.com/LamkasDev/sharkie/cmd/structs/ipmi"
 	"github.com/LamkasDev/sharkie/cmd/structs/rng"
 	"github.com/LamkasDev/sharkie/cmd/symbol"
@@ -43,6 +44,7 @@ func main() {
 	ipmi.SetupImpiManager()
 	gc.SetupGraphicsController()
 	dce.SetupDisplayCoreEngine()
+	gpu.SetupLiverpool()
 	rng.SetupRngDevice()
 
 	symbol.LoadSymbolMap("data/aerolib.csv")

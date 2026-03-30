@@ -5,11 +5,23 @@ import (
 	"os"
 )
 
-const LogToFile = true
+const LogToFile = false
 
 const (
+	// Logs mutexes, conditions, semaphores, etc.
 	LogSyncing = false
-	LogAlloc   = false
+
+	// Logs syncing timeouts, attempts, etc.
+	LogSyncingFail = false
+
+	// Logs when thread goes to sleep.
+	LogSleep = false
+
+	// Logs memory allocations.
+	LogAlloc = false
+
+	// Logs things that clutter log (value returns, etc).
+	LogMisc = false
 )
 
 var LogFile *os.File

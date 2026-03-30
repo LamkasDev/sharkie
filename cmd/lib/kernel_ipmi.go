@@ -231,19 +231,23 @@ func libKernel_ipmimgr_call(op, handle, resultPtr, paramsPtr, paramsSize, magic,
 				WriteResult(resultPtr, 0)
 			}
 
-			logger.Printf("%-132s %s finished waiting on event flag %s.\n",
-				emu.GlobalModuleManager.GetCallSiteText(),
-				color.Magenta.Sprint("ipmimgr_call"),
-				color.Blue.Sprint(client.Server.EventFlag.Name),
-			)
+			if logger.LogSyncing {
+				logger.Printf("%-132s %s finished waiting on event flag %s.\n",
+					emu.GlobalModuleManager.GetCallSiteText(),
+					color.Magenta.Sprint("ipmimgr_call"),
+					color.Blue.Sprint(client.Server.EventFlag.Name),
+				)
+			}
 			return 0
 		}
 
-		logger.Printf("%-132s %s tried waiting on event flag %s.\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("sys_evf_trywait"),
-			color.Blue.Sprint(client.Server.EventFlag.Name),
-		)
+		if logger.LogSyncingFail {
+			logger.Printf("%-132s %s tried waiting on event flag %s.\n",
+				emu.GlobalModuleManager.GetCallSiteText(),
+				color.Magenta.Sprint("sys_evf_trywait"),
+				color.Blue.Sprint(client.Server.EventFlag.Name),
+			)
+		}
 		return SCE_KERNEL_ERROR_TIMEDOUT
 	}
 

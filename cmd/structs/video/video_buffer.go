@@ -18,8 +18,7 @@ type VideoOutBufferAttribute struct {
 	Height       uint32
 	PitchInPixel uint32
 	Option       uint32
-	Reserved0    uint32
-	Reserved1    uint64
+	Reserved     [16]byte
 }
 
 const VideoOutBufferAttributeSize = unsafe.Sizeof(VideoOutBufferAttribute{})

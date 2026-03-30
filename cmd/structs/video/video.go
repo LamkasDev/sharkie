@@ -7,8 +7,10 @@ const (
 )
 
 type VideoOutHandle struct {
-	Id            int
-	Buffers       [VideoOutMaxBuffers]VideoOutBuffer
-	Attributes    [VideoOutMaxAttributes]VideoOutBufferAttribute
-	CurrentBuffer uint32
+	Id                 int
+	Buffers            [VideoOutMaxBuffers]VideoOutBuffer
+	Attributes         [VideoOutMaxAttributes]VideoOutBufferAttribute
+	CurrentBuffer      uint32
+	FlipRate           uint32
+	LabelBufferAddress uintptr
 }

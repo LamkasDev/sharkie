@@ -122,7 +122,7 @@ func libKernel_pthread_mutex_destroy(mutexHandlePtr uintptr) uintptr {
 	logger.Printf("%-132s %s destroyed mutex %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("pthread_mutex_destroy"),
-		color.Yellow.Sprintf("0x%X", mutexAddr),
+		GetMutexNameText(mutex, mutexAddr),
 	)
 	return 0
 }

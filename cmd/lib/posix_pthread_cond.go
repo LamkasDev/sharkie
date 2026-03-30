@@ -255,7 +255,7 @@ func libKernel_pthread_cond_timedwait(condHandlePtr uintptr, mutexHandlePtr uint
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("pthread_cond_timedwait"),
 			color.Yellow.Sprintf("0x%X", condAddr),
-			color.Yellow.Sprintf("0x%X", timeout.Microseconds()),
+			color.Green.Sprintf("%d", timeout.Microseconds()),
 		)
 	}
 	hostCond := GetCond(condAddr)
@@ -267,11 +267,13 @@ func libKernel_pthread_cond_timedwait(condHandlePtr uintptr, mutexHandlePtr uint
 		return err
 	}
 	if !waited {
-		logger.Printf("%-132s %s timed out on cond %s.\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("pthread_cond_timedwait"),
-			color.Yellow.Sprintf("0x%X", condAddr),
-		)
+		if logger.LogSyncingFail {
+			logger.Printf("%-132s %s timed out on cond %s.\n",
+				emu.GlobalModuleManager.GetCallSiteText(),
+				color.Magenta.Sprint("pthread_cond_timedwait"),
+				color.Yellow.Sprintf("0x%X", condAddr),
+			)
+		}
 		return ETIMEDOUT
 	}
 
@@ -314,7 +316,7 @@ func libKernel_pthread_cond_reltimedwait_np(condHandlePtr uintptr, mutexHandlePt
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("pthread_cond_reltimedwait_np"),
 			color.Yellow.Sprintf("0x%X", condAddr),
-			color.Yellow.Sprintf("0x%X", timeout.Microseconds()),
+			color.Green.Sprintf("%d", timeout.Microseconds()),
 		)
 	}
 	hostCond := GetCond(condAddr)
@@ -326,11 +328,13 @@ func libKernel_pthread_cond_reltimedwait_np(condHandlePtr uintptr, mutexHandlePt
 		return err
 	}
 	if !waited {
-		logger.Printf("%-132s %s timed out on cond %s.\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("pthread_cond_reltimedwait_np"),
-			color.Yellow.Sprintf("0x%X", condAddr),
-		)
+		if logger.LogSyncingFail {
+			logger.Printf("%-132s %s timed out on cond %s.\n",
+				emu.GlobalModuleManager.GetCallSiteText(),
+				color.Magenta.Sprint("pthread_cond_reltimedwait_np"),
+				color.Yellow.Sprintf("0x%X", condAddr),
+			)
+		}
 		return ETIMEDOUT
 	}
 

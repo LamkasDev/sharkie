@@ -154,7 +154,7 @@ func libSceLibcInternal_sceLibcMspaceMemalign(mspace, alignment, size uintptr) u
 // _BOOL8 __fastcall sceLibcMspaceIsHeapEmpty(__int64, __int64, __int64)
 func libSceLibcInternal_sceLibcMspaceIsHeapEmpty(mspace, heapPtr uintptr) uintptr {
 	isEmpty := uintptr(0)
-	logger.Printf("%-132s %s returning %s.\n",
+	logger.Printf("%-132s %s returned %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sceLibcMspaceIsHeapEmpty"),
 		color.Yellow.Sprintf("0x%X", isEmpty),

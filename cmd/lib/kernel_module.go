@@ -176,7 +176,7 @@ func libKernel_sys_dynlib_process_needed_and_relocate() uintptr {
 // 0x0000000000016BE0
 // __int64 sceKernelIsInSandbox()
 func libKernel_sceKernelIsInSandbox() uintptr {
-	logger.Printf("%-132s %s returning false.\n",
+	logger.Printf("%-132s %s returned false.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sceKernelIsInSandbox"),
 	)
@@ -192,11 +192,13 @@ func libKernel_sceKernelGetCompiledSdkVersion(versionPtr uintptr) uintptr {
 		binary.LittleEndian.PutUint32(versionSlice, sdkVersion)
 	}
 
-	logger.Printf("%-132s %s returning %s.\n",
-		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprint("sceKernelGetCompiledSdkVersion"),
-		color.Yellow.Sprintf("0x%X", sdkVersion),
-	)
+	if logger.LogMisc {
+		logger.Printf("%-132s %s returned %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceKernelGetCompiledSdkVersion"),
+			color.Yellow.Sprintf("0x%X", sdkVersion),
+		)
+	}
 	return 0
 }
 

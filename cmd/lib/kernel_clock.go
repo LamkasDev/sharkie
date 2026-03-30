@@ -26,11 +26,13 @@ func libKernel_sceKernelClockGettime(clockId, timestampPtr uintptr) uintptr {
 	timestamp.Seconds = uint64(now.Unix())
 	timestamp.Nanoseconds = uint64(now.Nanosecond())
 
-	logger.Printf("%-132s %s returned %s.\n",
-		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprint("sceKernelClockGettime"),
-		color.Yellow.Sprintf("0x%X", timestamp.Seconds),
-	)
+	if logger.LogMisc {
+		logger.Printf("%-132s %s returned %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceKernelClockGettime"),
+			color.Yellow.Sprintf("0x%X", timestamp.Seconds),
+		)
+	}
 	return 0
 }
 
@@ -40,11 +42,13 @@ func libKernel_sceKernelGetProcessTime() uintptr {
 	elapsed := time.Since(TscStartTime)
 	micros := uintptr(elapsed.Microseconds())
 
-	logger.Printf("%-132s %s returned %s.\n",
-		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprint("sceKernelGetProcessTime"),
-		color.Yellow.Sprintf("0x%X", micros),
-	)
+	if logger.LogMisc {
+		logger.Printf("%-132s %s returned %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceKernelGetProcessTime"),
+			color.Yellow.Sprintf("0x%X", micros),
+		)
+	}
 	return 0
 }
 
@@ -64,10 +68,12 @@ func libKernel_sceKernelGettimeofday(timevaluePtr uintptr) uintptr {
 	timevalue.Seconds = uint64(now.Unix())
 	timevalue.Microseconds = uint64(now.Nanosecond() / 1000)
 
-	logger.Printf("%-132s %s returned %s.\n",
-		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprint("sceKernelGettimeofday"),
-		color.Yellow.Sprintf("0x%X", timevalue.Seconds),
-	)
+	if logger.LogMisc {
+		logger.Printf("%-132s %s returned %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceKernelGettimeofday"),
+			color.Yellow.Sprintf("0x%X", timevalue.Seconds),
+		)
+	}
 	return 0
 }

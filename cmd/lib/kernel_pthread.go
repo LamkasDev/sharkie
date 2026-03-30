@@ -12,11 +12,13 @@ import (
 func libKernel_scePthreadGetthreadid() uintptr {
 	thread := emu.GetCurrentThread()
 
-	logger.Printf("%-132s %s returned thread id %s.\n",
-		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprint("scePthreadGetthreadid"),
-		color.Yellow.Sprintf("%d", thread.Id),
-	)
+	if logger.LogMisc {
+		logger.Printf("%-132s %s returned %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("scePthreadGetthreadid"),
+			color.Yellow.Sprintf("%d", thread.Id),
+		)
+	}
 	return uintptr(thread.Id)
 }
 

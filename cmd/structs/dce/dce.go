@@ -8,7 +8,7 @@ import (
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	"github.com/LamkasDev/sharkie/cmd/logger"
-	"github.com/LamkasDev/sharkie/cmd/structs"
+	. "github.com/LamkasDev/sharkie/cmd/structs"
 	. "github.com/LamkasDev/sharkie/cmd/structs/video"
 	"github.com/gookit/color"
 )
@@ -28,6 +28,7 @@ func NewDisplayCoreEngine() *DisplayCoreEngine {
 	}
 	for i := range dce.Handles {
 		dce.Handles[i].Id = i + 1
+		dce.Handles[i].LabelBufferAddress = GlobalGoAllocator.Malloc(uintptr(VideoOutMaxBuffers) * 8)
 	}
 
 	return dce
@@ -87,11 +88,11 @@ func (dce *DisplayCoreEngine) Ioctl(request uint32, argPtr uintptr) error {
 			size := GlobalDisplayCoreEngine.AttributeBufferSize
 			if command.Param1 != 0 {
 				// Attribute buffer offset.
-				structs.WriteAddress(command.Param1, 0)
+				WriteAddress(command.Param1, 0)
 			}
 			if command.Param2 != 0 {
 				// Attribute buffer size.
-				structs.WriteAddress(command.Param2, size)
+				WriteAddress(command.Param2, size)
 			}
 
 			logger.Printf("%-132s %s returned attribute buffer size %s.\n",
@@ -174,7 +175,7 @@ func (dce *DisplayCoreEngine) Ioctl(request uint32, argPtr uintptr) error {
 	return errors.New("unknown dce ioctl")
 }
 
-func (dce *DisplayCoreEngine) HandleById(id int) *VideoOutHandle {
+func (dce *DisplayCoreEngine) GetHandleById(id int) *VideoOutHandle {
 	if id < 1 || id > VideoOutMaxHandles {
 		return nil
 	}

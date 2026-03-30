@@ -160,42 +160,50 @@ func libKernel_sys_evf_wait(handle uintptr, waitPattern uint64, waitMode uint32,
 				eventFlag.CurrentPattern &= ^waitPattern
 			}
 
-			logger.Printf("%-132s %s finished waiting on event flag %s.\n",
-				emu.GlobalModuleManager.GetCallSiteText(),
-				color.Magenta.Sprint("sys_evf_wait"),
-				GetEventFlagName(eventFlag),
-			)
+			if logger.LogSyncing {
+				logger.Printf("%-132s %s finished waiting on event flag %s.\n",
+					emu.GlobalModuleManager.GetCallSiteText(),
+					color.Magenta.Sprint("sys_evf_wait"),
+					GetEventFlagName(eventFlag),
+				)
+			}
 			return 0
 		}
 
 		if timeout != -1 {
 			if time.Since(start) >= timeout {
-				logger.Printf("%-132s %s timed out event flag %s.\n",
-					emu.GlobalModuleManager.GetCallSiteText(),
-					color.Magenta.Sprint("sys_evf_wait"),
-					GetEventFlagName(eventFlag),
-				)
+				if logger.LogSyncingFail {
+					logger.Printf("%-132s %s timed out event flag %s.\n",
+						emu.GlobalModuleManager.GetCallSiteText(),
+						color.Magenta.Sprint("sys_evf_wait"),
+						GetEventFlagName(eventFlag),
+					)
+				}
 				return SCE_KERNEL_ERROR_TIMEDOUT
 			}
 		}
 
 		// Wait.
-		logger.Printf("%-132s %s waiting on event flag %s for %s microseconds.\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("sys_evf_wait"),
-			GetEventFlagName(eventFlag),
-			color.Yellow.Sprintf("0x%X", timeout.Microseconds()),
-		)
+		if logger.LogSyncing {
+			logger.Printf("%-132s %s waiting on event flag %s for %s microseconds.\n",
+				emu.GlobalModuleManager.GetCallSiteText(),
+				color.Magenta.Sprint("sys_evf_wait"),
+				GetEventFlagName(eventFlag),
+				color.Yellow.Sprintf("0x%X", timeout.Microseconds()),
+			)
+		}
 		if timeout == -1 {
 			eventFlag.Cond.Wait()
 		} else {
 			waited := CondWaitTimeout(eventFlag.Cond, timeout)
 			if !waited {
-				logger.Printf("%-132s %s timed out on event flag %s.\n",
-					emu.GlobalModuleManager.GetCallSiteText(),
-					color.Magenta.Sprint("sys_evf_wait"),
-					GetEventFlagName(eventFlag),
-				)
+				if logger.LogSyncingFail {
+					logger.Printf("%-132s %s timed out on event flag %s.\n",
+						emu.GlobalModuleManager.GetCallSiteText(),
+						color.Magenta.Sprint("sys_evf_wait"),
+						GetEventFlagName(eventFlag),
+					)
+				}
 				return SCE_KERNEL_ERROR_TIMEDOUT
 			}
 		}
@@ -241,19 +249,23 @@ func libKernel_sys_evf_trywait(handle uintptr, waitPattern uint64, waitMode uint
 			eventFlag.CurrentPattern &= ^waitPattern
 		}
 
-		logger.Printf("%-132s %s finished waiting on event flag %s.\n",
+		if logger.LogSyncing {
+			logger.Printf("%-132s %s finished waiting on event flag %s.\n",
+				emu.GlobalModuleManager.GetCallSiteText(),
+				color.Magenta.Sprint("sys_evf_trywait"),
+				GetEventFlagName(eventFlag),
+			)
+		}
+		return 0
+	}
+
+	if logger.LogSyncingFail {
+		logger.Printf("%-132s %s tried waiting on event flag %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sys_evf_trywait"),
 			GetEventFlagName(eventFlag),
 		)
-		return 0
 	}
-
-	logger.Printf("%-132s %s tried waiting on event flag %s.\n",
-		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprint("sys_evf_trywait"),
-		GetEventFlagName(eventFlag),
-	)
 	return SCE_KERNEL_ERROR_TIMEDOUT
 }
 

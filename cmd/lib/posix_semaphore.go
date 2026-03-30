@@ -62,11 +62,13 @@ func libKernel_sem_timedwait(semPtr uintptr, timestampPtr uintptr) uintptr {
 			break
 		}
 		if atomic.CompareAndSwapInt32(&semaphore.Value, value, value-1) {
-			logger.Printf("%-132s %s waited on semaphore %s.\n",
-				emu.GlobalModuleManager.GetCallSiteText(),
-				color.Magenta.Sprint("sem_timedwait"),
-				color.Yellow.Sprintf("0x%X", semPtr),
-			)
+			if logger.LogSyncing {
+				logger.Printf("%-132s %s waited on semaphore %s.\n",
+					emu.GlobalModuleManager.GetCallSiteText(),
+					color.Magenta.Sprint("sem_timedwait"),
+					color.Yellow.Sprintf("0x%X", semPtr),
+				)
+			}
 			return 0
 		}
 	}
@@ -78,11 +80,13 @@ func libKernel_sem_timedwait(semPtr uintptr, timestampPtr uintptr) uintptr {
 		targetTime := time.Unix(int64(timestamp.Seconds), int64(timestamp.Nanoseconds))
 		timeout = time.Until(targetTime)
 		if timeout <= 0 {
-			logger.Printf("%-132s %s timed out on semaphore %s.\n",
-				emu.GlobalModuleManager.GetCallSiteText(),
-				color.Magenta.Sprint("sem_timedwait"),
-				color.Yellow.Sprintf("0x%X", semPtr),
-			)
+			if logger.LogSyncingFail {
+				logger.Printf("%-132s %s timed out on semaphore %s.\n",
+					emu.GlobalModuleManager.GetCallSiteText(),
+					color.Magenta.Sprint("sem_timedwait"),
+					color.Yellow.Sprintf("0x%X", semPtr),
+				)
+			}
 			return ETIMEDOUT
 		}
 	}
@@ -96,31 +100,37 @@ func libKernel_sem_timedwait(semPtr uintptr, timestampPtr uintptr) uintptr {
 		// Check value again (holding lock this time).
 		if semaphore.Value > 0 {
 			semaphore.Value--
-			logger.Printf("%-132s %s waited on semaphore %s.\n",
-				emu.GlobalModuleManager.GetCallSiteText(),
-				color.Magenta.Sprint("sem_timedwait"),
-				color.Yellow.Sprintf("0x%X", semPtr),
-			)
+			if logger.LogSyncing {
+				logger.Printf("%-132s %s waited on semaphore %s.\n",
+					emu.GlobalModuleManager.GetCallSiteText(),
+					color.Magenta.Sprint("sem_timedwait"),
+					color.Yellow.Sprintf("0x%X", semPtr),
+				)
+			}
 			return 0
 		}
 
 		// Wait.
-		logger.Printf("%-132s %s waiting on semaphore %s for %s microseconds.\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("sem_timedwait"),
-			color.Yellow.Sprintf("0x%X", semPtr),
-			color.Yellow.Sprintf("0x%X", timeout.Microseconds()),
-		)
+		if logger.LogSyncing {
+			logger.Printf("%-132s %s waiting on semaphore %s for %s microseconds.\n",
+				emu.GlobalModuleManager.GetCallSiteText(),
+				color.Magenta.Sprint("sem_timedwait"),
+				color.Yellow.Sprintf("0x%X", semPtr),
+				color.Green.Sprintf("%d", timeout.Microseconds()),
+			)
+		}
 		if timeout == -1 {
 			hostSemaphore.Wait()
 		} else {
 			waited := CondWaitTimeout(hostSemaphore, timeout)
 			if !waited {
-				logger.Printf("%-132s %s timed out on semaphore %s.\n",
-					emu.GlobalModuleManager.GetCallSiteText(),
-					color.Magenta.Sprint("sem_timedwait"),
-					color.Yellow.Sprintf("0x%X", semPtr),
-				)
+				if logger.LogSyncingFail {
+					logger.Printf("%-132s %s timed out on semaphore %s.\n",
+						emu.GlobalModuleManager.GetCallSiteText(),
+						color.Magenta.Sprint("sem_timedwait"),
+						color.Yellow.Sprintf("0x%X", semPtr),
+					)
+				}
 				return ETIMEDOUT
 			}
 		}

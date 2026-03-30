@@ -42,7 +42,7 @@ func libKernel_sceKernelGetProcParam() uintptr {
 	module := emu.GlobalModuleManager.CurrentModule
 	if module.ProcessParamSection != nil {
 		addr := module.BaseAddress + uintptr(module.ProcessParamSection.PVaddr)
-		logger.Printf("%-132s %s returning process parameters %s (relative=%s).\n",
+		logger.Printf("%-132s %s returned process parameters %s (relative=%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceKernelGetProcParam"),
 			color.Yellow.Sprintf("0x%X", addr),
@@ -61,11 +61,13 @@ func libKernel_sceKernelGetProcParam() uintptr {
 // 0x0000000000014BE0
 // __int64 __fastcall sceKernelUsleep(unsigned int)
 func libKernel_sceKernelUsleep(micros uintptr) uintptr {
-	logger.Printf("%-132s %s sleeping for %s microseconds.\n",
-		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprint("sceKernelUsleep"),
-		color.Yellow.Sprintf("0x%X", micros),
-	)
+	if logger.LogSleep {
+		logger.Printf("%-132s %s sleeping for %s microseconds.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceKernelUsleep"),
+			color.Green.Sprintf("%d", micros),
+		)
+	}
 	time.Sleep(time.Duration(micros) * time.Microsecond)
 	return 0
 }
@@ -84,12 +86,14 @@ func libKernel_sceKernelNanosleep(timestampPtr uintptr) uintptr {
 	timestamp := (*Timestamp)(unsafe.Pointer(timestampPtr))
 	timeout := time.Duration(timestamp.Seconds)*time.Second + time.Duration(timestamp.Nanoseconds)*time.Nanosecond
 
-	logger.Printf("%-132s %s sleeping for %ss and %sns.\n",
-		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprint("sceKernelNanosleep"),
-		color.Yellow.Sprintf("0x%X", timestamp.Seconds),
-		color.Yellow.Sprintf("0x%X", timestamp.Nanoseconds),
-	)
+	if logger.LogSleep {
+		logger.Printf("%-132s %s sleeping for %ss and %sns.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceKernelNanosleep"),
+			color.Yellow.Sprintf("0x%X", timestamp.Seconds),
+			color.Yellow.Sprintf("0x%X", timestamp.Nanoseconds),
+		)
+	}
 	time.Sleep(timeout)
 	return 0
 }
