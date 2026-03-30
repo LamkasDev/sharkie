@@ -6,11 +6,6 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/structs/pthread"
 )
 
-var (
-	// TlsBaseRepo maps module indexes to host TLS base addresses.
-	TlsBaseRepo = map[uint64]uintptr{}
-)
-
 const TcbAlignment = 64
 
 // DtvEntry represent an entry in a dynamic thread vector.

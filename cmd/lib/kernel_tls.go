@@ -21,13 +21,19 @@ func libKernel___tls_get_addr(tlsIndexPtr uintptr) uintptr {
 		return EFAULT
 	}
 
+	// Find the DTV entry for module index.
+	currentThread := emu.GetCurrentThread()
 	tlsIndex := (*TlsIndex)(unsafe.Pointer(tlsIndexPtr))
-	address, ok := TlsBaseRepo[tlsIndex.ModuleId]
-	if !ok {
-		logger.Printf("%-132s %s failed due to invalid module index %s.\n",
+	dtvEntryPtr := uintptr(unsafe.Pointer(currentThread.Tcb.Dtv)) + (uintptr(tlsIndex.ModuleId+1) * DtvEntrySize)
+	dtvEntry := (*DtvEntry)(unsafe.Pointer(dtvEntryPtr))
+
+	// Check address.
+	address := dtvEntry.Pointer
+	if address == 0 {
+		logger.Printf("%-132s %s failed due to invalid address inside DTV (moduleId=%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("__tls_get_addr"),
-			color.Green.Sprint(tlsIndex.ModuleId),
+			color.Green.Sprintf("%d", tlsIndex.ModuleId),
 		)
 		return 0
 	}

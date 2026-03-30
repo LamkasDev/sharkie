@@ -8,6 +8,7 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	"github.com/LamkasDev/sharkie/cmd/lib"
 	"github.com/LamkasDev/sharkie/cmd/logger"
+	"github.com/LamkasDev/sharkie/cmd/renderer"
 	"github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/LamkasDev/sharkie/cmd/structs/dce"
 	"github.com/LamkasDev/sharkie/cmd/structs/fs"
@@ -28,6 +29,7 @@ func main() {
 	logger.StartLogging()
 	// logger.StartProfiling()
 
+	// Setup host stuff.
 	logger.Printf("hi from %s :3\n", color.Blue.Sprint("sharkie"))
 	asm.ExceptionHandler = emu.ExceptionHandlerGo
 	elf.GetSymbolAddress = emu.GetSymbolAddress
@@ -37,23 +39,32 @@ func main() {
 	asm.SetupCooperativeGC()
 	asm.AllocTlsSlots()
 	emu.SetupSignalHandler()
+	renderer.SetupRenderer()
+
+	// Setup guest stuff.
 	structs.SetupAllocator()
-	fs.SetupFilesystem()
 	structs.SetupSemaphores()
 	structs.SetupEventFlags()
+	fs.SetupFilesystem()
+	rng.SetupRngDevice()
 	ipmi.SetupImpiManager()
 	gc.SetupGraphicsController()
 	dce.SetupDisplayCoreEngine()
 	gpu.SetupLiverpool()
-	rng.SetupRngDevice()
+	gpu.GlobalLiverpool.OnFlip = renderer.GlobalRenderer.FrameSource.Submit
 
+	// Register function stubs.
 	symbol.LoadSymbolMap("data/aerolib.csv")
 	lib.RegisterStubs()
 
+	// Run main executable.
 	if err := emu.GlobalModuleManager.LoadModule("eboot.bin"); err != nil {
 		panic(err)
 	}
 	emu.GlobalModuleManager.RunModule("eboot.bin")
+
+	// Render stuff.
+	renderer.GlobalRenderer.Run()
 	logger.StopProfiling()
 	logger.StopLogging()
 }

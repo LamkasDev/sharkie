@@ -10,7 +10,7 @@ type Liverpool struct {
 	GraphicsRing    *LiverpoolCommandRing
 	ComputeRing     *LiverpoolCommandRing
 	DisplaySurfaces map[uintptr]*LiverpoolDisplaySurface
-	OnFlip          func(surfaceAddr uintptr, flipArg uint64)
+	OnFlip          func(gpuAddress uintptr, flipArg uint64)
 }
 
 func NewLiverpool() *Liverpool {

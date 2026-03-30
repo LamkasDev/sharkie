@@ -136,7 +136,7 @@ func (t *Thread) CallUnsafe(funcAddr uintptr, arg uintptr) {
 // Call sets up the current goroutine and calls a function at specified address.
 // The stack it returns on is no longer expandable as it might have split during guest execution.
 // This however doesn't matter as long as you use it within a fresh goroutine.
-// It's aimed to be used asynchronously like 'go Call(...)' or for a more complete solution see CallSync.
+// It's aimed to be used asynchronously like 'go Call(...)' or for a more complete solution see CallAndWait.
 func (t *Thread) Call(funcAddr uintptr, arg uintptr) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
@@ -155,29 +155,37 @@ func (t *Thread) CallAndWait(funcAddr uintptr, arg uintptr) {
 	wg.Wait()
 }
 
-// Run pushes arguments on stack and calls the program's entry point.
+// Run creates a new goroutine, pushes arguments on stack and calls the program's entry point.
+// It is non-blocking (we shouldn't return from there anyway).
 func (t *Thread) Run(e *elf.Elf) {
-	// Push program arguments to the stack.
-	// int main(int argc, char* argv[])
-	strAddr := t.Stack.PushString(fmt.Sprintf("%s\x00", e.Name))
-	argsPtr := t.Stack.PushUint32(1)
-	t.Stack.PushUint64(uint64(strAddr))
-	t.Stack.PushUint64(0)
+	go func() {
+		runtime.LockOSThread()
+		defer runtime.UnlockOSThread()
 
-	// Call the assembly trampoline and jump into game code.
-	entry := e.BaseAddress + uintptr(e.EntryAddress)
-	logger.Printf(
-		"Jumping to %s's entry point %s (relative=%s)...\n",
-		color.Blue.Sprintf("%s", e.Name),
-		color.Yellow.Sprintf("0x%X", entry),
-		color.Yellow.Sprintf("0x%X", e.EntryAddress),
-	)
-	asm.GuestEnter()
-	asm.Run(entry, t.Stack.CurrentPointer, argsPtr, 0)
-	asm.GuestLeave()
+		t.Setup()
 
-	// This should not be reached.
-	logger.Println("Returned from run - this should not happen.")
+		// Push program arguments to the stack.
+		// int main(int argc, char* argv[])
+		strAddr := t.Stack.PushString(fmt.Sprintf("%s\x00", e.Name))
+		argsPtr := t.Stack.PushUint32(1)
+		t.Stack.PushUint64(uint64(strAddr))
+		t.Stack.PushUint64(0)
+
+		// Call the assembly trampoline and jump into game code.
+		entry := e.BaseAddress + uintptr(e.EntryAddress)
+		logger.Printf(
+			"Jumping to %s's entry point %s (relative=%s)...\n",
+			color.Blue.Sprintf("%s", e.Name),
+			color.Yellow.Sprintf("0x%X", entry),
+			color.Yellow.Sprintf("0x%X", e.EntryAddress),
+		)
+		asm.GuestEnter()
+		asm.Run(entry, t.Stack.CurrentPointer, argsPtr, 0)
+		asm.GuestLeave()
+
+		// This should not be reached.
+		logger.Println("Returned from run - this should not happen.")
+	}()
 }
 
 // SafeReadUint64 safely reads a uint64 value from the stack.

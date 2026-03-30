@@ -2,6 +2,7 @@ package asm
 
 import (
 	"runtime"
+	"sync"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/sys_struct"
@@ -10,6 +11,9 @@ import (
 var (
 	// ThreadContextRepo maps thread IDs to host thread contexts.
 	ThreadContextRepo = make(map[int32]*ThreadContext)
+
+	// ThreadContextLock protects ThreadContextRepo, so multiple threads can look up thread contexts safely.
+	ThreadContextLock sync.RWMutex
 
 	// ThreadContextPinner prevents ThreadContext objects from being moved by the Go garbage collector.
 	ThreadContextPinner = runtime.Pinner{}
@@ -59,7 +63,9 @@ func NewThreadContext(threadId int32, stackPtr uintptr) *ThreadContext {
 		ThreadId:      uintptr(threadId),
 		PlaystationSP: stackPtr,
 	}
+	ThreadContextLock.Lock()
 	ThreadContextRepo[threadId] = threadContext
+	ThreadContextLock.Unlock()
 	ThreadContextPinner.Pin(threadContext)
 
 	return threadContext

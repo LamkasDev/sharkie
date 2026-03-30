@@ -61,7 +61,6 @@ func NewTcb(thread *Thread) *Tcb {
 			)
 		}
 		dtvSlice[module.ModuleIndex+1].Pointer = dest
-		TlsBaseRepo[module.ModuleIndex] = dest
 
 		logger.Printf(
 			"[%s] Copied %s bytes of %s's PT_TLS data from %s to %s (image size %s).\n",
