@@ -10,7 +10,9 @@ type Liverpool struct {
 	GraphicsRing    *LiverpoolCommandRing
 	ComputeRing     *LiverpoolCommandRing
 	DisplaySurfaces map[uintptr]*LiverpoolDisplaySurface
-	OnFlip          func(gpuAddress uintptr, flipArg uint64)
+
+	OnFlip                   func(gpuAddress uintptr, flipArg uint64)
+	OnRegisterDisplaySurface func(address uintptr, attribute *VideoOutBufferAttribute)
 }
 
 func NewLiverpool() *Liverpool {
@@ -30,6 +32,9 @@ func (l *Liverpool) RegisterDisplaySurface(address uintptr, attribute *VideoOutB
 		Height:         attribute.Height,
 		PitchPixels:    attribute.PitchInPixel,
 		AttributeIndex: attributeIndex,
+	}
+	if l.OnRegisterDisplaySurface != nil {
+		l.OnRegisterDisplaySurface(address, attribute)
 	}
 }
 

@@ -28,9 +28,10 @@ const OverlayFlags = g.WindowFlagsNoDecoration |
 	g.WindowFlagsNoMove
 
 type Overlay struct {
-	FrameCount  atomic.Uint64
-	LastFlip    atomic.Pointer[Frame]
-	ShowOverlay atomic.Bool
+	FrameCount        atomic.Uint64
+	LastFlip          atomic.Pointer[Frame]
+	ShowOverlay       atomic.Bool
+	GuestFramebuffers atomic.Pointer[GuestFramebuffer]
 }
 
 func NewOverlay() *Overlay {
@@ -142,6 +143,22 @@ func (r *Renderer) DrawHud(frameCount uint64) {
 						g.Style().SetColor(g.StyleColorText, colMuted).To(g.Label("ring slot")),
 						g.Style().SetColor(g.StyleColorText, colGreen).To(RingSlotWidget()),
 					),
+				),
+		)
+}
+
+func (r *Renderer) DrawFramebuffer(frameWidth, frameHeight float32) {
+	g.Window("##fb").
+		Pos(0, 0).
+		Size(frameWidth, frameHeight).
+		Flags(OverlayFlags).
+		Layout(
+			g.Style().
+				SetColor(g.StyleColorWindowBg, color.RGBA{R: 10, G: 10, B: 12, A: 255}).
+				To(
+					g.Custom(func() {
+						r.FramebufferTexture.ImguiImage(frameWidth, frameHeight)
+					}),
 				),
 		)
 }

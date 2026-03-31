@@ -52,6 +52,7 @@ func main() {
 	dce.SetupDisplayCoreEngine()
 	gpu.SetupLiverpool()
 	gpu.GlobalLiverpool.OnFlip = renderer.GlobalRenderer.FrameSource.Submit
+	gpu.GlobalLiverpool.OnRegisterDisplaySurface = renderer.GlobalRenderer.RegisterFramebuffer
 
 	// Register function stubs.
 	symbol.LoadSymbolMap("data/aerolib.csv")

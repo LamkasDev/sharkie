@@ -9,6 +9,7 @@ import (
 
 	"github.com/AllenDang/cimgui-go/imgui"
 	g "github.com/AllenDang/giu"
+	. "github.com/LamkasDev/sharkie/cmd/structs/video"
 )
 
 var GlobalRenderer *Renderer
@@ -18,8 +19,9 @@ type Renderer struct {
 	FrameSource *FrameSource
 	Overlay     *Overlay
 
-	IconImage   image.Image
-	IconTexture *g.Texture
+	IconImage          image.Image
+	IconTexture        *g.Texture
+	FramebufferTexture *g.ReflectiveBoundTexture
 }
 
 func NewRenderer() *Renderer {
@@ -30,8 +32,9 @@ func NewRenderer() *Renderer {
 			720,
 			0,
 		),
-		FrameSource: NewFrameSource(),
-		Overlay:     NewOverlay(),
+		FrameSource:        NewFrameSource(),
+		Overlay:            NewOverlay(),
+		FramebufferTexture: &g.ReflectiveBoundTexture{},
 	}
 	io := imgui.CurrentIO()
 	io.SetConfigFlags(io.ConfigFlags() & ^imgui.ConfigFlagsViewportsEnable)
@@ -69,6 +72,12 @@ func (r *Renderer) Run() {
 }
 
 func (r *Renderer) Loop() {
+	w, h := r.Window.GetSize()
+	imgui.PushStyleVarFloat(imgui.StyleVarWindowRounding, 0)
+	imgui.PushStyleVarFloat(imgui.StyleVarWindowBorderSize, 0)
+	imgui.PushStyleVarVec2(imgui.StyleVarWindowPadding, imgui.Vec2{X: 0, Y: 0})
+	r.DrawFramebuffer(float32(w), float32(h))
+	imgui.PopStyleVarV(3)
 	r.DrawOverlay()
 }
 
@@ -76,12 +85,28 @@ func (r *Renderer) ConsumeFrames() {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	for frame := range r.FrameSource.ch {
-		f := frame
-		r.Overlay.LastFlip.Store(&f)
+	for rawFrame := range r.FrameSource.ch {
+		frame := rawFrame
+		r.Overlay.LastFlip.Store(&frame)
 		r.Overlay.FrameCount.Add(1)
-		g.Update()
+
+		// Snapshot the guest framebuffer and push it to the texture.
+		if framebuffer := r.Overlay.GuestFramebuffers.Load(); framebuffer != nil {
+			texture := framebuffer.Snapshot()
+			if err := r.FramebufferTexture.SetSurfaceFromRGBA(texture, false); err == nil {
+				g.Update()
+			}
+		} else {
+			g.Update()
+		}
 	}
+}
+
+func (r *Renderer) RegisterFramebuffer(address uintptr, attribute *VideoOutBufferAttribute) {
+	r.Overlay.GuestFramebuffers.Store(NewGuestFramebuffer(
+		address, int(attribute.Width), int(attribute.Height),
+		int(attribute.PitchInPixel), int(attribute.TilingMode),
+	))
 }
 
 func SetupRenderer() {
