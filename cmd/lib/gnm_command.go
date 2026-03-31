@@ -12,6 +12,12 @@ import (
 	"github.com/gookit/color"
 )
 
+// 0x00000000000011B0
+// __int64 __fastcall sceGnmSubmitCommandBuffers(__int64, __int64, __int64, __int64, __int64)
+func libSceGnmDriver_sceGnmSubmitCommandBuffers(count, dcbGpuAddrsPtr, dcbSizesPtr, ccbGpuAddrsPtr, ccbSizesPtr uintptr) uintptr {
+	return libSceGnmDriver_sceGnmSubmitCommandBuffersForWorkload(count, count, dcbGpuAddrsPtr, dcbSizesPtr, ccbGpuAddrsPtr, ccbSizesPtr)
+}
+
 // 0x0000000000000F80
 // __int64 __fastcall sceGnmSubmitCommandBuffersForWorkload(__int64, __int64, __int64, __int64, __int64, __int64)
 func libSceGnmDriver_sceGnmSubmitCommandBuffersForWorkload(workloadId, count, dcbGpuAddrsPtr, dcbSizesPtr, ccbGpuAddrsPtr, ccbSizesPtr uintptr) uintptr {
@@ -80,14 +86,19 @@ func libSceGnmDriver_sceGnmSubmitCommandBuffersForWorkload(workloadId, count, dc
 	GlobalLiverpool.SubmitCommandBuffers(buffers)
 	WriteAddress(GlobalGraphicsController.SubmitDoneAddress, uintptr(1))
 
-	logger.Printf("%-132s %s submitted %s indirect buffers (count=%s, workloadId=%s).\n",
+	logger.Printf("%-132s %s submitted %s indirect buffers to ring %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sceGnmSubmitCommandBuffersForWorkload"),
 		color.Green.Sprintf("%d", len(buffers)),
-		color.Green.Sprintf("%d", count),
-		color.Yellow.Sprintf("0x%X", workloadId),
+		color.Green.Sprintf("%d", GlobalGraphicsController.ActiveRingSlot),
 	)
 	return 0
+}
+
+// 0x0000000000001690
+// __int64 __fastcall sceGnmSubmitAndFlipCommandBuffers(__int64, __int64, __int64, __int64, __int64, unsigned int, unsigned int, unsigned int, __int64)
+func libSceGnmDriver_sceGnmSubmitAndFlipCommandBuffers(count, dcbGpuAddrsPtr, dcbSizesPtr, ccbGpuAddrsPtr, ccbSizesPtr, videoOutHandle, bufferIndex, flipMode, flipArg uintptr) uintptr {
+	return libSceGnmDriver_sceGnmSubmitAndFlipCommandBuffersForWorkload(count, count, dcbGpuAddrsPtr, dcbSizesPtr, ccbGpuAddrsPtr, ccbSizesPtr, videoOutHandle, bufferIndex, flipMode, flipArg)
 }
 
 // 0x0000000000001410
@@ -172,12 +183,82 @@ func libSceGnmDriver_sceGnmSubmitAndFlipCommandBuffersForWorkload(workloadId, co
 	GlobalLiverpool.SubmitCommandBuffers(buffers)
 	WriteAddress(GlobalGraphicsController.SubmitDoneAddress, uintptr(1))
 
-	logger.Printf("%-132s %s submitted %s indirect buffers (count=%s, workloadId=%s).\n",
+	logger.Printf("%-132s %s submitted %s indirect buffers to ring %s and requested flip.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sceGnmSubmitAndFlipCommandBuffersForWorkload"),
 		color.Green.Sprintf("%d", len(buffers)),
-		color.Green.Sprintf("%d", count),
-		color.Yellow.Sprintf("0x%X", workloadId),
+		color.Green.Sprintf("%d", GlobalGraphicsController.ActiveRingSlot),
+	)
+	return 0
+}
+
+// 0x00000000000019A0
+// __int64 __fastcall sceGnmRequestFlipAndSubmitDone(int, int, int, int, int, __int64)
+func libSceGnmDriver_sceGnmRequestFlipAndSubmitDone(dcbPtr, requestId, videoOutHandle, bufferIndex, flipMode, flipArg uintptr) uintptr {
+	return libSceGnmDriver_sceGnmRequestFlipAndSubmitDoneForWorkload(dcbPtr, dcbPtr, requestId, videoOutHandle, bufferIndex, flipMode, flipArg)
+}
+
+// 0x00000000000017C0
+// __int64 __fastcall sceGnmRequestFlipAndSubmitDoneForWorkload(__int64, __int64, unsigned int, unsigned int, unsigned int, unsigned int, __int64)
+func libSceGnmDriver_sceGnmRequestFlipAndSubmitDoneForWorkload(ctxPtr, dcbPtr, requestId, videoOutHandle, bufferIndex, flipMode, flipArg uintptr) uintptr {
+	if requestId < 0x100 {
+		logger.Printf("%-132s %s failed due to invalid request id.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceGnmSubmitAndFlipCommandBuffersForWorkload"),
+		)
+		return SCE_GNM_ERROR_INVALID_VALUE
+	}
+	if dcbPtr == 0 {
+		logger.Printf("%-132s %s failed due to invalid DCB pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceGnmSubmitAndFlipCommandBuffersForWorkload"),
+		)
+		return SCE_GNM_ERROR_INVALID_POINTER
+	}
+
+	// Drain any queued ring work.
+	GlobalGraphicsController.Ioctl(SCE_GC_IOCTL_DRAIN_RING, 0)
+
+	// Rotate ring slot.
+	switchBuffer := GnmSwitchBuffer{
+		RingSlot: GlobalGraphicsController.ActiveRingSlot + 1,
+	}
+	GlobalGraphicsController.Ioctl(SCE_GC_IOCTL_SWITCH_BUFFER, uintptr(unsafe.Pointer(&switchBuffer)))
+
+	// Write the minimal prepare flip header into the caller's buffer.
+	pkt := (*[64]uint32)(unsafe.Pointer(dcbPtr))
+	pkt[0] = GNM_PREPARE_FLIP_MAGIC
+	pkt[1] = GNM_PREPARE_FLIP_VARIANT_BASE
+
+	// Patch the prepare flip block and schedule it.
+	if err := gnmPatchPrepareFlip(dcbPtr, uint32(len(pkt)), uint32(videoOutHandle), uint32(bufferIndex), uint32(flipMode), uint64(flipArg)); err != nil {
+		logger.Printf("%-132s %s failed due to gnmPatchPrepareFlip error (%s).\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceGnmRequestFlipAndSubmitDoneForWorkload"),
+			err.Error(),
+		)
+		return SCE_GNM_ERROR_FLIP_FAILED
+	}
+
+	// Build a single IB packet pointing at the inline DCB.
+	buffer := NewPM4IndirectBuffer(dcbPtr, uint32(unsafe.Sizeof(pkt)), false)
+	buffers := []PM4IndirectBuffer{buffer}
+
+	// Submit it.
+	GlobalLiverpool.SubmitCommandBuffers(buffers)
+
+	// Flush the ring and mark it idle.
+	GlobalGraphicsController.Ioctl(SCE_GC_IOCTL_SUBMIT_DONE, 0)
+
+	// Signal that we're done.
+	WriteAddress(GlobalGraphicsController.SubmitDoneAddress, uintptr(1))
+	GlobalGraphicsController.RingActive = false
+	GlobalGraphicsController.PendingSubmits = 0
+
+	logger.Printf("%-132s %s requested flip and signaled done on ring %s.\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("sceGnmRequestFlipAndSubmitDoneForWorkload"),
+		color.Green.Sprintf("%d", GlobalGraphicsController.ActiveRingSlot),
 	)
 	return 0
 }
@@ -239,4 +320,64 @@ func gnmPatchPrepareFlip(lastDcbAddress uintptr, lastDcbSizeDW, videoOutHandle, 
 		color.Yellow.Sprintf("0x%X", labelAddress),
 	)
 	return nil
+}
+
+// 0x0000000000001720
+// __int64 sceGnmSubmitDone()
+func libSceGnmDriver_sceGnmSubmitDone() uintptr {
+	// Drain any queued ring work.
+	GlobalGraphicsController.Ioctl(SCE_GC_IOCTL_DRAIN_RING, 0)
+
+	// Flush the ring and mark it idle.
+	GlobalGraphicsController.Ioctl(SCE_GC_IOCTL_SUBMIT_DONE, 0)
+
+	// Signal that we're done.
+	WriteAddress(GlobalGraphicsController.SubmitDoneAddress, uintptr(1))
+	GlobalGraphicsController.RingActive = false
+	GlobalGraphicsController.PendingSubmits = 0
+
+	logger.Printf("%-132s %s signaled done on ring %s.\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("sceGnmSubmitDone"),
+		color.Green.Sprintf("%d", GlobalGraphicsController.ActiveRingSlot),
+	)
+	return 0
+}
+
+// 0x0000000000004020
+// __int64 __fastcall sceGnmDingDong(unsigned int a1, unsigned int a2)
+func libSceGnmDriver_sceGnmDingDong(ringIndex, queueIndex uintptr) uintptr {
+	return libSceGnmDriver_sceGnmDingDongForWorkload(ringIndex, queueIndex)
+}
+
+// 0x0000000000003F60
+// __int64 __fastcall sceGnmDingDongForWorkload(unsigned int, unsigned int)
+func libSceGnmDriver_sceGnmDingDongForWorkload(ringIndex, writePointer uintptr) uintptr {
+	if ringIndex == 0 {
+		logger.Printf("%-132s %s skipped due to invalid ring index.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceGnmDingDongForWorkload"),
+		)
+		return 0
+	}
+
+	// Drain any queued ring work.
+	GlobalGraphicsController.Ioctl(SCE_GC_IOCTL_DRAIN_RING, 0)
+
+	// Decode ring index into doorbell coordinates and issue write.
+	ring := uint32(ringIndex) - 1
+	dingDong := GnmDingDong{
+		PipeIndex:    (ring >> 5) + 1,
+		QueueIndex:   (ring & 0x1F) >> 3,
+		SlotIndex:    ring & 0x07,
+		WritePointer: uint32(writePointer),
+	}
+	GlobalGraphicsController.Ioctl(SCE_GC_IOCTL_DINGDONG, uintptr(unsafe.Pointer(&dingDong)))
+
+	logger.Printf("%-132s %s dinged ring %s.\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("sceGnmDingDongForWorkload"),
+		color.Green.Sprintf("%d", ringIndex),
+	)
+	return 0
 }

@@ -3,24 +3,39 @@ package gc
 import "unsafe"
 
 const (
-	SCE_GC_IOCTL_WAIT_FLIP_DONE         = 0xC0048116
+	SCE_GC_IOCTL_SUBMIT_DONE            = 0xC0048116
+	SCE_GC_IOCTL_DRAIN_RING             = 0xC0048117
+	SCE_GC_IOCTL_SET_WORK_MODE          = 0xC004811D
 	SCE_GC_IOCTL_SWITCH_BUFFER          = 0xC0088101
 	SCE_GC_IOCTL_SUBMIT_COMMAND_BUFFERS = 0xC0108102
+	SCE_GC_IOCTL_DINGDONG               = 0xC010811C
 	SCE_GC_IOCTL_SUBMIT_AND_FLIP        = 0xC020810C
 )
 
-type GnmIoctlWaitFlipDone struct {
+type GnmSubmitDone struct {
 	Reserved uint32
 }
 
-const GnmIoctlWaitFlipDoneSize = unsafe.Sizeof(GnmIoctlWaitFlipDone{})
+const GnmSubmitDoneSize = unsafe.Sizeof(GnmSubmitDone{})
 
-type GnmIoctlSwitchBuffer struct {
-	RingIndex uint32
-	_         uint32
+type GnmDrainRing struct {
+	Reserved uint32
 }
 
-const GnmIoctlSwitchBufferSize = unsafe.Sizeof(GnmIoctlSwitchBuffer{})
+const GnmDrainRingSize = unsafe.Sizeof(GnmDrainRing{})
+
+type GnmSetWorkMode struct {
+	Mode uint32
+}
+
+const GnmSetWorkModeSize = unsafe.Sizeof(GnmSetWorkMode{})
+
+type GnmSwitchBuffer struct {
+	RingSlot uint32
+	_        uint32
+}
+
+const GnmSwitchBufferSize = unsafe.Sizeof(GnmSwitchBuffer{})
 
 type GnmSubmitCommandBuffers struct {
 	ContextId          uint32
@@ -30,7 +45,16 @@ type GnmSubmitCommandBuffers struct {
 
 const GnmSubmitCommandBuffersSize = unsafe.Sizeof(GnmSubmitCommandBuffers{})
 
-type GnmIoctlSubmitAndFlip struct {
+type GnmDingDong struct {
+	PipeIndex    uint32
+	QueueIndex   uint32
+	SlotIndex    uint32
+	WritePointer uint32
+}
+
+const GnmDingDongSize = unsafe.Sizeof(GnmDingDong{})
+
+type GnmSubmitAndFlip struct {
 	ContextId          uint32
 	Count              uint32
 	IndirectBuffersPtr uintptr
@@ -39,4 +63,4 @@ type GnmIoctlSubmitAndFlip struct {
 	_                  [4]byte
 }
 
-const GnmIoctlSubmitAndFlipSize = unsafe.Sizeof(GnmIoctlSubmitAndFlip{})
+const GnmSubmitAndFlipSize = unsafe.Sizeof(GnmSubmitAndFlip{})
