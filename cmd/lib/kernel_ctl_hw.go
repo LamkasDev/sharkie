@@ -12,7 +12,7 @@ import (
 
 const HW_PAGESIZE = 7
 
-func libKernel_ctl_hw(mib []uint32, namePtr uintptr, nameLen uint32, oldPtr uintptr, oldLenPtr uintptr, newPtr uintptr, newLen uintptr) (uintptr, bool) {
+func libKernel_ctl_hw(mib []uint32, namePtr, nameLen, oldPtr, oldLenPtr, newPtr, newLen uintptr) (uintptr, bool) {
 	switch mib[1] {
 	case HW_PAGESIZE:
 		return libKernel_ctl_hw_pagesize(mib, namePtr, nameLen, oldPtr, oldLenPtr, newPtr, newLen), true
@@ -21,7 +21,7 @@ func libKernel_ctl_hw(mib []uint32, namePtr uintptr, nameLen uint32, oldPtr uint
 	return ENOENT, false
 }
 
-func libKernel_ctl_hw_pagesize(mib []uint32, namePtr uintptr, nameLen uint32, oldPtr uintptr, oldLenPtr uintptr, newPtr uintptr, newLen uintptr) uintptr {
+func libKernel_ctl_hw_pagesize(mib []uint32, namePtr, nameLen, oldPtr, oldLenPtr, newPtr, newLen uintptr) uintptr {
 	if oldLenPtr == 0 || oldPtr == 0 {
 		logger.Printf("%-132s %s failed due to invalid pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),

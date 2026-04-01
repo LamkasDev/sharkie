@@ -22,6 +22,9 @@ const (
 
 	// Logs things that clutter log (value returns, etc).
 	LogMisc = false
+
+	// Logs error returns (can't ignore them forever).
+	LogErrorRet = false
 )
 
 var LogFile *os.File

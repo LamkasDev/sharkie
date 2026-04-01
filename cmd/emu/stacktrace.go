@@ -21,11 +21,11 @@ type StackTrace struct {
 
 // SprintAddress prints an address and relative position to a module, if within one.
 func SprintAddress(address uintptr) string {
-	hashIndex, ok := asm.StubsMap[address]
+	stubInfo, ok := asm.StubsMap[address]
 	if ok {
 		return fmt.Sprintf(
 			"  %42s (%s)\n",
-			color.Blue.Sprintf("%s:%s", asm.Stubs[hashIndex].LibraryName, asm.Stubs[hashIndex].SymbolName),
+			color.Blue.Sprintf("%s:%s", stubInfo.LibraryName, stubInfo.SymbolName),
 			color.Yellow.Sprintf("0x%X", address),
 		)
 	}

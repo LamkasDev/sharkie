@@ -54,7 +54,7 @@ func ProcessRelocationTable(e *elf.Elf, table *elf.ElfRelocationTable, tableName
 			if addr, ok := elf.GetSymbolAddress(symbol); ok {
 				newAddr := addr + r.Addend
 				if r.Offset+8 <= uintptr(len(e.Memory)) {
-					e.CallerToFunctionName[r.Offset] = symbol.HashIndex
+					e.CallerToFunctionName[r.Offset] = symbol
 					binary.LittleEndian.PutUint64(e.Memory[r.Offset:], uint64(newAddr))
 					externalCount++
 				}
@@ -91,7 +91,7 @@ func ProcessRelocationTable(e *elf.Elf, table *elf.ElfRelocationTable, tableName
 
 			newAddr := symbol.Address + r.Addend
 			if r.Offset+8 <= uintptr(len(e.Memory)) {
-				e.CallerToFunctionName[r.Offset] = symbol.HashIndex
+				e.CallerToFunctionName[r.Offset] = symbol
 				binary.LittleEndian.PutUint64(e.Memory[r.Offset:], uint64(newAddr))
 			}
 		default:

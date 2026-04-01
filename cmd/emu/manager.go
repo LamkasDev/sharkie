@@ -168,10 +168,10 @@ func (m *ModuleManager) GetCallSiteTextShort() string {
 		return fmt.Sprintf("unknown address %s", color.Yellow.Sprintf("0x%X", returnAddr))
 	}
 
+	var location string
 	callerAddress := GetRealCallerAddress(module, returnAddr)
-	hashIndex, ok := module.CallerToFunctionName[callerAddress-module.BaseAddress]
-	if !ok {
-		hashIndex, ok = asm.StubsTrampolineMap[callerAddress]
+	if symbolInfo, ok := module.CallerToFunctionName[callerAddress-module.BaseAddress]; !ok {
+		stubInfo, ok := asm.StubsTrampolineMap[callerAddress]
 		if !ok {
 			return fmt.Sprintf(
 				"%s+%s/%s",
@@ -180,13 +180,15 @@ func (m *ModuleManager) GetCallSiteTextShort() string {
 				color.Yellow.Sprintf("0x%X", returnAddr-module.BaseAddress),
 			)
 		}
+		location = color.Magenta.Sprintf("%s:%s", stubInfo.LibraryName, stubInfo.SymbolName)
+	} else {
+		location = color.Magenta.Sprintf("%s:%s", symbolInfo.LibraryName, symbolInfo.ReadableName)
 	}
 
-	symbol := module.SymbolTable.SymbolsMap[hashIndex]
 	return fmt.Sprintf(
 		"%s+%s/%s",
 		color.Blue.Sprint(module.Name),
 		color.Yellow.Sprintf("0x%X", callerAddress-module.BaseAddress),
-		color.Magenta.Sprintf("%s:%s", symbol.LibraryName, symbol.ReadableName),
+		location,
 	)
 }

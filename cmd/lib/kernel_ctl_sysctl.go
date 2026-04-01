@@ -12,7 +12,7 @@ import (
 
 const SYSCTL_NAME = 3
 
-func libKernel_ctl_sysctl(mib []uint32, namePtr uintptr, nameLen uint32, oldPtr uintptr, oldLenPtr uintptr, newPtr uintptr, newLen uintptr) (uintptr, bool) {
+func libKernel_ctl_sysctl(mib []uint32, namePtr, nameLen, oldPtr, oldLenPtr, newPtr, newLen uintptr) (uintptr, bool) {
 	switch mib[1] {
 	case SYSCTL_NAME:
 		return libKernel_ctl_sysctl_name(mib, namePtr, nameLen, oldPtr, oldLenPtr, newPtr, newLen), true
@@ -21,7 +21,7 @@ func libKernel_ctl_sysctl(mib []uint32, namePtr uintptr, nameLen uint32, oldPtr 
 	return ENOENT, false
 }
 
-func libKernel_ctl_sysctl_name(mib []uint32, namePtr uintptr, nameLen uint32, oldPtr uintptr, oldLenPtr uintptr, newPtr uintptr, newLen uintptr) uintptr {
+func libKernel_ctl_sysctl_name(mib []uint32, namePtr, nameLen, oldPtr, oldLenPtr, newPtr, newLen uintptr) uintptr {
 	if oldLenPtr == 0 || oldPtr == 0 {
 		logger.Printf("%-132s %s failed due to invalid pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),

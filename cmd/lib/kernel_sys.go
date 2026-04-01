@@ -37,7 +37,7 @@ type RtPriority struct {
 
 // 0x00000000000111F0
 // __int64 __fastcall sysctl(_DWORD *, int, _DWORD *_RDX, unsigned __int64 *, __int64)
-func libKernel_sysctl(namePtr uintptr, nameLen uint32, oldPtr uintptr, oldLenPtr uintptr, newPtr uintptr, newLen uintptr) uintptr {
+func libKernel_sysctl(namePtr, nameLen, oldPtr, oldLenPtr, newPtr, newLen uintptr) uintptr {
 	// Perform initial checks.
 	if namePtr == 0 || nameLen < 2 {
 		logger.Printf("%-132s %s failed due to invalid name pointer.\n",
@@ -50,7 +50,7 @@ func libKernel_sysctl(namePtr uintptr, nameLen uint32, oldPtr uintptr, oldLenPtr
 
 	// Resolve MIBs, fancy name for string oooooofsadfasv.
 	mib := make([]uint32, nameLen)
-	for i := uint32(0); i < nameLen; i++ {
+	for i := uintptr(0); i < nameLen; i++ {
 		mibSlice := unsafe.Slice((*byte)(unsafe.Pointer(namePtr+uintptr(i*4))), 4)
 		mib[i] = binary.LittleEndian.Uint32(mibSlice)
 	}

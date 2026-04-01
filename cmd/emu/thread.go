@@ -1,7 +1,6 @@
 package emu
 
 import (
-	"errors"
 	"fmt"
 	"runtime"
 	"strings"
@@ -92,19 +91,8 @@ func CreateThread(namePtr, stackSize uintptr) *Thread {
 }
 
 func GetCurrentThread() *Thread {
-	ThreadLock.RLock()
-	defer ThreadLock.RUnlock()
-
 	threadContext := asm.GetCurrentThreadContext()
-	if threadContext == nil {
-		panic(errors.New("unknown thread context"))
-	}
-	thread := ThreadRepo[int32(threadContext.ThreadId)]
-	if thread == nil {
-		panic(errors.New("unknown thread"))
-	}
-
-	return thread
+	return (*Thread)(unsafe.Pointer(threadContext.ThreadPtr))
 }
 
 func GetThreadForPtr(threadPtr uintptr) *Thread {
@@ -119,7 +107,7 @@ func GetThreadForPtr(threadPtr uintptr) *Thread {
 
 // Setup sets the current thread's context and TLS.
 func (t *Thread) Setup() {
-	asm.SetThreadContext(asm.NewThreadContext(t.Id, t.Stack.CurrentPointer))
+	asm.SetThreadContext(asm.NewThreadContext(uintptr(unsafe.Pointer(t)), t.Stack.CurrentPointer))
 	sys_struct.SetTlsSlot(asm.PlaystationTlsSlot, uintptr(unsafe.Pointer(t.Tcb)))
 }
 

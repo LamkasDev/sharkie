@@ -20,8 +20,8 @@ func libc_calloc(nmemb, size uintptr) uintptr {
 
 // 0x0000000000027960
 // __int64 free()
-func libc_free(ptr uintptr) {
-	libSceLibcInternal_free(ptr)
+func libc_free(ptr uintptr) uintptr {
+	return libSceLibcInternal_free(ptr)
 }
 
 // 0x0000000000027980
@@ -44,8 +44,8 @@ func libc_sceLibcMspaceCalloc(mspace, nmemb, size uintptr) uintptr {
 
 // 0x0000000000030FC0
 // __int64 __fastcall sceLibcMspaceFree(__int64, __int64 *, __int64, __int64, __m128)
-func libc_sceLibcMspaceFree(mspace, ptr uintptr) {
-	libSceLibcInternal_sceLibcMspaceFree(mspace, ptr)
+func libc_sceLibcMspaceFree(mspace, ptr uintptr) uintptr {
+	return libSceLibcInternal_sceLibcMspaceFree(mspace, ptr)
 }
 
 // 0x0000000000031270

@@ -51,14 +51,14 @@ type Elf struct {
 	PltRelocationTable        *ElfRelocationTable // PLT relocation table
 
 	// Temporary.
-	CallerToFunctionName map[uintptr]uint64
+	CallerToFunctionName map[uintptr]*ElfSymbol
 }
 
 // NewElf creates a new instance of Elf by parsing the provided file data.
 func NewElf(data []byte) *Elf {
 	e := &Elf{
 		LoadSections:         []*ElfLoadSection{},
-		CallerToFunctionName: map[uintptr]uint64{},
+		CallerToFunctionName: map[uintptr]*ElfSymbol{},
 	}
 
 	// Check magic of the file.

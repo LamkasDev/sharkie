@@ -49,13 +49,13 @@ func libSceLibcInternal_calloc(nmemb, size uintptr) uintptr {
 
 // 0x0000000000028D70
 // __int64 __fastcall free(_QWORD)
-func libSceLibcInternal_free(ptr uintptr) {
+func libSceLibcInternal_free(ptr uintptr) uintptr {
 	if ptr == 0 {
 		logger.Printf("%-132s %s failed due to invalid pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("free"),
 		)
-		return
+		return 0
 	}
 
 	if !GlobalGoAllocator.Free(ptr) {
@@ -64,7 +64,7 @@ func libSceLibcInternal_free(ptr uintptr) {
 			color.Magenta.Sprint("free"),
 			color.Yellow.Sprintf("0x%X", ptr),
 		)
-		return
+		return 0
 	}
 	if logger.LogAlloc {
 		logger.Printf("%-132s %s freed %s.\n",
@@ -73,6 +73,8 @@ func libSceLibcInternal_free(ptr uintptr) {
 			color.Yellow.Sprintf("0x%X", ptr),
 		)
 	}
+
+	return 0
 }
 
 // 0x0000000000028D90
@@ -113,8 +115,8 @@ func libSceLibcInternal_sceLibcMspaceCalloc(mspace, nmemb, size uintptr) uintptr
 
 // 0x0000000000033CF0
 // __int64 __fastcall sceLibcMspaceFree(__int64, __int64 *, __int64, __int64, __m128)
-func libSceLibcInternal_sceLibcMspaceFree(mspace, ptr uintptr) {
-	libSceLibcInternal_free(ptr)
+func libSceLibcInternal_sceLibcMspaceFree(mspace, ptr uintptr) uintptr {
+	return libSceLibcInternal_free(ptr)
 }
 
 // 0x0000000000034350

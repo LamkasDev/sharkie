@@ -15,7 +15,7 @@ import (
 
 // 0x000000000002CD00
 // __int64 __fastcall sceKernelGetModuleInfoForUnwind(unsigned __int64, int, _QWORD *, __m128 _XMM0)
-func libKernel_sceKernelGetModuleInfoForUnwind(addr uintptr, flags int32, infoPtr uintptr) uintptr {
+func libKernel_sceKernelGetModuleInfoForUnwind(addr, flags, infoPtr uintptr) uintptr {
 	if infoPtr == 0 {
 		logger.Printf("%-132s %s failed due to invalid info pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -119,7 +119,7 @@ func libKernel_sceKernelGetModuleInfo(handle uintptr, infoPtr uintptr) uintptr {
 // TODO: this might be wrong
 // 0x0000000000001EB0
 // __int64 __fastcall sub_1EB0()
-func libKernel_sys_dynlib_get_info_ex(handle uint32, flags uint32, infoPtr uintptr) uintptr {
+func libKernel_sys_dynlib_get_info_ex(handle, flags, infoPtr uintptr) uintptr {
 	if infoPtr == 0 {
 		logger.Printf("%-132s %s failed due to invalid info pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -127,7 +127,7 @@ func libKernel_sys_dynlib_get_info_ex(handle uint32, flags uint32, infoPtr uintp
 		)
 		return SCE_KERNEL_ERROR_EINVAL
 	}
-	if handle >= uint32(len(emu.GlobalModuleManager.Modules)) {
+	if handle >= uintptr(len(emu.GlobalModuleManager.Modules)) {
 		logger.Printf("%-132s %s failed to find module with id %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sys_dynlib_get_info_ex"),

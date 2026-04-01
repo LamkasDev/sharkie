@@ -9,8 +9,8 @@ import (
 )
 
 var (
-	// ThreadContextRepo maps thread IDs to host thread contexts.
-	ThreadContextRepo = make(map[int32]*ThreadContext)
+	// ThreadContextRepo maps thread pointers to host thread contexts.
+	ThreadContextRepo = make(map[uintptr]*ThreadContext)
 
 	// ThreadContextLock protects ThreadContextRepo, so multiple threads can look up thread contexts safely.
 	ThreadContextLock sync.RWMutex
@@ -33,7 +33,7 @@ var (
 
 // ThreadContext holds thread-local execution state.
 type ThreadContext struct {
-	ThreadId uintptr
+	ThreadPtr uintptr // Pointer to thread.
 
 	// Stack switching related fields.
 	SystemSP      uintptr // Stack pointer when in the host context.
@@ -58,13 +58,13 @@ type ThreadContext struct {
 }
 
 // NewThreadContext creates a new ThreadContext for given thread ID and stack pointer.
-func NewThreadContext(threadId int32, stackPtr uintptr) *ThreadContext {
+func NewThreadContext(threadPtr, stackPtr uintptr) *ThreadContext {
 	threadContext := &ThreadContext{
-		ThreadId:      uintptr(threadId),
+		ThreadPtr:     threadPtr,
 		PlaystationSP: stackPtr,
 	}
 	ThreadContextLock.Lock()
-	ThreadContextRepo[threadId] = threadContext
+	ThreadContextRepo[threadPtr] = threadContext
 	ThreadContextLock.Unlock()
 	ThreadContextPinner.Pin(threadContext)
 

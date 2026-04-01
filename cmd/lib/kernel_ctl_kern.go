@@ -18,7 +18,7 @@ const KERN_PROC_APPINFO = 35
 const KERN_PROC_CALL_RECORD = 42
 const KERN_PROC_PTC = 43 // TODO: not sure
 
-func libKernel_ctl_kern(mib []uint32, namePtr uintptr, nameLen uint32, oldPtr uintptr, oldLenPtr uintptr, newPtr uintptr, newLen uintptr) (uintptr, bool) {
+func libKernel_ctl_kern(mib []uint32, namePtr, nameLen, oldPtr, oldLenPtr, newPtr, newLen uintptr) (uintptr, bool) {
 	switch mib[1] {
 	case KERN_PROC:
 		return libKernel_ctl_kern_proc(mib, namePtr, nameLen, oldPtr, oldLenPtr, newPtr, newLen)
@@ -31,7 +31,7 @@ func libKernel_ctl_kern(mib []uint32, namePtr uintptr, nameLen uint32, oldPtr ui
 	return ENOENT, false
 }
 
-func libKernel_ctl_kern_proc(mib []uint32, namePtr uintptr, nameLen uint32, oldPtr uintptr, oldLenPtr uintptr, newPtr uintptr, newLen uintptr) (uintptr, bool) {
+func libKernel_ctl_kern_proc(mib []uint32, namePtr, nameLen, oldPtr, oldLenPtr, newPtr, newLen uintptr) (uintptr, bool) {
 	switch mib[2] {
 	case KERN_PROC_APPINFO:
 		return libKernel_ctl_kern_proc_appinfo(mib, namePtr, nameLen, oldPtr, oldLenPtr, newPtr, newLen), true
@@ -44,7 +44,7 @@ func libKernel_ctl_kern_proc(mib []uint32, namePtr uintptr, nameLen uint32, oldP
 	return ENOENT, false
 }
 
-func libKernel_ctl_kern_proc_appinfo(mib []uint32, namePtr uintptr, nameLen uint32, oldPtr uintptr, oldLenPtr uintptr, newPtr uintptr, newLen uintptr) uintptr {
+func libKernel_ctl_kern_proc_appinfo(mib []uint32, namePtr, nameLen, oldPtr, oldLenPtr, newPtr, newLen uintptr) uintptr {
 	// Initial pointer checks.
 	if oldLenPtr == 0 || oldPtr == 0 {
 		logger.Printf("%-132s %s failed due to invalid pointer.\n",
@@ -82,7 +82,7 @@ func libKernel_ctl_kern_proc_appinfo(mib []uint32, namePtr uintptr, nameLen uint
 	return 0
 }
 
-func libKernel_ctl_kern_proc_call_record(mib []uint32, namePtr uintptr, nameLen uint32, oldPtr uintptr, oldLenPtr uintptr, newPtr uintptr, newLen uintptr) uintptr {
+func libKernel_ctl_kern_proc_call_record(mib []uint32, namePtr, nameLen, oldPtr, oldLenPtr, newPtr, newLen uintptr) uintptr {
 	// Initial pointer checks.
 	if newPtr == 0 {
 		logger.Printf("%-132s %s failed due to invalid pointer.\n",
@@ -114,7 +114,7 @@ func libKernel_ctl_kern_proc_call_record(mib []uint32, namePtr uintptr, nameLen 
 	return 0
 }
 
-func libKernel_ctl_kern_proc_ptc(mib []uint32, namePtr uintptr, nameLen uint32, oldPtr uintptr, oldLenPtr uintptr, newPtr uintptr, newLen uintptr) uintptr {
+func libKernel_ctl_kern_proc_ptc(mib []uint32, namePtr, nameLen, oldPtr, oldLenPtr, newPtr, newLen uintptr) uintptr {
 	// Initial pointer checks.
 	if oldLenPtr == 0 || oldPtr == 0 {
 		logger.Printf("%-132s %s failed due to invalid pointer.\n",
@@ -155,7 +155,7 @@ func libKernel_ctl_kern_proc_ptc(mib []uint32, namePtr uintptr, nameLen uint32, 
 	return 0
 }
 
-func libKernel_ctl_kern_smp(mib []uint32, namePtr uintptr, nameLen uint32, oldPtr uintptr, oldLenPtr uintptr, newPtr uintptr, newLen uintptr) uintptr {
+func libKernel_ctl_kern_smp(mib []uint32, namePtr, nameLen, oldPtr, oldLenPtr, newPtr, newLen uintptr) uintptr {
 	if oldLenPtr == 0 || oldPtr == 0 {
 		return 0
 	}
@@ -185,7 +185,7 @@ func libKernel_ctl_kern_smp(mib []uint32, namePtr uintptr, nameLen uint32, oldPt
 	return 0
 }
 
-func libKernel_ctl_usrstack(mib []uint32, namePtr uintptr, nameLen uint32, oldPtr uintptr, oldLenPtr uintptr, newPtr uintptr, newLen uintptr) uintptr {
+func libKernel_ctl_usrstack(mib []uint32, namePtr, nameLen, oldPtr, oldLenPtr, newPtr, newLen uintptr) uintptr {
 	if oldLenPtr == 0 || oldPtr == 0 {
 		return 0
 	}
