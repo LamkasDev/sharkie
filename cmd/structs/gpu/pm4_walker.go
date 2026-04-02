@@ -4,6 +4,7 @@ import (
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/logger"
+	"github.com/LamkasDev/sharkie/cmd/structs/gcn"
 	"github.com/gookit/color"
 )
 
@@ -89,14 +90,14 @@ func (l *Liverpool) dispatchPacket(opcode uint8, payload []uint32) {
 func (l *Liverpool) handleNop(payload []uint32) {}
 
 func (l *Liverpool) handleSetShReg(payload []uint32) {
-	l.handleSetRegs(l.Registers.Shader[:], ShaderRegisterNames, "shader", payload)
+	l.handleSetRegs(l.Registers.Shader[:], "shader", gcn.ShaderRegisterNames, payload)
 }
 
 func (l *Liverpool) handleSetContextReg(payload []uint32) {
-	l.handleSetRegs(l.Registers.Context[:], ContextRegisterNames, "context", payload)
+	l.handleSetRegs(l.Registers.Context[:], "context", gcn.ContextRegisterNames, payload)
 }
 
-func (l *Liverpool) handleSetRegs(bank []uint32, regNames map[uint32]string, bankName string, payload []uint32) {
+func (l *Liverpool) handleSetRegs(bank []uint32, bankName string, bankRegNames map[uint32]string, payload []uint32) {
 	if len(payload) < 2 {
 		logger.Printf("set regs payload too short.\n")
 		return
@@ -106,10 +107,9 @@ func (l *Liverpool) handleSetRegs(bank []uint32, regNames map[uint32]string, ban
 		bankIndex := int(offset) + index
 		if bankIndex < len(bank) {
 			bank[bankIndex] = value
-			logger.Printf("set %s (%s/%s) to %s.\n",
-				color.Blue.Sprint(regNames[uint32(bankIndex)]),
+			logger.Printf("set %s/%s to %s.\n",
 				color.Blue.Sprint(bankName),
-				color.Yellow.Sprintf("0x%X", bankIndex),
+				color.Blue.Sprint(bankRegNames[uint32(bankIndex)]),
 				color.Green.Sprintf("%d", value),
 			)
 		}

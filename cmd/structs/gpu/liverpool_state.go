@@ -1,20 +1,13 @@
 package gpu
 
-const (
-	RegBankSize = 0x400 // 1024 DWORDs per bank
-
-	RegBaseConfig     = uint32(0x2000)
-	RegBaseShader     = uint32(0x2C00)
-	RegBaseContext    = uint32(0xA000)
-	RegBaseUserConfig = uint32(0xC000)
-)
+import "github.com/LamkasDev/sharkie/cmd/structs/gcn"
 
 // LiverpoolRegisters mirrors register banks on the Liverpool GPU.
 type LiverpoolRegisters struct {
-	Config     [RegBankSize]uint32
-	Shader     [RegBankSize]uint32
-	Context    [RegBankSize]uint32
-	UserConfig [RegBankSize]uint32
+	Config     [gcn.GcnRegBankSize]uint32
+	Shader     [gcn.GcnRegBankSize]uint32
+	Context    [gcn.GcnRegBankSize]uint32
+	UserConfig [gcn.GcnRegBankSize]uint32
 }
 
 // LiverpoolDrawState holds state derived from SET_* packets that is needed to decode draw calls.
