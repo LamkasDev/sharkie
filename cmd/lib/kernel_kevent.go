@@ -1,7 +1,6 @@
 package lib
 
 import (
-	"runtime"
 	"time"
 	"unsafe"
 
@@ -44,9 +43,6 @@ func processKeventChange(equeue *Equeue, event Kevent) {
 		switch event.Filter {
 		case EVFILT_VBLANK:
 			go func() {
-				runtime.LockOSThread()
-				defer runtime.UnlockOSThread()
-
 				// 60 FPS = ~16.66ms per frame
 				ticker := time.NewTicker(16666 * time.Microsecond)
 				defer ticker.Stop()

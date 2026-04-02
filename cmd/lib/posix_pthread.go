@@ -3,11 +3,9 @@ package lib
 import (
 	"encoding/binary"
 	"runtime"
-	"strings"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
-	"github.com/LamkasDev/sharkie/cmd/linker"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	. "github.com/LamkasDev/sharkie/cmd/structs"
 	. "github.com/LamkasDev/sharkie/cmd/structs/pthread"
@@ -130,15 +128,6 @@ func libKernel_pthread_create_name_np(threadPtr, attrHandlePtr, entryPoint, arg,
 		color.Yellow.Sprintf("0x%X", entryPoint-module.BaseAddress),
 		color.Yellow.Sprintf("0x%X", arg),
 	)
-	if strings.Contains(thread.Name, "Rebuild Chunk") {
-		tls := uintptr(unsafe.Pointer(thread.Tcb)) - uintptr(linker.GlobalLinker.StaticTlsSize)
-		argValue := unsafe.Slice((*byte)(unsafe.Pointer(arg)), 8)
-		logger.Printf("%-132s passed value contains %s (relative in tls %s).\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Yellow.Sprintf("0x%X", binary.LittleEndian.Uint64(argValue)),
-			color.Yellow.Sprintf("0x%X", arg-tls),
-		)
-	}
 	return 0
 }
 

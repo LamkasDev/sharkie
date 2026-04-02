@@ -3,12 +3,12 @@ package main
 import (
 	"runtime"
 
+	"github.com/LamkasDev/sharkie/cmd/app"
 	"github.com/LamkasDev/sharkie/cmd/asm"
 	"github.com/LamkasDev/sharkie/cmd/elf"
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	"github.com/LamkasDev/sharkie/cmd/lib"
 	"github.com/LamkasDev/sharkie/cmd/logger"
-	"github.com/LamkasDev/sharkie/cmd/renderer"
 	"github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/LamkasDev/sharkie/cmd/structs/dce"
 	"github.com/LamkasDev/sharkie/cmd/structs/fs"
@@ -39,7 +39,9 @@ func main() {
 	asm.SetupCooperativeGC()
 	asm.AllocTlsSlots()
 	emu.SetupSignalHandler()
-	renderer.SetupRenderer()
+	if err := app.SetupApplication(); err != nil {
+		panic(err)
+	}
 
 	// Setup guest stuff.
 	structs.SetupAllocator()
@@ -51,8 +53,8 @@ func main() {
 	gc.SetupGraphicsController()
 	dce.SetupDisplayCoreEngine()
 	gpu.SetupLiverpool()
-	gpu.GlobalLiverpool.OnFlip = renderer.GlobalRenderer.FrameSource.Submit
-	gpu.GlobalLiverpool.OnRegisterDisplaySurface = renderer.GlobalRenderer.RegisterFramebuffer
+	gpu.GlobalLiverpool.OnFlip = app.GlobalApplication.Renderer.FrameSource.Submit
+	gpu.GlobalLiverpool.OnRegisterDisplaySurface = app.GlobalApplication.Renderer.RegisterFramebuffer
 
 	// Register function stubs.
 	symbol.LoadSymbolMap("data/aerolib.csv")
@@ -65,7 +67,9 @@ func main() {
 	emu.GlobalModuleManager.RunModule("eboot.bin")
 
 	// Render stuff.
-	renderer.GlobalRenderer.Run()
+	if err := app.RunApplication(); err != nil {
+		panic(err)
+	}
 	logger.StopProfiling()
 	logger.StopLogging()
 }
