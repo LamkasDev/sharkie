@@ -4,6 +4,7 @@ import (
 	"runtime"
 	"sync"
 
+	"github.com/LamkasDev/sharkie/cmd/structs/gpu"
 	. "github.com/LamkasDev/sharkie/cmd/structs/video"
 	"github.com/elokore/cimgui-go-vulkan/backend"
 	glfwvulkanbackend "github.com/elokore/cimgui-go-vulkan/backend/glfwvulkan-backend"
@@ -90,7 +91,7 @@ func (r *Renderer) ConsumeFrames(done chan struct{}) {
 		r.Overlay.LastFlip.Store(&frame)
 		r.Overlay.FrameCount.Add(1)
 
-		// TODO: gpu.GlobalLiverpool.Walk()
+		gpu.GlobalLiverpool.Walk()
 		r.FramebufferMutex.RLock()
 		framebuffer, ok := r.Framebuffers[frame.GpuAddress]
 		r.FramebufferMutex.RUnlock()

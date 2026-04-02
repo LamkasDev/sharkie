@@ -11,16 +11,25 @@ type Liverpool struct {
 	ComputeRing     *LiverpoolCommandRing
 	DisplaySurfaces map[uintptr]*LiverpoolDisplaySurface
 
+	PM4Handlers map[uint8]PM4Handler
+	Registers   LiverpoolRegisters
+	DrawState   LiverpoolDrawState
+
 	OnFlip                   func(gpuAddress uintptr, flipArg uint64)
 	OnRegisterDisplaySurface func(address uintptr, attribute *VideoOutBufferAttribute)
 }
 
 func NewLiverpool() *Liverpool {
-	return &Liverpool{
+	l := &Liverpool{
 		GraphicsRing:    &LiverpoolCommandRing{},
 		ComputeRing:     &LiverpoolCommandRing{},
 		DisplaySurfaces: map[uintptr]*LiverpoolDisplaySurface{},
+
+		PM4Handlers: map[uint8]PM4Handler{},
 	}
+	l.SetupPM4Handlers()
+
+	return l
 }
 
 func (l *Liverpool) RegisterDisplaySurface(address uintptr, attribute *VideoOutBufferAttribute, attributeIndex uint32) {
