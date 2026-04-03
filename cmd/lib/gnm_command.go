@@ -84,7 +84,6 @@ func libSceGnmDriver_sceGnmSubmitCommandBuffersForWorkload(workloadId, count, dc
 		return SCE_GNM_ERROR_INVALID_VALUE
 	}
 	GlobalLiverpool.SubmitCommandBuffers(buffers)
-	WriteAddress(GlobalGraphicsController.SubmitDoneAddress, uintptr(1))
 
 	logger.Printf("%-132s %s submitted %s indirect buffers to ring %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
@@ -181,7 +180,6 @@ func libSceGnmDriver_sceGnmSubmitAndFlipCommandBuffersForWorkload(workloadId, co
 		return SCE_GNM_ERROR_INVALID_VALUE
 	}
 	GlobalLiverpool.SubmitCommandBuffers(buffers)
-	WriteAddress(GlobalGraphicsController.SubmitDoneAddress, uintptr(1))
 
 	logger.Printf("%-132s %s submitted %s indirect buffers to ring %s and requested flip.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),

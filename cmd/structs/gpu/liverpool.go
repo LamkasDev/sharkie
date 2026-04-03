@@ -1,19 +1,27 @@
 // Package gpu contains structs to emulate the AMD Liverpool GPU.
 package gpu
 
-import . "github.com/LamkasDev/sharkie/cmd/structs/video"
+import (
+	"sync"
+
+	. "github.com/LamkasDev/sharkie/cmd/structs/video"
+)
 
 var GlobalLiverpool *Liverpool
 
 // Liverpool keeps state of the AMD Liverpool GPU.
 type Liverpool struct {
-	GraphicsRing    *LiverpoolCommandRing
-	ComputeRing     *LiverpoolCommandRing
-	DisplaySurfaces map[uintptr]*LiverpoolDisplaySurface
+	RingMutex    sync.Mutex
+	GraphicsRing *LiverpoolCommandRing
+	ComputeRing  *LiverpoolCommandRing
 
-	PM4Handlers map[uint8]PM4Handler
-	Registers   LiverpoolRegisters
-	DrawState   LiverpoolDrawState
+	StateMutex sync.Mutex
+	Registers  LiverpoolRegisters
+	DrawState  LiverpoolDrawState
+	ConstRam   [LiverpoolConstRamSize]uint32
+
+	DisplaySurfaces map[uintptr]*LiverpoolDisplaySurface
+	PM4Handlers     map[uint8]PM4Handler
 
 	OnFlip                   func(gpuAddress uintptr, flipArg uint64)
 	OnRegisterDisplaySurface func(address uintptr, attribute *VideoOutBufferAttribute)
@@ -21,11 +29,14 @@ type Liverpool struct {
 
 func NewLiverpool() *Liverpool {
 	l := &Liverpool{
-		GraphicsRing:    &LiverpoolCommandRing{},
-		ComputeRing:     &LiverpoolCommandRing{},
-		DisplaySurfaces: map[uintptr]*LiverpoolDisplaySurface{},
+		RingMutex:    sync.Mutex{},
+		GraphicsRing: &LiverpoolCommandRing{},
+		ComputeRing:  &LiverpoolCommandRing{},
 
-		PM4Handlers: map[uint8]PM4Handler{},
+		StateMutex: sync.Mutex{},
+
+		DisplaySurfaces: map[uintptr]*LiverpoolDisplaySurface{},
+		PM4Handlers:     map[uint8]PM4Handler{},
 	}
 	l.SetupPM4Handlers()
 
@@ -48,6 +59,8 @@ func (l *Liverpool) RegisterDisplaySurface(address uintptr, attribute *VideoOutB
 }
 
 func (l *Liverpool) SubmitCommandBuffers(indirectBuffers []PM4IndirectBuffer) {
+	l.RingMutex.Lock()
+	defer l.RingMutex.Unlock()
 	for _, indirectBuffer := range indirectBuffers {
 		opcode := (indirectBuffer.Header >> 8) & 0xFF
 		switch opcode {
