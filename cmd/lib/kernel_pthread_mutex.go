@@ -2,6 +2,7 @@ package lib
 
 import (
 	"fmt"
+	"strings"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
@@ -32,9 +33,7 @@ func libKernel_scePthreadMutexInit(mutexHandlePtr uintptr, attrPtr uintptr, name
 	} else {
 		name = fmt.Sprintf("Mutex_%x", mutexAddr)
 	}
-	realNamePtr := GlobalGoAllocator.Malloc(uintptr(len(name) + 1))
-	WriteCString(realNamePtr, name)
-	mutex.NamePtr = realNamePtr
+	mutex.Name = strings.Clone(name)
 
 	// TODO: emulate __sys_namedobj_create?
 

@@ -6,6 +6,7 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/asm"
 	"github.com/LamkasDev/sharkie/cmd/elf"
 	"github.com/LamkasDev/sharkie/cmd/logger"
+	"github.com/LamkasDev/sharkie/cmd/structs/tcb"
 	"github.com/gookit/color"
 )
 
@@ -28,8 +29,9 @@ func NewLinker() *Linker {
 func (l *Linker) Link(e *elf.Elf) error {
 	if e.TlsSection != nil {
 		l.GenerationCounter++
-		e.TlsSection.Offset = l.StaticTlsSize
+		l.StaticTlsSize = (l.StaticTlsSize + tcb.TcbAlignment - 1) &^ (tcb.TcbAlignment - 1)
 		l.StaticTlsSize += e.TlsSection.ImageSize
+		e.TlsSection.Offset = l.StaticTlsSize
 	}
 
 	if e.DynamicInfo != nil {
@@ -61,6 +63,16 @@ func (l *Linker) Link(e *elf.Elf) error {
 			LibraryName:  "libkernel",
 			ReadableName: "sub_2BA0",
 			Address:      0x0000000000002BA0,
+			Type:         elf.STT_FUNC,
+			Binding:      elf.STB_LOCAL,
+		})
+	}
+	if e.Name == "Minecraft.Client.sprx" {
+		e.SymbolTable.RegisterSymbol(&elf.ElfSymbol{
+			HashIndex:    elf.GetSymbolHashIndex("Minecraft.Client.sprx", "sub_1D4CF0"),
+			LibraryName:  "Minecraft.Client.sprx",
+			ReadableName: "sub_1D4CF0",
+			Address:      0x00000000001D4CF0,
 			Type:         elf.STT_FUNC,
 			Binding:      elf.STB_LOCAL,
 		})

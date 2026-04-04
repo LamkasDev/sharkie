@@ -7,7 +7,7 @@ const (
 )
 
 type VideoOutHandle struct {
-	Id                 int
+	Id                 uint32
 	Buffers            [VideoOutMaxBuffers]VideoOutBuffer
 	Attributes         [VideoOutMaxAttributes]VideoOutBufferAttribute
 	CurrentBuffer      uint32

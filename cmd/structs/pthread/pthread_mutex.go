@@ -3,7 +3,6 @@ package pthread
 import (
 	"unsafe"
 
-	"github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/gookit/color"
 )
 
@@ -49,7 +48,7 @@ type PthreadMutex struct {
 	Protocol   PthreadMutexProtocol
 	_          [20]byte // More padding yay!
 	NamedObjId uint32
-	NamePtr    uintptr
+	Name       string
 }
 
 const PthreadMutexSize = unsafe.Sizeof(PthreadMutex{})
@@ -63,14 +62,9 @@ type PthreadMutexAttr struct {
 const PthreadMutexAttrSize = unsafe.Sizeof(PthreadMutexAttr{})
 
 func GetMutexNameText(m *PthreadMutex, addr uintptr) string {
-	if m.NamePtr == 0 {
+	if m.Name == "" {
 		return color.Yellow.Sprintf("0x%X", addr)
 	}
 
-	name := structs.ReadCString(m.NamePtr)
-	if name == "" {
-		return color.Yellow.Sprintf("0x%X", addr)
-	}
-
-	return color.Blue.Sprint(name)
+	return color.Blue.Sprint(m.Name)
 }

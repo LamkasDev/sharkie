@@ -10,7 +10,6 @@ import (
 
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/LamkasDev/sharkie/cmd/structs"
-	"github.com/LamkasDev/sharkie/cmd/structs/dce"
 	"github.com/LamkasDev/sharkie/cmd/structs/gc"
 	"github.com/LamkasDev/sharkie/cmd/structs/rng"
 	"github.com/gookit/color"
@@ -241,6 +240,9 @@ func (shFs *SharkieFilesystem) InitializeSystemFiles() error {
 	if _, err := shFs.Create(GetUsablePath("/dev/ajm")); err != nil {
 		return err
 	}
+	if _, err := shFs.Create(GetUsablePath("/dev/dce")); err != nil {
+		return err
+	}
 
 	// Actual devices (keeping the real file for now).
 	if _, err := shFs.Create(GetUsablePath("/dev/rng")); err != nil {
@@ -254,12 +256,6 @@ func (shFs *SharkieFilesystem) InitializeSystemFiles() error {
 	}
 	shFs.Devices[GetUsablePath("/dev/gc")] = func() PosixFile {
 		return gc.GlobalGraphicsController
-	}
-	if _, err := shFs.Create(GetUsablePath("/dev/dce")); err != nil {
-		return err
-	}
-	shFs.Devices[GetUsablePath("/dev/dce")] = func() PosixFile {
-		return dce.GlobalDisplayCoreEngine
 	}
 
 	// Deamon files.

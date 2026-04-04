@@ -1,6 +1,9 @@
 package lib
 
 import (
+	"time"
+	"unsafe"
+
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	. "github.com/LamkasDev/sharkie/cmd/structs"
@@ -17,6 +20,8 @@ func libSceLibcInternal__malloc_init() uintptr {
 	return 0
 }
 
+var timeTemp = time.Now()
+
 // 0x0000000000028D60
 // __int64 malloc()
 func libSceLibcInternal_malloc(size uintptr) uintptr {
@@ -28,6 +33,10 @@ func libSceLibcInternal_malloc(size uintptr) uintptr {
 		)
 		return 0
 	}
+	if time.Since(timeTemp) > time.Second*5 {
+		slot := unsafe.Slice((*uintptr)(unsafe.Add(unsafe.Pointer(emu.GetCurrentThread().Tcb.Self), -8)), 1)[0]
+		logger.Printf("slot=0x%X\n", slot)
+	}
 
 	if logger.LogAlloc {
 		logger.Printf("%-132s %s allocated %s bytes at %s.\n",
@@ -38,6 +47,36 @@ func libSceLibcInternal_malloc(size uintptr) uintptr {
 		)
 	}
 	return address
+}
+
+// 0x0000000000026AD0
+// unsigned __int64 __fastcall memcpy(unsigned __int64 _RDI, __int64 _RSI, unsigned __int64 _RDX, __int64, __int64, __int64, char)
+func libSceLibcInternal_memcpy(dst, src, n uintptr) uintptr {
+	if n == 0 {
+		return dst
+	}
+
+	dstSlice := unsafe.Slice((*byte)(unsafe.Pointer(dst)), n)
+	srcSlice := unsafe.Slice((*byte)(unsafe.Pointer(src)), n)
+	copy(dstSlice, srcSlice)
+
+	return dst
+}
+
+// 0x0000000000027350
+// unsigned __int64 __fastcall memset(unsigned __int64 _RDI, int _ESI, unsigned __int64 _RDX, double, __m128 _XMM1, __int64, __int64, __int64, char)
+func libSceLibcInternal_memset(dst, c, n uintptr) uintptr {
+	if n == 0 {
+		return dst
+	}
+
+	dstSlice := unsafe.Slice((*byte)(unsafe.Pointer(dst)), n)
+	fillValue := byte(c)
+	for i := range dstSlice {
+		dstSlice[i] = fillValue
+	}
+
+	return dst
 }
 
 // 0x0000000000028D80
@@ -125,6 +164,22 @@ func libSceLibcInternal_sceLibcMspaceRealloc(mspace, ptr, newSize uintptr) uintp
 	return libSceLibcInternal_realloc(ptr, newSize)
 }
 
+// TODO: THIS IS JUST A PLACEHOLDER
+// 0x00000000000345A0
+// __int64 __fastcall sceLibcMspaceReallocalign(__int64, __int64, __int64, __int64)
+func libSceLibcInternal_sceLibcMspaceReallocalign(mspace, alignment, ptr, newSize uintptr) uintptr {
+	// TODO: handle actual alignment
+	if alignment >= 4096 {
+		logger.Printf("%-132s %s ignored allocation alignment (wanted=%s, got=%s).\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceLibcMspaceReallocalign"),
+			color.Yellow.Sprintf("0x%X", alignment),
+			color.Yellow.Sprintf("0x%X", 4096),
+		)
+	}
+	return libSceLibcInternal_realloc(ptr, newSize)
+}
+
 // 0x000000000002F390
 // __int64 __fastcall sceLibcMspaceCreate(__int64, __int64, __int64, __int64)
 func libSceLibcInternal_sceLibcMspaceCreate(namePtr, base, capacity, flags uintptr) uintptr {
@@ -152,6 +207,23 @@ func libSceLibcInternal_sceLibcMspaceMemalign(mspace, alignment, size uintptr) u
 	return libSceLibcInternal_malloc(size)
 }
 
+// TODO: THIS IS JUST A PLACEHOLDER
+// 0x00000000000313C0
+//
+//	__int64 __fastcall sceLibcMspacePosixMemalign(__int64, __int64 *, unsigned __int64, unsigned __int64)
+func libSceLibcInternal_sceLibcMspacePosixMemalign(mspace, alignment, size uintptr) uintptr {
+	// TODO: handle actual alignment
+	if alignment >= 4096 {
+		logger.Printf("%-132s %s ignored allocation alignment (wanted=%s, got=%s).\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceLibcMspaceMemalign"),
+			color.Yellow.Sprintf("0x%X", alignment),
+			color.Yellow.Sprintf("0x%X", 4096),
+		)
+	}
+	return libSceLibcInternal_malloc(size)
+}
+
 // 0x0000000000034890
 // _BOOL8 __fastcall sceLibcMspaceIsHeapEmpty(__int64, __int64, __int64)
 func libSceLibcInternal_sceLibcMspaceIsHeapEmpty(mspace, heapPtr uintptr) uintptr {
@@ -162,6 +234,18 @@ func libSceLibcInternal_sceLibcMspaceIsHeapEmpty(mspace, heapPtr uintptr) uintpt
 		color.Yellow.Sprintf("0x%X", isEmpty),
 	)
 	return isEmpty
+}
+
+// 0x0000000000034830
+// __int64 sceLibcMspaceMallocStats()
+func libSceLibcInternal_sceLibcMspaceMallocStats() uintptr {
+	return 0
+}
+
+// 0x:0000000000034840
+// __int64 sceLibcMspaceMallocStatsFast()
+func libSceLibcInternal_sceLibcMspaceMallocStatsFast() uintptr {
+	return 0
 }
 
 // 0x0000000000035610

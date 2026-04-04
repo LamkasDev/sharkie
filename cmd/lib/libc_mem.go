@@ -12,6 +12,18 @@ func libc_malloc(size uintptr) uintptr {
 	return libSceLibcInternal_malloc(size)
 }
 
+// 0x000000000001C850
+// unsigned __int64 __fastcall memcpy(unsigned __int64 _RDI, __int64 _RSI, unsigned __int64 _RDX, _DWORD, _DWORD, _DWORD, char)
+func libc_memcpy(dst, src, n uintptr) uintptr {
+	return libSceLibcInternal_memcpy(dst, src, n)
+}
+
+// 0x000000000001D0D0
+// unsigned __int64 __fastcall memset(unsigned __int64 _RDI, int _ESI, unsigned __int64 _RDX, _DWORD, _DWORD, _DWORD, double, __m128 _XMM1, char)
+func libc_memset(dst, c, n uintptr) uintptr {
+	return libSceLibcInternal_memset(dst, c, n)
+}
+
 // 0x0000000000027970
 // __int64 calloc()
 func libc_calloc(nmemb, size uintptr) uintptr {
@@ -54,6 +66,12 @@ func libc_sceLibcMspaceRealloc(mspace, ptr, newSize uintptr) uintptr {
 	return libSceLibcInternal_sceLibcMspaceRealloc(mspace, ptr, newSize)
 }
 
+// 0x0000000000031350
+// __int64 __fastcall sceLibcMspaceReallocalign(__int64, __int64, __int64, __int64)
+func libc_sceLibcMspaceReallocalign(mspace, alignment, ptr, newSize uintptr) uintptr {
+	return libSceLibcInternal_sceLibcMspaceReallocalign(mspace, alignment, ptr, newSize)
+}
+
 // 0x0000000000030F90
 // __int64 __fastcall sceLibcMspaceCreate(__int64, __int64, __int64, __int64)
 func libc_sceLibcMspaceCreate(namePtr, base, capacity, flags uintptr) uintptr {
@@ -72,8 +90,26 @@ func libc_sceLibcMspaceMemalign(mspace, alignment, size uintptr) uintptr {
 	return libSceLibcInternal_sceLibcMspaceMemalign(mspace, alignment, size)
 }
 
+// 0x00000000000313C0
+// __int64 __fastcall sceLibcMspacePosixMemalign(unsigned __int64, __int64 *, unsigned __int64, unsigned __int64, __m128)
+func libc_sceLibcMspacePosixMemalign(mspace, alignment, size uintptr) uintptr {
+	return libSceLibcInternal_sceLibcMspacePosixMemalign(mspace, alignment, size)
+}
+
 // 0x00000000000314C0
 // _BOOL8 __fastcall sceLibcMspaceIsHeapEmpty(__int64, __int64, __int64)
 func libc_sceLibcMspaceIsHeapEmpty(mspace, heapPtr uintptr) uintptr {
 	return libSceLibcInternal_sceLibcMspaceIsHeapEmpty(mspace, heapPtr)
+}
+
+// 0x0000000000031460
+// __int64 sceLibcMspaceMallocStats()
+func libc_sceLibcMspaceMallocStats() uintptr {
+	return libSceLibcInternal_sceLibcMspaceMallocStats()
+}
+
+// 0x0000000000031460
+// __int64 sceLibcMspaceMallocStatsFast()
+func libc_sceLibcMspaceMallocStatsFast() uintptr {
+	return libSceLibcInternal_sceLibcMspaceMallocStatsFast()
 }

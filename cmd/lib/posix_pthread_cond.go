@@ -83,7 +83,7 @@ func libKernel_pthread_cond_destroy(condHandlePtr uintptr) uintptr {
 	logger.Printf("%-132s %s destroyed cond %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("pthread_cond_destroy"),
-		color.Yellow.Sprintf("0x%X", condAddr),
+		GetCondNameText(cond, condAddr),
 	)
 	return 0
 }
@@ -110,6 +110,7 @@ func libKernel_pthread_cond_broadcast(condHandlePtr uintptr) uintptr {
 		CondLock.Unlock()
 		condAddr = *(*uintptr)(unsafe.Pointer(condHandlePtr))
 	}
+	cond := (*PthreadCond)(unsafe.Pointer(condAddr))
 
 	// Broadcast to it.
 	hostCond := GetCond(condAddr)
@@ -119,7 +120,7 @@ func libKernel_pthread_cond_broadcast(condHandlePtr uintptr) uintptr {
 		logger.Printf("%-132s %s broadcasted cond %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("pthread_cond_broadcast"),
-			color.Yellow.Sprintf("0x%X", condAddr),
+			GetCondNameText(cond, condAddr),
 		)
 	}
 	return 0
@@ -147,6 +148,7 @@ func libKernel_pthread_cond_signal(condHandlePtr uintptr) uintptr {
 		CondLock.Unlock()
 		condAddr = *(*uintptr)(unsafe.Pointer(condHandlePtr))
 	}
+	cond := (*PthreadCond)(unsafe.Pointer(condAddr))
 
 	// Signal to it.
 	hostCond := GetCond(condAddr)
@@ -156,7 +158,7 @@ func libKernel_pthread_cond_signal(condHandlePtr uintptr) uintptr {
 		logger.Printf("%-132s %s signaled cond %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("pthread_cond_signal"),
-			color.Yellow.Sprintf("0x%X", condAddr),
+			GetCondNameText(cond, condAddr),
 		)
 	}
 	return 0
@@ -184,6 +186,7 @@ func libKernel_pthread_cond_wait(condHandlePtr uintptr, mutexHandlePtr uintptr) 
 		CondLock.Unlock()
 		condAddr = *(*uintptr)(unsafe.Pointer(condHandlePtr))
 	}
+	cond := (*PthreadCond)(unsafe.Pointer(condAddr))
 
 	// Unlock mutex, wait on condition and relock mutex.
 	err := libKernel_pthread_mutex_unlock(mutexHandlePtr)
@@ -194,7 +197,7 @@ func libKernel_pthread_cond_wait(condHandlePtr uintptr, mutexHandlePtr uintptr) 
 		logger.Printf("%-132s %s waiting on cond %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("pthread_cond_wait"),
-			color.Yellow.Sprintf("0x%X", condAddr),
+			GetCondNameText(cond, condAddr),
 		)
 	}
 	hostCond := GetCond(condAddr)
@@ -231,17 +234,20 @@ func libKernel_pthread_cond_timedwait(condHandlePtr uintptr, mutexHandlePtr uint
 		CondLock.Unlock()
 		condAddr = *(*uintptr)(unsafe.Pointer(condHandlePtr))
 	}
+	cond := (*PthreadCond)(unsafe.Pointer(condAddr))
 
 	// Calculate actual timeout from absolute time.
 	timestamp := (*Timestamp)(unsafe.Pointer(timestampPtr))
 	targetTime := time.Unix(int64(timestamp.Seconds), int64(timestamp.Nanoseconds))
 	timeout := time.Until(targetTime)
 	if timeout <= 0 {
-		logger.Printf("%-132s %s timed out on cond %s.\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("pthread_cond_timedwait"),
-			color.Yellow.Sprintf("0x%X", condAddr),
-		)
+		if logger.LogSyncingFail {
+			logger.Printf("%-132s %s timed out on cond %s.\n",
+				emu.GlobalModuleManager.GetCallSiteText(),
+				color.Magenta.Sprint("pthread_cond_timedwait"),
+				GetCondNameText(cond, condAddr),
+			)
+		}
 		return ETIMEDOUT
 	}
 
@@ -254,7 +260,7 @@ func libKernel_pthread_cond_timedwait(condHandlePtr uintptr, mutexHandlePtr uint
 		logger.Printf("%-132s %s waiting on cond %s for %s microseconds.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("pthread_cond_timedwait"),
-			color.Yellow.Sprintf("0x%X", condAddr),
+			GetCondNameText(cond, condAddr),
 			color.Green.Sprintf("%d", timeout.Microseconds()),
 		)
 	}
@@ -271,7 +277,7 @@ func libKernel_pthread_cond_timedwait(condHandlePtr uintptr, mutexHandlePtr uint
 			logger.Printf("%-132s %s timed out on cond %s.\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("pthread_cond_timedwait"),
-				color.Yellow.Sprintf("0x%X", condAddr),
+				GetCondNameText(cond, condAddr),
 			)
 		}
 		return ETIMEDOUT
@@ -302,6 +308,7 @@ func libKernel_pthread_cond_reltimedwait_np(condHandlePtr uintptr, mutexHandlePt
 		CondLock.Unlock()
 		condAddr = *(*uintptr)(unsafe.Pointer(condHandlePtr))
 	}
+	cond := (*PthreadCond)(unsafe.Pointer(condAddr))
 
 	// Calculate timeout.
 	timeout := time.Duration(micros) * time.Microsecond
@@ -315,7 +322,7 @@ func libKernel_pthread_cond_reltimedwait_np(condHandlePtr uintptr, mutexHandlePt
 		logger.Printf("%-132s %s waiting on cond %s for %s microseconds.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("pthread_cond_reltimedwait_np"),
-			color.Yellow.Sprintf("0x%X", condAddr),
+			GetCondNameText(cond, condAddr),
 			color.Green.Sprintf("%d", timeout.Microseconds()),
 		)
 	}
@@ -332,7 +339,7 @@ func libKernel_pthread_cond_reltimedwait_np(condHandlePtr uintptr, mutexHandlePt
 			logger.Printf("%-132s %s timed out on cond %s.\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("pthread_cond_reltimedwait_np"),
-				color.Yellow.Sprintf("0x%X", condAddr),
+				GetCondNameText(cond, condAddr),
 			)
 		}
 		return ETIMEDOUT

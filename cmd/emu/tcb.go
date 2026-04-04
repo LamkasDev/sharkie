@@ -18,8 +18,7 @@ func NewTcb(thread *Thread) *Tcb {
 
 	maxTlsIndex := uintptr(len(GlobalModuleManager.ModulesMap))
 	tlsSize := uintptr(linker.GlobalLinker.StaticTlsSize)
-	padding := (TcbAlignment - (tlsSize % TcbAlignment)) % TcbAlignment
-	tcbOffset := tlsSize + padding
+	tcbOffset := (tlsSize + TcbAlignment - 1) &^ (TcbAlignment - 1)
 	totalSize := tcbOffset + TcbSize
 
 	addr := GlobalGoAllocator.Malloc(totalSize)
@@ -52,7 +51,7 @@ func NewTcb(thread *Thread) *Tcb {
 		if module == nil || module.TlsSection == nil || module.TlsSection.ImageSize == 0 {
 			continue
 		}
-		dest := addr + uintptr(module.TlsSection.Offset)
+		dest := tcbAddr - uintptr(module.TlsSection.Offset)
 		if module.TlsSection.InitImageSize > 0 {
 			src := uintptr(unsafe.Pointer(&module.Memory[0])) + uintptr(module.TlsSection.ImageVirtualAddress)
 			copy(

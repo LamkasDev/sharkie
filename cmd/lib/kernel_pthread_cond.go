@@ -1,16 +1,34 @@
 package lib
 
 import (
+	"fmt"
+	"strings"
+	"unsafe"
+
 	. "github.com/LamkasDev/sharkie/cmd/structs"
+	. "github.com/LamkasDev/sharkie/cmd/structs/pthread"
 )
 
 // 0x00000000000137A0
 // __int64 scePthreadCondInit()
-func libKernel_scePthreadCondInit(condHandlePtr, attrHandlePtr uintptr) uintptr {
+func libKernel_scePthreadCondInit(condHandlePtr, attrHandlePtr uintptr, namePtr uintptr) uintptr {
 	err := libKernel_pthread_cond_init(condHandlePtr, attrHandlePtr)
 	if err != 0 {
 		return err - SonyErrorOffset
 	}
+
+	// Retrieve structs back.
+	condAddr := *(*uintptr)(unsafe.Pointer(condHandlePtr))
+	cond := (*PthreadCond)(unsafe.Pointer(condAddr))
+
+	// Set name.
+	var name string
+	if namePtr != 0 {
+		name = ReadCString(namePtr)
+	} else {
+		name = fmt.Sprintf("Cond_%x", condAddr)
+	}
+	cond.Name = strings.Clone(name)
 
 	return 0
 }

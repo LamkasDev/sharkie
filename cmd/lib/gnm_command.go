@@ -85,12 +85,14 @@ func libSceGnmDriver_sceGnmSubmitCommandBuffersForWorkload(workloadId, count, dc
 	}
 	GlobalLiverpool.SubmitCommandBuffers(buffers)
 
-	logger.Printf("%-132s %s submitted %s indirect buffers to ring %s.\n",
-		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprint("sceGnmSubmitCommandBuffersForWorkload"),
-		color.Green.Sprintf("%d", len(buffers)),
-		color.Green.Sprintf("%d", GlobalGraphicsController.ActiveRingSlot),
-	)
+	if logger.LogGraphics {
+		logger.Printf("%-132s %s submitted %s indirect buffers to ring %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceGnmSubmitCommandBuffersForWorkload"),
+			color.Green.Sprintf("%d", len(buffers)),
+			color.Green.Sprintf("%d", GlobalGraphicsController.ActiveRingSlot),
+		)
+	}
 	return 0
 }
 
@@ -181,12 +183,14 @@ func libSceGnmDriver_sceGnmSubmitAndFlipCommandBuffersForWorkload(workloadId, co
 	}
 	GlobalLiverpool.SubmitCommandBuffers(buffers)
 
-	logger.Printf("%-132s %s submitted %s indirect buffers to ring %s and requested flip.\n",
-		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprint("sceGnmSubmitAndFlipCommandBuffersForWorkload"),
-		color.Green.Sprintf("%d", len(buffers)),
-		color.Green.Sprintf("%d", GlobalGraphicsController.ActiveRingSlot),
-	)
+	if logger.LogGraphics {
+		logger.Printf("%-132s %s submitted %s indirect buffers to ring %s and requested flip.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceGnmSubmitAndFlipCommandBuffersForWorkload"),
+			color.Green.Sprintf("%d", len(buffers)),
+			color.Green.Sprintf("%d", GlobalGraphicsController.ActiveRingSlot),
+		)
+	}
 	return 0
 }
 
@@ -253,11 +257,13 @@ func libSceGnmDriver_sceGnmRequestFlipAndSubmitDoneForWorkload(ctxPtr, dcbPtr, r
 	GlobalGraphicsController.RingActive = false
 	GlobalGraphicsController.PendingSubmits = 0
 
-	logger.Printf("%-132s %s requested flip and signaled done on ring %s.\n",
-		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprint("sceGnmRequestFlipAndSubmitDoneForWorkload"),
-		color.Green.Sprintf("%d", GlobalGraphicsController.ActiveRingSlot),
-	)
+	if logger.LogGraphics {
+		logger.Printf("%-132s %s requested flip and signaled done on ring %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceGnmRequestFlipAndSubmitDoneForWorkload"),
+			color.Green.Sprintf("%d", GlobalGraphicsController.ActiveRingSlot),
+		)
+	}
 	return 0
 }
 
@@ -311,12 +317,14 @@ func gnmPatchPrepareFlip(lastDcbAddress uintptr, lastDcbSizeDW, videoOutHandle, 
 	packetBase[3] = uint32(labelAddress >> 32)
 	packetBase[4] = 1
 
-	logger.Printf("%-132s %s patched prepare flip to WRITE_DATA at %s (label=%s).\n",
-		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprint("gnmPatchPrepareFlip"),
-		color.Yellow.Sprintf("0x%X", packetPtr),
-		color.Yellow.Sprintf("0x%X", labelAddress),
-	)
+	if logger.LogGraphics {
+		logger.Printf("%-132s %s patched prepare flip to WRITE_DATA at %s (label=%s).\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("gnmPatchPrepareFlip"),
+			color.Yellow.Sprintf("0x%X", packetPtr),
+			color.Yellow.Sprintf("0x%X", labelAddress),
+		)
+	}
 	return nil
 }
 
@@ -334,11 +342,13 @@ func libSceGnmDriver_sceGnmSubmitDone() uintptr {
 	GlobalGraphicsController.RingActive = false
 	GlobalGraphicsController.PendingSubmits = 0
 
-	logger.Printf("%-132s %s signaled done on ring %s.\n",
-		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprint("sceGnmSubmitDone"),
-		color.Green.Sprintf("%d", GlobalGraphicsController.ActiveRingSlot),
-	)
+	if logger.LogGraphics {
+		logger.Printf("%-132s %s signaled done on ring %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceGnmSubmitDone"),
+			color.Green.Sprintf("%d", GlobalGraphicsController.ActiveRingSlot),
+		)
+	}
 	return 0
 }
 
@@ -372,10 +382,12 @@ func libSceGnmDriver_sceGnmDingDongForWorkload(ringIndex, writePointer uintptr) 
 	}
 	GlobalGraphicsController.Ioctl(SCE_GC_IOCTL_DINGDONG, uintptr(unsafe.Pointer(&dingDong)))
 
-	logger.Printf("%-132s %s dinged ring %s.\n",
-		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprint("sceGnmDingDongForWorkload"),
-		color.Green.Sprintf("%d", ringIndex),
-	)
+	if logger.LogGraphics {
+		logger.Printf("%-132s %s dinged ring %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceGnmDingDongForWorkload"),
+			color.Green.Sprintf("%d", ringIndex),
+		)
+	}
 	return 0
 }

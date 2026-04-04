@@ -116,18 +116,22 @@ func (gc *GraphicsController) Ioctl(request uint32, argPtr uintptr) error {
 		GlobalGraphicsController.PendingSubmits = 0
 		WriteAddress(GlobalGraphicsController.SubmitDoneAddress, uintptr(1))
 
-		logger.Printf("%-132s %s flushed ring %s.\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("ioctl"),
-			color.Yellow.Sprintf("%d", GlobalGraphicsController.ActiveRingSlot),
-		)
+		if logger.LogGraphics {
+			logger.Printf("%-132s %s flushed ring %s.\n",
+				emu.GlobalModuleManager.GetCallSiteText(),
+				color.Magenta.Sprint("ioctl"),
+				color.Yellow.Sprintf("%d", GlobalGraphicsController.ActiveRingSlot),
+			)
+		}
 		return nil
 	case SCE_GC_IOCTL_DRAIN_RING:
-		logger.Printf("%-132s %s tried draining ring %s.\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("ioctl"),
-			color.Yellow.Sprintf("%d", GlobalGraphicsController.ActiveRingSlot),
-		)
+		if logger.LogGraphics {
+			logger.Printf("%-132s %s tried draining ring %s.\n",
+				emu.GlobalModuleManager.GetCallSiteText(),
+				color.Magenta.Sprint("ioctl"),
+				color.Yellow.Sprintf("%d", GlobalGraphicsController.ActiveRingSlot),
+			)
+		}
 		return nil
 	case SCE_GC_IOCTL_SET_WORK_MODE:
 		setWorkMode := (*GnmSetWorkMode)(unsafe.Pointer(argPtr))

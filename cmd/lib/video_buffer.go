@@ -28,8 +28,8 @@ func libSceVideoOut_sceVideoOutRegisterBuffers(rawHandle, startIndex, addressesP
 		)
 		return SCE_VIDEO_OUT_ERROR_INVALID_VALUE
 	}
-	handle := GlobalDisplayCoreEngine.GetHandleById(int(rawHandle))
-	if handle == nil {
+	handle, ok := GlobalDisplayCoreEngine.Handles[uint32(rawHandle)]
+	if !ok {
 		logger.Printf("%-132s %s failed due to invalid handle.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceVideoOutRegisterBuffers"),
@@ -86,8 +86,8 @@ func libSceVideoOut_sceVideoOutRegisterBufferAttribute(rawHandle, attributeIndex
 		)
 		return SCE_VIDEO_OUT_ERROR_INVALID_VALUE
 	}
-	handle := GlobalDisplayCoreEngine.GetHandleById(int(rawHandle))
-	if handle == nil {
+	handle, ok := GlobalDisplayCoreEngine.Handles[uint32(rawHandle)]
+	if !ok {
 		logger.Printf("%-132s %s failed due to invalid handle.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceVideoOutRegisterBufferAttribute"),

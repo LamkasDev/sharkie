@@ -20,6 +20,9 @@ const (
 	// Logs memory allocations.
 	LogAlloc = false
 
+	// Logs gnm & video functions.
+	LogGraphics = false
+
 	// Logs things that clutter log (value returns, etc).
 	LogMisc = false
 

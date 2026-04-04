@@ -15,8 +15,8 @@ import (
 // 0x000000000000C6C0
 // __int64 __fastcall sceVideoOutAddFlipEvent(unsigned int, int, __int64, double)
 func libSceVideoOut_sceVideoOutAddFlipEvent(equeueHandle, rawHandle, userData uintptr) uintptr {
-	handle := GlobalDisplayCoreEngine.GetHandleById(int(rawHandle))
-	if handle == nil {
+	handle, ok := GlobalDisplayCoreEngine.Handles[uint32(rawHandle)]
+	if !ok {
 		logger.Printf("%-132s %s failed due to invalid handle.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceVideoOutAddFlipEvent"),
@@ -50,8 +50,8 @@ func libSceVideoOut_sceVideoOutSubmitEopFlip(rawHandle, bufferIndex, flipMode, f
 		)
 		return SCE_VIDEO_OUT_ERROR_INVALID_VALUE
 	}
-	handle := GlobalDisplayCoreEngine.GetHandleById(int(rawHandle))
-	if handle == nil {
+	handle, ok := GlobalDisplayCoreEngine.Handles[uint32(rawHandle)]
+	if !ok {
 		logger.Printf("%-132s %s failed due to invalid handle.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceVideoOutSubmitEopFlip"),
@@ -79,14 +79,16 @@ func libSceVideoOut_sceVideoOutSubmitEopFlip(rawHandle, bufferIndex, flipMode, f
 		*labelSlot = 1
 	}
 
-	logger.Printf("%-132s %s submitted %s's EOP flip (bufferIndex=%s, flipMode=%s, flipArg=%s, eopSignalCtx=%s).\n",
-		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprint("sceVideoOutSubmitEopFlip"),
-		color.Yellow.Sprintf("0x%X", handle.Id),
-		color.Yellow.Sprintf("0x%X", bufferIndex),
-		color.Yellow.Sprintf("0x%X", flipMode),
-		color.Yellow.Sprintf("0x%X", flipArg),
-		color.Yellow.Sprintf("0x%X", eopSignalCtx),
-	)
+	if logger.LogGraphics {
+		logger.Printf("%-132s %s submitted %s's EOP flip (bufferIndex=%s, flipMode=%s, flipArg=%s, eopSignalCtx=%s).\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceVideoOutSubmitEopFlip"),
+			color.Yellow.Sprintf("0x%X", handle.Id),
+			color.Yellow.Sprintf("0x%X", bufferIndex),
+			color.Yellow.Sprintf("0x%X", flipMode),
+			color.Yellow.Sprintf("0x%X", flipArg),
+			color.Yellow.Sprintf("0x%X", eopSignalCtx),
+		)
+	}
 	return 0
 }

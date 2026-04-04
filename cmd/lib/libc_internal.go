@@ -8,6 +8,8 @@ func RegisterSceLibcInternalStubs() {
 	// Memory functions.
 	elf.RegisterStub("libSceLibcInternal", "_malloc_init", libc__malloc_init)
 	elf.RegisterStub("libSceLibcInternal", "malloc", libSceLibcInternal_malloc)
+	// elf.RegisterStub("libSceLibcInternal", "memcpy", libSceLibcInternal_memcpy)
+	// elf.RegisterStub("libSceLibcInternal", "memset", libSceLibcInternal_memset)
 	elf.RegisterStub("libSceLibcInternal", "calloc", libSceLibcInternal_calloc)
 	elf.RegisterStub("libSceLibcInternal", "free", libSceLibcInternal_free)
 	elf.RegisterStub("libSceLibcInternal", "realloc", libSceLibcInternal_realloc)
@@ -15,12 +17,20 @@ func RegisterSceLibcInternalStubs() {
 	elf.RegisterStub("libSceLibcInternal", "sceLibcMspaceCalloc", libSceLibcInternal_sceLibcMspaceCalloc)
 	elf.RegisterStub("libSceLibcInternal", "sceLibcMspaceFree", libSceLibcInternal_sceLibcMspaceFree)
 	elf.RegisterStub("libSceLibcInternal", "sceLibcMspaceRealloc", libSceLibcInternal_sceLibcMspaceRealloc)
+	elf.RegisterStub("libSceLibcInternal", "sceLibcMspaceReallocalign", libSceLibcInternal_sceLibcMspaceReallocalign)
 	elf.RegisterStub("libSceLibcInternal", "sceLibcMspaceMemalign", libSceLibcInternal_sceLibcMspaceMemalign)
+	elf.RegisterStub("libSceLibcInternal", "sceLibcMspacePosixMemalign", libSceLibcInternal_sceLibcMspacePosixMemalign)
 	elf.RegisterStub("libSceLibcInternal", "sceLibcMspaceCreate", libSceLibcInternal_sceLibcMspaceCreate)
 	elf.RegisterStub("libSceLibcInternal", "sceLibcMspaceDestroy", libSceLibcInternal_sceLibcMspaceDestroy)
 	elf.RegisterStub("libSceLibcInternal", "sceLibcMspaceIsHeapEmpty", libSceLibcInternal_sceLibcMspaceIsHeapEmpty)
+	elf.RegisterStub("libSceLibcInternal", "sceLibcMspaceMallocStats", libSceLibcInternal_sceLibcMspaceMallocStats)
+	elf.RegisterStub("libSceLibcInternal", "sceLibcMspaceMallocStatsFast", libSceLibcInternal_sceLibcMspaceMallocStatsFast)
 	elf.RegisterStub("libSceLibcInternal", "sceLibcPafMspaceIsHeapEmpty", libSceLibcInternal_sceLibcPafMspaceIsHeapEmpty)
 
 	// Guard functions.
 	elf.RegisterStub("libSceLibcInternal", "__cxa_guard_release", libSceLibcInternal___cxa_guard_release)
+
+	// CXA exception functions.
+	elf.RegisterStub("libSceLibcInternal", "__cxa_throw", libSceLibcInternal___cxa_throw)
+	elf.RegisterStub("libSceLibcInternal", "std::_Xbad_alloc", libSceLibcInternal_std_Xbad_alloc)
 }

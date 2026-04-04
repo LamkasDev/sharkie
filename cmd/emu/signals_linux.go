@@ -59,6 +59,7 @@ import "C"
 // It's called directly by the assembly trampoline on the restored Go stack.
 // We take a uintptr to avoid any potential pointer checks by the runtime during the call.
 func ExceptionHandlerGo() uintptr {
+	_ = GlobalModuleManager.GetStackTraceShort()
 	thread := GetCurrentThread()
 	threadContext := asm.GetCurrentThreadContext()
 
