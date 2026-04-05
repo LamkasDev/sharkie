@@ -6,7 +6,7 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/structs/gcn"
 )
 
-const LiverpoolConstRamSize = 16384
+const LiverpoolConstRamSize = 0x8000
 
 type LiverpoolCommandRing struct {
 	Pending []PM4IndirectBuffer

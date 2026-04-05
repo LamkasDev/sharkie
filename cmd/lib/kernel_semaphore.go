@@ -3,6 +3,7 @@ package lib
 import (
 	"encoding/binary"
 	"fmt"
+	"strings"
 	"time"
 	"unsafe"
 
@@ -21,7 +22,7 @@ func libKernel_sceKernelCreateSema(handlePtr, namePtr, attributes, currentCount,
 
 	semaphore := CreateSemaphore("unnamed", uint32(attributes), int32(currentCount), int32(maxCount))
 	if namePtr != 0 {
-		semaphore.Name = ReadCString(namePtr)
+		semaphore.Name = strings.Clone(ReadCString(namePtr))
 	} else {
 		semaphore.Name = fmt.Sprintf("0x%X", semaphore.Handle)
 	}

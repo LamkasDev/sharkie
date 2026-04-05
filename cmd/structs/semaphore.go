@@ -1,6 +1,9 @@
 package structs
 
-import "sync"
+import (
+	"fmt"
+	"sync"
+)
 
 var (
 	// SemaphoreRepo maps handles to host semaphores (*Semaphore).
@@ -53,6 +56,6 @@ func GetSemaphore(handle uintptr) *Semaphore {
 }
 
 func SetupSemaphores() {
-	CreateSemaphore("SceLncSuspendBlock00000000", 0, 0, 255)
+	CreateSemaphore(fmt.Sprintf("SceLncSuspendBlock%08x", GlobalAppInfo.AppId), 0, 0, 255)
 	CreateSemaphore("SceNpTpip-1", 0, 0, 255)
 }

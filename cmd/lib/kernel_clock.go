@@ -13,26 +13,11 @@ import (
 // 0x0000000000014CB0
 // __int64 __fastcall sceKernelClockGettime(__int64, __int64)
 func libKernel_sceKernelClockGettime(clockId, timestampPtr uintptr) uintptr {
-	if timestampPtr == 0 {
-		logger.Printf("%-132s %s failed due to invalid time pointer.\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("sceKernelClockGettime"),
-		)
-		return SCE_KERNEL_ERROR_EINVAL
+	err := libKernel_clock_gettime(clockId, timestampPtr)
+	if err != 0 {
+		return GetErrno() - SonyErrorOffset
 	}
 
-	now := time.Now()
-	timestamp := (*Timestamp)(unsafe.Pointer(timestampPtr))
-	timestamp.Seconds = uint64(now.Unix())
-	timestamp.Nanoseconds = uint64(now.Nanosecond())
-
-	if logger.LogMisc {
-		logger.Printf("%-132s %s returned %s.\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("sceKernelClockGettime"),
-			color.Yellow.Sprintf("0x%X", timestamp.Seconds),
-		)
-	}
 	return 0
 }
 

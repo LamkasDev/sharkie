@@ -51,8 +51,11 @@ func CheckAndRunGC() {
 	GCFence.Store(true)
 	start := time.Now()
 	for ActiveGuestThreads.Load() != 0 {
-		if time.Since(start) > time.Second {
-			panic("GC deadlock: guest thread did not park")
+		if time.Since(start) > time.Millisecond*500 {
+			logger.Println("GC skipped: threads took too long to park.")
+			GCFence.Store(false)
+			GCInProgress.Store(false)
+			return
 		}
 		runtime.Gosched()
 	}

@@ -88,3 +88,14 @@ func libKernel_scePthreadMutexUnlock(mutexHandlePtr uintptr) uintptr {
 
 	return 0
 }
+
+// 0x0000000000013CB0
+// __int64 scePthreadMutexTimedlock()
+func libKernel_scePthreadMutexTimedlock(mutexHandlePtr uintptr, micros uintptr) uintptr {
+	err := libKernel_pthread_mutex_reltimedlock_np(mutexHandlePtr, micros)
+	if err != 0 {
+		return err - SonyErrorOffset
+	}
+
+	return 0
+}

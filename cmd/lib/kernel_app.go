@@ -21,22 +21,7 @@ func libKernel_sceKernelGetAppInfo(processId uintptr, infoPtr uintptr) uintptr {
 	}
 
 	info := (*AppInfo)(unsafe.Pointer(infoPtr))
-	info.AppId = 0
-	info.MmapFlags = 0
-	info.AttributeExecutable = 0
-	info.Attribute2 = 0
-	namePtr := uintptr(unsafe.Pointer(&info.CusaName[0]))
-	WriteCString(namePtr, "CUSA00001")
-	info.DebugLevel = 0
-	info.SlvFlags = 0
-	info.MiniAppDmemFlags = 0
-	info.RenderMode = 0
-	info.MdbgOut = 0
-	info.RequiredHdcpType = 0
-	info.PreloadPrxFlags = 0
-	info.Attribute1 = 0
-	info.HasParamSfo = 1
-	info.TitleWorkaround = TitleWorkaround{}
+	*info = *GlobalAppInfo
 
 	logger.Printf("%-132s %s returned app info.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),

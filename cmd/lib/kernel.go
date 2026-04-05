@@ -162,6 +162,9 @@ func RegisterKernelStubs() {
 	elf.RegisterStub("libkernel", "scePthreadMutexTrylock", libKernel_scePthreadMutexTrylock)
 	elf.RegisterStub("libkernel", "pthread_mutex_unlock", libKernel_pthread_mutex_unlock)
 	elf.RegisterStub("libkernel", "scePthreadMutexUnlock", libKernel_scePthreadMutexUnlock)
+	elf.RegisterStub("libkernel", "pthread_mutex_timedlock", libKernel_pthread_mutex_timedlock)
+	elf.RegisterStub("libkernel", "pthread_mutex_reltimedlock_np", libKernel_pthread_mutex_reltimedlock_np)
+	elf.RegisterStub("libkernel", "scePthreadMutexTimedlock", libKernel_scePthreadMutexTimedlock)
 
 	// Cond functions.
 	elf.RegisterStub("libkernel", "pthread_cond_init", libKernel_pthread_cond_init)
@@ -208,6 +211,7 @@ func RegisterKernelStubs() {
 	elf.RegisterStub("libkernel", "ipmimgr_call", libKernel_ipmimgr_call)
 
 	// Clock functions.
+	elf.RegisterStub("libkernel", "clock_gettime", libKernel_clock_gettime)
 	elf.RegisterStub("libkernel", "sceKernelClockGettime", libKernel_sceKernelClockGettime)
 	elf.RegisterStub("libkernel", "sceKernelGetProcessTime", libKernel_sceKernelGetProcessTime)
 	elf.RegisterStub("libkernel", "sceKernelGettimeofday", libKernel_sceKernelGettimeofday)
@@ -232,6 +236,7 @@ func RegisterKernelStubs() {
 	elf.RegisterStub("libkernel", "sceKernelWaitSema", libKernel_sceKernelWaitSema)
 	elf.RegisterStub("libkernel", "sem_wait", libKernel_sem_wait)
 	elf.RegisterStub("libkernel", "sem_timedwait", libKernel_sem_timedwait)
+	elf.RegisterStub("libkernel", "sem_post", libKernel_sem_post)
 
 	// Network functions.
 	elf.RegisterStub("libkernel", "__sys_netcontrol", libKernel___sys_netcontrol)

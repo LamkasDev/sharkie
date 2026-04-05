@@ -317,6 +317,22 @@ func InvokeImpiClientMethod(client *IpmiClient, resultPtr, paramsPtr, paramsSize
 			)
 			return 0
 		}
+	case IMPI_METHOD_GET_APP_STATUS:
+		if syncMethod.OutputSize > 0 && syncMethod.OutputPtr != 0 {
+			outputSlice := unsafe.Slice((*uintptr)(unsafe.Pointer(syncMethod.OutputPtr)), 1)
+			appStatusPtr := outputSlice[0]
+			if appStatusPtr != 0 {
+				appId := uint32(GlobalAppInfo.AppId)
+				binary.LittleEndian.PutUint32(unsafe.Slice((*byte)(unsafe.Pointer(appStatusPtr)), 4), appId)
+
+				logger.Printf("%-132s %s returned app status (appId=%s).\n",
+					emu.GlobalModuleManager.GetCallSiteText(),
+					color.Magenta.Sprint("ipmimgr_call"),
+					color.Green.Sprintf("%d", appId),
+				)
+				return 0
+			}
+		}
 	}
 
 	logger.Printf("%-132s %s invoked unknown method %s on client %s.\n",

@@ -95,8 +95,8 @@ func CreateDefaultEventFlags(names []string) {
 }
 
 func SetupEventFlags() {
-	CreateDefaultEventFlags([]string{AudioInEventFlagName})
 	CreateDefaultEventFlags([]string{
+		AudioInEventFlagName,
 		"SceBootStatusFlags",
 		"SceSystemStateMgrInfo",
 		"SceSystemStateMgrStatus",

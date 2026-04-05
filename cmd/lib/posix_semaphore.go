@@ -15,7 +15,12 @@ import (
 // __int64 __fastcall sem_init(__int64, int, int)
 func libKernel_sem_init(semPtr uintptr, pShared uintptr, value uintptr) uintptr {
 	if semPtr == 0 {
-		return EINVAL
+		logger.Printf("%-132s %s failed due to invalid sem pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sem_init"),
+		)
+		SetErrno(EINVAL)
+		return ERR_PTR
 	}
 
 	// Initialize to defaults.
@@ -29,10 +34,11 @@ func libKernel_sem_init(semPtr uintptr, pShared uintptr, value uintptr) uintptr 
 		semaphore.Pshared = 1
 	}
 
-	logger.Printf("%-132s %s created semaphore at %s.\n",
+	logger.Printf("%-132s %s created semaphore at %s (value=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sem_init"),
 		color.Yellow.Sprintf("0x%X", semPtr),
+		color.Yellow.Sprintf("0x%X", value),
 	)
 	return 0
 }
@@ -47,12 +53,22 @@ func libKernel_sem_wait(semPtr uintptr) uintptr {
 // __int64 __fastcall sem_timedwait(__int64, __int64)
 func libKernel_sem_timedwait(semPtr uintptr, timestampPtr uintptr) uintptr {
 	if semPtr == 0 {
-		return EINVAL
+		logger.Printf("%-132s %s failed due to invalid sem pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sem_timedwait"),
+		)
+		SetErrno(EINVAL)
+		return ERR_PTR
 	}
 
 	semaphore := (*PSemaphore)(unsafe.Pointer(semPtr))
 	if semaphore.Magic != PSemaphoreMagic {
-		return EINVAL
+		logger.Printf("%-132s %s failed due to invalid sem magic.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sem_timedwait"),
+		)
+		SetErrno(EINVAL)
+		return ERR_PTR
 	}
 
 	// Try decrement semaphore without host sync primitives.
@@ -87,7 +103,8 @@ func libKernel_sem_timedwait(semPtr uintptr, timestampPtr uintptr) uintptr {
 					color.Yellow.Sprintf("0x%X", semPtr),
 				)
 			}
-			return ETIMEDOUT
+			SetErrno(ETIMEDOUT)
+			return ERR_PTR
 		}
 	}
 
@@ -131,8 +148,51 @@ func libKernel_sem_timedwait(semPtr uintptr, timestampPtr uintptr) uintptr {
 						color.Yellow.Sprintf("0x%X", semPtr),
 					)
 				}
-				return ETIMEDOUT
+				SetErrno(ETIMEDOUT)
+				return ERR_PTR
 			}
 		}
 	}
+}
+
+// 0x0000000000010A00
+// __int64 __fastcall sem_post(__int64)
+func libKernel_sem_post(semPtr uintptr) uintptr {
+	if semPtr == 0 {
+		logger.Printf("%-132s %s failed due to invalid sem pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sem_post"),
+		)
+		SetErrno(EINVAL)
+		return ERR_PTR
+	}
+
+	semaphore := (*PSemaphore)(unsafe.Pointer(semPtr))
+	if semaphore.Magic != PSemaphoreMagic {
+		logger.Printf("%-132s %s failed due to invalid sem magic.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sem_post"),
+		)
+		SetErrno(EINVAL)
+		return ERR_PTR
+	}
+
+	// Increment semaphore for fast-path.
+	atomic.AddInt32(&semaphore.Value, 1)
+
+	// Signal slow-path.
+	hostSemaphore := GetPSemaphore(semPtr)
+	hostSemaphore.L.Lock()
+	hostSemaphore.Signal()
+	if logger.LogSyncing {
+		logger.Printf("%-132s %s signaled semaphore %s (value=%d).\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sem_post"),
+			color.Yellow.Sprintf("0x%X", semPtr),
+			semaphore.Value,
+		)
+	}
+	hostSemaphore.L.Unlock()
+
+	return 0
 }

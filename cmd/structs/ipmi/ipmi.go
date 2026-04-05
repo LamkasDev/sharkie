@@ -83,11 +83,16 @@ func SetupImpiManager() {
 	CreateImpiServer("SceLncService", 0)
 	CreateImpiServer("SceShellCoreUtil", 0)
 	structs.CreateDefaultEventFlags([]string{
+		fmt.Sprintf("SceShellCoreUtil%x", structs.GlobalAppInfo.AppId),
 		"SceShellCoreUtilAppFocus",
 		"SceShellCoreUtilCtrlFocus",
 		"SceShellCoreUtilPowerControl",
 	})
 	CreateImpiServer("SceAppMessaging", 0)
+	structs.CreateDefaultEventFlags([]string{
+		fmt.Sprintf("SceAppMessaging%x", structs.GlobalAppInfo.AppId),
+	})
+	structs.CreateSemaphore(fmt.Sprintf("SceAppMessaging%x", structs.GlobalAppInfo.AppId), 0, 0, 255)
 	npMgrIpc := CreateImpiServer("SceNpMgrIpc", 0)
 	npMgrIpc.CreateEventFlag("SceNpMgrEvf")
 	npService := CreateImpiServer("SceNpService", 0)

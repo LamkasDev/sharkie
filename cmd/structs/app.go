@@ -1,7 +1,19 @@
 package structs
 
+import "unsafe"
+
 const CurrentFirmwareVersion = uint32(0x11008001)
 const GameCompiledSdkVersion = uint32(0x04508001)
+
+var GlobalAppInfo = &AppInfo{
+	AppId:       0xB00B,
+	HasParamSfo: 1,
+}
+
+func init() {
+	namePtr := uintptr(unsafe.Pointer(&GlobalAppInfo.CusaName[0]))
+	WriteCString(namePtr, "CUSA00001")
+}
 
 type AppInfo struct {
 	AppId               int32
