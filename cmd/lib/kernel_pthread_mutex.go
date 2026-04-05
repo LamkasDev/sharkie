@@ -2,7 +2,6 @@ package lib
 
 import (
 	"fmt"
-	"strings"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
@@ -16,7 +15,7 @@ import (
 
 // 0x0000000000013AA0
 // __int64 __fastcall scePthreadMutexInit(_QWORD *a1, __int64 a2, __int64 a3)
-func libKernel_scePthreadMutexInit(mutexHandlePtr uintptr, attrPtr uintptr, namePtr uintptr) uintptr {
+func libKernel_scePthreadMutexInit(mutexHandlePtr, attrPtr uintptr, namePtr Cstring) uintptr {
 	err := libKernel_pthread_mutex_init(mutexHandlePtr, attrPtr)
 	if err != 0 {
 		return err - SonyErrorOffset
@@ -28,12 +27,12 @@ func libKernel_scePthreadMutexInit(mutexHandlePtr uintptr, attrPtr uintptr, name
 
 	// Set name.
 	var name string
-	if namePtr != 0 {
-		name = ReadCString(namePtr)
+	if namePtr != nil {
+		name = GoString(namePtr)
 	} else {
 		name = fmt.Sprintf("Mutex_%x", mutexAddr)
 	}
-	mutex.Name = strings.Clone(name)
+	mutex.Name = name
 
 	// TODO: emulate __sys_namedobj_create?
 

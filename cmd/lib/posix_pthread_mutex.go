@@ -12,7 +12,7 @@ import (
 
 // 0x000000000002FDF0
 // __int64 __fastcall pthread_mutex_init(__int64, _QWORD *)
-func libKernel_pthread_mutex_init(mutexHandlePtr uintptr, attrHandlePtr uintptr) uintptr {
+func libKernel_pthread_mutex_init(mutexHandlePtr, attrHandlePtr uintptr) uintptr {
 	mutexAddr := GlobalGoAllocator.Malloc(PthreadMutexSize)
 	if mutexAddr == 0 {
 		return ENOMEM
@@ -62,7 +62,7 @@ func libKernel_pthread_mutex_init(mutexHandlePtr uintptr, attrHandlePtr uintptr)
 	return 0
 }
 
-func libKernel_initStaticMutex(mutexHandlePtr uintptr, initType uintptr) uintptr {
+func libKernel_initStaticMutex(mutexHandlePtr, initType uintptr) uintptr {
 	mutexAddr := GlobalGoAllocator.Malloc(PthreadMutexSize)
 	if mutexAddr == 0 {
 		return ENOMEM

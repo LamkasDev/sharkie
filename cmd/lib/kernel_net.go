@@ -13,7 +13,7 @@ import (
 
 // 0x0000000000000B90
 // __int64 __fastcall _sys_netcontrol()
-func libKernel___sys_netcontrol(fd uintptr, op uintptr, resultPtr uintptr, length uintptr) uintptr {
+func libKernel___sys_netcontrol(fd FileDescriptor, op, resultPtr, length uintptr) uintptr {
 	switch op {
 	case NETC_GET_MEM_INFO:
 		if length < NetworkMemoryInfoSize || resultPtr == 0 {
@@ -46,10 +46,10 @@ func libKernel___sys_netcontrol(fd uintptr, op uintptr, resultPtr uintptr, lengt
 
 // 0x0000000000000C70
 // __int64 __fastcall _sys_socketex()
-func libKernel___sys_socketex(namePtr uintptr, domain uintptr, sockType uintptr, protocol uintptr) uintptr {
+func libKernel___sys_socketex(namePtr Cstring, domain, sockType, protocol uintptr) uintptr {
 	name := "unnamed-socket"
-	if namePtr != 0 {
-		name = ReadCString(namePtr)
+	if namePtr != nil {
+		name = GoString(namePtr)
 	}
 
 	socket := &Socket{
@@ -74,7 +74,7 @@ func libKernel___sys_socketex(namePtr uintptr, domain uintptr, sockType uintptr,
 
 // 0x0000000000000C90
 // __int64 __fastcall _sys_socketclose()
-func libKernel___sys_socketclose(fd uintptr) uintptr {
+func libKernel___sys_socketclose(fd FileDescriptor) uintptr {
 	logger.Printf("%-132s %s tried closing socket %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("__sys_socketclose"),

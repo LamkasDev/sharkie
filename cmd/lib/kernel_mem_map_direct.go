@@ -12,7 +12,7 @@ import (
 
 // 0x0000000000017920
 // __int64 __fastcall sceKernelMapDirectMemory(__int64 *, __int64, unsigned int, int, __int64, unsigned __int64)
-func libKernel_sceKernelMapDirectMemory(addrPtr, length, prot, flags, offset, alignment uintptr) uintptr {
+func libKernel_sceKernelMapDirectMemory(addrPtr uintptr, length uint64, prot, flags int32, offset, alignment uintptr) uintptr {
 	// TODO: pthread_once
 	err := libKernel_sys_sceKernelMapDirectMemory(addrPtr, length, prot, flags, offset, alignment)
 	if err == ERR_PTR {
@@ -25,7 +25,7 @@ func libKernel_sceKernelMapDirectMemory(addrPtr, length, prot, flags, offset, al
 // TODO: make this more robust.
 // 0x0000000000018540
 // __int64 __fastcall sceKernelMapNamedDirectMemory(__int64 *, int, int, int, int, __int64)
-func libKernel_sceKernelMapNamedDirectMemory(addrPtr, length, prot, flags, offset, alignment, namePtr uintptr) uintptr {
+func libKernel_sceKernelMapNamedDirectMemory(addrPtr uintptr, length uint64, prot, flags int32, offset, alignment uintptr, namePtr Cstring) uintptr {
 	// TODO: pthread_once
 	err := libKernel_sys_sceKernelMapDirectMemory(addrPtr, length, prot, flags, offset, alignment)
 	if err == ERR_PTR {
@@ -41,7 +41,7 @@ func libKernel_sceKernelMapNamedDirectMemory(addrPtr, length, prot, flags, offse
 }
 
 // TODO: make this more robust.
-func libKernel_sys_sceKernelMapDirectMemory(addrPtr, length, prot, flags, offset, alignment uintptr) uintptr {
+func libKernel_sys_sceKernelMapDirectMemory(addrPtr uintptr, length uint64, prot, flags int32, offset, alignment uintptr) uintptr {
 	// Perform initial pointer checks.
 	if alignment != 0 {
 		if !IsPowerOfTwo(alignment) {

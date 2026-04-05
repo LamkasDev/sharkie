@@ -10,10 +10,10 @@ import (
 
 // 0x0000000000015990
 // __int64 __fastcall sceKernelOpen(__int64, __int16, __int64, __int64, __int64, __int64, __m128, __m128, __m128, __m128, __m128, __m128, __m128, __m128)
-func libKernel_sceKernelOpen(pathPtr uintptr, flags uintptr, mode uintptr) uintptr {
+func libKernel_sceKernelOpen(pathPtr Cstring, flags FileFlags, mode FileMode) int32 {
 	fd := libKernel_open(pathPtr, flags, mode)
-	if fd == ERR_PTR {
-		return GetErrno() - SonyErrorOffset
+	if fd == ERR_PTRI {
+		return int32(GetErrno() - SonyErrorOffset)
 	}
 
 	return fd
@@ -21,7 +21,7 @@ func libKernel_sceKernelOpen(pathPtr uintptr, flags uintptr, mode uintptr) uintp
 
 // 0x000000000000DD50
 // __int64 __fastcall open(__m128 _XMM0, __m128 _XMM1, __m128 _XMM2, __m128 _XMM3, __m128 _XMM4, __m128 _XMM5, __m128 _XMM6, __m128 _XMM7, __int64, __int16, __int64, __int64, __int64, __int64, char)
-func libKernel_open(pathPtr uintptr, flags uintptr, mode uintptr) uintptr {
+func libKernel_open(pathPtr Cstring, flags FileFlags, mode FileMode) int32 {
 	// TODO: Mark thread as entering blocking syscall
 	// Call the syscall
 	// Check for cancellation
@@ -31,17 +31,17 @@ func libKernel_open(pathPtr uintptr, flags uintptr, mode uintptr) uintptr {
 
 // 0x0000000000002750
 // __int64 __fastcall open()
-func libKernel__open(pathPtr uintptr, flags uintptr, mode uintptr) uintptr {
-	if pathPtr == 0 {
+func libKernel__open(pathPtr Cstring, flags FileFlags, mode FileMode) int32 {
+	if pathPtr == nil {
 		logger.Printf("%-132s %s failed due to invalid path pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("_open"),
 		)
 		SetErrno(EFAULT)
-		return ERR_PTR
+		return ERR_PTRI
 	}
 
-	path := GetUsablePath(ReadCString(pathPtr))
+	path := GetUsablePath(GoString(pathPtr))
 	fd, err := GlobalFilesystem.Open(path, 0, mode)
 	if err != nil {
 		logger.Printf("%-132s %s failed due to open error on %s (%s).\n",
@@ -51,7 +51,7 @@ func libKernel__open(pathPtr uintptr, flags uintptr, mode uintptr) uintptr {
 			err.Error(),
 		)
 		SetErrno(ENOENT)
-		return ERR_PTR
+		return ERR_PTRI
 	}
 
 	logger.Printf("%-132s %s opened file %s (path=%s, flags=%s, mode=%s).\n",
@@ -62,5 +62,5 @@ func libKernel__open(pathPtr uintptr, flags uintptr, mode uintptr) uintptr {
 		color.Yellow.Sprintf("0x%X", flags),
 		color.Yellow.Sprintf("0x%X", mode),
 	)
-	return uintptr(fd)
+	return int32(fd)
 }

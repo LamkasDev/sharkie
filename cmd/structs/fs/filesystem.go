@@ -10,20 +10,10 @@ import (
 
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/LamkasDev/sharkie/cmd/structs"
-	"github.com/LamkasDev/sharkie/cmd/structs/gc"
-	"github.com/LamkasDev/sharkie/cmd/structs/rng"
 	"github.com/gookit/color"
 )
 
 var GlobalFilesystem *SharkieFilesystem
-
-var FileDescriptorColors = map[string]color.Color{
-	"stdin":          color.White,
-	"stdout":         color.White,
-	"stderr":         color.Red,
-	"/dev/console":   color.Cyan,
-	"/dev/deci_tty6": color.Cyan,
-}
 
 type DeviceFileCreateFunc func() PosixFile
 
@@ -35,7 +25,7 @@ type SharkieFilesystem struct {
 	Lock           sync.Mutex
 }
 
-func (shFs *SharkieFilesystem) Open(path string, oflag uintptr, mode uintptr) (FileDescriptor, error) {
+func (shFs *SharkieFilesystem) Open(path string, oflag structs.FileFlags, mode structs.FileMode) (FileDescriptor, error) {
 	shFs.Lock.Lock()
 	defer shFs.Lock.Unlock()
 
@@ -52,7 +42,7 @@ func (shFs *SharkieFilesystem) Open(path string, oflag uintptr, mode uintptr) (F
 	}
 
 	flag := os.O_RDWR
-	if (oflag & SCE_O_CREAT) != 0 {
+	if (oflag & structs.O_CREAT) != 0 {
 		flag |= os.O_CREATE
 		if err := shFs.Fs.MkdirAll(filepath.ToSlash(filepath.Dir(path)), 0777); err != nil {
 			return -1, err
@@ -91,7 +81,7 @@ func (shFs *SharkieFilesystem) AllocateFd(path string, file PosixFile) FileDescr
 }
 
 func (shFs *SharkieFilesystem) Create(path string) (FileDescriptor, error) {
-	return shFs.Open(path, SCE_O_CREAT, 0)
+	return shFs.Open(path, structs.O_CREAT, 0)
 }
 
 func (shFs *SharkieFilesystem) Write(path string, data []byte) (int, error) {
@@ -204,9 +194,6 @@ func (shFs *SharkieFilesystem) InitializeSystemFiles() error {
 	if _, err := shFs.Create(GetUsablePath("stdin")); err != nil {
 		return err
 	}
-	if _, err := shFs.Create(GetUsablePath("stdout")); err != nil {
-		return err
-	}
 	if _, err := shFs.Create(GetUsablePath("stderr")); err != nil {
 		return err
 	}
@@ -242,20 +229,6 @@ func (shFs *SharkieFilesystem) InitializeSystemFiles() error {
 	}
 	if _, err := shFs.Create(GetUsablePath("/dev/dce")); err != nil {
 		return err
-	}
-
-	// Actual devices (keeping the real file for now).
-	if _, err := shFs.Create(GetUsablePath("/dev/rng")); err != nil {
-		return err
-	}
-	shFs.Devices[GetUsablePath("/dev/rng")] = func() PosixFile {
-		return rng.GlobalRngDevice
-	}
-	if _, err := shFs.Create(GetUsablePath("/dev/gc")); err != nil {
-		return err
-	}
-	shFs.Devices[GetUsablePath("/dev/gc")] = func() PosixFile {
-		return gc.GlobalGraphicsController
 	}
 
 	// Deamon files.

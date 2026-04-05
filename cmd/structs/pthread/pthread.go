@@ -1,6 +1,10 @@
 package pthread
 
-import "unsafe"
+import (
+	"unsafe"
+
+	"github.com/LamkasDev/sharkie/cmd/structs"
+)
 
 type PthreadSchedulingPolicy uint32
 type PthreadInheritScheduling uint32
@@ -72,7 +76,7 @@ type Pthread struct {
 	_            [240]byte // Biggg padding uwu!
 	ReturnValue  uintptr
 	_            [24]byte
-	NamePtr      uintptr
+	NamePtr      structs.Cstring
 	CleanupStack uintptr
 	_            [44]byte
 	Magic        uint32
@@ -99,9 +103,9 @@ type PthreadAttr struct {
 	Flags             PthreadAttrFlags
 	_                 [4]byte // Padding yippee!
 	StackAddress      uintptr
-	StackSize         uintptr
-	GuardSize         uintptr
-	CpuSetSize        uintptr
+	StackSize         uint64
+	GuardSize         uint64
+	CpuSetSize        uint64
 	CpuSet            uintptr
 }
 

@@ -39,7 +39,7 @@ func libKernel_ctl_sysctl_name(mib []uint32, namePtr, nameLen, oldPtr, oldLenPtr
 	oldLenSlice := unsafe.Slice((*byte)(unsafe.Pointer(oldLenPtr)), 8)
 	providedSize := uintptr(binary.LittleEndian.Uint64(oldLenSlice))
 
-	name := ReadCString(newPtr)
+	name := GoString(Cstring(newPtr))
 	var resultMib []uint32
 	switch name {
 	case "kern.smp.cpus":

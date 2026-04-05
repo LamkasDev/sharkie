@@ -86,7 +86,7 @@ func libKernel_sysctl(namePtr, nameLen, oldPtr, oldLenPtr, newPtr, newLen uintpt
 
 // 0x0000000000000F70
 // __int64 __fastcall sysarch()
-func libKernel_sys_sysarch(number uintptr, argsPtr uintptr) uintptr {
+func libKernel_sys_sysarch(number, argsPtr uintptr) uintptr {
 	switch number {
 	case AMD64_SET_FSBASE:
 		if argsPtr == 0 {
@@ -208,7 +208,7 @@ func libKernel_sys_umtx_op(objPtr, op, value, uaddr, uaddr2 uintptr) uintptr {
 
 // 0x0000000000001C70
 // __int64 __fastcall get_authinfo()
-func libKernel_sys_get_authinfo(processId uintptr, infoPtr uintptr) uintptr {
+func libKernel_sys_get_authinfo(processId, infoPtr uintptr) uintptr {
 	if infoPtr == 0 {
 		logger.Printf("%-132s %s failed due to invalid info pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),

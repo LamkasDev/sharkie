@@ -20,7 +20,7 @@ func RegisterKernelStubs() {
 	// Pointer to current program name.
 	progname := elf.RegisterVariableStub("libkernel", "__progname", 8)
 	prognameStrAddr := GlobalGoAllocator.Malloc(32)
-	WriteCString(prognameStrAddr, "eboot.bin")
+	CString(Cstring(prognameStrAddr), "eboot.bin")
 	WriteAddress(progname.Address, prognameStrAddr)
 
 	// Flag used by libc to control signal interrupt behavior.

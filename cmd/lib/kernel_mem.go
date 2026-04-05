@@ -13,7 +13,7 @@ func libKernel_fake() uintptr {
 
 // 0x0000000000018290
 // __int64 __fastcall sceKernelSetVirtualRangeName()
-func libKernel_sceKernelSetVirtualRangeName(addr, length, namePtr uintptr) uintptr {
+func libKernel_sceKernelSetVirtualRangeName(addr uintptr, length uint64, namePtr Cstring) uintptr {
 	if libKernel_mname(addr, length, namePtr) == ERR_PTR {
 		return GetErrno() - SonyErrorOffset
 	}
@@ -23,11 +23,11 @@ func libKernel_sceKernelSetVirtualRangeName(addr, length, namePtr uintptr) uintp
 
 // 0x0000000000001C90
 // __int64 __fastcall sub_1C90()
-func libKernel_mname(addr, length, namePtr uintptr) uintptr {
+func libKernel_mname(addr uintptr, length uint64, namePtr Cstring) uintptr {
 	return libKernel_sys_mname(addr, length, namePtr)
 }
 
-func libKernel_sys_mname(addr, length, namePtr uintptr) uintptr {
+func libKernel_sys_mname(addr uintptr, length uint64, namePtr Cstring) uintptr {
 	// Perform initial pointer checks.
 	if addr == 0 {
 		SetErrno(EINVAL)
@@ -35,8 +35,8 @@ func libKernel_sys_mname(addr, length, namePtr uintptr) uintptr {
 	}
 
 	name := "unnamed"
-	if namePtr != 0 {
-		name = ReadCString(namePtr)
+	if namePtr != nil {
+		name = GoString(namePtr)
 	}
 
 	// TODO: actually name the regions.
@@ -53,7 +53,7 @@ func libKernel_sys_mname(addr, length, namePtr uintptr) uintptr {
 
 // 0x0000000000016FD0
 // __int64 __fastcall sceKernelGetDirectMemorySize()
-func libKernel_sceKernelGetDirectMemorySize() uintptr {
+func libKernel_sceKernelGetDirectMemorySize() uint64 {
 	// TODO: pthread_once
 	size := GlobalAllocator.DirectMemorySize
 

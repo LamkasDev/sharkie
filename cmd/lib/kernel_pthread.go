@@ -41,7 +41,7 @@ func libKernel_scePthreadEqual(t1, t2 uintptr) uintptr {
 
 // 0x00000000000138E0
 // __int64 scePthreadCreate()
-func libKernel_scePthreadCreate(threadPtr, attrHandlePtr, entryPoint, arg, namePtr uintptr) uintptr {
+func libKernel_scePthreadCreate(threadPtr, attrHandlePtr, entryPoint, arg uintptr, namePtr Cstring) uintptr {
 	err := libKernel_pthread_create_name_np(threadPtr, attrHandlePtr, entryPoint, arg, namePtr)
 	if err != 0 {
 		return err - SonyErrorOffset

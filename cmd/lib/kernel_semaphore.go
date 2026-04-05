@@ -15,14 +15,14 @@ import (
 
 // 0x0000000000023410
 // __int64 __fastcall sceKernelCreateSema(_QWORD *, __int64, unsigned int, unsigned int, unsigned int, __int64)
-func libKernel_sceKernelCreateSema(handlePtr, namePtr, attributes, currentCount, maxCount, optionPtr uintptr) uintptr {
+func libKernel_sceKernelCreateSema(handlePtr uintptr, namePtr Cstring, attributes, currentCount, maxCount, optionPtr uintptr) uintptr {
 	if handlePtr == 0 || optionPtr != 0 {
 		return SCE_KERNEL_ERROR_EINVAL
 	}
 
 	semaphore := CreateSemaphore("unnamed", uint32(attributes), int32(currentCount), int32(maxCount))
-	if namePtr != 0 {
-		semaphore.Name = strings.Clone(ReadCString(namePtr))
+	if namePtr != nil {
+		semaphore.Name = strings.Clone(GoString(namePtr))
 	} else {
 		semaphore.Name = fmt.Sprintf("0x%X", semaphore.Handle)
 	}
@@ -41,11 +41,11 @@ func libKernel_sceKernelCreateSema(handlePtr, namePtr, attributes, currentCount,
 
 // 0x0000000000023580
 // __int64 __fastcall sceKernelOpenSema(_QWORD *, __int64)
-func libKernel_sceKernelOpenSema(handlePtr uintptr, namePtr uintptr) uintptr {
-	if handlePtr == 0 || namePtr == 0 {
+func libKernel_sceKernelOpenSema(handlePtr uintptr, namePtr Cstring) uintptr {
+	if handlePtr == 0 || namePtr == nil {
 		return SCE_KERNEL_ERROR_EINVAL
 	}
-	name := ReadCString(namePtr)
+	name := GoString(namePtr)
 
 	var foundSemaphore *Semaphore
 	SemaphoreLock.RLock()
@@ -97,7 +97,7 @@ func libKernel_sceKernelDeleteSema(handle uintptr) uintptr {
 
 // 0x0000000000023490
 // __int64 __fastcall sceKernelWaitSema(unsigned int, unsigned int, __int64)
-func libKernel_sceKernelWaitSema(handle uintptr, needed uintptr, timeoutPtr uintptr) uintptr {
+func libKernel_sceKernelWaitSema(handle, needed, timeoutPtr uintptr) uintptr {
 	semaphore := GetSemaphore(handle)
 	if semaphore == nil {
 		return SCE_KERNEL_ERROR_ENOENT

@@ -42,8 +42,8 @@ func NewTcb(thread *Thread) *Tcb {
 	tcb.Thread.Arg = 0
 	tcb.Thread.Attr = PthreadAttr{}
 	tcb.Thread.ReturnValue = 0
-	tcb.Thread.NamePtr = GlobalGoAllocator.Malloc(33)
-	WriteCString(tcb.Thread.NamePtr, thread.Name)
+	tcb.Thread.NamePtr = Cstring(GlobalGoAllocator.Malloc(33))
+	CString(tcb.Thread.NamePtr, thread.Name)
 	tcb.Thread.CleanupStack = 0
 	tcb.Thread.Magic = PthreadMagic
 

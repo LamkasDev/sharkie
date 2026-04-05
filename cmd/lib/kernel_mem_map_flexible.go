@@ -13,7 +13,7 @@ import (
 // TODO: make this more robust.
 // 0x00000000000182C0
 // __int64 __fastcall sceKernelMapNamedFlexibleMemory(__int64 *, int, int, int, int, __int64)
-func libKernel_sceKernelMapNamedFlexibleMemory(addrPtr, length, prot, flags, namePtr uintptr) uintptr {
+func libKernel_sceKernelMapNamedFlexibleMemory(addrPtr uintptr, length uint64, prot, flags int32, namePtr Cstring) uintptr {
 	// TODO: this doing other silly stuff
 	err := libKernel_sceKernelMapFlexibleMemory(addrPtr, length, prot, flags)
 	if err == ERR_PTR {
@@ -31,7 +31,7 @@ func libKernel_sceKernelMapNamedFlexibleMemory(addrPtr, length, prot, flags, nam
 // TODO: make this more robust.
 // 0x0000000000017330
 // __int64 __fastcall sceKernelMapFlexibleMemory(__int64 *, unsigned __int64, unsigned int, unsigned int)
-func libKernel_sceKernelMapFlexibleMemory(addrPtr, length, prot, flags uintptr) uintptr {
+func libKernel_sceKernelMapFlexibleMemory(addrPtr uintptr, length uint64, prot, flags int32) uintptr {
 	// Perform initial alignment and pointer checks.
 	if length < MEMORY_ALIGN || (length&MEMORY_ALIGN_MASK) != 0 {
 		logger.Printf("%-132s %s failed due to invalid alignment or size.\n",
@@ -56,14 +56,14 @@ func libKernel_sceKernelMapFlexibleMemory(addrPtr, length, prot, flags uintptr) 
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceKernelMapFlexibleMemory"),
 		)
-		flags &= ^uintptr(MAP_FIXED)
+		flags &= ^MAP_FIXED
 	}
 
 	if addr == 0 {
 		addr = 0x880000000
 	}
 
-	allocatedAddr := libKernel_mmap(addr, length, prot, flags|MAP_ANON, ERR_PTR, 0)
+	allocatedAddr := libKernel_mmap(addr, length, prot, flags|MAP_ANON, ERR_PTRI, 0)
 	if allocatedAddr == ERR_PTR {
 		return GetErrno() - SonyErrorOffset
 	}
@@ -81,7 +81,7 @@ func libKernel_sceKernelMapFlexibleMemory(addrPtr, length, prot, flags uintptr) 
 // TODO: make this more robust.
 // 0x0000000000018400
 // __int64 __fastcall sceKernelMapNamedSystemFlexibleMemory(__int64 *, unsigned __int64, unsigned int, unsigned int, __int64)
-func libKernel_sceKernelMapNamedSystemFlexibleMemory(addrPtr, length, prot, flags, namePtr uintptr) uintptr {
+func libKernel_sceKernelMapNamedSystemFlexibleMemory(addrPtr uintptr, length uint64, prot, flags int32, namePtr Cstring) uintptr {
 	// Perform initial alignment and pointer checks.
 	if length < MEMORY_ALIGN || (length&MEMORY_ALIGN_MASK) != 0 {
 		logger.Printf("%-132s %s failed due to invalid alignment or size.\n",
@@ -106,10 +106,10 @@ func libKernel_sceKernelMapNamedSystemFlexibleMemory(addrPtr, length, prot, flag
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceKernelMapNamedSystemFlexibleMemory"),
 		)
-		flags &= ^uintptr(MAP_FIXED)
+		flags &= ^MAP_FIXED
 	}
 
-	allocatedAddr := libKernel_mmap(addr, length, prot, flags|MAP_ANON|MAP_SYSTEM, ERR_PTR, 0)
+	allocatedAddr := libKernel_mmap(addr, length, prot, flags|MAP_ANON|MAP_SYSTEM, ERR_PTRI, 0)
 	if allocatedAddr == ERR_PTR {
 		return GetErrno() - SonyErrorOffset
 	}

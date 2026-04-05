@@ -13,7 +13,7 @@ import (
 
 // 0x00000000000231C0
 // __int64 __fastcall sceKernelCreateEventFlag(_QWORD *, __int64, unsigned int, __int64, __int64)
-func libKernel_sceKernelCreateEventFlag(handlePtr, namePtr, attr, initPattern, optParamPtr uintptr) uintptr {
+func libKernel_sceKernelCreateEventFlag(handlePtr uintptr, namePtr Cstring, attr, initPattern, optParamPtr uintptr) uintptr {
 	// This is correct, btw.
 	if handlePtr == 0 || optParamPtr != 0 {
 		logger.Printf("%-132s %s failed due to invalid handle pointer.\n",
@@ -34,10 +34,10 @@ func libKernel_sceKernelCreateEventFlag(handlePtr, namePtr, attr, initPattern, o
 	return 0
 }
 
-func libKernel_sys_evf_create(namePtr uintptr, attr uint32, initPattern uint64) uintptr {
+func libKernel_sys_evf_create(namePtr Cstring, attr uint32, initPattern uint64) uintptr {
 	name := "unnamed"
-	if namePtr != 0 {
-		name = ReadCString(namePtr)
+	if namePtr != nil {
+		name = GoString(namePtr)
 	}
 	if len(name) >= EVF_NAME_MAX {
 		logger.Printf("%-132s %s failed due to too long name.\n",
@@ -72,15 +72,15 @@ func libKernel_sys_evf_create(namePtr uintptr, attr uint32, initPattern uint64) 
 
 // 0x0000000000023370
 // __int64 __fastcall sceKernelOpenEventFlag(_QWORD *, __int64)
-func libKernel_sceKernelOpenEventFlag(handlePtr uintptr, namePtr uintptr) uintptr {
-	if handlePtr == 0 || namePtr == 0 {
+func libKernel_sceKernelOpenEventFlag(handlePtr uintptr, namePtr Cstring) uintptr {
+	if handlePtr == 0 || namePtr == nil {
 		logger.Printf("%-132s %s failed due to invalid handle pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceKernelOpenEventFlag"),
 		)
 		return SCE_KERNEL_ERROR_EINVAL
 	}
-	name := ReadCString(namePtr)
+	name := GoString(namePtr)
 
 	var foundEventFlag *EventFlag
 	EventFlagLock.RLock()
@@ -115,8 +115,8 @@ func libKernel_sceKernelOpenEventFlag(handlePtr uintptr, namePtr uintptr) uintpt
 
 // 0x0000000000023240
 // __int64 __fastcall sceKernelWaitEventFlag(unsigned int, __int64, unsigned int, __int64, __int64)
-func libKernel_sceKernelWaitEventFlag(handle, waitPattern, waitMode, outPatternPtr, timeoutPtr uintptr) uintptr {
-	err := libKernel_sys_evf_wait(handle, uint64(waitPattern), uint32(waitMode), outPatternPtr, timeoutPtr)
+func libKernel_sceKernelWaitEventFlag(handle uintptr, waitPattern uint64, waitMode uint32, outPatternPtr, timeoutPtr uintptr) uintptr {
+	err := libKernel_sys_evf_wait(handle, waitPattern, waitMode, outPatternPtr, timeoutPtr)
 	if err == ERR_PTR {
 		return GetErrno() - SonyErrorOffset
 	}
@@ -124,7 +124,7 @@ func libKernel_sceKernelWaitEventFlag(handle, waitPattern, waitMode, outPatternP
 	return 0
 }
 
-func libKernel_sys_evf_wait(handle uintptr, waitPattern uint64, waitMode uint32, outPatternPtr uintptr, timeoutPtr uintptr) uintptr {
+func libKernel_sys_evf_wait(handle uintptr, waitPattern uint64, waitMode uint32, outPatternPtr, timeoutPtr uintptr) uintptr {
 	eventFlag := GetEventFlag(handle)
 	if eventFlag == nil {
 		logger.Printf("%-132s %s failed due to unknown event flag handle %s.\n",
@@ -212,8 +212,8 @@ func libKernel_sys_evf_wait(handle uintptr, waitPattern uint64, waitMode uint32,
 
 // 0x00000000000232B0
 // __int64 sceKernelPollEventFlag()
-func libKernel_sceKernelPollEventFlag(handle, waitPattern, waitMode, outPatternPtr uintptr) uintptr {
-	err := libKernel_sys_evf_trywait(handle, uint64(waitPattern), uint32(waitMode), outPatternPtr)
+func libKernel_sceKernelPollEventFlag(handle uintptr, waitPattern uint64, waitMode uint32, outPatternPtr uintptr) uintptr {
+	err := libKernel_sys_evf_trywait(handle, waitPattern, waitMode, outPatternPtr)
 	if err == ERR_PTR {
 		return GetErrno() - SonyErrorOffset
 	}
@@ -271,8 +271,8 @@ func libKernel_sys_evf_trywait(handle uintptr, waitPattern uint64, waitMode uint
 
 // 0x00000000000232E0
 // __int64 sceKernelSetEventFlag()
-func libKernel_sceKernelSetEventFlag(handle, bits uintptr) uintptr {
-	err := libKernel_sys_evf_set(handle, uint64(bits))
+func libKernel_sceKernelSetEventFlag(handle uintptr, bits uint64) uintptr {
+	err := libKernel_sys_evf_set(handle, bits)
 	if err == ERR_PTR {
 		return GetErrno() - SonyErrorOffset
 	}

@@ -187,7 +187,7 @@ func (m *ModuleManager) RunModule(name string) {
 		"Running module %s...\n",
 		color.Blue.Sprint(name),
 	)
-	m.MainThread = CreateThread(0, structs.StackDefaultSize)
+	m.MainThread = CreateThread("MainThread", structs.StackDefaultSize)
 	m.MainThread.Setup()
 
 	visited := make(map[string]bool)

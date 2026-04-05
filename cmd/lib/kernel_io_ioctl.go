@@ -10,8 +10,8 @@ import (
 
 // 0x0000000000000970
 // __int64 __fastcall ioctl()
-func libKernel_ioctl(fd, request, argPtr uintptr) uintptr {
-	file, ok := GlobalFilesystem.Descriptors[FileDescriptor(fd)]
+func libKernel_ioctl(fd FileDescriptor, request uint64, argPtr uintptr) int32 {
+	file, ok := GlobalFilesystem.Descriptors[fd]
 	if !ok {
 		logger.Printf("%-132s %s failed due to unknown file %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -22,7 +22,7 @@ func libKernel_ioctl(fd, request, argPtr uintptr) uintptr {
 		return ENOENT
 	}
 
-	err := file.File.Ioctl(uint32(request), argPtr)
+	err := file.File.Ioctl(request, argPtr)
 	if err != nil {
 		logger.Printf("%-132s %s command %s on %s with argument %s failed (%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -34,7 +34,7 @@ func libKernel_ioctl(fd, request, argPtr uintptr) uintptr {
 		)
 		if false {
 			SetErrno(EFAULT)
-			return ERR_PTR
+			return ERR_PTRI
 		}
 	}
 

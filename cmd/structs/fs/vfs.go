@@ -363,7 +363,7 @@ func (f *File) Truncate(size int64) error {
 	return nil
 }
 
-func (f *File) Ioctl(request uint32, argPtr uintptr) error {
+func (f *File) Ioctl(request uint64, argPtr uintptr) error {
 	return errors.New("not implemented")
 }
 

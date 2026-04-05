@@ -43,6 +43,13 @@ func NewRenderer(context as.Context, dimensions *as.SwapchainDimensions) *Render
 	r.prepareRenderPass()
 	r.preparePipelineCache()
 	r.prepareFramebuffers()
+	for _, res := range r.Handles.Context.SwapchainImageResources() {
+		vk.BeginCommandBuffer(res.CommandBuffer(), &vk.CommandBufferBeginInfo{
+			SType: vk.StructureTypeCommandBufferBeginInfo,
+			Flags: vk.CommandBufferUsageFlags(vk.CommandBufferUsageSimultaneousUseBit),
+		})
+		vk.EndCommandBuffer(res.CommandBuffer())
+	}
 
 	return r
 }

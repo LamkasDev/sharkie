@@ -9,7 +9,7 @@ import (
 
 // 0x00000000000175D0
 // __int64 __fastcall sceKernelAllocateDirectMemory(__int64, __int64, __int64, __int64, int, _QWORD *)
-func libKernel_sceKernelAllocateDirectMemory(searchStart, searchEnd, length, alignment, memType, destPtr uintptr) uintptr {
+func libKernel_sceKernelAllocateDirectMemory(searchStart, searchEnd uintptr, length, alignment uint64, memType int32, destPtr uintptr) uintptr {
 	// TODO: pthread_once
 	err := libKernel_sys_sceKernelAllocateDirectMemory(searchStart, searchEnd, length, alignment, memType, destPtr)
 	if err == ERR_PTR {
@@ -19,7 +19,7 @@ func libKernel_sceKernelAllocateDirectMemory(searchStart, searchEnd, length, ali
 	return 0
 }
 
-func libKernel_sys_sceKernelAllocateDirectMemory(searchStart, searchEnd, length, alignment, memType, destPtr uintptr) uintptr {
+func libKernel_sys_sceKernelAllocateDirectMemory(searchStart, searchEnd uintptr, length, alignment uint64, memType int32, destPtr uintptr) uintptr {
 	// Perform initial pointer checks.
 	if length == 0 || destPtr == 0 {
 		logger.Printf("%-132s %s failed due to invalid length or pointer.\n",
@@ -40,16 +40,16 @@ func libKernel_sys_sceKernelAllocateDirectMemory(searchStart, searchEnd, length,
 	} else {
 		directAddr = GlobalAllocator.DirectMemoryCurrent
 	}
-	if directAddr%alignment != 0 {
-		directAddr += alignment - (directAddr % alignment)
+	if directAddr%uintptr(alignment) != 0 {
+		directAddr += uintptr(alignment) - (directAddr % uintptr(alignment))
 	}
 
 	// Allocate direct memory and perform alignment check.
-	allocatedAddr := libKernel_mmap(directAddr, length, PROT_READ|PROT_WRITE, MAP_ANON|MAP_PRIVATE|MAP_FIXED, ERR_PTR, 0)
+	allocatedAddr := libKernel_mmap(directAddr, length, PROT_READ|PROT_WRITE, MAP_ANON|MAP_PRIVATE|MAP_FIXED, ERR_PTRI, 0)
 	if allocatedAddr == ERR_PTR {
 		return ERR_PTR
 	}
-	if allocatedAddr%alignment != 0 {
+	if allocatedAddr%uintptr(alignment) != 0 {
 		logger.Printf("%-132s %s failed due to ignored alignment of %s (got=%s, wanted=%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceKernelAllocateDirectMemory"),
@@ -63,9 +63,9 @@ func libKernel_sys_sceKernelAllocateDirectMemory(searchStart, searchEnd, length,
 	// Write back pointer.
 	WriteAddress(destPtr, allocatedAddr)
 	if memType == SCE_KERNEL_MTYPE_WC_GARLIC || memType == SCE_KERNEL_MTYPE_WB_ONION {
-		GlobalAllocator.GpuMemoryCurrent = allocatedAddr + length
+		GlobalAllocator.GpuMemoryCurrent = allocatedAddr + uintptr(length)
 	} else {
-		GlobalAllocator.DirectMemoryCurrent = allocatedAddr + length
+		GlobalAllocator.DirectMemoryCurrent = allocatedAddr + uintptr(length)
 	}
 
 	logger.Printf("%-132s %s stored pointer at %s (type=%s, alignment=%s).\n",

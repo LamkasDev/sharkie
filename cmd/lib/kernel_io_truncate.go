@@ -10,10 +10,10 @@ import (
 
 // 0x00000000000165E0
 // __int64 sceKernelTruncate()
-func libKernel_sceKernelTruncate(pathPtr, length uintptr) uintptr {
+func libKernel_sceKernelTruncate(pathPtr Cstring, length int64) int32 {
 	err := libKernel_truncate(pathPtr, length)
 	if err != 0 {
-		return GetErrno() - SonyErrorOffset
+		return int32(GetErrno() - SonyErrorOffset)
 	}
 
 	return 0
@@ -21,14 +21,14 @@ func libKernel_sceKernelTruncate(pathPtr, length uintptr) uintptr {
 
 // 0x00000000000125E0
 // __int64 truncate()
-func libKernel_truncate(pathPtr, length uintptr) uintptr {
+func libKernel_truncate(pathPtr Cstring, length int64) int32 {
 	return libKernel_truncate_0(pathPtr, length)
 }
 
 // 0x00000000000029F0
 // __int64 truncate_0()
-func libKernel_truncate_0(pathPtr, length uintptr) uintptr {
-	if pathPtr == 0 {
+func libKernel_truncate_0(pathPtr Cstring, length int64) int32 {
+	if pathPtr == nil {
 		logger.Printf("%-132s %s failed due to invalid path pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("truncate_0"),
@@ -36,7 +36,7 @@ func libKernel_truncate_0(pathPtr, length uintptr) uintptr {
 		return 0
 	}
 
-	path := GetUsablePath(ReadCString(pathPtr))
+	path := GetUsablePath(GoString(pathPtr))
 	fd, err := GlobalFilesystem.Open(path, 0, 0)
 	if err != nil {
 		logger.Printf("%-132s %s failed due to open error on %s (%s).\n",
@@ -46,10 +46,10 @@ func libKernel_truncate_0(pathPtr, length uintptr) uintptr {
 			err.Error(),
 		)
 		SetErrno(ENOENT)
-		return ERR_PTR
+		return ERR_PTRI
 	}
 
-	file, ok := GlobalFilesystem.Descriptors[FileDescriptor(fd)]
+	file, ok := GlobalFilesystem.Descriptors[fd]
 	if !ok {
 		logger.Printf("%-132s %s failed due to unknown file %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -57,10 +57,10 @@ func libKernel_truncate_0(pathPtr, length uintptr) uintptr {
 			color.Yellow.Sprintf("0x%X", fd),
 		)
 		SetErrno(ENOENT)
-		return ERR_PTR
+		return ERR_PTRI
 	}
 
-	err = file.File.Truncate(int64(length))
+	err = file.File.Truncate(length)
 	if err != nil {
 		logger.Printf("%-132s %s failed due to truncate error on %s (%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -69,7 +69,7 @@ func libKernel_truncate_0(pathPtr, length uintptr) uintptr {
 			err.Error(),
 		)
 		SetErrno(EFAULT)
-		return ERR_PTR
+		return ERR_PTRI
 	}
 
 	logger.Printf("%-132s %s truncated %s to %s bytes.\n",
@@ -83,10 +83,10 @@ func libKernel_truncate_0(pathPtr, length uintptr) uintptr {
 
 // 0x0000000000016610
 // __int64 sceKernelFtruncate()
-func libKernel_sceKernelFtruncate(fd, length uintptr) uintptr {
+func libKernel_sceKernelFtruncate(fd FileDescriptor, length int64) int32 {
 	err := libKernel_ftruncate(fd, length)
 	if err != 0 {
-		return GetErrno() - SonyErrorOffset
+		return int32(GetErrno() - SonyErrorOffset)
 	}
 
 	return 0
@@ -94,14 +94,14 @@ func libKernel_sceKernelFtruncate(fd, length uintptr) uintptr {
 
 // 0x0000000000012580
 // __int64 ftruncate()
-func libKernel_ftruncate(fd, length uintptr) uintptr {
+func libKernel_ftruncate(fd FileDescriptor, length int64) int32 {
 	return libKernel_ftruncate_0(fd, length)
 }
 
 // 0x0000000000002950
 // __int64 ftruncate_0()
-func libKernel_ftruncate_0(fd, length uintptr) uintptr {
-	file, ok := GlobalFilesystem.Descriptors[FileDescriptor(fd)]
+func libKernel_ftruncate_0(fd FileDescriptor, length int64) int32 {
+	file, ok := GlobalFilesystem.Descriptors[fd]
 	if !ok {
 		logger.Printf("%-132s %s failed due to unknown file %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -109,10 +109,10 @@ func libKernel_ftruncate_0(fd, length uintptr) uintptr {
 			color.Yellow.Sprintf("0x%X", fd),
 		)
 		SetErrno(ENOENT)
-		return ERR_PTR
+		return ERR_PTRI
 	}
 
-	err := file.File.Truncate(int64(length))
+	err := file.File.Truncate(length)
 	if err != nil {
 		logger.Printf("%-132s %s failed due to truncate error on %s (%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -121,7 +121,7 @@ func libKernel_ftruncate_0(fd, length uintptr) uintptr {
 			err.Error(),
 		)
 		SetErrno(EFAULT)
-		return ERR_PTR
+		return ERR_PTRI
 	}
 
 	logger.Printf("%-132s %s truncated %s to %s bytes.\n",

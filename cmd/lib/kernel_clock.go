@@ -12,7 +12,7 @@ import (
 
 // 0x0000000000014CB0
 // __int64 __fastcall sceKernelClockGettime(__int64, __int64)
-func libKernel_sceKernelClockGettime(clockId, timestampPtr uintptr) uintptr {
+func libKernel_sceKernelClockGettime(clockId uint32, timestampPtr uintptr) uintptr {
 	err := libKernel_clock_gettime(clockId, timestampPtr)
 	if err != 0 {
 		return GetErrno() - SonyErrorOffset

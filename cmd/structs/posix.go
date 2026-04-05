@@ -18,6 +18,7 @@ const ETIMEDOUT = 60
 const ENAMETOOLONG = 63
 
 const ERR_PTR = ^uintptr(0)
+const ERR_PTRI = -1
 const ERR_HANDLE = ^uint32(0)
 
 // ResolveHandle converts a guest handle (double pointer) into a host structs pointer.
@@ -33,29 +34,6 @@ func ResolveHandle[T any](handlePtr uintptr) (*T, uintptr) {
 	}
 
 	return (*T)(unsafe.Pointer(uintptr(ptr))), 0
-}
-
-// ReadCString reads a C-style string with a NULL terminator from stringPtr.
-func ReadCString(stringPtr uintptr) string {
-	stringSlice := unsafe.Slice((*byte)(unsafe.Pointer(stringPtr)), 256)
-	stringLength := 0
-	for i, b := range stringSlice {
-		if b == 0 {
-			stringLength = i
-			break
-		}
-	}
-
-	return string(stringSlice[:stringLength])
-}
-
-// WriteCString writes a C-style string with NULL terminator to stringPtr.
-func WriteCString(stringPtr uintptr, name string) {
-	stringSlice := unsafe.Slice((*byte)(unsafe.Pointer(stringPtr)), 256)
-	for i, b := range []byte(name) {
-		stringSlice[i] = b
-	}
-	stringSlice[len(name)] = 0
 }
 
 func IsPowerOfTwo(v uintptr) bool {

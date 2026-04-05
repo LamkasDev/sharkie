@@ -166,7 +166,7 @@ func libKernel_pthread_cond_signal(condHandlePtr uintptr) uintptr {
 
 // 0x0000000000005550
 // __int64 __fastcall pthread_cond_wait(__int64 *, unsigned __int64 *, __int64, __int64, __int64, int)
-func libKernel_pthread_cond_wait(condHandlePtr uintptr, mutexHandlePtr uintptr) uintptr {
+func libKernel_pthread_cond_wait(condHandlePtr, mutexHandlePtr uintptr) uintptr {
 	if condHandlePtr == 0 {
 		logger.Printf("%-132s %s failed due to invalid cond pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -214,7 +214,7 @@ func libKernel_pthread_cond_wait(condHandlePtr uintptr, mutexHandlePtr uintptr) 
 
 // 0x00000000000056B0
 // __int64 __fastcall pthread_cond_timedwait(__int64 *, unsigned __int64 *, __int64, __int64, __int64, int)
-func libKernel_pthread_cond_timedwait(condHandlePtr uintptr, mutexHandlePtr uintptr, timestampPtr uintptr) uintptr {
+func libKernel_pthread_cond_timedwait(condHandlePtr, mutexHandlePtr, timestampPtr uintptr) uintptr {
 	if condHandlePtr == 0 || timestampPtr == 0 {
 		logger.Printf("%-132s %s failed due to invalid cond pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -288,7 +288,7 @@ func libKernel_pthread_cond_timedwait(condHandlePtr uintptr, mutexHandlePtr uint
 
 // 0x00000000000057D0
 // __int64 __fastcall pthread_cond_reltimedwait_np(__int64 *, unsigned __int64 *, unsigned int, __int64, __int64, int)
-func libKernel_pthread_cond_reltimedwait_np(condHandlePtr uintptr, mutexHandlePtr uintptr, micros uintptr) uintptr {
+func libKernel_pthread_cond_reltimedwait_np(condHandlePtr, mutexHandlePtr, micros uintptr) uintptr {
 	if condHandlePtr == 0 {
 		logger.Printf("%-132s %s failed due to invalid cond pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),

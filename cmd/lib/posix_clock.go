@@ -10,14 +10,14 @@ import (
 	"github.com/gookit/color"
 )
 
-func libKernel_clock_gettime(clockId, timestampPtr uintptr) uintptr {
+func libKernel_clock_gettime(clockId uint32, timestampPtr uintptr) int32 {
 	if timestampPtr == 0 {
 		logger.Printf("%-132s %s failed due to invalid time pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("clock_gettime"),
 		)
 		SetErrno(EINVAL)
-		return ERR_PTR
+		return ERR_PTRI
 	}
 
 	now := time.Now()

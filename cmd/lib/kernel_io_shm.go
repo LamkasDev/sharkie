@@ -10,8 +10,8 @@ import (
 
 // 0x0000000000001750
 // __int64 __fastcall shm_open()
-func libKernel_shm_open(pathPtr uintptr, oflag uintptr, mode uintptr) uintptr {
-	if pathPtr == 0 {
+func libKernel_shm_open(pathPtr Cstring, oflag FileFlags, mode FileMode) int32 {
+	if pathPtr == nil {
 		logger.Printf("%-132s %s failed due to invalid path pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("shm_open"),
@@ -19,7 +19,7 @@ func libKernel_shm_open(pathPtr uintptr, oflag uintptr, mode uintptr) uintptr {
 		return 0
 	}
 
-	path := GetUsablePath(ReadCString(pathPtr))
+	path := GetUsablePath(GoString(pathPtr))
 	fd, err := GlobalFilesystem.Open(path, oflag, mode)
 	if err != nil {
 		logger.Printf("%-132s %s failed due to open error on %s (%s).\n",
@@ -29,7 +29,7 @@ func libKernel_shm_open(pathPtr uintptr, oflag uintptr, mode uintptr) uintptr {
 			err.Error(),
 		)
 		SetErrno(EFAULT)
-		return ERR_PTR
+		return ERR_PTRI
 	}
 
 	logger.Printf("%-132s %s opened file %s (path=%s, oflag=%s, mode=%s).\n",
@@ -40,5 +40,5 @@ func libKernel_shm_open(pathPtr uintptr, oflag uintptr, mode uintptr) uintptr {
 		color.Yellow.Sprintf("0x%X", oflag),
 		color.Yellow.Sprintf("0x%X", mode),
 	)
-	return uintptr(fd)
+	return int32(fd)
 }

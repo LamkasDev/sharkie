@@ -211,7 +211,7 @@ func libKernel_pthread_mutex_trylock(mutexHandlePtr uintptr) uintptr {
 
 // 0x0000000000030070
 // __int64 __fastcall pthread_mutex_timedlock(__int64 *, __int64, int, int, int, int)
-func libKernel_pthread_mutex_timedlock(mutexHandlePtr uintptr, timestampPtr uintptr) uintptr {
+func libKernel_pthread_mutex_timedlock(mutexHandlePtr, timestampPtr uintptr) uintptr {
 	if mutexHandlePtr == 0 || timestampPtr == 0 {
 		logger.Printf("%-132s %s failed due to invalid mutex pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -343,7 +343,7 @@ func libKernel_pthread_mutex_timedlock(mutexHandlePtr uintptr, timestampPtr uint
 
 // 0x0000000000031FF0
 // __int64 __fastcall pthread_mutex_reltimedlock_np(__int64 *, unsigned int, int, int, int, int)
-func libKernel_pthread_mutex_reltimedlock_np(mutexHandlePtr uintptr, micros uintptr) uintptr {
+func libKernel_pthread_mutex_reltimedlock_np(mutexHandlePtr, micros uintptr) uintptr {
 	if mutexHandlePtr == 0 {
 		logger.Printf("%-132s %s failed due to invalid mutex pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),

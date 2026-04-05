@@ -37,7 +37,7 @@ func libKernel_pthread_mutexattr_init(attrHandlePtr uintptr) uintptr {
 
 // 0x0000000000009450
 // __int64 __fastcall pthread_mutexattr_settype(_DWORD **, int)
-func libKernel_pthread_mutexattr_settype(attrHandlePtr uintptr, attrType uintptr) uintptr {
+func libKernel_pthread_mutexattr_settype(attrHandlePtr, attrType uintptr) uintptr {
 	if attrType < 1 || attrType > 4 {
 		return EINVAL
 	}

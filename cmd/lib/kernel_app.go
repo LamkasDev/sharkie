@@ -11,7 +11,7 @@ import (
 
 // 0x000000000001E060
 // __int64 __fastcall sceKernelGetAppInfo(int, _DWORD *)
-func libKernel_sceKernelGetAppInfo(processId uintptr, infoPtr uintptr) uintptr {
+func libKernel_sceKernelGetAppInfo(processId int32, infoPtr uintptr) int64 {
 	if infoPtr == 0 {
 		logger.Printf("%-132s %s failed due to invalid info pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),

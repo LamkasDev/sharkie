@@ -7,12 +7,12 @@ import (
 )
 
 // MemoryProtToLinuxProt converts memory protection flags to Linux mmap/mprotect flags.
-func MemoryProtToLinuxProt(prot uintptr) uintptr {
+func MemoryProtToLinuxProt(prot int32) uintptr {
 	return prot & uintptr(syscall.PROT_READ|syscall.PROT_WRITE|syscall.PROT_EXEC)
 }
 
 // MemoryProtToLinuxProt converts memory flags to Linux mmap/mprotect flags.
-func MemoryFlagsToLinuxFlags(flags, addr uintptr) uintptr {
+func MemoryFlagsToLinuxFlags(flags int32, addr uintptr) uintptr {
 	flags = flags&uintptr(syscall.MAP_SHARED|syscall.MAP_PRIVATE|syscall.MAP_FIXED) | syscall.MAP_ANONYMOUS
 	if addr != 0 {
 		flags |= syscall.MAP_FIXED
@@ -24,7 +24,7 @@ func MemoryFlagsToLinuxFlags(flags, addr uintptr) uintptr {
 	return flags
 }
 
-func ReserveKernelMemory(addr, length uintptr) (uintptr, error) {
+func ReserveKernelMemory(addr uintptr, length uint64) (uintptr, error) {
 	allocatedAddr, _, err := syscall.Syscall6(
 		syscall.SYS_MMAP,
 		addr,
@@ -41,7 +41,7 @@ func ReserveKernelMemory(addr, length uintptr) (uintptr, error) {
 	return allocatedAddr, nil
 }
 
-func AllocKernelMemory(addr, length, prot, flags uintptr) (uintptr, error) {
+func AllocKernelMemory(addr uintptr, length uint64, prot, flags int32) (uintptr, error) {
 	isDirectMemory, isGpuMemory := MemoryIsDirectOrGpu(addr)
 	if isDirectMemory || isGpuMemory {
 		if _, err := ProtectKernelMemory(addr, length, prot); err != nil {
@@ -65,7 +65,7 @@ func AllocKernelMemory(addr, length, prot, flags uintptr) (uintptr, error) {
 	return allocatedAddr, nil
 }
 
-func FreeKernelMemory(addr, length uintptr) (uintptr, error) {
+func FreeKernelMemory(addr uintptr, length uint64) (uintptr, error) {
 	_, _, err := syscall.Syscall6(
 		syscall.SYS_MMAP,
 		addr,
@@ -82,7 +82,7 @@ func FreeKernelMemory(addr, length uintptr) (uintptr, error) {
 	return addr, nil
 }
 
-func ProtectKernelMemory(addr, length, prot uintptr) (uintptr, error) {
+func ProtectKernelMemory(addr uintptr, length uint64, prot int32) (uintptr, error) {
 	_, _, err := syscall.Syscall(
 		syscall.SYS_MPROTECT,
 		addr,

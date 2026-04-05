@@ -14,7 +14,7 @@ import (
 
 // 0x0000000000002010
 // __int64 __fastcall ipmimgr_call()
-func libKernel_ipmimgr_call(op, handle, resultPtr, paramsPtr, paramsSize, magic, objPtr, namePtr, configPtr uintptr) uintptr {
+func libKernel_ipmimgr_call(op, handle, resultPtr, paramsPtr, paramsSize, magic, objPtr uintptr, namePtr Cstring, configPtr uintptr) uintptr {
 	if (op == IMPI_CREATE_CLIENT || op == IMPI_CREATE_SERVER) && magic != IPMI_MAGIC {
 		logger.Printf("%-132s %s calling using invalid magic %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -28,8 +28,8 @@ func libKernel_ipmimgr_call(op, handle, resultPtr, paramsPtr, paramsSize, magic,
 	switch op {
 	case IMPI_CREATE_CLIENT:
 		name := "unnamed"
-		if namePtr != 0 {
-			name = ReadCString(namePtr)
+		if namePtr != nil {
+			name = GoString(namePtr)
 		}
 
 		client = CreateImpiClient(name, objPtr)
@@ -49,8 +49,8 @@ func libKernel_ipmimgr_call(op, handle, resultPtr, paramsPtr, paramsSize, magic,
 
 	case IMPI_CREATE_SERVER:
 		name := "unnamed"
-		if namePtr != 0 {
-			name = ReadCString(namePtr)
+		if namePtr != nil {
+			name = GoString(namePtr)
 		}
 
 		server = CreateImpiServer(name, objPtr)
@@ -308,7 +308,7 @@ func InvokeImpiClientMethod(client *IpmiClient, resultPtr, paramsPtr, paramsSize
 				namePtr = GlobalGoAllocator.Malloc(uintptr(len(client.Server.EventFlag.Name) + 1))
 				WriteAddress(syncMethod.OutputPtr, namePtr)
 			}
-			WriteCString(namePtr, client.Server.EventFlag.Name)
+			CString(Cstring(namePtr), client.Server.EventFlag.Name)
 
 			logger.Printf("%-132s %s returned server event flag %s.\n",
 				emu.GlobalModuleManager.GetCallSiteText(),

@@ -2,13 +2,14 @@ package rng
 
 import (
 	"errors"
-	"io/fs"
+	ioFs "io/fs"
 	"math/rand"
 	"time"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	"github.com/LamkasDev/sharkie/cmd/logger"
+	"github.com/LamkasDev/sharkie/cmd/structs/fs"
 	"github.com/gookit/color"
 )
 
@@ -44,7 +45,7 @@ func (s *RngDevice) Close() error {
 	return nil
 }
 
-func (s *RngDevice) Stat() (fs.FileInfo, error) {
+func (s *RngDevice) Stat() (ioFs.FileInfo, error) {
 	return nil, errors.New("rng stat not implemented")
 }
 
@@ -52,7 +53,7 @@ func (s *RngDevice) Truncate(size int64) error {
 	return errors.New("rng truncate not implemented")
 }
 
-func (s *RngDevice) Ioctl(request uint32, argPtr uintptr) error {
+func (s *RngDevice) Ioctl(request uint64, argPtr uintptr) error {
 	switch request {
 	case SCE_RNG_IOCTL_GET_ENTROPY:
 		size := (request >> 16) & 0x1FFF
@@ -75,4 +76,10 @@ func (s *RngDevice) Ioctl(request uint32, argPtr uintptr) error {
 
 func SetupRngDevice() {
 	GlobalRngDevice = NewRngDevice()
+	if _, err := fs.GlobalFilesystem.Create(fs.GetUsablePath("/dev/rng")); err != nil {
+		panic(err)
+	}
+	fs.GlobalFilesystem.Devices[fs.GetUsablePath("/dev/rng")] = func() fs.PosixFile {
+		return GlobalRngDevice
+	}
 }

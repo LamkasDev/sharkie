@@ -36,7 +36,7 @@ func libKernel_sceKernelGetModuleInfoForUnwind(addr, flags, infoPtr uintptr) uin
 	textSection, _ := emu.GetModuleSections(module)
 
 	moduleInfoForUnwind := (*ModuleInfoForUnwind)(unsafe.Pointer(infoPtr))
-	WriteCString((uintptr)(unsafe.Pointer(&moduleInfoForUnwind.Name[0])), module.Name)
+	CString(Cstring(&moduleInfoForUnwind.Name[0]), module.Name)
 	moduleInfoForUnwind.ExceptionFrameHeaderAddress = module.ExceptionFrameSection.Address
 	moduleInfoForUnwind.ExceptionFrameAddress = module.ExceptionFrameDataAddress
 	moduleInfoForUnwind.ExceptionFrameSize = module.ExceptionFrameDataSize
@@ -68,7 +68,7 @@ func libKernel_sceKernelGetExecutableModuleHandle() uintptr {
 
 // 0x000000000002C920
 // __int64 __fastcall sceKernelGetModuleInfo(unsigned int, __int64)
-func libKernel_sceKernelGetModuleInfo(handle uintptr, infoPtr uintptr) uintptr {
+func libKernel_sceKernelGetModuleInfo(handle, infoPtr uintptr) uintptr {
 	if infoPtr == 0 {
 		logger.Printf("%-132s %s failed due to invalid info pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -89,7 +89,7 @@ func libKernel_sceKernelGetModuleInfo(handle uintptr, infoPtr uintptr) uintptr {
 
 	info := (*ModuleInfo)(unsafe.Pointer(infoPtr))
 	info.Size = uint64(ModuleInfoSize)
-	WriteCString((uintptr)(unsafe.Pointer(&info.Name[0])), module.Name)
+	CString(Cstring(&info.Name[0]), module.Name)
 	segIndex := uint32(0)
 	for _, section := range module.LoadSections {
 		if segIndex >= 4 {
@@ -144,7 +144,7 @@ func libKernel_sys_dynlib_get_info_ex(handle, flags, infoPtr uintptr) uintptr {
 	}
 	binary.LittleEndian.PutUint32(infoSlice[0x8:], uint32(module.ModuleIndex))
 	binary.LittleEndian.PutUint32(infoSlice[0xC:], 0)
-	WriteCString(infoPtr+0x10, module.Name)
+	CString(Cstring(unsafe.Add(unsafe.Pointer(infoPtr), 0x10)), module.Name)
 	binary.LittleEndian.PutUint64(infoSlice[0x110:], uint64(textSection.Address))
 	binary.LittleEndian.PutUint32(infoSlice[0x118:], uint32(textSection.LoadedSize))
 	binary.LittleEndian.PutUint64(infoSlice[0x11C:], uint64(dataSection.Address))
@@ -204,19 +204,19 @@ func libKernel_sceKernelGetCompiledSdkVersion(versionPtr uintptr) uintptr {
 
 // 0x000000000002C370
 // void sceKernelLoadStartModuleForSysmodule()
-func libKernel_sceKernelLoadStartModuleForSysmodule(namePtr uintptr, argc uintptr, argvPtr uintptr, flags uintptr, optionPtr uintptr, statusPtr uintptr) uintptr {
+func libKernel_sceKernelLoadStartModuleForSysmodule(namePtr Cstring, argc, argvPtr, flags, optionPtr, statusPtr uintptr) uintptr {
 	return libKernel_sys_sceKernelLoadStartModule(namePtr, argc, argvPtr, flags, optionPtr, statusPtr)
 }
 
 // 0x000000000002BB00
 // __int64 __fastcall sceKernelLoadStartModule(__int64, __int64, __int64, int, __int64, int *, __m128, __m128, __m128, __m128, double, double, __m128, __m128)
-func libKernel_sceKernelLoadStartModule(namePtr uintptr, argc uintptr, argvPtr uintptr, flags uintptr, optionPtr uintptr, statusPtr uintptr) uintptr {
+func libKernel_sceKernelLoadStartModule(namePtr Cstring, argc, argvPtr, flags, optionPtr, statusPtr uintptr) uintptr {
 	// TODO: this does a check, but not sure about the signature
 	return libKernel_sys_sceKernelLoadStartModule(namePtr, argc, argvPtr, flags, optionPtr, statusPtr)
 }
 
-func libKernel_sys_sceKernelLoadStartModule(namePtr uintptr, argc uintptr, argvPtr uintptr, flags uintptr, optionPtr uintptr, resultPtr uintptr) uintptr {
-	if namePtr == 0 {
+func libKernel_sys_sceKernelLoadStartModule(namePtr Cstring, argc, argvPtr, flags, optionPtr, resultPtr uintptr) uintptr {
+	if namePtr == nil {
 		logger.Printf("%-132s %s failed due to invalid name pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceKernelLoadStartModule"),
@@ -224,7 +224,7 @@ func libKernel_sys_sceKernelLoadStartModule(namePtr uintptr, argc uintptr, argvP
 		return SCE_KERNEL_ERROR_EINVAL
 	}
 
-	name := filepath.Base(ReadCString(namePtr))
+	name := filepath.Base(GoString(namePtr))
 	name = strings.ReplaceAll(name, ".prx", ".sprx")
 	emu.GlobalModuleManager.ModulesLock.RLock()
 	if emu.GlobalModuleManager.ModulesMap[name] != nil {

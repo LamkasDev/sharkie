@@ -29,7 +29,7 @@ const (
 	SCE_KERNEL_MTYPE_WB_GARLIC = 0xA // Garlic Bus (GPU optimized)
 )
 
-var MemoryTypeNames = map[uintptr]string{
+var MemoryTypeNames = map[int32]string{
 	SCE_KERNEL_MTYPE_WB_ONION:  "SCE_KERNEL_MTYPE_WB_ONION",
 	SCE_KERNEL_MTYPE_WC_GARLIC: "SCE_KERNEL_MTYPE_WC_GARLIC",
 	SCE_KERNEL_MTYPE_WB_GARLIC: "SCE_KERNEL_MTYPE_WB_GARLIC",
@@ -52,10 +52,10 @@ const (
 )
 
 const (
-	DirectMemoryDefaultSize = uintptr(0x100000000) // 4GB
-	GpuMemoryDefaultSize    = uintptr(0x080000000) // 2GB
-	MemoryPageSize          = uintptr(0x4000)      // 16KB
-	GuardPageSize           = uintptr(4096)        // 4KB
+	DirectMemoryDefaultSize = 0x100000000 // 4GB
+	GpuMemoryDefaultSize    = 0x080000000 // 2GB
+	MemoryPageSize          = 0x4000      // 16KB
+	GuardPageSize           = 4096        // 4KB
 )
 
 const (
@@ -66,10 +66,10 @@ const (
 type Allocator struct {
 	DirectMemoryBase    uintptr
 	DirectMemoryCurrent uintptr
-	DirectMemorySize    uintptr
+	DirectMemorySize    uint64
 	GpuMemoryBase       uintptr
 	GpuMemoryCurrent    uintptr
-	GpuMemorySize       uintptr
+	GpuMemorySize       uint64
 }
 
 type GoAllocator struct {
@@ -204,15 +204,15 @@ func (allocator *GoAllocator) Realloc(ptr uintptr, newSize uintptr) uintptr {
 func MemoryIsDirectOrGpu(addr uintptr) (bool, bool) {
 	isDirectMemory := addr != 0 &&
 		addr >= GlobalAllocator.DirectMemoryBase &&
-		addr < GlobalAllocator.DirectMemoryBase+GlobalAllocator.DirectMemorySize
+		addr < GlobalAllocator.DirectMemoryBase+uintptr(GlobalAllocator.DirectMemorySize)
 	isGpuMemory := addr != 0 &&
 		addr >= GlobalAllocator.GpuMemoryBase &&
-		addr < GlobalAllocator.GpuMemoryBase+GlobalAllocator.GpuMemorySize
+		addr < GlobalAllocator.GpuMemoryBase+uintptr(GlobalAllocator.GpuMemorySize)
 
 	return isDirectMemory, isGpuMemory
 }
 
-func MemoryProtName(prot uintptr) string {
+func MemoryProtName(prot int32) string {
 	name := ""
 	if (prot&PROT_READ) != 0 || (prot&PROT_GPU_READ) != 0 {
 		name = fmt.Sprintf("%sR", name)

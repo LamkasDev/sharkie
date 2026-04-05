@@ -12,13 +12,13 @@ import (
 
 // 0x00000000000125A0
 // __int64 __fastcall mmap(__int64, __int64, __int64, __int64, __int64, __int64)
-func libKernel_mmap(addr, length, prot, flags, fd, offset uintptr) uintptr {
+func libKernel_mmap(addr uintptr, length uint64, prot, flags int32, fd FileDescriptor, offset uintptr) uintptr {
 	return libKernel_mmap_0(addr, length, prot, flags, fd, offset)
 }
 
 // 0x0000000000002990
 // __int64 __fastcall mmap_0()
-func libKernel_mmap_0(addr, length, prot, flags, fd, offset uintptr) uintptr {
+func libKernel_mmap_0(addr uintptr, length uint64, prot, flags int32, fd FileDescriptor, offset uintptr) uintptr {
 	// Perform initial pointer checks.
 	if length == 0 {
 		logger.Printf("%-132s %s failed due to invalid size %s.\n",
@@ -32,13 +32,13 @@ func libKernel_mmap_0(addr, length, prot, flags, fd, offset uintptr) uintptr {
 
 	// If we need to write into the block, we need to set the flag it for a bit.
 	tempProt := prot
-	if fd != ERR_PTR && uint32(fd) != ERR_HANDLE {
+	if fd != ERR_PTRI && uint32(fd) != ERR_HANDLE {
 		tempProt |= PROT_WRITE
 	}
 
 	// Libraries sometimes rely on the allocated file block being at least this size.
 	allocatedLength := length
-	if fd != ERR_PTR && uint32(fd) != ERR_HANDLE {
+	if fd != ERR_PTRI && uint32(fd) != ERR_HANDLE {
 		if allocatedLength < MinFileMmapSize {
 			logger.Printf("%-132s %s expanding allocation size from %s to %s bytes.\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
@@ -83,8 +83,8 @@ func libKernel_mmap_0(addr, length, prot, flags, fd, offset uintptr) uintptr {
 	}
 
 	// Handle file descriptor copy.
-	if fd != ERR_PTR && uint32(fd) != ERR_HANDLE {
-		file, ok := GlobalFilesystem.Descriptors[FileDescriptor(fd)]
+	if fd != ERR_PTRI && uint32(fd) != ERR_HANDLE {
+		file, ok := GlobalFilesystem.Descriptors[fd]
 		if !ok {
 			logger.Printf("%-132s %s failed due to unknown file %s.\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
@@ -149,7 +149,7 @@ func libKernel_mmap_0(addr, length, prot, flags, fd, offset uintptr) uintptr {
 
 // 0x0000000000016580
 // __int64 __fastcall sceKernelMmap(__int64, __int64, __int64, __int64, __int64, __int64, __int64 *)
-func libKernel_sceKernelMmap(addr, length, prot, flags, fd, offset, retAddrPtr uintptr) uintptr {
+func libKernel_sceKernelMmap(addr uintptr, length uint64, prot, flags int32, fd FileDescriptor, offset, retAddrPtr uintptr) uintptr {
 	allocatedAddr := libKernel_mmap(addr, length, prot, flags, fd, offset)
 	if allocatedAddr == ERR_PTR {
 		return GetErrno() - SonyErrorOffset
@@ -164,7 +164,7 @@ func libKernel_sceKernelMmap(addr, length, prot, flags, fd, offset, retAddrPtr u
 
 // 0x00000000000149E0
 // __int64 sceKernelMunmap()
-func libKernel_sceKernelMunmap(addr, length uintptr) uintptr {
+func libKernel_sceKernelMunmap(addr uintptr, length uint64) uintptr {
 	err := libKernel_munmap(addr, length)
 	if err == ERR_PTR {
 		return GetErrno() - SonyErrorOffset
@@ -175,7 +175,7 @@ func libKernel_sceKernelMunmap(addr, length uintptr) uintptr {
 
 // 0x00000000000009F0
 // __int64 __fastcall munmap()
-func libKernel_munmap(addr, length uintptr) uintptr {
+func libKernel_munmap(addr uintptr, length uint64) uintptr {
 	if addr == 0 {
 		logger.Printf("%-132s %s failed due to invalid pointer %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),

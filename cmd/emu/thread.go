@@ -44,21 +44,19 @@ type Thread struct {
 	AffinityMask ThreadAffinityMask
 }
 
-func NewThread(namePtr, stackSize uintptr) *Thread {
+func NewThread(name string, stackSize uint64) *Thread {
 	thread := &Thread{
 		Id:    NextThreadId,
 		Stack: NewStack(stackSize),
 		Lock:  sync.Mutex{},
 	}
-	if namePtr == 0 {
-		if thread.Id == MainThreadId {
-			thread.Name = "MainThread"
-			thread.IsMain = true
-		} else {
-			thread.Name = fmt.Sprintf("Thread-%d", thread.Id)
-		}
+	if thread.Id == MainThreadId {
+		thread.IsMain = true
+	}
+	if name == "" {
+		thread.Name = fmt.Sprintf("Thread-%d", thread.Id)
 	} else {
-		thread.Name = strings.ReplaceAll(ReadCString(namePtr), "\n", "")
+		thread.Name = strings.ReplaceAll(name, "\n", "")
 	}
 	thread.Tcb = NewTcb(thread)
 	thread.JoinCond = sync.NewCond(&thread.Lock)
@@ -66,8 +64,8 @@ func NewThread(namePtr, stackSize uintptr) *Thread {
 	return thread
 }
 
-func CreateThread(namePtr, stackSize uintptr) *Thread {
-	thread := NewThread(namePtr, stackSize)
+func CreateThread(name string, stackSize uint64) *Thread {
+	thread := NewThread(name, stackSize)
 	logger.Printf(
 		"[%s] Stack of %s bytes allocated at %s (top %s).\n",
 		color.Green.Sprint(thread.Name),
@@ -179,7 +177,7 @@ func (t *Thread) Run(e *elf.Elf) {
 // SafeReadUint64 safely reads a uint64 value from the stack.
 func (t *Thread) SafeReadUint64(address uintptr) (uint64, bool) {
 	if t.Stack != nil {
-		if address >= t.Stack.Address && address+8 <= t.Stack.Address+t.Stack.Size {
+		if address >= t.Stack.Address && address+8 <= t.Stack.Address+uintptr(t.Stack.Size) {
 			return *(*uint64)(unsafe.Pointer(address)), true
 		}
 	}

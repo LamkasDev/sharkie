@@ -13,7 +13,7 @@ import (
 
 // 0x000000000000FC70
 // __int64 __fastcall sem_init(__int64, int, int)
-func libKernel_sem_init(semPtr uintptr, pShared uintptr, value uintptr) uintptr {
+func libKernel_sem_init(semPtr, pShared, value uintptr) uintptr {
 	if semPtr == 0 {
 		logger.Printf("%-132s %s failed due to invalid sem pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -51,7 +51,7 @@ func libKernel_sem_wait(semPtr uintptr) uintptr {
 
 // 0x00000000000104D0
 // __int64 __fastcall sem_timedwait(__int64, __int64)
-func libKernel_sem_timedwait(semPtr uintptr, timestampPtr uintptr) uintptr {
+func libKernel_sem_timedwait(semPtr, timestampPtr uintptr) uintptr {
 	if semPtr == 0 {
 		logger.Printf("%-132s %s failed due to invalid sem pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),

@@ -1,3 +1,5 @@
+//go:generate go run ../stub_gen/stub_gen.go
+
 package elf
 
 import (
@@ -83,67 +85,6 @@ func RegisterVariableStub(libraryName, symbolName string, size uintptr) *asm.Stu
 	asm.Stubs[hashIndex] = stub
 
 	return stub
-}
-
-func CreateDispatcher(goFn any) asm.StubDispatcher {
-	switch goFunc := goFn.(type) {
-	case func() uintptr:
-		return func(ctx *asm.RegContext) uintptr {
-			return goFunc()
-		}
-	case func(uintptr) uintptr:
-		return func(ctx *asm.RegContext) uintptr {
-			return goFunc(ctx.DI)
-		}
-	case func(uintptr, uintptr) uintptr:
-		return func(ctx *asm.RegContext) uintptr {
-			return goFunc(ctx.DI, ctx.SI)
-		}
-	case func(uintptr, uintptr, uintptr) uintptr:
-		return func(ctx *asm.RegContext) uintptr {
-			return goFunc(ctx.DI, ctx.SI, ctx.DX)
-		}
-	case func(uintptr, uintptr, uintptr, uintptr) uintptr:
-		return func(ctx *asm.RegContext) uintptr {
-			return goFunc(ctx.DI, ctx.SI, ctx.DX, ctx.CX)
-		}
-	case func(uintptr, uintptr, uintptr, uintptr, uintptr) uintptr:
-		return func(ctx *asm.RegContext) uintptr {
-			return goFunc(ctx.DI, ctx.SI, ctx.DX, ctx.CX, ctx.R8)
-		}
-	case func(uintptr, uintptr, uintptr, uintptr, uintptr, uintptr) uintptr:
-		return func(ctx *asm.RegContext) uintptr {
-			return goFunc(ctx.DI, ctx.SI, ctx.DX, ctx.CX, ctx.R8, ctx.R9)
-		}
-	case func(uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr) uintptr:
-		return func(ctx *asm.RegContext) uintptr {
-			arg7 := *(*uintptr)(unsafe.Add(unsafe.Pointer(ctx), asm.RegContextSize+8))
-			return goFunc(ctx.DI, ctx.SI, ctx.DX, ctx.CX, ctx.R8, ctx.R9, arg7)
-		}
-	case func(uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr) uintptr:
-		return func(ctx *asm.RegContext) uintptr {
-			arg7 := *(*uintptr)(unsafe.Add(unsafe.Pointer(ctx), asm.RegContextSize+8))
-			arg8 := *(*uintptr)(unsafe.Add(unsafe.Pointer(ctx), asm.RegContextSize+16))
-			return goFunc(ctx.DI, ctx.SI, ctx.DX, ctx.CX, ctx.R8, ctx.R9, arg7, arg8)
-		}
-	case func(uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr) uintptr:
-		return func(ctx *asm.RegContext) uintptr {
-			arg7 := *(*uintptr)(unsafe.Add(unsafe.Pointer(ctx), asm.RegContextSize+8))
-			arg8 := *(*uintptr)(unsafe.Add(unsafe.Pointer(ctx), asm.RegContextSize+16))
-			arg9 := *(*uintptr)(unsafe.Add(unsafe.Pointer(ctx), asm.RegContextSize+24))
-			return goFunc(ctx.DI, ctx.SI, ctx.DX, ctx.CX, ctx.R8, ctx.R9, arg7, arg8, arg9)
-		}
-	case func(uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr) uintptr:
-		return func(ctx *asm.RegContext) uintptr {
-			arg7 := *(*uintptr)(unsafe.Add(unsafe.Pointer(ctx), asm.RegContextSize+8))
-			arg8 := *(*uintptr)(unsafe.Add(unsafe.Pointer(ctx), asm.RegContextSize+16))
-			arg9 := *(*uintptr)(unsafe.Add(unsafe.Pointer(ctx), asm.RegContextSize+24))
-			arg10 := *(*uintptr)(unsafe.Add(unsafe.Pointer(ctx), asm.RegContextSize+32))
-			return goFunc(ctx.DI, ctx.SI, ctx.DX, ctx.CX, ctx.R8, ctx.R9, arg7, arg8, arg9, arg10)
-		}
-	default:
-		panic("unsupported function type")
-	}
 }
 
 // CreateTrampoline generates an assembly trampoline that calls the specified Go function.

@@ -10,10 +10,10 @@ import (
 
 // 0x00000000000159C0
 // __int64 __fastcall sceKernelClose(__int64)
-func libKernel_sceKernelClose(fd uintptr) uintptr {
+func libKernel_sceKernelClose(fd FileDescriptor) int32 {
 	err := libKernel_close(fd)
 	if err != 0 {
-		return GetErrno() - SonyErrorOffset
+		return int32(GetErrno() - SonyErrorOffset)
 	}
 
 	return 0
@@ -21,7 +21,7 @@ func libKernel_sceKernelClose(fd uintptr) uintptr {
 
 // 0x000000000000D950
 // __int64 __fastcall close(unsigned int)
-func libKernel_close(fd uintptr) uintptr {
+func libKernel_close(fd FileDescriptor) int32 {
 	// TODO: Mark thread as entering blocking syscall
 	// Call the syscall
 	// Check for cancellation
@@ -31,9 +31,9 @@ func libKernel_close(fd uintptr) uintptr {
 
 // 0x00000000000026B0
 // __int64 __fastcall close()
-func libKernel__close(fd uintptr) uintptr {
+func libKernel__close(fd FileDescriptor) int32 {
 	GlobalFilesystem.Lock.Lock()
-	file, ok := GlobalFilesystem.Descriptors[FileDescriptor(fd)]
+	file, ok := GlobalFilesystem.Descriptors[fd]
 	GlobalFilesystem.Lock.Unlock()
 	if !ok {
 		logger.Printf("%-132s %s failed due to unknown file %s.\n",
@@ -42,10 +42,10 @@ func libKernel__close(fd uintptr) uintptr {
 			color.Yellow.Sprintf("0x%X", fd),
 		)
 		SetErrno(ENOENT)
-		return ERR_PTR
+		return ERR_PTRI
 	}
 
-	if err := GlobalFilesystem.Close(FileDescriptor(fd)); err != nil {
+	if err := GlobalFilesystem.Close(fd); err != nil {
 		logger.Printf("%-132s %s failed due to close error on %s (%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("_close"),
@@ -53,7 +53,7 @@ func libKernel__close(fd uintptr) uintptr {
 			err.Error(),
 		)
 		SetErrno(EFAULT)
-		return ERR_PTR
+		return ERR_PTRI
 	}
 
 	logger.Printf("%-132s %s closed file %s (path=%s).\n",

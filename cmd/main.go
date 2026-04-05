@@ -15,6 +15,7 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/structs/gc"
 	"github.com/LamkasDev/sharkie/cmd/structs/gpu"
 	"github.com/LamkasDev/sharkie/cmd/structs/ipmi"
+	"github.com/LamkasDev/sharkie/cmd/structs/output"
 	"github.com/LamkasDev/sharkie/cmd/structs/rng"
 	"github.com/LamkasDev/sharkie/cmd/symbol"
 	"github.com/gookit/color"
@@ -49,6 +50,7 @@ func main() {
 	structs.SetupEventFlags()
 	fs.SetupFilesystem()
 	rng.SetupRngDevice()
+	output.SetupOutputDevices()
 	ipmi.SetupImpiManager()
 	gc.SetupGraphicsController()
 	dce.SetupDisplayCoreEngine()

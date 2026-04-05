@@ -14,13 +14,13 @@ import (
 
 // 0x00000000000011B0
 // __int64 __fastcall sceGnmSubmitCommandBuffers(__int64, __int64, __int64, __int64, __int64)
-func libSceGnmDriver_sceGnmSubmitCommandBuffers(count, dcbGpuAddrsPtr, dcbSizesPtr, ccbGpuAddrsPtr, ccbSizesPtr uintptr) uintptr {
+func libSceGnmDriver_sceGnmSubmitCommandBuffers(count uint32, dcbGpuAddrsPtr, dcbSizesPtr, ccbGpuAddrsPtr, ccbSizesPtr uintptr) int64 {
 	return libSceGnmDriver_sceGnmSubmitCommandBuffersForWorkload(count, count, dcbGpuAddrsPtr, dcbSizesPtr, ccbGpuAddrsPtr, ccbSizesPtr)
 }
 
 // 0x0000000000000F80
 // __int64 __fastcall sceGnmSubmitCommandBuffersForWorkload(__int64, __int64, __int64, __int64, __int64, __int64)
-func libSceGnmDriver_sceGnmSubmitCommandBuffersForWorkload(workloadId, count, dcbGpuAddrsPtr, dcbSizesPtr, ccbGpuAddrsPtr, ccbSizesPtr uintptr) uintptr {
+func libSceGnmDriver_sceGnmSubmitCommandBuffersForWorkload(workloadId, count uint32, dcbGpuAddrsPtr, dcbSizesPtr, ccbGpuAddrsPtr, ccbSizesPtr uintptr) int64 {
 	if count == 0 {
 		logger.Printf("%-132s %s skipped due to zero count.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -98,13 +98,13 @@ func libSceGnmDriver_sceGnmSubmitCommandBuffersForWorkload(workloadId, count, dc
 
 // 0x0000000000001690
 // __int64 __fastcall sceGnmSubmitAndFlipCommandBuffers(__int64, __int64, __int64, __int64, __int64, unsigned int, unsigned int, unsigned int, __int64)
-func libSceGnmDriver_sceGnmSubmitAndFlipCommandBuffers(count, dcbGpuAddrsPtr, dcbSizesPtr, ccbGpuAddrsPtr, ccbSizesPtr, videoOutHandle, bufferIndex, flipMode, flipArg uintptr) uintptr {
+func libSceGnmDriver_sceGnmSubmitAndFlipCommandBuffers(count uint32, dcbGpuAddrsPtr, dcbSizesPtr, ccbGpuAddrsPtr, ccbSizesPtr uintptr, videoOutHandle, bufferIndex, flipMode uint32, flipArg int64) int64 {
 	return libSceGnmDriver_sceGnmSubmitAndFlipCommandBuffersForWorkload(count, count, dcbGpuAddrsPtr, dcbSizesPtr, ccbGpuAddrsPtr, ccbSizesPtr, videoOutHandle, bufferIndex, flipMode, flipArg)
 }
 
 // 0x0000000000001410
 // __int64 __fastcall sceGnmSubmitAndFlipCommandBuffersForWorkload(__int64, __int64, __int64, __int64, __int64, __int64, unsigned int, unsigned int, unsigned int, __int64)
-func libSceGnmDriver_sceGnmSubmitAndFlipCommandBuffersForWorkload(workloadId, count, dcbGpuAddrsPtr, dcbSizesPtr, ccbGpuAddrsPtr, ccbSizesPtr, videoOutHandle, bufferIndex, flipMode, flipArg uintptr) uintptr {
+func libSceGnmDriver_sceGnmSubmitAndFlipCommandBuffersForWorkload(workloadId, count uint32, dcbGpuAddrsPtr, dcbSizesPtr, ccbGpuAddrsPtr, ccbSizesPtr uintptr, videoOutHandle, bufferIndex, flipMode uint32, flipArg int64) int64 {
 	if count == 0 {
 		logger.Printf("%-132s %s skipped due to zero count.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -161,7 +161,7 @@ func libSceGnmDriver_sceGnmSubmitAndFlipCommandBuffersForWorkload(workloadId, co
 	lastIdx := count - 1
 	lastDcbAddress := dcbAddresses[lastIdx]
 	lastDcbSizeDW := dcbSizes[lastIdx] >> 2
-	if err := gnmPatchPrepareFlip(lastDcbAddress, lastDcbSizeDW, uint32(videoOutHandle), uint32(bufferIndex), uint32(flipMode), uint64(flipArg)); err != nil {
+	if err := gnmPatchPrepareFlip(lastDcbAddress, lastDcbSizeDW, videoOutHandle, bufferIndex, flipMode, flipArg); err != nil {
 		logger.Printf("%-132s %s failed due to gnmPatchPrepareFlip error (%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceGnmSubmitAndFlipCommandBuffersForWorkload"),
@@ -233,7 +233,7 @@ func libSceGnmDriver_sceGnmRequestFlipAndSubmitDoneForWorkload(ctxPtr, dcbPtr, r
 	pkt[1] = GNM_PREPARE_FLIP_VARIANT_BASE
 
 	// Patch the prepare flip block and schedule it.
-	if err := gnmPatchPrepareFlip(dcbPtr, uint32(len(pkt)), uint32(videoOutHandle), uint32(bufferIndex), uint32(flipMode), uint64(flipArg)); err != nil {
+	if err := gnmPatchPrepareFlip(dcbPtr, uint32(len(pkt)), uint32(videoOutHandle), uint32(bufferIndex), uint32(flipMode), int64(flipArg)); err != nil {
 		logger.Printf("%-132s %s failed due to gnmPatchPrepareFlip error (%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceGnmRequestFlipAndSubmitDoneForWorkload"),
@@ -267,7 +267,7 @@ func libSceGnmDriver_sceGnmRequestFlipAndSubmitDoneForWorkload(ctxPtr, dcbPtr, r
 	return 0
 }
 
-func gnmPatchPrepareFlip(lastDcbAddress uintptr, lastDcbSizeDW, videoOutHandle, bufferIndex, flipMode uint32, flipArg uint64) error {
+func gnmPatchPrepareFlip(lastDcbAddress uintptr, lastDcbSizeDW, videoOutHandle, bufferIndex, flipMode uint32, flipArg int64) error {
 	if bufferIndex == 0xFFFFFFFF {
 		return fmt.Errorf("invalid buffer index")
 	}
@@ -330,7 +330,7 @@ func gnmPatchPrepareFlip(lastDcbAddress uintptr, lastDcbSizeDW, videoOutHandle, 
 
 // 0x0000000000001720
 // __int64 sceGnmSubmitDone()
-func libSceGnmDriver_sceGnmSubmitDone() uintptr {
+func libSceGnmDriver_sceGnmSubmitDone() int64 {
 	// Drain any queued ring work.
 	GlobalGraphicsController.Ioctl(SCE_GC_IOCTL_DRAIN_RING, 0)
 
@@ -352,16 +352,18 @@ func libSceGnmDriver_sceGnmSubmitDone() uintptr {
 	return 0
 }
 
+// TODO: this isn't right
 // 0x0000000000004020
 // __int64 __fastcall sceGnmDingDong(unsigned int a1, unsigned int a2)
-func libSceGnmDriver_sceGnmDingDong(ringIndex, queueIndex uintptr) uintptr {
-	return libSceGnmDriver_sceGnmDingDongForWorkload(ringIndex, queueIndex)
+func libSceGnmDriver_sceGnmDingDong(vqId, nextOffsetsDw uint32) int64 {
+	return libSceGnmDriver_sceGnmDingDongForWorkload(vqId, nextOffsetsDw, 0)
 }
 
+// TODO: this isn't right
 // 0x0000000000003F60
 // __int64 __fastcall sceGnmDingDongForWorkload(unsigned int, unsigned int)
-func libSceGnmDriver_sceGnmDingDongForWorkload(ringIndex, writePointer uintptr) uintptr {
-	if ringIndex == 0 {
+func libSceGnmDriver_sceGnmDingDongForWorkload(vqId, nextOffsetsDw uint32, workloadId uintptr) int64 {
+	if vqId == 0 {
 		logger.Printf("%-132s %s skipped due to invalid ring index.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceGnmDingDongForWorkload"),
@@ -373,12 +375,12 @@ func libSceGnmDriver_sceGnmDingDongForWorkload(ringIndex, writePointer uintptr) 
 	GlobalGraphicsController.Ioctl(SCE_GC_IOCTL_DRAIN_RING, 0)
 
 	// Decode ring index into doorbell coordinates and issue write.
-	ring := uint32(ringIndex) - 1
+	ring := uint32(vqId) - 1
 	dingDong := GnmDingDong{
 		PipeIndex:    (ring >> 5) + 1,
 		QueueIndex:   (ring & 0x1F) >> 3,
 		SlotIndex:    ring & 0x07,
-		WritePointer: uint32(writePointer),
+		WritePointer: nextOffsetsDw,
 	}
 	GlobalGraphicsController.Ioctl(SCE_GC_IOCTL_DINGDONG, uintptr(unsafe.Pointer(&dingDong)))
 
@@ -386,7 +388,7 @@ func libSceGnmDriver_sceGnmDingDongForWorkload(ringIndex, writePointer uintptr) 
 		logger.Printf("%-132s %s dinged ring %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceGnmDingDongForWorkload"),
-			color.Green.Sprintf("%d", ringIndex),
+			color.Green.Sprintf("%d", vqId),
 		)
 	}
 	return 0

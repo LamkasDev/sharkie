@@ -117,7 +117,7 @@ func (p *Patcher) PatchSlow(e *elf.Elf, patchPath string) error {
 		color.Blue.Sprint(e.Name),
 	)
 
-	patchOffsets := []uint64{}
+	var patchOffsets []uint64
 	for _, s := range e.LoadSections {
 		if (s.PFlags & elf.PF_X) == 0 {
 			continue

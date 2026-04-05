@@ -2,7 +2,6 @@ package lib
 
 import (
 	"fmt"
-	"strings"
 	"unsafe"
 
 	. "github.com/LamkasDev/sharkie/cmd/structs"
@@ -11,7 +10,7 @@ import (
 
 // 0x00000000000137A0
 // __int64 scePthreadCondInit()
-func libKernel_scePthreadCondInit(condHandlePtr, attrHandlePtr uintptr, namePtr uintptr) uintptr {
+func libKernel_scePthreadCondInit(condHandlePtr, attrHandlePtr uintptr, namePtr Cstring) uintptr {
 	err := libKernel_pthread_cond_init(condHandlePtr, attrHandlePtr)
 	if err != 0 {
 		return err - SonyErrorOffset
@@ -23,12 +22,12 @@ func libKernel_scePthreadCondInit(condHandlePtr, attrHandlePtr uintptr, namePtr 
 
 	// Set name.
 	var name string
-	if namePtr != 0 {
-		name = ReadCString(namePtr)
+	if namePtr != nil {
+		name = GoString(namePtr)
 	} else {
 		name = fmt.Sprintf("Cond_%x", condAddr)
 	}
-	cond.Name = strings.Clone(name)
+	cond.Name = name
 
 	return 0
 }

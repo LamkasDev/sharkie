@@ -46,7 +46,7 @@ func (s *Socket) Truncate(size int64) error {
 	return errors.New("socket truncate not implemented")
 }
 
-func (s *Socket) Ioctl(request uint32, argPtr uintptr) error {
+func (s *Socket) Ioctl(request uint64, argPtr uintptr) error {
 	switch request {
 	case SCE_NET_IOCTL_INIT:
 		logger.Printf("%-132s %s initialized socket.\n",

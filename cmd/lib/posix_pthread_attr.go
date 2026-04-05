@@ -39,7 +39,7 @@ func libKernel_pthread_attr_init(attrHandlePtr uintptr) uintptr {
 
 // 0x00000000000134C0
 // __int64 __fastcall pthread_attr_setstacksize(__int64, unsigned __int64)
-func libKernel_pthread_attr_setstacksize(attrHandlePtr uintptr, stackSize uintptr) uintptr {
+func libKernel_pthread_attr_setstacksize(attrHandlePtr uintptr, stackSize uint64) uintptr {
 	if stackSize < StackMinimumSize {
 		logger.Printf("%-132s %s failed due to invalid stack size %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -72,7 +72,7 @@ func libKernel_pthread_attr_setstacksize(attrHandlePtr uintptr, stackSize uintpt
 
 // 0x0000000000003D10
 // __int64 __fastcall pthread_attr_setschedpolicy(_DWORD **, int)
-func libKernel_pthread_attr_setschedpolicy(attrHandlePtr uintptr, schedulingPolicy uintptr) uintptr {
+func libKernel_pthread_attr_setschedpolicy(attrHandlePtr, schedulingPolicy uintptr) uintptr {
 	if schedulingPolicy != 1 && schedulingPolicy != 2 && schedulingPolicy != 3 {
 		logger.Printf("%-132s %s failed due to invalid scheduling policy %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -105,7 +105,7 @@ func libKernel_pthread_attr_setschedpolicy(attrHandlePtr uintptr, schedulingPoli
 
 // 0x0000000000003C90
 // __int64 __fastcall pthread_attr_setinheritsched(__int64, int)
-func libKernel_pthread_attr_setinheritsched(attrHandlePtr uintptr, inheritScheduling uintptr) uintptr {
+func libKernel_pthread_attr_setinheritsched(attrHandlePtr, inheritScheduling uintptr) uintptr {
 	if inheritScheduling != 0 && inheritScheduling != 4 {
 		logger.Printf("%-132s %s failed due to invalid inherit scheduling %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -138,7 +138,7 @@ func libKernel_pthread_attr_setinheritsched(attrHandlePtr uintptr, inheritSchedu
 
 // 0x0000000000003CC0
 // __int64 __fastcall pthread_attr_setschedparam(int **, int *)
-func libKernel_pthread_attr_setschedparam(attrHandlePtr uintptr, schedulingParameterPtr uintptr) uintptr {
+func libKernel_pthread_attr_setschedparam(attrHandlePtr, schedulingParameterPtr uintptr) uintptr {
 	if schedulingParameterPtr == 0 {
 		logger.Printf("%-132s %s failed due to invalid scheduling parameter pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -179,7 +179,7 @@ func libKernel_pthread_attr_setschedparam(attrHandlePtr uintptr, schedulingParam
 
 // 0x0000000000003C70
 // __int64 __fastcall pthread_attr_setguardsize(__int64, __int64)
-func libKernel_pthread_attr_setguardsize(attrHandlePtr uintptr, guardSize uintptr) uintptr {
+func libKernel_pthread_attr_setguardsize(attrHandlePtr uintptr, guardSize uint64) uintptr {
 	// Resolve the handle.
 	attr, err := ResolveHandle[PthreadAttr](attrHandlePtr)
 	if err != 0 {
@@ -203,7 +203,7 @@ func libKernel_pthread_attr_setguardsize(attrHandlePtr uintptr, guardSize uintpt
 
 // 0x0000000000003C40
 // __int64 __fastcall pthread_attr_setdetachstate(__int64 *, unsigned int)
-func libKernel_pthread_attr_setdetachstate(attrHandlePtr uintptr, detachState uintptr) uintptr {
+func libKernel_pthread_attr_setdetachstate(attrHandlePtr, detachState uintptr) uintptr {
 	if detachState != 0 && detachState != 1 {
 		logger.Printf("%-132s %s failed due to invalid detach state %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -240,7 +240,7 @@ func libKernel_pthread_attr_setdetachstate(attrHandlePtr uintptr, detachState ui
 
 // 0x0000000000003D50
 // __int64 __fastcall pthread_attr_setscope(__int64 *, int)
-func libKernel_pthread_attr_setscope(attrHandlePtr uintptr, scope uintptr) uintptr {
+func libKernel_pthread_attr_setscope(attrHandlePtr, scope uintptr) uintptr {
 	if scope != 0 && scope != 2 {
 		logger.Printf("%-132s %s failed due to invalid scope %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),

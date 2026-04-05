@@ -7,10 +7,6 @@ import (
 )
 
 const (
-	SCE_O_CREAT = 0x200
-)
-
-const (
 	FileBlockSize   = 4096
 	MinFileMmapSize = 0x10000
 )
@@ -20,7 +16,7 @@ type PosixFile interface {
 	io.Closer
 	Stat() (fs.FileInfo, error)
 	Truncate(size int64) error
-	Ioctl(request uint32, argPtr uintptr) error
+	Ioctl(request uint64, argPtr uintptr) error
 }
 
 type FileDescriptor int32

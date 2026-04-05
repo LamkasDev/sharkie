@@ -80,7 +80,7 @@ func libKernel_pthread_equal(t1, t2 uintptr) uintptr {
 
 // 0x0000000000006DA0
 // __int64 __fastcall pthread_create_name_np(int **, __int64 *, __int64, __int64, _BYTE *, __m128 _XMM0)
-func libKernel_pthread_create_name_np(threadPtr, attrHandlePtr, entryPoint, arg, namePtr uintptr) uintptr {
+func libKernel_pthread_create_name_np(threadPtr, attrHandlePtr, entryPoint, arg uintptr, namePtr Cstring) uintptr {
 	// Check if entry point is valid.
 	module := emu.GetModuleAtAddress(entryPoint)
 	if module == nil {
@@ -93,14 +93,14 @@ func libKernel_pthread_create_name_np(threadPtr, attrHandlePtr, entryPoint, arg,
 	}
 
 	// Figure out stack size beforehand.
-	stackSize := StackDefaultSize
+	stackSize := uint64(StackDefaultSize)
 	attr, _ := ResolveHandle[PthreadAttr](attrHandlePtr)
 	if attr != nil {
 		stackSize = attr.StackSize
 	}
 
 	// Create thread and assign attributes.
-	thread := emu.CreateThread(namePtr, stackSize)
+	thread := emu.CreateThread(GoString(namePtr), stackSize)
 	thread.Tcb.Thread.StartFunc = entryPoint
 	thread.Tcb.Thread.Arg = arg
 	if attr != nil {

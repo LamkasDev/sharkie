@@ -4,12 +4,13 @@ package gc
 import (
 	"encoding/binary"
 	"errors"
-	"io/fs"
+	ioFs "io/fs"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	. "github.com/LamkasDev/sharkie/cmd/structs"
+	"github.com/LamkasDev/sharkie/cmd/structs/fs"
 	. "github.com/LamkasDev/sharkie/cmd/structs/gpu"
 	"github.com/gookit/color"
 )
@@ -52,7 +53,7 @@ func (gc *GraphicsController) Close() error {
 	return nil
 }
 
-func (gc *GraphicsController) Stat() (fs.FileInfo, error) {
+func (gc *GraphicsController) Stat() (ioFs.FileInfo, error) {
 	return nil, errors.New("gc stat not implemented")
 }
 
@@ -60,7 +61,7 @@ func (gc *GraphicsController) Truncate(size int64) error {
 	return errors.New("gc truncate not implemented")
 }
 
-func (gc *GraphicsController) Ioctl(request uint32, argPtr uintptr) error {
+func (gc *GraphicsController) Ioctl(request uint64, argPtr uintptr) error {
 	switch request {
 	case SCE_GC_IOCTL_SET_MIP_STATS:
 		logger.Printf("%-132s %s tried setting mip stats.\n",
@@ -197,4 +198,10 @@ func (gc *GraphicsController) Ioctl(request uint32, argPtr uintptr) error {
 
 func SetupGraphicsController() {
 	GlobalGraphicsController = NewGraphicsController()
+	if _, err := fs.GlobalFilesystem.Create(fs.GetUsablePath("/dev/rng")); err != nil {
+		panic(err)
+	}
+	fs.GlobalFilesystem.Devices[fs.GetUsablePath("/dev/rng")] = func() fs.PosixFile {
+		return GlobalGraphicsController
+	}
 }

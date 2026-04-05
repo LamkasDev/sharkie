@@ -13,10 +13,10 @@ import (
 
 // 0x0000000000015930
 // __int64 __fastcall sceKernelRead(__int64, __int64, __int64)
-func libKernel_sceKernelRead(fd uintptr, bufPtr uintptr, length uintptr) uintptr {
+func libKernel_sceKernelRead(fd FileDescriptor, bufPtr uintptr, length uint64) int64 {
 	err := libKernel_read(fd, bufPtr, length)
-	if err == ERR_PTR {
-		return GetErrno() - SonyErrorOffset
+	if err == ERR_PTRI {
+		return int64(GetErrno() - SonyErrorOffset)
 	}
 
 	return 0
@@ -24,7 +24,7 @@ func libKernel_sceKernelRead(fd uintptr, bufPtr uintptr, length uintptr) uintptr
 
 // 0x000000000000E0A0
 // __int64 __fastcall read(unsigned int, __int64, __int64)
-func libKernel_read(fd uintptr, bufPtr uintptr, length uintptr) uintptr {
+func libKernel_read(fd FileDescriptor, bufPtr uintptr, length uint64) int64 {
 	// TODO: Mark thread as entering blocking syscall
 	// Call the syscall
 	// Check for cancellation
@@ -34,7 +34,7 @@ func libKernel_read(fd uintptr, bufPtr uintptr, length uintptr) uintptr {
 
 // 0x00000000000027D0
 // __int64 __fastcall read(_QWORD, _QWORD, _QWORD)
-func libKernel__read(fd uintptr, bufPtr uintptr, length uintptr) uintptr {
+func libKernel__read(fd FileDescriptor, bufPtr uintptr, length uint64) int64 {
 	if bufPtr == 0 {
 		logger.Printf("%-132s %s failed due to invalid buffer pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -45,7 +45,7 @@ func libKernel__read(fd uintptr, bufPtr uintptr, length uintptr) uintptr {
 	}
 
 	buffer := unsafe.Slice((*byte)(unsafe.Pointer(bufPtr)), length)
-	readBytes, err := GlobalFilesystem.ReadFd(FileDescriptor(fd), buffer)
+	readBytes, err := GlobalFilesystem.ReadFd(fd, buffer)
 	if err != nil && err != io.EOF {
 		logger.Printf("%-132s %s failed due to read error on %s (%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -54,7 +54,7 @@ func libKernel__read(fd uintptr, bufPtr uintptr, length uintptr) uintptr {
 			err.Error(),
 		)
 		SetErrno(EFAULT)
-		return ERR_PTR
+		return ERR_PTRI
 	}
 
 	logger.Printf("%-132s %s read %s bytes from %s (length=%s).\n",
@@ -64,15 +64,15 @@ func libKernel__read(fd uintptr, bufPtr uintptr, length uintptr) uintptr {
 		color.Yellow.Sprintf("0x%X", fd),
 		color.Yellow.Sprintf("0x%X", length),
 	)
-	return uintptr(readBytes)
+	return int64(readBytes)
 }
 
 // 0x0000000000016520
 // __int64 sceKernelPread()
-func libKernel_sceKernelPread(fd uintptr, bufPtr uintptr, length uintptr, offset uintptr) uintptr {
+func libKernel_sceKernelPread(fd FileDescriptor, bufPtr uintptr, length uint64, offset int64) int64 {
 	err := libKernel_pread(fd, bufPtr, length, offset)
-	if err == ERR_PTR {
-		return GetErrno() - SonyErrorOffset
+	if err == ERR_PTRI {
+		return int64(GetErrno() - SonyErrorOffset)
 	}
 
 	return 0
@@ -80,13 +80,13 @@ func libKernel_sceKernelPread(fd uintptr, bufPtr uintptr, length uintptr, offset
 
 // 0x00000000000125B0
 // __int64 pread()
-func libKernel_pread(fd uintptr, bufPtr uintptr, length uintptr, offset uintptr) uintptr {
+func libKernel_pread(fd FileDescriptor, bufPtr uintptr, length uint64, offset int64) int64 {
 	return libKernel_pread_0(fd, bufPtr, length, offset)
 }
 
 // 0x00000000000029B0
 // __int64 pread_0()
-func libKernel_pread_0(fd uintptr, bufPtr uintptr, length uintptr, offset uintptr) uintptr {
+func libKernel_pread_0(fd FileDescriptor, bufPtr uintptr, length uint64, offset int64) int64 {
 	if bufPtr == 0 {
 		logger.Printf("%-132s %s failed due to invalid buffer pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -97,7 +97,7 @@ func libKernel_pread_0(fd uintptr, bufPtr uintptr, length uintptr, offset uintpt
 	}
 
 	GlobalFilesystem.Lock.Lock()
-	file, ok := GlobalFilesystem.Descriptors[FileDescriptor(fd)]
+	file, ok := GlobalFilesystem.Descriptors[fd]
 	GlobalFilesystem.Lock.Unlock()
 	if !ok {
 		logger.Printf("%-132s %s failed due to unknown file %s.\n",
@@ -106,12 +106,12 @@ func libKernel_pread_0(fd uintptr, bufPtr uintptr, length uintptr, offset uintpt
 			color.Yellow.Sprintf("0x%X", fd),
 		)
 		SetErrno(ENOENT)
-		return ERR_PTR
+		return ERR_PTRI
 	}
 
 	buffer := unsafe.Slice((*byte)(unsafe.Pointer(bufPtr)), length)
 	currentOffset, _ := file.File.Seek(0, io.SeekCurrent)
-	_, _ = file.File.Seek(int64(offset), io.SeekStart)
+	_, _ = file.File.Seek(offset, io.SeekStart)
 	readBytes, err := file.File.Read(buffer)
 	_, _ = file.File.Seek(currentOffset, io.SeekStart)
 	if err != nil && err != io.EOF {
@@ -122,7 +122,7 @@ func libKernel_pread_0(fd uintptr, bufPtr uintptr, length uintptr, offset uintpt
 			err.Error(),
 		)
 		SetErrno(EFAULT)
-		return ERR_PTR
+		return ERR_PTRI
 	}
 
 	logger.Printf("%-132s %s read %s bytes from %s at offset %s (length=%s).\n",
@@ -133,5 +133,5 @@ func libKernel_pread_0(fd uintptr, bufPtr uintptr, length uintptr, offset uintpt
 		color.Yellow.Sprintf("0x%X", offset),
 		color.Yellow.Sprintf("0x%X", length),
 	)
-	return uintptr(readBytes)
+	return int64(readBytes)
 }

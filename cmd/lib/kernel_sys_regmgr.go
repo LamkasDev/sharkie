@@ -93,7 +93,7 @@ func libKernel___sys_regmgr_call(op, id, resultPtr, valuePtr, size uintptr) uint
 		}
 		switch id {
 		default:
-			WriteCString(valuePtr, "")
+			CString(Cstring(valuePtr), "")
 			break
 		}
 

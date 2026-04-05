@@ -7,21 +7,21 @@ import (
 
 const StackAlignment = 8
 
-const StackDefaultSize = uintptr(2 * 1024 * 1024) // 2MB
+const StackDefaultSize = 2 * 1024 * 1024 // 2MB
 const StackMinimumSize = 0x4000
-const StackArgumentsSize = uintptr(256)
+const StackArgumentsSize = 256
 
 type Stack struct {
 	Address                 uintptr
 	Top                     uintptr
-	Size                    uintptr
+	Size                    uint64
 	ArgumentsAddress        uintptr
 	ArgumentsCurrentPointer uintptr
 	CurrentPointer          uintptr
 }
 
 // NewStack creates a new stack with the defined size.
-func NewStack(stackSize uintptr) *Stack {
+func NewStack(stackSize uint64) *Stack {
 	stackPtr, err := AllocKernelMemory(0, stackSize, PROT_READ|PROT_WRITE|PROT_EXEC, MAP_ANON|MAP_PRIVATE)
 	if stackPtr == 0 {
 		panic(err)
@@ -30,7 +30,7 @@ func NewStack(stackSize uintptr) *Stack {
 	// Clear a 128-byte red zone and align to 16-bytes.
 	// https://wiki.osdev.org/System_V_ABI
 	stackPtr &^= 15
-	stackTop := stackPtr + stackSize
+	stackTop := stackPtr + uintptr(stackSize)
 
 	return &Stack{
 		Address:                 stackPtr,

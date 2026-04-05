@@ -11,7 +11,7 @@ import (
 
 // 0x000000000000C090
 // __int64 __fastcall sigprocmask(unsigned int, _QWORD *, __int64)
-func libKernel_sigprocmask(op uintptr, maskPtr uintptr, oldMaskPtr uintptr) uintptr {
+func libKernel_sigprocmask(op, maskPtr, oldMaskPtr uintptr) uintptr {
 	thread := emu.GetCurrentThread()
 
 	// Write back old mask.

@@ -9,7 +9,7 @@ import (
 
 // 0x0000000000014950
 // __int64 __fastcall sceKernelMprotect()
-func libKernel_sceKernelMprotect(addr, length, prot uintptr) uintptr {
+func libKernel_sceKernelMprotect(addr uintptr, length uint64, prot int32) uintptr {
 	err := libKernel_sys_mprotect(addr, length, prot)
 	if err == ERR_PTR {
 		return GetErrno() - SonyErrorOffset
@@ -18,7 +18,7 @@ func libKernel_sceKernelMprotect(addr, length, prot uintptr) uintptr {
 	return 0
 }
 
-func libKernel_sys_mprotect(addr, length, prot uintptr) uintptr {
+func libKernel_sys_mprotect(addr uintptr, length uint64, prot int32) uintptr {
 	if addr == 0 {
 		logger.Printf("%-132s %s failed due to invalid address.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),

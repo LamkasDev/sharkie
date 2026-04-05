@@ -17,7 +17,7 @@ func libKernel_scePthreadMutexattrInit(attrHandlePtr uintptr) uintptr {
 
 // 0x0000000000013A60
 // __int64 __fastcall scePthreadMutexattrSettype(_DWORD **, int)
-func libKernel_scePthreadMutexattrSettype(attrHandlePtr uintptr, attrType uintptr) uintptr {
+func libKernel_scePthreadMutexattrSettype(attrHandlePtr, attrType uintptr) uintptr {
 	err := libKernel_pthread_mutexattr_settype(attrHandlePtr, attrType)
 	if err != 0 {
 		return err - SonyErrorOffset

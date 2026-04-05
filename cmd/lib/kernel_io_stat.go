@@ -12,10 +12,10 @@ import (
 
 // 0x00000000000163D0
 // __int64 __fastcall sceKernelStat(__int64, __int64)
-func libKernel_sceKernelStat(pathPtr uintptr, statPtr uintptr) uintptr {
+func libKernel_sceKernelStat(pathPtr Cstring, statPtr uintptr) int32 {
 	err := libKernel_stat(pathPtr, statPtr)
 	if err != 0 {
-		return GetErrno() - SonyErrorOffset
+		return int32(GetErrno() - SonyErrorOffset)
 	}
 
 	return 0
@@ -23,8 +23,8 @@ func libKernel_sceKernelStat(pathPtr uintptr, statPtr uintptr) uintptr {
 
 // 0x0000000000000850
 // __int64 __fastcall stat()
-func libKernel_stat(pathPtr uintptr, statPtr uintptr) uintptr {
-	if pathPtr == 0 {
+func libKernel_stat(pathPtr Cstring, statPtr uintptr) int32 {
+	if pathPtr == nil {
 		logger.Printf("%-132s %s failed due to invalid path pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("stat"),
@@ -32,7 +32,7 @@ func libKernel_stat(pathPtr uintptr, statPtr uintptr) uintptr {
 		return 0
 	}
 
-	path := GetUsablePath(ReadCString(pathPtr))
+	path := GetUsablePath(GoString(pathPtr))
 	fd, err := GlobalFilesystem.Open(path, 0, 0)
 	if err != nil {
 		logger.Printf("%-132s %s failed due to open error on %s (%s).\n",
@@ -42,18 +42,18 @@ func libKernel_stat(pathPtr uintptr, statPtr uintptr) uintptr {
 			err.Error(),
 		)
 		SetErrno(ENOENT)
-		return ERR_PTR
+		return ERR_PTRI
 	}
 
-	return libKernel_fstat(uintptr(fd), statPtr)
+	return libKernel_fstat(fd, statPtr)
 }
 
 // 0x0000000000016400
 // __int64 __fastcall sceKernelFstat(__int64, __int64)
-func libKernel_sceKernelFstat(fd uintptr, statPtr uintptr) uintptr {
+func libKernel_sceKernelFstat(fd FileDescriptor, statPtr uintptr) int32 {
 	err := libKernel_fstat(fd, statPtr)
 	if err != 0 {
-		return GetErrno() - SonyErrorOffset
+		return int32(GetErrno() - SonyErrorOffset)
 	}
 
 	return 0
@@ -61,18 +61,18 @@ func libKernel_sceKernelFstat(fd uintptr, statPtr uintptr) uintptr {
 
 // 0x00000000000009D0
 // __int64 __fastcall fstat()
-func libKernel_fstat(fd uintptr, statPtr uintptr) uintptr {
+func libKernel_fstat(fd FileDescriptor, statPtr uintptr) int32 {
 	if statPtr == 0 {
 		logger.Printf("%-132s %s failed due to invalid stat pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("fstat"),
 		)
 		SetErrno(EFAULT)
-		return ERR_PTR
+		return ERR_PTRI
 	}
 
 	GlobalFilesystem.Lock.Lock()
-	file, ok := GlobalFilesystem.Descriptors[FileDescriptor(fd)]
+	file, ok := GlobalFilesystem.Descriptors[fd]
 	GlobalFilesystem.Lock.Unlock()
 	if !ok {
 		logger.Printf("%-132s %s failed due to unknown file %s.\n",
@@ -81,7 +81,7 @@ func libKernel_fstat(fd uintptr, statPtr uintptr) uintptr {
 			color.Yellow.Sprintf("0x%X", fd),
 		)
 		SetErrno(ENOENT)
-		return ERR_PTR
+		return ERR_PTRI
 	}
 
 	fileStat, err := file.File.Stat()
@@ -93,7 +93,7 @@ func libKernel_fstat(fd uintptr, statPtr uintptr) uintptr {
 			err.Error(),
 		)
 		SetErrno(EFAULT)
-		return ERR_PTR
+		return ERR_PTRI
 	}
 
 	stat := (*FileStat)(unsafe.Pointer(statPtr))
