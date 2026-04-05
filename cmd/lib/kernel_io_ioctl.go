@@ -10,11 +10,7 @@ import (
 
 // 0x0000000000000970
 // __int64 __fastcall ioctl()
-func libKernel_ioctl(fd, request, mode uintptr) uintptr {
-	return libKernel_sys_ioctl(fd, request, mode)
-}
-
-func libKernel_sys_ioctl(fd, request, argPtr uintptr) uintptr {
+func libKernel_ioctl(fd, request, argPtr uintptr) uintptr {
 	file, ok := GlobalFilesystem.Descriptors[FileDescriptor(fd)]
 	if !ok {
 		logger.Printf("%-132s %s failed due to unknown file %s.\n",

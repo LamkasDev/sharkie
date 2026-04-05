@@ -30,6 +30,8 @@ const (
 	LogErrorRet = false
 )
 
+const FiosDebugMode = false
+
 var LogFile *os.File
 
 func StartLogging() {

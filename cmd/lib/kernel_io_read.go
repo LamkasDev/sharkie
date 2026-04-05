@@ -15,7 +15,7 @@ import (
 // __int64 __fastcall sceKernelRead(__int64, __int64, __int64)
 func libKernel_sceKernelRead(fd uintptr, bufPtr uintptr, length uintptr) uintptr {
 	err := libKernel_read(fd, bufPtr, length)
-	if err != 0 {
+	if err == ERR_PTR {
 		return GetErrno() - SonyErrorOffset
 	}
 
@@ -35,10 +35,6 @@ func libKernel_read(fd uintptr, bufPtr uintptr, length uintptr) uintptr {
 // 0x00000000000027D0
 // __int64 __fastcall read(_QWORD, _QWORD, _QWORD)
 func libKernel__read(fd uintptr, bufPtr uintptr, length uintptr) uintptr {
-	return libKernel_sys_read(fd, bufPtr, length)
-}
-
-func libKernel_sys_read(fd uintptr, bufPtr uintptr, length uintptr) uintptr {
 	if bufPtr == 0 {
 		logger.Printf("%-132s %s failed due to invalid buffer pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -75,7 +71,7 @@ func libKernel_sys_read(fd uintptr, bufPtr uintptr, length uintptr) uintptr {
 // __int64 sceKernelPread()
 func libKernel_sceKernelPread(fd uintptr, bufPtr uintptr, length uintptr, offset uintptr) uintptr {
 	err := libKernel_pread(fd, bufPtr, length, offset)
-	if err != 0 {
+	if err == ERR_PTR {
 		return GetErrno() - SonyErrorOffset
 	}
 
@@ -91,10 +87,6 @@ func libKernel_pread(fd uintptr, bufPtr uintptr, length uintptr, offset uintptr)
 // 0x00000000000029B0
 // __int64 pread_0()
 func libKernel_pread_0(fd uintptr, bufPtr uintptr, length uintptr, offset uintptr) uintptr {
-	return libKernel_sys_pread(fd, bufPtr, length, offset)
-}
-
-func libKernel_sys_pread(fd uintptr, bufPtr uintptr, length uintptr, offset uintptr) uintptr {
 	if bufPtr == 0 {
 		logger.Printf("%-132s %s failed due to invalid buffer pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),

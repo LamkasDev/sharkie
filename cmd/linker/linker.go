@@ -2,6 +2,7 @@ package linker
 
 import (
 	"encoding/binary"
+	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/asm"
 	"github.com/LamkasDev/sharkie/cmd/elf"
@@ -76,6 +77,13 @@ func (l *Linker) Link(e *elf.Elf) error {
 			Type:         elf.STT_FUNC,
 			Binding:      elf.STB_LOCAL,
 		})
+	}
+	if logger.FiosDebugMode && e.Name == "libSceFios2.sprx" {
+		debugFlags := unsafe.Slice((*byte)(unsafe.Add(unsafe.Pointer(e.BaseAddress), 0x17C520)), 4)
+		debugFlags[0] = 0xFF
+		debugFlags[1] = 0xFF
+		debugFlags[2] = 0xFF
+		debugFlags[3] = 0xFF
 	}
 
 	// Patch a module's own symbols to redirect to stubs.

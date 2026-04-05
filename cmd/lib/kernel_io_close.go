@@ -32,10 +32,6 @@ func libKernel_close(fd uintptr) uintptr {
 // 0x00000000000026B0
 // __int64 __fastcall close()
 func libKernel__close(fd uintptr) uintptr {
-	return libKernel_sys_close(fd)
-}
-
-func libKernel_sys_close(fd uintptr) uintptr {
 	GlobalFilesystem.Lock.Lock()
 	file, ok := GlobalFilesystem.Descriptors[FileDescriptor(fd)]
 	GlobalFilesystem.Lock.Unlock()

@@ -16,7 +16,7 @@ import (
 // __int64 __fastcall sceKernelWrite(__int64, __int64, __int64)
 func libKernel_sceKernelWrite(fd uintptr, bufPtr uintptr, length uintptr) uintptr {
 	err := libKernel_write(fd, bufPtr, length)
-	if err != 0 {
+	if err == ERR_PTR {
 		return GetErrno() - SonyErrorOffset
 	}
 
@@ -36,10 +36,6 @@ func libKernel_write(fd uintptr, bufPtr uintptr, length uintptr) uintptr {
 // 0x0000000000002910
 // __int64 __fastcall write()
 func libKernel__write(fd uintptr, bufPtr uintptr, length uintptr) uintptr {
-	return libKernel_sys_write(fd, bufPtr, length)
-}
-
-func libKernel_sys_write(fd uintptr, bufPtr uintptr, length uintptr) uintptr {
 	if bufPtr == 0 {
 		logger.Printf("%-132s %s failed due to invalid buffer pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -103,52 +99,11 @@ func libKernel_sys_write(fd uintptr, bufPtr uintptr, length uintptr) uintptr {
 	return uintptr(wroteBytes)
 }
 
-// 0x0000000000012580
-// __int64 ftruncate()
-func libKernel_ftruncate(fd uintptr, length uintptr) uintptr {
-	return libKernel_ftruncate_0(fd, length)
-}
-
-// 0x0000000000002950
-// __int64 ftruncate_0()
-func libKernel_ftruncate_0(fd uintptr, length uintptr) uintptr {
-	file, ok := GlobalFilesystem.Descriptors[FileDescriptor(fd)]
-	if !ok {
-		logger.Printf("%-132s %s failed due to unknown file %s.\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("ftruncate_0"),
-			color.Yellow.Sprintf("0x%X", fd),
-		)
-		SetErrno(ENOENT)
-		return ERR_PTR
-	}
-
-	err := file.File.Truncate(int64(length))
-	if err != nil {
-		logger.Printf("%-132s %s failed due to truncate error on %s (%s).\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("ftruncate_0"),
-			color.Yellow.Sprintf("0x%X", fd),
-			err.Error(),
-		)
-		SetErrno(EFAULT)
-		return ERR_PTR
-	}
-
-	logger.Printf("%-132s %s truncated %s to %s bytes.\n",
-		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprint("ftruncate_0"),
-		color.Yellow.Sprintf("0x%X", fd),
-		color.Yellow.Sprintf("0x%X", length),
-	)
-	return 0
-}
-
 // 0x0000000000016550
 // __int64 sceKernelPwrite()
 func libKernel_sceKernelPwrite(fd uintptr, bufPtr uintptr, length uintptr, offset uintptr) uintptr {
 	err := libKernel_pwrite(fd, bufPtr, length, offset)
-	if err != 0 {
+	if err == ERR_PTR {
 		return GetErrno() - SonyErrorOffset
 	}
 
@@ -164,10 +119,6 @@ func libKernel_pwrite(fd uintptr, bufPtr uintptr, length uintptr, offset uintptr
 // 0x00000000000029D0
 // __int64 pwrite_0()
 func libKernel_pwrite_0(fd uintptr, bufPtr uintptr, length uintptr, offset uintptr) uintptr {
-	return libKernel_sys_pwrite(fd, bufPtr, length, offset)
-}
-
-func libKernel_sys_pwrite(fd uintptr, bufPtr uintptr, length uintptr, offset uintptr) uintptr {
 	if bufPtr == 0 {
 		logger.Printf("%-132s %s failed due to invalid buffer pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),

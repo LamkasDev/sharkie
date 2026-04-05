@@ -32,10 +32,6 @@ func libKernel_open(pathPtr uintptr, flags uintptr, mode uintptr) uintptr {
 // 0x0000000000002750
 // __int64 __fastcall open()
 func libKernel__open(pathPtr uintptr, flags uintptr, mode uintptr) uintptr {
-	return libKernel_sys_open(pathPtr, flags, mode)
-}
-
-func libKernel_sys_open(pathPtr uintptr, flags uintptr, mode uintptr) uintptr {
 	if pathPtr == 0 {
 		logger.Printf("%-132s %s failed due to invalid path pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),

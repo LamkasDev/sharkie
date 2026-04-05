@@ -33,10 +33,6 @@ func libSceLibcInternal_malloc(size uintptr) uintptr {
 		)
 		return 0
 	}
-	if time.Since(timeTemp) > time.Second*5 {
-		slot := unsafe.Slice((*uintptr)(unsafe.Add(unsafe.Pointer(emu.GetCurrentThread().Tcb.Self), -8)), 1)[0]
-		logger.Printf("slot=0x%X\n", slot)
-	}
 
 	if logger.LogAlloc {
 		logger.Printf("%-132s %s allocated %s bytes at %s.\n",

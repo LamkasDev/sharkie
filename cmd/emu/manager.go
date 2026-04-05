@@ -5,14 +5,12 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"strings"
 	"sync"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/asm"
 	"github.com/LamkasDev/sharkie/cmd/elf"
 	"github.com/LamkasDev/sharkie/cmd/logger"
-	"github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/gookit/color"
 )
 
@@ -191,76 +189,6 @@ func (m *ModuleManager) GetCallSiteTextShort() string {
 		"%s+%s/%s",
 		color.Blue.Sprint(module.Name),
 		color.Yellow.Sprintf("0x%X", callerAddress-module.BaseAddress),
-		location,
-	)
-}
-
-// GetStackTraceShort returns a trace by walking the stack starting from
-// the return address immediately following the GlobalStubContext.
-func (m *ModuleManager) GetStackTraceShort() string {
-	threadContext := asm.GetCurrentThreadContext()
-	if threadContext == nil || threadContext.GlobalStubContext == 0 {
-		return "Unable to capture thread context"
-	}
-
-	// Skip the RegContext to find the first return address on the stack
-	// This is the same logic as your GetCallSiteTextShort
-	stackPtr := uintptr(threadContext.GlobalStubContext) + asm.RegContextSize
-
-	// Get stack boundaries to prevent out-of-bounds reads
-	thread := GetCurrentThread()
-	stackTop := thread.Stack.Address + structs.StackDefaultSize
-	stackBottom := thread.Stack.Address
-
-	var sb strings.Builder
-	sb.WriteString("Guest Stack Trace (from stub):\n")
-
-	// Walk the stack (limit to 15 frames to keep it "short")
-	for i := 0; i < 128; i++ {
-		// Safety check: is the stack pointer still within the allocated stack?
-		if stackPtr < stackBottom || stackPtr >= stackTop {
-			sb.WriteString(color.Red.Sprint("  [End of Stack]\n"))
-			break
-		}
-
-		// Read the address at the current stack location
-		addr := *(*uintptr)(unsafe.Pointer(stackPtr))
-
-		// Format and append the frame
-		frameText := m.formatAddressForTrace(addr)
-		sb.WriteString(fmt.Sprintf("  frame %d: %s\n", i, frameText))
-
-		// Move to the next 8-byte slot on the stack
-		stackPtr += 8
-	}
-
-	return sb.String()
-}
-
-// formatAddressForTrace handles the module/symbol resolution logic
-func (m *ModuleManager) formatAddressForTrace(addr uintptr) string {
-	module := GetModuleAtAddress(addr)
-	if module == nil {
-		return color.Yellow.Sprintf("0x%X", addr)
-	}
-
-	// Determine the caller address (subtracting 1 or using logic from GetRealCallerAddress)
-	callerAddress := GetRealCallerAddress(module, addr)
-	relativeAddr := callerAddress - module.BaseAddress
-
-	var location string
-	if symbolInfo, ok := module.CallerToFunctionName[relativeAddr]; ok {
-		location = color.Magenta.Sprintf("%s:%s", symbolInfo.LibraryName, symbolInfo.ReadableName)
-	} else if stubInfo, ok := asm.StubsTrampolineMap[callerAddress]; ok {
-		location = color.Magenta.Sprintf("%s:%s", stubInfo.LibraryName, stubInfo.SymbolName)
-	} else {
-		location = color.Magenta.Sprintf("unknown function (rel 0x%X)", addr-module.BaseAddress)
-	}
-
-	return fmt.Sprintf(
-		"%s+%s/%s",
-		color.Blue.Sprint(module.Name),
-		color.Yellow.Sprintf("0x%X", relativeAddr),
 		location,
 	)
 }
