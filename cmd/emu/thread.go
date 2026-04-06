@@ -30,11 +30,12 @@ var (
 )
 
 type Thread struct {
-	Id    int32
-	Name  string
-	Stack *Stack
-	Tcb   *Tcb
-	Lock  sync.Mutex
+	Id        int32
+	Name      string
+	Stack     *Stack
+	Tcb       *Tcb
+	KeyValues map[uint32]uintptr
+	Lock      sync.Mutex
 
 	IsMain   bool
 	Exited   bool
@@ -47,9 +48,10 @@ type Thread struct {
 
 func NewThread(name string, stackSize uint64) *Thread {
 	thread := &Thread{
-		Id:    NextThreadId,
-		Stack: NewStack(stackSize),
-		Lock:  sync.Mutex{},
+		Id:        NextThreadId,
+		Stack:     NewStack(stackSize),
+		KeyValues: map[uint32]uintptr{},
+		Lock:      sync.Mutex{},
 	}
 	if thread.Id == MainThreadId {
 		thread.IsMain = true

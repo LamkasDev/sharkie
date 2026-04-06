@@ -1,6 +1,9 @@
 package structs
 
-import "unsafe"
+import (
+	"sync"
+	"unsafe"
+)
 
 type ThreadSignalMask struct {
 	Low  uint64
@@ -17,3 +20,8 @@ type ThreadCpuSet struct {
 }
 
 const ThreadCpuSetSize = unsafe.Sizeof(ThreadCpuSet{})
+
+var (
+	GlobalThreadKeyCounter uint32
+	GlobalThreadKeyLock    sync.Mutex
+)

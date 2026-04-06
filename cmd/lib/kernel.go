@@ -170,6 +170,12 @@ func RegisterKernelStubs() {
 	elf.RegisterStub("libkernel", "pthread_mutex_timedlock", libKernel_pthread_mutex_timedlock)
 	elf.RegisterStub("libkernel", "pthread_mutex_reltimedlock_np", libKernel_pthread_mutex_reltimedlock_np)
 	elf.RegisterStub("libkernel", "scePthreadMutexTimedlock", libKernel_scePthreadMutexTimedlock)
+	elf.RegisterStub("libkernel", "pthread_key_create", libKernel_pthread_key_create)
+	elf.RegisterStub("libkernel", "scePthreadKeyCreate", libKernel_scePthreadKeyCreate)
+	elf.RegisterStub("libkernel", "pthread_getspecific", libKernel_pthread_getspecific)
+	elf.RegisterStub("libkernel", "scePthreadGetspecific", libKernel_scePthreadGetspecific)
+	elf.RegisterStub("libkernel", "pthread_setspecific", libKernel_pthread_setspecific)
+	elf.RegisterStub("libkernel", "scePthreadSetspecific", libKernel_scePthreadSetspecific)
 
 	// Cond functions.
 	elf.RegisterStub("libkernel", "pthread_cond_init", libKernel_pthread_cond_init)

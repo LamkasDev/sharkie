@@ -27,6 +27,9 @@ var signatures = []Signature{
 	{FuncType: "func() uintptr", Params: nil},
 
 	// 1 arguments.
+	{FuncType: "func(uint32) uintptr", Params: []Param{
+		{Name: "DI", Type: "uint32"},
+	}},
 	{FuncType: "func(uintptr) int32", Params: []Param{
 		{Name: "DI", Type: "uintptr"},
 	}},
