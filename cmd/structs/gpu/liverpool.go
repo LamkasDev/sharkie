@@ -15,10 +15,11 @@ type Liverpool struct {
 	GraphicsRing *LiverpoolCommandRing
 	ComputeRing  *LiverpoolCommandRing
 
-	StateMutex sync.Mutex
-	Registers  LiverpoolRegisters
-	DrawState  LiverpoolDrawState
-	ConstRam   [LiverpoolConstRamSize]uint32
+	StateMutex       sync.Mutex
+	Registers        LiverpoolRegisters
+	DrawState        LiverpoolDrawState
+	PendingDrawCalls []LiverpoolDrawCall
+	ConstRam         [LiverpoolConstRamSize]uint32
 
 	DisplaySurfaces map[uintptr]*LiverpoolDisplaySurface
 	PM4Handlers     map[uint8]PM4Handler
@@ -70,6 +71,13 @@ func (l *Liverpool) SubmitCommandBuffers(indirectBuffers []PM4IndirectBuffer) {
 			l.ComputeRing.Pending = append(l.ComputeRing.Pending, indirectBuffer)
 		}
 	}
+}
+
+func (l *Liverpool) FlushDrawCalls() []LiverpoolDrawCall {
+	drawCalls := l.PendingDrawCalls
+	l.PendingDrawCalls = l.PendingDrawCalls[:0]
+
+	return drawCalls
 }
 
 func (l *Liverpool) Flip(gpuAddress uintptr, flipArg uint64) {

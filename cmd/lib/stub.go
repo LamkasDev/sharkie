@@ -15,6 +15,8 @@ func RegisterStubs() {
 	RegisterLibcStubs()
 	RegisterGnmDriverStubs()
 	RegisterVideoOutStubs()
+	RegisterAudioOutStubs()
+	RegisterNetworkStubs()
 }
 
 func Abort() uintptr {

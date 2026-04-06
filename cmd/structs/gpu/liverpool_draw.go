@@ -68,13 +68,13 @@ func (d *LiverpoolDrawCall) RtGpuAddress() uintptr { return uintptr(d.RtBase) <<
 // RtPitchPixels returns pitch in pixels from the raw CB_COLOR0_PITCH word.
 func (d *LiverpoolDrawCall) RtPitchPixels() uint32 { return ((d.RtPitch & 0x7FF) + 1) * 8 }
 
-// PSGPUAddress returns the full pixel shader GPU address.
-func (d *LiverpoolDrawCall) PSGPUAddress() uintptr {
+// PsGpuAddress returns the full pixel shader GPU address.
+func (d *LiverpoolDrawCall) PsGpuAddress() uintptr {
 	return (uintptr(d.PixShPgmLo) | uintptr(d.PixShPgmHi)<<32) << 8
 }
 
-// VSGPUAddress returns the full vertex shader GPU address.
-func (d *LiverpoolDrawCall) VSGPUAddress() uintptr {
+// VsGpuAddress returns the full vertex shader GPU address.
+func (d *LiverpoolDrawCall) VsGpuAddress() uintptr {
 	return (uintptr(d.VerShPgmLo) | uintptr(d.VerShPgmHi)<<32) << 8
 }
 
@@ -92,8 +92,8 @@ func (d *LiverpoolDrawCall) ScissorRect() (x, y, width, height int) {
 	return x, y, x1 - x, y1 - y
 }
 
-// snapshotDrawCall captures the current register & draw state into a LiverpoolDrawCall.
-func (l *Liverpool) snapshotDrawCall(vertexCount uint32, isIndexed bool) LiverpoolDrawCall {
+// NewDrawCall captures the current register & draw state into a LiverpoolDrawCall.
+func (l *Liverpool) NewDrawCall(vertexCount uint32, isIndexed bool) LiverpoolDrawCall {
 	instanceCount := l.DrawState.InstanceCount
 	if instanceCount == 0 {
 		instanceCount = 1

@@ -10,6 +10,7 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/lib"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/LamkasDev/sharkie/cmd/structs"
+	"github.com/LamkasDev/sharkie/cmd/structs/audio"
 	"github.com/LamkasDev/sharkie/cmd/structs/dce"
 	"github.com/LamkasDev/sharkie/cmd/structs/fs"
 	"github.com/LamkasDev/sharkie/cmd/structs/gc"
@@ -54,6 +55,7 @@ func main() {
 	ipmi.SetupImpiManager()
 	gc.SetupGraphicsController()
 	dce.SetupDisplayCoreEngine()
+	audio.SetupAudioEngine()
 	gpu.SetupLiverpool()
 	gpu.GlobalLiverpool.OnFlip = app.GlobalApplication.Renderer.FrameSource.Submit
 	gpu.GlobalLiverpool.OnRegisterDisplaySurface = app.GlobalApplication.Renderer.RegisterFramebuffer

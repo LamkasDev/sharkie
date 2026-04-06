@@ -232,12 +232,6 @@ func (shFs *SharkieFilesystem) InitializeSystemFiles() error {
 	}
 
 	// Deamon files.
-	if _, err := shFs.Write(GetUsablePath(structs.AudioInBufferName), make([]byte, structs.AudioInBufferDefault)); err != nil {
-		panic(err)
-	}
-	if _, err := shFs.Write(GetUsablePath(structs.AudioVideoSettingsName), make([]byte, structs.AudioVideoSettingsDefault)); err != nil {
-		panic(err)
-	}
 	if _, err := shFs.Write(GetUsablePath("SceNpTpip"), make([]byte, 4096)); err != nil {
 		panic(err)
 	}

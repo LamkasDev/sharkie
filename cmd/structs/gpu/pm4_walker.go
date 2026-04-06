@@ -10,7 +10,7 @@ import (
 
 type PM4Handler func(ringName string, payload []uint32)
 
-const LogPM4Packets = false
+const LogPM4Packets = true
 
 func (l *Liverpool) SetupPM4Handlers() {
 	l.PM4Handlers[PM4_IT_NOP] = l.handleNop
@@ -18,15 +18,21 @@ func (l *Liverpool) SetupPM4Handlers() {
 	l.PM4Handlers[PM4_IT_SET_SH_REG] = l.handleSetShaderReg
 	l.PM4Handlers[PM4_IT_SET_CONTEXT_REG] = l.handleSetContextReg
 	l.PM4Handlers[PM4_IT_SET_UCONFIG_REG] = l.handleSetUserConfigReg
+	l.PM4Handlers[PM4_IT_WAIT_REG_MEM] = l.handleWaitRegMemory
+
+	l.PM4Handlers[PM4_IT_WRITE_DATA] = l.handleWriteData
+	l.PM4Handlers[PM4_WRITE_CONST_RAM] = l.handleWriteConstRam
+
+	l.PM4Handlers[PM4_IT_DRAW_INDEX_AUTO] = l.handleDrawIndexAuto
+	l.PM4Handlers[PM4_IT_DRAW_INDEX_2] = l.handleDrawIndex2
 
 	l.PM4Handlers[PM4_IT_CONTEXT_CONTROL] = l.handleContextControl
 	l.PM4Handlers[PM4_IT_CLEAR_STATE] = l.handleClearState
 	l.PM4Handlers[PM4_ACQUIRE_MEM] = l.handleAcquireMem
 	l.PM4Handlers[PM4_IT_NUM_INSTANCES] = l.handleNumInstances
+	l.PM4Handlers[PM4_IT_INDEX_TYPE] = l.handleIndexType
 	l.PM4Handlers[PM4_IT_INDEX_BUFFER_SIZE] = l.handleIndexBufferSize
-	l.PM4Handlers[PM4_IT_WRITE_DATA] = l.handleWriteData
-	l.PM4Handlers[PM4_IT_WAIT_REG_MEM] = l.handleWaitRegMemory
-	l.PM4Handlers[PM4_WRITE_CONST_RAM] = l.handleWriteConstRam
+	l.PM4Handlers[PM4_IT_EVENT_WRITE_EOP] = l.handleEventWriteEop
 }
 
 // Walk drains both the graphics and compute rings, decoding every PM4 packet and updating GPU register state.
@@ -197,6 +203,26 @@ func (l *Liverpool) handleNumInstances(ringName string, payload []uint32) {
 	}
 }
 
+func (l *Liverpool) handleIndexType(ringName string, payload []uint32) {
+	if len(payload) < 1 {
+		logger.Printf("[%s] index type payload too short.\n",
+			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
+		)
+		return
+	}
+	l.StateMutex.Lock()
+	l.DrawState.IndexType = payload[0] & 1
+	l.StateMutex.Unlock()
+	if LogPM4Packets {
+		switch l.DrawState.IndexType {
+		case 0:
+			logger.Printf("[%s] set index type to 16-bit.\n", color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)))
+		case 1:
+			logger.Printf("[%s] set index type to 32-bit.\n", color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)))
+		}
+	}
+}
+
 func (l *Liverpool) handleIndexBufferSize(ringName string, payload []uint32) {
 	if len(payload) < 1 {
 		logger.Printf("[%s] index buffer size payload too short.\n",
@@ -215,22 +241,10 @@ func (l *Liverpool) handleIndexBufferSize(ringName string, payload []uint32) {
 	}
 }
 
-func (l *Liverpool) handleWriteData(ringName string, payload []uint32) {
-	if len(payload) < 4 {
-		logger.Printf("[%s] write data payload too short.\n",
+func (l *Liverpool) handleEventWriteEop(ringName string, payload []uint32) {
+	if len(payload) < 5 {
+		logger.Printf("[%s] event write eop payload too short.\n",
 			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
-		)
-		return
-	}
-
-	// Check if we support the write destination.
-	destSelection := (payload[0] >> 8) & 0x7
-	switch destSelection {
-	case 0, 1, 5:
-	default:
-		logger.Printf("[%s] write data on non-memory destination %s skipped.\n",
-			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
-			color.Yellow.Sprintf("0x%X", destSelection),
 		)
 		return
 	}
@@ -240,51 +254,67 @@ func (l *Liverpool) handleWriteData(ringName string, payload []uint32) {
 	addressHigh := uint64(payload[2] & 0xFFFF)
 	address := uintptr(addressLow | (addressHigh << 32))
 	if address == 0 {
+		logger.Printf("[%s] write data invalid address.\n",
+			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
+		)
 		return
 	}
 
 	// Write data.
-	data := payload[3:]
-	dstSlice := unsafe.Slice((*uint32)(unsafe.Pointer(address)), len(data))
-	copy(dstSlice, data)
-
-	if LogPM4Packets {
-		logger.Printf("[%s] wrote %s bytes to %s.\n",
-			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
-			color.Green.Sprintf("%d", len(data)),
-			color.Yellow.Sprintf("0x%X", address),
-		)
+	dataSelection := (payload[2] >> 29) & 0x7
+	switch dataSelection {
+	case 0: // No write.
+		if LogPM4Packets {
+			logger.Printf("[%s] skipped write to %s.\n",
+				color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
+				color.Yellow.Sprintf("0x%X", address),
+			)
+		}
+	case 1: // 32-bit value.
+		value := payload[3]
+		*(*uint32)(unsafe.Pointer(address)) = value
+		if LogPM4Packets {
+			logger.Printf("[%s] wrote 32-bit %s to %s.\n",
+				color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
+				color.Yellow.Sprintf("0x%X", value),
+				color.Yellow.Sprintf("0x%X", address),
+			)
+		}
+	case 2: // 64-bit value.
+		value := uint64(payload[3]) | uint64(payload[4])<<32
+		*(*uint64)(unsafe.Pointer(address)) = value
+		if LogPM4Packets {
+			logger.Printf("[%s] wrote 64-bit %s to %s.\n",
+				color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
+				color.Yellow.Sprintf("0x%X", value),
+				color.Yellow.Sprintf("0x%X", address),
+			)
+		}
+	case 3: // GPU timestamp.
+		if LogPM4Packets {
+			logger.Printf("[%s] wrote GPU timestamp to %s.\n",
+				color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
+				color.Yellow.Sprintf("0x%X", address),
+			)
+		}
+		*(*uint64)(unsafe.Pointer(address)) = 0
 	}
 }
 
-func (l *Liverpool) handleWriteConstRam(ringName string, payload []uint32) {
-	if len(payload) < 1 {
-		logger.Printf("[%s] write const ram payload too short.\n",
+func (l *Liverpool) handleDispatchDirect(ringName string, payload []uint32) {
+	if len(payload) < 3 {
+		logger.Printf("[%s] dispatch direct payload too short.\n",
 			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
 		)
 		return
 	}
-	offset := int(payload[0] & 0xFFFF)
-	data := payload[1:]
-	if offset+len(data) > LiverpoolConstRamSize {
-		logger.Printf("[%s] failed write const ram outside bounds (offset=%s, size=%s).\n",
-			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
-			color.Yellow.Sprintf("0x%X", offset),
-			color.Green.Sprintf("%d", len(data)),
-		)
-		return
-	}
-
-	// Write data.
-	l.StateMutex.Lock()
-	copy(l.ConstRam[offset:], data)
-	l.StateMutex.Unlock()
-
 	if LogPM4Packets {
-		logger.Printf("[%s] wrote %s bytes to const ram at %s.\n",
+		logger.Printf("[%s] dispatch direct (payload[0]=%s, payload[1]=%s, payload[2]=%s, payload[3]=%s).\n",
 			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
-			color.Green.Sprintf("%d", len(data)),
-			color.Yellow.Sprintf("0x%X", offset),
+			color.Yellow.Sprintf("0x%X", payload[0]),
+			color.Yellow.Sprintf("0x%X", payload[1]),
+			color.Yellow.Sprintf("0x%X", payload[2]),
+			color.Yellow.Sprintf("0x%X", payload[3]),
 		)
 	}
 }

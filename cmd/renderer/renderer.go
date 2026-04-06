@@ -14,10 +14,11 @@ import (
 )
 
 type Renderer struct {
-	Handles     VulkanHandles
-	Backend     backend.Backend[glfwvulkanbackend.GLFWWindowFlags]
-	FrameSource *FrameSource
-	Overlay     *ImguiOverlay
+	Handles       VulkanHandles
+	Backend       backend.Backend[glfwvulkanbackend.GLFWWindowFlags]
+	GpuTranslator *GpuTranslator
+	FrameSource   *FrameSource
+	Overlay       *ImguiOverlay
 
 	SwapchainDimensions *as.SwapchainDimensions
 	Depth               *Depth
@@ -38,7 +39,15 @@ func NewRenderer(context as.Context, dimensions *as.SwapchainDimensions) *Render
 		FrameSource:         NewFrameSource(),
 		Framebuffers:        make(map[uintptr]*GuestFramebuffer),
 	}
-	r.Backend, _ = backend.CreateBackend(glfwvulkanbackend.NewGLFWBackend())
+
+	var err error
+	if r.Backend, err = backend.CreateBackend(glfwvulkanbackend.NewGLFWBackend()); err != nil {
+		panic(err)
+	}
+	/* if r.GpuTranslator, err = NewGpuTranslator(r.Handles); err != nil {
+		panic(err)
+	} */
+
 	r.Depth = NewDepth(r)
 	r.prepareRenderPass()
 	r.preparePipelineCache()
@@ -99,6 +108,11 @@ func (r *Renderer) ConsumeFrames(done chan struct{}) {
 		r.Overlay.FrameCount.Add(1)
 
 		gpu.GlobalLiverpool.Walk()
+		draws := gpu.GlobalLiverpool.FlushDrawCalls()
+		if len(draws) > 0 && r.GpuTranslator != nil {
+			r.GpuTranslator.Submit(draws)
+		}
+
 		r.FramebufferMutex.RLock()
 		framebuffer, ok := r.Framebuffers[frame.GpuAddress]
 		r.FramebufferMutex.RUnlock()
@@ -120,11 +134,18 @@ func (r *Renderer) RegisterFramebuffer(address uintptr, attribute *VideoOutBuffe
 	r.Framebuffers[address] = framebuffer
 	r.FramebufferMutex.Unlock()
 	r.Overlay.LatestFramebuffer.Store(framebuffer)
+
 	if r.FramebufferTexture == nil {
 		var err error
 		r.FramebufferTexture, err = NewFramebufferTexture(&r.Handles, r.Backend, attribute.Width, attribute.Height)
 		if err != nil {
 			panic("renderer: could not allocate framebuffer texture: " + err.Error())
+		}
+	}
+
+	if r.GpuTranslator != nil {
+		if err := r.GpuTranslator.RegisterSurface(address, attribute.Width, attribute.Height); err != nil {
+			panic("renderer: could not register GPU surface: " + err.Error())
 		}
 	}
 }

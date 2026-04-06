@@ -62,7 +62,7 @@ type PthreadMutexAttr struct {
 const PthreadMutexAttrSize = unsafe.Sizeof(PthreadMutexAttr{})
 
 func GetMutexNameText(m *PthreadMutex, addr uintptr) string {
-	if m.Name == "" {
+	if true || m.Name == "" {
 		return color.Yellow.Sprintf("0x%X", addr)
 	}
 

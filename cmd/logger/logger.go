@@ -9,7 +9,7 @@ const LogToFile = false
 
 const (
 	// Logs mutexes, conditions, semaphores, etc.
-	LogSyncing = false
+	LogSyncing = true
 
 	// Logs syncing timeouts, attempts, etc.
 	LogSyncingFail = true
