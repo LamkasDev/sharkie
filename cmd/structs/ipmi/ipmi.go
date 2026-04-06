@@ -104,9 +104,6 @@ func SetupImpiManager() {
 	CreateImpiServer("SceAppContent", 0)
 	CreateImpiServer("SceMbusIpc", 0)
 	CreateImpiServer("SceSysAudioSystemIpc", 0)
-	structs.CreateDefaultEventFlags([]string{
-		fmt.Sprintf("sceAudioOutMix%x", 1001),
-	})
 	avSetting := CreateImpiServer("SceAvSettingIpc", 0)
 	avSetting.CreateEventFlag("SceAvSettingEvf")
 	CreateImpiServer("SceSaveData", 0)

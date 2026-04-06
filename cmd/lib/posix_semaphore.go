@@ -43,6 +43,55 @@ func libKernel_sem_init(semPtr, pShared, value uintptr) uintptr {
 	return 0
 }
 
+// 0x0000000000010480
+// __int64 __fastcall sem_trywait(__int64)
+func libKernel_sem_trywait(semPtr uintptr) uintptr {
+	if semPtr == 0 {
+		logger.Printf("%-132s %s failed due to invalid sem pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sem_trywait"),
+		)
+		SetErrno(EINVAL)
+		return ERR_PTR
+	}
+
+	semaphore := (*PSemaphore)(unsafe.Pointer(semPtr))
+	if semaphore.Magic != PSemaphoreMagic {
+		logger.Printf("%-132s %s failed due to invalid sem magic.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sem_trywait"),
+		)
+		SetErrno(EINVAL)
+		return ERR_PTR
+	}
+
+	// Try decrement semaphore, otherwise return.
+	for {
+		value := atomic.LoadInt32(&semaphore.Value)
+		if value <= 0 {
+			if logger.LogSyncingFail {
+				logger.Printf("%-132s %s tried waiting on semaphore %s.\n",
+					emu.GlobalModuleManager.GetCallSiteText(),
+					color.Magenta.Sprint("sem_timedwait"),
+					color.Yellow.Sprintf("0x%X", semPtr),
+				)
+			}
+			SetErrno(EAGAIN)
+			return ERR_PTR
+		}
+		if atomic.CompareAndSwapInt32(&semaphore.Value, value, value-1) {
+			if logger.LogSyncing {
+				logger.Printf("%-132s %s waited on semaphore %s.\n",
+					emu.GlobalModuleManager.GetCallSiteText(),
+					color.Magenta.Sprint("sem_timedwait"),
+					color.Yellow.Sprintf("0x%X", semPtr),
+				)
+			}
+			return 0
+		}
+	}
+}
+
 // 0x00000000000109F0
 // __int64 __fastcall sem_wait(__int64)
 func libKernel_sem_wait(semPtr uintptr) uintptr {

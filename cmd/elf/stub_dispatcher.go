@@ -84,6 +84,10 @@ func CreateDispatcher(goFn any) asm.StubDispatcher {
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn(ctx.DI, uint64(ctx.SI)))
 		}
+	case func(uintptr, int32) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(ctx.DI, int32(ctx.SI)))
+		}
 	case func(uintptr, uintptr) uintptr:
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn(ctx.DI, ctx.SI))
@@ -108,6 +112,10 @@ func CreateDispatcher(goFn any) asm.StubDispatcher {
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn(ctx.DI, uint64(ctx.SI), int32(ctx.DX)))
 		}
+	case func(uintptr, int32, uintptr) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(ctx.DI, int32(ctx.SI), ctx.DX))
+		}
 	case func(uintptr, uintptr, uintptr) uintptr:
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn(ctx.DI, ctx.SI, ctx.DX))
@@ -123,6 +131,10 @@ func CreateDispatcher(goFn any) asm.StubDispatcher {
 	case func(fs.FileDescriptor, uintptr, uint64) int64:
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn(fs.FileDescriptor(ctx.DI), ctx.SI, uint64(ctx.DX)))
+		}
+	case func(fs.FileDescriptor, int64, int32) int64:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(fs.FileDescriptor(ctx.DI), int64(ctx.SI), int32(ctx.DX)))
 		}
 	case func(fs.FileDescriptor, uintptr, uintptr, uintptr) uintptr:
 		return func(ctx *asm.RegContext) uintptr {
@@ -191,6 +203,10 @@ func CreateDispatcher(goFn any) asm.StubDispatcher {
 	case func(uintptr, uintptr, uint64, uint64, int32, uintptr) uintptr:
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn(ctx.DI, ctx.SI, uint64(ctx.DX), uint64(ctx.CX), int32(ctx.R8), ctx.R9))
+		}
+	case func(uintptr, Cstring, uint32, int32, int32, uintptr) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(ctx.DI, Cstring(ctx.SI), uint32(ctx.DX), int32(ctx.CX), int32(ctx.R8), ctx.R9))
 		}
 	case func(uintptr, uintptr, uintptr, uintptr, uintptr, uintptr) uintptr:
 		return func(ctx *asm.RegContext) uintptr {

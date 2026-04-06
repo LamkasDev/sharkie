@@ -12,6 +12,7 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/linker"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	. "github.com/LamkasDev/sharkie/cmd/structs"
+	. "github.com/LamkasDev/sharkie/cmd/structs/pthread"
 	. "github.com/LamkasDev/sharkie/cmd/structs/tcb"
 	"github.com/LamkasDev/sharkie/cmd/sys_struct"
 	"github.com/gookit/color"
@@ -172,6 +173,58 @@ func (t *Thread) Run(e *elf.Elf) {
 		// This should not be reached.
 		logger.Println("Returned from run - this should not happen.")
 	}()
+}
+
+func (t *Thread) Exit(exitCode uintptr) {
+	t.Lock.Lock()
+	defer t.Lock.Unlock()
+	if t.Exited {
+		return
+	}
+
+	// Mark thread as done.
+	t.Exited = true
+	t.ExitCode = exitCode
+	t.Tcb.Thread.ReturnValue = exitCode
+
+	// Process cleanup handlers.
+	cleanupHandlerPtr := t.Tcb.Thread.CleanupStack
+	if cleanupHandlerPtr != 0 {
+		limit := 0
+		for limit < 20 {
+			entry := (*PthreadCleanupEntry)(unsafe.Pointer(cleanupHandlerPtr))
+			module := GetModuleAtAddress(entry.Handler)
+			if module == nil {
+				logger.Printf("Thread %s failed finding cleanup handler at %s...\n",
+					color.Blue.Sprint(t.Name),
+					color.Yellow.Sprintf("0x%X", entry.Handler),
+				)
+				continue
+			}
+			logger.Printf("Thread %s skipped cleanup handler %s/%s with %s argument...\n",
+				color.Blue.Sprint(t.Name),
+				color.Blue.Sprint(module.Name),
+				color.Yellow.Sprintf("0x%X", entry.Handler-module.BaseAddress),
+				color.Yellow.Sprintf("0x%X", entry.Arg),
+			)
+			cleanupHandlerPtr = entry.Next
+			limit++
+		}
+	} else {
+		logger.Printf("Thread %s skipping empty cleanup handlers...\n",
+			color.Blue.Sprint(t.Name),
+		)
+	}
+	t.Tcb.Thread.CleanupStack = 0
+
+	// Signal waiting threads.
+	t.JoinCond.Broadcast()
+
+	logger.Printf(
+		"Thread %s exited with code %s.\n",
+		color.Blue.Sprint(t.Name),
+		color.Yellow.Sprintf("0x%X", t.ExitCode),
+	)
 }
 
 // SafeReadUint64 safely reads a uint64 value from the stack.

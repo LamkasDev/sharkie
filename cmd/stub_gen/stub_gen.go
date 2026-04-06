@@ -81,6 +81,10 @@ var signatures = []Signature{
 		{Name: "DI", Type: "uintptr"},
 		{Name: "SI", Type: "uint64"},
 	}},
+	{FuncType: "func(uintptr, int32) uintptr", Params: []Param{
+		{Name: "DI", Type: "uintptr"},
+		{Name: "SI", Type: "int32"},
+	}},
 	{FuncType: "func(uintptr, uintptr) uintptr", Params: []Param{
 		{Name: "DI", Type: "uintptr"},
 		{Name: "SI", Type: "uintptr"},
@@ -112,6 +116,11 @@ var signatures = []Signature{
 		{Name: "SI", Type: "uint64"},
 		{Name: "DX", Type: "int32"},
 	}},
+	{FuncType: "func(uintptr, int32, uintptr) uintptr", Params: []Param{
+		{Name: "DI", Type: "uintptr"},
+		{Name: "SI", Type: "int32"},
+		{Name: "DX", Type: "uintptr"},
+	}},
 	{FuncType: "func(uintptr, uintptr, uintptr) uintptr", Params: []Param{
 		{Name: "DI", Type: "uintptr"},
 		{Name: "SI", Type: "uintptr"},
@@ -134,6 +143,11 @@ var signatures = []Signature{
 		{Name: "DI", Type: "fs.FileDescriptor"},
 		{Name: "SI", Type: "uintptr"},
 		{Name: "DX", Type: "uint64"},
+	}},
+	{FuncType: "func(fs.FileDescriptor, int64, int32) int64", Params: []Param{
+		{Name: "DI", Type: "fs.FileDescriptor"},
+		{Name: "SI", Type: "int64"},
+		{Name: "DX", Type: "int32"},
 	}},
 	{FuncType: "func(fs.FileDescriptor, uintptr, uintptr, uintptr) uintptr", Params: []Param{
 		{Name: "DI", Type: "fs.FileDescriptor"},
@@ -256,6 +270,14 @@ var signatures = []Signature{
 		{Name: "SI", Type: "uintptr"},
 		{Name: "DX", Type: "uint64"},
 		{Name: "CX", Type: "uint64"},
+		{Name: "R8", Type: "int32"},
+		{Name: "R9", Type: "uintptr"},
+	}},
+	{FuncType: "func(uintptr, Cstring, uint32, int32, int32, uintptr) uintptr", Params: []Param{
+		{Name: "DI", Type: "uintptr"},
+		{Name: "SI", Type: "Cstring"},
+		{Name: "DX", Type: "uint32"},
+		{Name: "CX", Type: "int32"},
 		{Name: "R8", Type: "int32"},
 		{Name: "R9", Type: "uintptr"},
 	}},

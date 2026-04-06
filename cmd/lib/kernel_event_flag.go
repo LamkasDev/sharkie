@@ -108,7 +108,7 @@ func libKernel_sceKernelOpenEventFlag(handlePtr uintptr, namePtr Cstring) uintpt
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sceKernelOpenEventFlag"),
 		color.Yellow.Sprintf("0x%X", foundEventFlag.Handle),
-		color.Green.Sprint(name),
+		color.Blue.Sprint(name),
 	)
 	return 0
 }

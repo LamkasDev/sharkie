@@ -14,12 +14,12 @@ import (
 // 0x0000000000015960
 // __int64 __fastcall sceKernelWrite(__int64, __int64, __int64)
 func libKernel_sceKernelWrite(fd FileDescriptor, bufPtr uintptr, length uint64) int64 {
-	err := libKernel_write(fd, bufPtr, length)
-	if err == ERR_PTRI {
+	wroteBytes := libKernel_write(fd, bufPtr, length)
+	if wroteBytes == ERR_PTRI {
 		return int64(GetErrno() - SonyErrorOffset)
 	}
 
-	return 0
+	return wroteBytes
 }
 
 // 0x000000000000E610
@@ -84,12 +84,12 @@ func libKernel__write(fd FileDescriptor, bufPtr uintptr, length uint64) int64 {
 // 0x0000000000016550
 // __int64 sceKernelPwrite()
 func libKernel_sceKernelPwrite(fd FileDescriptor, bufPtr uintptr, length uint64, offset int64) int64 {
-	err := libKernel_pwrite(fd, bufPtr, length, offset)
-	if err == ERR_PTRI {
+	wroteBytes := libKernel_pwrite(fd, bufPtr, length, offset)
+	if wroteBytes == ERR_PTRI {
 		return int64(GetErrno() - SonyErrorOffset)
 	}
 
-	return 0
+	return wroteBytes
 }
 
 // 0x00000000000125C0

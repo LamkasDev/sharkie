@@ -6,16 +6,19 @@ import (
 )
 
 // https://docs.particle.io/reference/device-os/api/debugging/posix-errors
-const EPERM = 1
-const ENOENT = 2
-const EAGAIN = 11
-const ENOMEM = 12
-const EFAULT = 14
-const EBUSY = 16
-const EINVAL = 22
-const EDEADLK = 45
-const ETIMEDOUT = 60
-const ENAMETOOLONG = 63
+const (
+	EPERM        = 1
+	ENOENT       = 2
+	EAGAIN       = 11
+	ENOMEM       = 12
+	EFAULT       = 14
+	EBUSY        = 16
+	EINVAL       = 22
+	ESPIPE       = 29
+	EDEADLK      = 45
+	ETIMEDOUT    = 60
+	ENAMETOOLONG = 63
+)
 
 const ERR_PTR = ^uintptr(0)
 const ERR_PTRI = -1

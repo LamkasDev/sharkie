@@ -15,12 +15,12 @@ import (
 
 // 0x0000000000023410
 // __int64 __fastcall sceKernelCreateSema(_QWORD *, __int64, unsigned int, unsigned int, unsigned int, __int64)
-func libKernel_sceKernelCreateSema(handlePtr uintptr, namePtr Cstring, attributes, currentCount, maxCount, optionPtr uintptr) uintptr {
+func libKernel_sceKernelCreateSema(handlePtr uintptr, namePtr Cstring, attributes uint32, currentCount, maxCount int32, optionPtr uintptr) uintptr {
 	if handlePtr == 0 || optionPtr != 0 {
 		return SCE_KERNEL_ERROR_EINVAL
 	}
 
-	semaphore := CreateSemaphore("unnamed", uint32(attributes), int32(currentCount), int32(maxCount))
+	semaphore := CreateSemaphore("unnamed", attributes, currentCount, maxCount)
 	if namePtr != nil {
 		semaphore.Name = strings.Clone(GoString(namePtr))
 	} else {
@@ -73,7 +73,7 @@ func libKernel_sceKernelOpenSema(handlePtr uintptr, namePtr Cstring) uintptr {
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sceKernelOpenSema"),
 		color.Yellow.Sprintf("0x%X", foundSemaphore.Handle),
-		color.Green.Sprint(name),
+		color.Blue.Sprint(name),
 	)
 	return 0
 }
@@ -97,7 +97,7 @@ func libKernel_sceKernelDeleteSema(handle uintptr) uintptr {
 
 // 0x0000000000023490
 // __int64 __fastcall sceKernelWaitSema(unsigned int, unsigned int, __int64)
-func libKernel_sceKernelWaitSema(handle, needed, timeoutPtr uintptr) uintptr {
+func libKernel_sceKernelWaitSema(handle uintptr, needed int32, timeoutPtr uintptr) uintptr {
 	semaphore := GetSemaphore(handle)
 	if semaphore == nil {
 		return SCE_KERNEL_ERROR_ENOENT
@@ -115,12 +115,13 @@ func libKernel_sceKernelWaitSema(handle, needed, timeoutPtr uintptr) uintptr {
 	start := time.Now()
 	for {
 		// Check value.
-		if semaphore.CurrentCount >= int32(needed) {
-			semaphore.CurrentCount--
-			logger.Printf("%-132s %s decremented semaphore %s.\n",
+		if semaphore.CurrentCount >= needed {
+			semaphore.CurrentCount -= needed
+			logger.Printf("%-132s %s decremented semaphore %s to %s.\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("sceKernelWaitSema"),
 				color.Blue.Sprint(semaphore.Name),
+				color.Green.Sprint(semaphore.CurrentCount),
 			)
 			return 0
 		}
@@ -157,4 +158,60 @@ func libKernel_sceKernelWaitSema(handle, needed, timeoutPtr uintptr) uintptr {
 			}
 		}
 	}
+}
+
+// 0x00000000000234F0
+// __int64 sceKernelPollSema()
+func libKernel_sceKernelPollSema(handle uintptr, needed int32) uintptr {
+	semaphore := GetSemaphore(handle)
+	if semaphore == nil {
+		return SCE_KERNEL_ERROR_ENOENT
+	}
+
+	semaphore.Lock.Lock()
+	defer semaphore.Lock.Unlock()
+
+	if semaphore.CurrentCount >= needed {
+		semaphore.CurrentCount -= needed
+		if logger.LogSyncing {
+			logger.Printf("%-132s %s decremented semaphore %s to %s.\n",
+				emu.GlobalModuleManager.GetCallSiteText(),
+				color.Magenta.Sprint("sceKernelPollSema"),
+				color.Blue.Sprint(semaphore.Name),
+				color.Green.Sprint(semaphore.CurrentCount),
+			)
+		}
+		return 0
+	}
+
+	return SCE_KERNEL_ERROR_EBUSY
+}
+
+// 0x0000000000023520
+// __int64 sceKernelSignalSema()
+func libKernel_sceKernelSignalSema(handle uintptr, signalCount int32) uintptr {
+	semaphore := GetSemaphore(handle)
+	if semaphore == nil {
+		return SCE_KERNEL_ERROR_ENOENT
+	}
+
+	semaphore.Lock.Lock()
+	defer semaphore.Lock.Unlock()
+
+	if semaphore.CurrentCount+signalCount > semaphore.MaxCount {
+		return SCE_KERNEL_ERROR_EINVAL
+	}
+
+	semaphore.CurrentCount += signalCount
+	semaphore.Cond.Broadcast()
+	if logger.LogSyncing {
+		logger.Printf("%-132s %s incremented semaphore %s to %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceKernelSignalSema"),
+			color.Blue.Sprint(semaphore.Name),
+			color.Green.Sprint(semaphore.CurrentCount),
+		)
+	}
+
+	return 0
 }

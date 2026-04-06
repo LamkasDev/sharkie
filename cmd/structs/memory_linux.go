@@ -8,12 +8,12 @@ import (
 
 // MemoryProtToLinuxProt converts memory protection flags to Linux mmap/mprotect flags.
 func MemoryProtToLinuxProt(prot int32) uintptr {
-	return prot & uintptr(syscall.PROT_READ|syscall.PROT_WRITE|syscall.PROT_EXEC)
+	return uintptr(prot & int32(syscall.PROT_READ|syscall.PROT_WRITE|syscall.PROT_EXEC))
 }
 
 // MemoryProtToLinuxProt converts memory flags to Linux mmap/mprotect flags.
 func MemoryFlagsToLinuxFlags(flags int32, addr uintptr) uintptr {
-	flags = flags&uintptr(syscall.MAP_SHARED|syscall.MAP_PRIVATE|syscall.MAP_FIXED) | syscall.MAP_ANONYMOUS
+	flags = flags&int32(syscall.MAP_SHARED|syscall.MAP_PRIVATE|syscall.MAP_FIXED) | syscall.MAP_ANONYMOUS
 	if addr != 0 {
 		flags |= syscall.MAP_FIXED
 	}
@@ -21,14 +21,14 @@ func MemoryFlagsToLinuxFlags(flags int32, addr uintptr) uintptr {
 		flags |= syscall.MAP_PRIVATE
 	}
 
-	return flags
+	return uintptr(flags)
 }
 
 func ReserveKernelMemory(addr uintptr, length uint64) (uintptr, error) {
 	allocatedAddr, _, err := syscall.Syscall6(
 		syscall.SYS_MMAP,
 		addr,
-		length,
+		uintptr(length),
 		uintptr(syscall.PROT_NONE),
 		MemoryFlagsToLinuxFlags(0, addr),
 		ERR_PTR,
@@ -52,7 +52,7 @@ func AllocKernelMemory(addr uintptr, length uint64, prot, flags int32) (uintptr,
 	allocatedAddr, _, err := syscall.Syscall6(
 		syscall.SYS_MMAP,
 		addr,
-		length,
+		uintptr(length),
 		MemoryProtToLinuxProt(prot),
 		MemoryFlagsToLinuxFlags(flags, addr),
 		ERR_PTR,
@@ -69,7 +69,7 @@ func FreeKernelMemory(addr uintptr, length uint64) (uintptr, error) {
 	_, _, err := syscall.Syscall6(
 		syscall.SYS_MMAP,
 		addr,
-		length,
+		uintptr(length),
 		uintptr(syscall.PROT_NONE),
 		uintptr(syscall.MAP_PRIVATE|syscall.MAP_ANONYMOUS|syscall.MAP_FIXED),
 		ERR_PTR,
@@ -86,7 +86,7 @@ func ProtectKernelMemory(addr uintptr, length uint64, prot int32) (uintptr, erro
 	_, _, err := syscall.Syscall(
 		syscall.SYS_MPROTECT,
 		addr,
-		length,
+		uintptr(length),
 		MemoryProtToLinuxProt(prot),
 	)
 	if err != 0 {

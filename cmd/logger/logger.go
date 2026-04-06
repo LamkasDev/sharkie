@@ -12,7 +12,7 @@ const (
 	LogSyncing = false
 
 	// Logs syncing timeouts, attempts, etc.
-	LogSyncingFail = false
+	LogSyncingFail = true
 
 	// Logs when thread goes to sleep.
 	LogSleep = false

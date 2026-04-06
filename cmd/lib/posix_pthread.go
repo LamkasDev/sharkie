@@ -116,7 +116,7 @@ func libKernel_pthread_create_name_np(threadPtr, attrHandlePtr, entryPoint, arg 
 
 	go func() {
 		thread.Call(entryPoint, arg)
-		logger.Printf("Thread %s exited.\n", color.Blue.Sprint(thread.Name))
+		thread.Exit(0xDEAD)
 	}()
 
 	logger.Printf("%-132s %s created thread %s at %s (%s at %s, arg=%s).\n",
@@ -131,28 +131,24 @@ func libKernel_pthread_create_name_np(threadPtr, attrHandlePtr, entryPoint, arg 
 	return 0
 }
 
-// 0x0000000000014560
-// __int64 __fastcall scePthreadGetaffinity(signed __int32 *, _QWORD *)
-func libKernel_scePthreadGetaffinity(threadPtr uintptr, maskPtr uintptr) uintptr {
-	cpuSet := ThreadCpuSet{}
-	err := libKernel_pthread_getaffinity_np(threadPtr, ThreadCpuSetSize, uintptr(unsafe.Pointer(&cpuSet)))
-	if err != 0 {
-		return err - SonyErrorOffset
-	}
-	mask := (*ThreadAffinityMask)(unsafe.Pointer(maskPtr))
-	*mask = ThreadAffinityMask(cpuSet.Low)
-
-	return 0
-}
-
 // 0x0000000000003720
 // __int64 __fastcall pthread_getaffinity_np(signed __int32 *, __int64, __int64)
 func libKernel_pthread_getaffinity_np(threadPtr uintptr, cpuSetSize uintptr, cpuSetPtr uintptr) uintptr {
-	if cpuSetPtr == 0 || cpuSetSize < 8 {
+	if threadPtr == 0 || cpuSetPtr == 0 || cpuSetSize < 8 {
+		logger.Printf("%-132s %s failed due to invalid thread or cpu set pointer %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("pthread_getaffinity_np"),
+			color.Yellow.Sprintf("0x%X", cpuSetPtr),
+		)
 		return EINVAL
 	}
 	thread := emu.GetThreadForPtr(threadPtr)
 	if thread == nil {
+		logger.Printf("%-132s %s failed due to invalid thread %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("pthread_getaffinity_np"),
+			color.Yellow.Sprintf("0x%X", threadPtr),
+		)
 		return ENOENT
 	}
 
@@ -170,28 +166,24 @@ func libKernel_pthread_getaffinity_np(threadPtr uintptr, cpuSetSize uintptr, cpu
 	return 0
 }
 
-// 0x0000000000798B20
-// __int64 scePthreadSetaffinity()
-func libKernel_scePthreadSetaffinity(threadPtr uintptr, mask uintptr) uintptr {
-	cpuSet := ThreadCpuSet{
-		Low: uint64(mask),
-	}
-	err := libKernel_pthread_setaffinity_np(threadPtr, ThreadCpuSetSize, uintptr(unsafe.Pointer(&cpuSet)))
-	if err != 0 {
-		return err - SonyErrorOffset
-	}
-
-	return 0
-}
-
 // 0x0000000000003640
 // __int64 __fastcall pthread_setaffinity_np(signed __int32 *, __int64, __int64)
-func libKernel_pthread_setaffinity_np(threadPtr uintptr, cpuSetSize uintptr, cpuSetPtr uintptr) uintptr {
-	if cpuSetPtr == 0 || cpuSetSize < 8 {
+func libKernel_pthread_setaffinity_np(threadPtr, cpuSetSize, cpuSetPtr uintptr) uintptr {
+	if threadPtr == 0 || cpuSetPtr == 0 || cpuSetSize < 8 {
+		logger.Printf("%-132s %s failed due to invalid thread or cpu set pointer %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("pthread_getaffinity_np"),
+			color.Yellow.Sprintf("0x%X", cpuSetPtr),
+		)
 		return EINVAL
 	}
 	thread := emu.GetThreadForPtr(threadPtr)
 	if thread == nil {
+		logger.Printf("%-132s %s failed due to invalid thread %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("pthread_getaffinity_np"),
+			color.Yellow.Sprintf("0x%X", threadPtr),
+		)
 		return ENOENT
 	}
 
@@ -217,141 +209,67 @@ func libKernel_pthread_exit(retValue uintptr) uintptr {
 }
 
 func libKernel_sys_pthread_exit(retValue uintptr) uintptr {
-	thread := emu.GetCurrentThread()
-	logger.Printf("%-132s %s exiting thread %s.\n",
-		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprint("pthread_exit"),
-		color.Blue.Sprint(thread.Name),
-	)
-	thread.Tcb.Thread.ReturnValue = retValue
-
-	// Process cleanup handlers.
-	cleanupHandlerPtr := thread.Tcb.Thread.CleanupStack
-	if cleanupHandlerPtr != 0 {
-		limit := 0
-		for limit < 20 {
-			entry := (*PthreadCleanupEntry)(unsafe.Pointer(cleanupHandlerPtr))
-			module := emu.GetModuleAtAddress(entry.Handler)
-			if module == nil {
-				logger.Printf("%-132s %s failed finding cleanup handler at %s...\n",
-					emu.GlobalModuleManager.GetCallSiteText(),
-					color.Magenta.Sprint("pthread_exit"),
-					color.Yellow.Sprintf("0x%X", entry.Handler),
-				)
-				continue
-			}
-			logger.Printf("%-132s %s skipped cleanup handler %s/%s with %s argument...\n",
-				emu.GlobalModuleManager.GetCallSiteText(),
-				color.Magenta.Sprint("pthread_exit"),
-				color.Blue.Sprint(module.Name),
-				color.Yellow.Sprintf("0x%X", entry.Handler-module.BaseAddress),
-				color.Yellow.Sprintf("0x%X", entry.Arg),
-			)
-			cleanupHandlerPtr = entry.Next
-			limit++
-		}
-	} else {
-		logger.Printf("%-132s %s skipping empty cleanup handlers...\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("pthread_exit"),
-		)
-	}
-	thread.Tcb.Thread.CleanupStack = 0
-
 	// Mark thread as done and exit goroutine.
-	thread.Lock.Lock()
-	thread.Exited = true
-	thread.ExitCode = retValue
-	thread.JoinCond.Broadcast()
-	thread.Lock.Unlock()
+	thread := emu.GetCurrentThread()
+	thread.Exit(retValue)
 	runtime.Goexit()
 
 	return 0
 }
 
-// TODO: finish this
-// 0x0000000000013DD0
-// __int64 scePthreadRwlockRdlock()
-func libKernel_scePthreadRwlockRdlock() uintptr {
-	err := libKernel_pthread_rwlock_rdlock()
-	if err != 0 {
-		return err - SonyErrorOffset
+// 0x0000000000008880
+// __int64 __fastcall pthread_join(__int64, __int64)
+func libKernel_pthread_join(threadPtr, retValPtr uintptr) uintptr {
+	if threadPtr == 0 {
+		logger.Printf("%-132s %s failed due to invalid thread pointer %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("pthread_join"),
+			color.Yellow.Sprintf("0x%X", threadPtr),
+		)
+		return EINVAL
+	}
+	thread := emu.GetThreadForPtr(threadPtr)
+	if thread == nil {
+		logger.Printf("%-132s %s failed due to invalid thread %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("pthread_join"),
+			color.Yellow.Sprintf("0x%X", threadPtr),
+		)
+		return ENOENT
 	}
 
-	return 0
-}
-
-// TODO: finish this
-// 0x000000000000A660
-// __int64 __fastcall pthread_rwlock_rdlock(__int64 *a1)
-func libKernel_pthread_rwlock_rdlock() uintptr {
-	thread := emu.GetCurrentThread()
-	thread.Lock.Lock()
-
-	if logger.LogSyncing {
-		logger.Printf("%-132s %s locked thread %s.\n",
+	// No being naughty.
+	if thread == emu.GetCurrentThread() {
+		logger.Printf("%-132s %s failed trying to join itself.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("pthread_rwlock_rdlock"),
+			color.Magenta.Sprint("pthread_join"),
+		)
+		return EDEADLK
+	}
+
+	// Wait for thread to exit.
+	thread.Lock.Lock()
+	for !thread.Exited {
+		logger.Printf("%-132s %s waiting for thread %s to exit...\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("pthread_join"),
 			color.Blue.Sprint(thread.Name),
 		)
+		thread.JoinCond.Wait()
 	}
-	return 0
-}
-
-// TODO: finish this
-// 0x0000000000013E90
-// __int64 scePthreadRwlockWrlock()
-func libKernel_scePthreadRwlockWrlock() uintptr {
-	err := libKernel_pthread_rwlock_wrlock()
-	if err != 0 {
-		return err - SonyErrorOffset
-	}
-
-	return 0
-}
-
-// TODO: finish this
-// 0x000000000000AFA0
-// __int64 __fastcall pthread_rwlock_wrlock(__int64)
-func libKernel_pthread_rwlock_wrlock() uintptr {
-	thread := emu.GetCurrentThread()
-	thread.Lock.Lock()
-
-	if logger.LogSyncing {
-		logger.Printf("%-132s %s locked thread %s.\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("pthread_rwlock_wrlock"),
-			color.Blue.Sprint(thread.Name),
-		)
-	}
-	return 0
-}
-
-// TODO: finish this
-// 0x0000000000013E70
-// __int64 scePthreadRwlockUnlock()
-func libKernel_scePthreadRwlockUnlock() uintptr {
-	err := libKernel_pthread_rwlock_unlock()
-	if err != 0 {
-		return err - SonyErrorOffset
-	}
-
-	return 0
-}
-
-// TODO: finish this
-// 0x000000000000B210
-// __int64 __fastcall pthread_rwlock_unlock(unsigned __int64 *)
-func libKernel_pthread_rwlock_unlock() uintptr {
-	thread := emu.GetCurrentThread()
+	exitCode := thread.ExitCode
 	thread.Lock.Unlock()
 
-	if logger.LogSyncing {
-		logger.Printf("%-132s %s unlocked thread %s.\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("pthread_rwlock_unlock"),
-			color.Blue.Sprint(thread.Name),
-		)
+	// Write back exit code.
+	if retValPtr != 0 {
+		WriteAddress(retValPtr, exitCode)
 	}
+
+	logger.Printf("%-132s %s joined thread %s (exitCode=%s).\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("pthread_join"),
+		color.Blue.Sprint(thread.Name),
+		color.Yellow.Sprintf("0x%X", exitCode),
+	)
 	return 0
 }

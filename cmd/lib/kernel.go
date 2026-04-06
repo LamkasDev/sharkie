@@ -90,6 +90,9 @@ func RegisterKernelStubs() {
 	elf.RegisterStub("libkernel", "ftruncate", libKernel_ftruncate)
 	elf.RegisterStub("libkernel", "ftruncate_0", libKernel_ftruncate_0)
 	elf.RegisterStub("libkernel", "sceKernelFtruncate", libKernel_sceKernelFtruncate)
+	elf.RegisterStub("libkernel", "lseek", libKernel_lseek)
+	elf.RegisterStub("libkernel", "lseek_0", libKernel_lseek_0)
+	elf.RegisterStub("libkernel", "sceKernelLseek", libKernel_sceKernelLseek)
 	elf.RegisterStub("libkernel", "stat", libKernel_stat)
 	elf.RegisterStub("libkernel", "sceKernelStat", libKernel_sceKernelStat)
 	elf.RegisterStub("libkernel", "fstat", libKernel_fstat)
@@ -144,6 +147,8 @@ func RegisterKernelStubs() {
 	elf.RegisterStub("libkernel", "scePthreadRwlockRdlock", libKernel_scePthreadRwlockRdlock)
 	elf.RegisterStub("libkernel", "scePthreadRwlockWrlock", libKernel_scePthreadRwlockWrlock)
 	elf.RegisterStub("libkernel", "scePthreadRwlockUnlock", libKernel_scePthreadRwlockUnlock)
+	elf.RegisterStub("libkernel", "pthread_join", libKernel_pthread_join)
+	elf.RegisterStub("libkernel", "scePthreadJoin", libKernel_scePthreadJoin)
 
 	// Mutex functions.
 	elf.RegisterStub("libkernel", "pthread_mutexattr_init", libKernel_pthread_mutexattr_init)
@@ -234,7 +239,10 @@ func RegisterKernelStubs() {
 	elf.RegisterStub("libkernel", "sceKernelOpenSema", libKernel_sceKernelOpenSema)
 	elf.RegisterStub("libkernel", "sceKernelDeleteSema", libKernel_sceKernelDeleteSema)
 	elf.RegisterStub("libkernel", "sceKernelWaitSema", libKernel_sceKernelWaitSema)
+	elf.RegisterStub("libkernel", "sceKernelPollSema", libKernel_sceKernelPollSema)
+	elf.RegisterStub("libkernel", "sceKernelSignalSema", libKernel_sceKernelSignalSema)
 	elf.RegisterStub("libkernel", "sem_wait", libKernel_sem_wait)
+	elf.RegisterStub("libkernel", "sem_trywait", libKernel_sem_trywait)
 	elf.RegisterStub("libkernel", "sem_timedwait", libKernel_sem_timedwait)
 	elf.RegisterStub("libkernel", "sem_post", libKernel_sem_post)
 

@@ -14,12 +14,12 @@ import (
 // 0x0000000000015930
 // __int64 __fastcall sceKernelRead(__int64, __int64, __int64)
 func libKernel_sceKernelRead(fd FileDescriptor, bufPtr uintptr, length uint64) int64 {
-	err := libKernel_read(fd, bufPtr, length)
-	if err == ERR_PTRI {
+	readBytes := libKernel_read(fd, bufPtr, length)
+	if readBytes == ERR_PTRI {
 		return int64(GetErrno() - SonyErrorOffset)
 	}
 
-	return 0
+	return readBytes
 }
 
 // 0x000000000000E0A0
@@ -70,12 +70,12 @@ func libKernel__read(fd FileDescriptor, bufPtr uintptr, length uint64) int64 {
 // 0x0000000000016520
 // __int64 sceKernelPread()
 func libKernel_sceKernelPread(fd FileDescriptor, bufPtr uintptr, length uint64, offset int64) int64 {
-	err := libKernel_pread(fd, bufPtr, length, offset)
-	if err == ERR_PTRI {
+	readBytes := libKernel_pread(fd, bufPtr, length, offset)
+	if readBytes == ERR_PTRI {
 		return int64(GetErrno() - SonyErrorOffset)
 	}
 
-	return 0
+	return readBytes
 }
 
 // 0x00000000000125B0

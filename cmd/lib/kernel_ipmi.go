@@ -2,6 +2,7 @@ package lib
 
 import (
 	"encoding/binary"
+	"fmt"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
@@ -319,16 +320,44 @@ func InvokeImpiClientMethod(client *IpmiClient, resultPtr, paramsPtr, paramsSize
 		}
 	case IMPI_METHOD_GET_APP_STATUS:
 		if syncMethod.OutputSize > 0 && syncMethod.OutputPtr != 0 {
-			outputSlice := unsafe.Slice((*uintptr)(unsafe.Pointer(syncMethod.OutputPtr)), 1)
-			appStatusPtr := outputSlice[0]
-			if appStatusPtr != 0 {
+			outputSlice := unsafe.Slice((*uintptr)(unsafe.Pointer(syncMethod.OutputPtr)), syncMethod.OutputSize)
+			appStatusPtr := (*uint32)(unsafe.Pointer(outputSlice[0]))
+			if appStatusPtr != nil {
 				appId := uint32(GlobalAppInfo.AppId)
-				binary.LittleEndian.PutUint32(unsafe.Slice((*byte)(unsafe.Pointer(appStatusPtr)), 4), appId)
-
+				*appStatusPtr = appId
 				logger.Printf("%-132s %s returned app status (appId=%s).\n",
 					emu.GlobalModuleManager.GetCallSiteText(),
 					color.Magenta.Sprint("ipmimgr_call"),
 					color.Green.Sprintf("%d", appId),
+				)
+				return 0
+			}
+		}
+	case IMPI_METHOD_AUDIO_INIT_PROCESS:
+		if syncMethod.InputSize > 0 && syncMethod.InputPtr != 0 {
+			inputSlice := unsafe.Slice((*uintptr)(unsafe.Pointer(syncMethod.InputPtr)), syncMethod.InputSize)
+			processIdPtr := (*uint32)(unsafe.Pointer(inputSlice[0]))
+			if processIdPtr != nil {
+				processId := *processIdPtr
+				logger.Printf("%-132s %s initialized audio process %s.\n",
+					emu.GlobalModuleManager.GetCallSiteText(),
+					color.Magenta.Sprint("ipmimgr_call"),
+					color.Yellow.Sprintf("0x%X", processId),
+				)
+				return 0
+			}
+		}
+	case IMPI_METHOD_AUDIO_CREATE_EVFLAG:
+		if syncMethod.InputSize > 0 && syncMethod.InputPtr != 0 {
+			inputSlice := unsafe.Slice((*uintptr)(unsafe.Pointer(syncMethod.InputPtr)), syncMethod.InputSize)
+			processIdPtr := (*uint32)(unsafe.Pointer(inputSlice[0]))
+			if processIdPtr != nil {
+				processId := *processIdPtr
+				eventFlag := fmt.Sprintf("sceAudioOutMix%x", processId)
+				logger.Printf("%-132s %s initialized audio event flag %s.\n",
+					emu.GlobalModuleManager.GetCallSiteText(),
+					color.Magenta.Sprint("ipmimgr_call"),
+					color.Blue.Sprint(eventFlag),
 				)
 				return 0
 			}
