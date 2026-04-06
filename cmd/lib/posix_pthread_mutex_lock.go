@@ -337,6 +337,7 @@ func libKernel_pthread_mutex_timedlock(mutexHandlePtr, timestampPtr uintptr) uin
 		}
 		return ETIMEDOUT
 	}
+	mutex.Owner = threadPtr
 
 	return 0
 }
@@ -457,6 +458,7 @@ func libKernel_pthread_mutex_reltimedlock_np(mutexHandlePtr, micros uintptr) uin
 		}
 		return ETIMEDOUT
 	}
+	mutex.Owner = threadPtr
 
 	return 0
 }

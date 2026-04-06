@@ -10,7 +10,7 @@ import (
 
 type PM4Handler func(ringName string, payload []uint32)
 
-const LogPM4Packets = true
+const LogPM4Packets = false
 
 func (l *Liverpool) SetupPM4Handlers() {
 	l.PM4Handlers[PM4_IT_NOP] = l.handleNop

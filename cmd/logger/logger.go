@@ -9,7 +9,7 @@ const LogToFile = false
 
 const (
 	// Logs mutexes, conditions, semaphores, etc.
-	LogSyncing = true
+	LogSyncing = false
 
 	// Logs syncing timeouts, attempts, etc.
 	LogSyncingFail = true
@@ -30,7 +30,11 @@ const (
 	LogErrorRet = false
 )
 
-const FiosDebugMode = false
+const (
+	FiosDebugMode = false
+
+	GameDebugMode = true
+)
 
 var LogFile *os.File
 

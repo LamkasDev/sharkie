@@ -77,6 +77,42 @@ func (l *Linker) Link(e *elf.Elf) error {
 			Type:         elf.STT_FUNC,
 			Binding:      elf.STB_LOCAL,
 		})
+		e.SymbolTable.RegisterSymbol(&elf.ElfSymbol{
+			HashIndex:    elf.GetSymbolHashIndex("Minecraft.Client.sprx", "sub_20280"),
+			LibraryName:  "Minecraft.Client.sprx",
+			ReadableName: "sub_20280",
+			Address:      0x0000000000020280,
+			Type:         elf.STT_FUNC,
+			Binding:      elf.STB_LOCAL,
+		})
+		e.SymbolTable.RegisterSymbol(&elf.ElfSymbol{
+			HashIndex:    elf.GetSymbolHashIndex("Minecraft.Client.sprx", "sub_7510F0"),
+			LibraryName:  "Minecraft.Client.sprx",
+			ReadableName: "sub_7510F0",
+			Address:      0x00000000007510F0,
+			Type:         elf.STT_FUNC,
+			Binding:      elf.STB_LOCAL,
+		})
+		e.SymbolTable.RegisterSymbol(&elf.ElfSymbol{
+			HashIndex:    elf.GetSymbolHashIndex("Minecraft.Client.sprx", "sub_133DD0"),
+			LibraryName:  "Minecraft.Client.sprx",
+			ReadableName: "sub_133DD0",
+			Address:      0x0000000000133DD0,
+			Type:         elf.STT_FUNC,
+			Binding:      elf.STB_LOCAL,
+		})
+
+		if logger.GameDebugMode {
+			debugFlags := unsafe.Slice((*byte)(unsafe.Add(unsafe.Pointer(e.BaseAddress), 0xA214D0)), 8)
+			debugFlags[0] = 0xFF
+			debugFlags[1] = 0xFF
+			debugFlags[2] = 0xFF
+			debugFlags[3] = 0xFF
+			debugFlags[4] = 0xFF
+			debugFlags[5] = 0xFF
+			debugFlags[6] = 0xFF
+			debugFlags[7] = 0xFF
+		}
 	}
 	if logger.FiosDebugMode && e.Name == "libSceFios2.sprx" {
 		debugFlags := unsafe.Slice((*byte)(unsafe.Add(unsafe.Pointer(e.BaseAddress), 0x17C520)), 4)
