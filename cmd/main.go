@@ -47,6 +47,7 @@ func main() {
 
 	// Setup guest stuff.
 	structs.SetupAllocator()
+	lib.SetupMspaceAllocator()
 	structs.SetupSemaphores()
 	structs.SetupEventFlags()
 	fs.SetupFilesystem()

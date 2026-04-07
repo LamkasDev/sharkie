@@ -1,5 +1,7 @@
 package lib
 
+import . "github.com/LamkasDev/sharkie/cmd/structs"
+
 // 0x0000000000027A00
 // __int64 malloc_init(void)
 func libc__malloc_init() uintptr {
@@ -74,7 +76,7 @@ func libc_sceLibcMspaceReallocalign(mspace, alignment, ptr, newSize uintptr) uin
 
 // 0x0000000000030F90
 // __int64 __fastcall sceLibcMspaceCreate(__int64, __int64, __int64, __int64)
-func libc_sceLibcMspaceCreate(namePtr, base, capacity, flags uintptr) uintptr {
+func libc_sceLibcMspaceCreate(namePtr Cstring, base, capacity, flags uintptr) uintptr {
 	return libSceLibcInternal_sceLibcMspaceCreate(namePtr, base, capacity, flags)
 }
 

@@ -39,10 +39,6 @@ func ResolveHandle[T any](handlePtr uintptr) (*T, uintptr) {
 	return (*T)(unsafe.Pointer(uintptr(ptr))), 0
 }
 
-func IsPowerOfTwo(v uintptr) bool {
-	return v != 0 && (v&(v-1)) == 0
-}
-
 func WriteAddress(addressPtr uintptr, address uintptr) {
 	handleSlice := unsafe.Slice((*byte)(unsafe.Pointer(addressPtr)), 8)
 	binary.LittleEndian.PutUint64(handleSlice, uint64(address))

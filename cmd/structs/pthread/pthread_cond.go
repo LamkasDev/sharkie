@@ -20,9 +20,5 @@ type PthreadCond struct {
 const PthreadCondSize = unsafe.Sizeof(PthreadCond{})
 
 func GetCondNameText(c *PthreadCond, addr uintptr) string {
-	if c.Name == "" {
-		return color.Yellow.Sprintf("0x%X", addr)
-	}
-
 	return color.Blue.Sprint(c.Name)
 }

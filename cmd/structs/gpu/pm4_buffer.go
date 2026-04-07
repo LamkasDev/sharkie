@@ -8,25 +8,23 @@ import (
 const GNM_MAX_CB_SIZE_DWORDS = uint32(0x3FFFFD)
 
 type PM4IndirectBuffer struct {
-	Header      uint32
-	AddressLow  uint32
-	AddressHigh uint32
-	SizeDW      uint32
+	Header  uint32
+	Address uintptr
+	SizeDW  uint32
 }
 
 const PM4IndirectBufferSize = unsafe.Sizeof(PM4IndirectBuffer{})
 
-func NewPM4IndirectBuffer(gpuAddr uintptr, sizeBytes uint32, isCCB bool) PM4IndirectBuffer {
+func NewPM4IndirectBuffer(gpuAddress uintptr, sizeBytes uint32, isCCB bool) PM4IndirectBuffer {
 	opcode := uint32(PM4_IT_INDIRECT_BUFFER)
 	if isCCB {
 		opcode = PM4_IT_INDIRECT_BUFFER_CNST
 	}
 
 	return PM4IndirectBuffer{
-		Header:      NewPM4TypedHeader(opcode, 3),
-		AddressLow:  uint32(gpuAddr),
-		AddressHigh: uint32(gpuAddr >> 32),
-		SizeDW:      (sizeBytes >> 2) & 0x000FFFFF,
+		Header:  NewPM4TypedHeader(opcode, 3),
+		Address: gpuAddress,
+		SizeDW:  (sizeBytes >> 2) & 0x000FFFFF,
 	}
 }
 

@@ -7,11 +7,12 @@ import (
 )
 
 // AllocExecutableMemory allocates a chunk of executable memory with the defined size.
-func AllocExecutableMemory(size uintptr) (uintptr, error) {
+func AllocExecutableMemory(size uint64) (uintptr, error) {
+	targetAddr := GetNextAlignedAddress(0, size)
 	addr, _, err := syscall.Syscall6(
 		syscall.SYS_MMAP,
-		0,
-		size,
+		targetAddr,
+		uintptr(size),
 		syscall.PROT_READ|syscall.PROT_WRITE|syscall.PROT_EXEC,
 		syscall.MAP_PRIVATE|syscall.MAP_ANONYMOUS,
 		^uintptr(0),

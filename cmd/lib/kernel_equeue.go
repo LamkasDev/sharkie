@@ -53,11 +53,14 @@ func libKernel_kqueue(handlePtr uintptr, namePtr Cstring) uintptr {
 	}
 
 	equeue := CreateEqueue("unnamed")
+	var name string
 	if namePtr != nil {
-		equeue.Name = GoString(namePtr)
-	} else {
-		equeue.Name = fmt.Sprintf("0x%X", equeue.Handle)
+		name = GoString(namePtr)
 	}
+	if name == "" {
+		name = fmt.Sprintf("0x%X", equeue.Handle)
+	}
+	equeue.Name = name
 	WriteAddress(handlePtr, equeue.Handle)
 
 	logger.Printf("%-132s %s created equeue %s (name=%s).\n",

@@ -1,10 +1,14 @@
 package gpu
 
 import (
+	"context"
+	"runtime/pprof"
 	"sync"
 	"unsafe"
 
+	"github.com/LamkasDev/sharkie/cmd/asm"
 	"github.com/LamkasDev/sharkie/cmd/logger"
+	"github.com/LamkasDev/sharkie/cmd/structs/gcn"
 	"github.com/gookit/color"
 )
 
@@ -33,13 +37,21 @@ func (l *Liverpool) SetupPM4Handlers() {
 	l.PM4Handlers[PM4_IT_INDEX_TYPE] = l.handleIndexType
 	l.PM4Handlers[PM4_IT_INDEX_BUFFER_SIZE] = l.handleIndexBufferSize
 	l.PM4Handlers[PM4_IT_EVENT_WRITE_EOP] = l.handleEventWriteEop
+	l.PM4Handlers[PM4_IT_EVENT_WRITE_EOS] = l.handleEventWriteEos
+	l.PM4Handlers[PM4_IT_WAIT_ON_DE_COUNTER_DIFF] = l.handleWaitOnDeCounterDiff
+	l.PM4Handlers[PM4_IT_DISPATCH_DIRECT] = l.handleDispatchDirect
 }
 
 // Walk drains both the graphics and compute rings, decoding every PM4 packet and updating GPU register state.
 func (l *Liverpool) Walk() {
+	asm.GCFence.Store(true)
+
 	l.RingMutex.Lock()
+	defer l.RingMutex.Unlock()
+
 	var wg sync.WaitGroup
-	wg.Go(func() {
+	wg.Add(2)
+	go pprof.Do(context.Background(), pprof.Labels("name", "WalkGraphicsBuffer"), func(ctx context.Context) {
 		for i, buffer := range l.GraphicsRing.Pending {
 			logger.Printf("[%s] walking graphics pm4 buffer %s (length=%s).\n",
 				color.Green.Sprint("PM4"),
@@ -49,8 +61,9 @@ func (l *Liverpool) Walk() {
 			l.walkIndirectBuffer("GFX", buffer)
 		}
 		l.GraphicsRing.Pending = l.GraphicsRing.Pending[:0]
+		wg.Done()
 	})
-	wg.Go(func() {
+	go pprof.Do(context.Background(), pprof.Labels("name", "WalkComputeBuffer"), func(ctx context.Context) {
 		for i, buffer := range l.ComputeRing.Pending {
 			logger.Printf("[%s] walking compute pm4 buffer %s (length=%s).\n",
 				color.Green.Sprint("PM4"),
@@ -60,22 +73,23 @@ func (l *Liverpool) Walk() {
 			l.walkIndirectBuffer("COM", buffer)
 		}
 		l.ComputeRing.Pending = l.ComputeRing.Pending[:0]
+		wg.Done()
 	})
 	wg.Wait()
 	logger.Printf(
 		"[%s] finished walking pm4 buffers.\n",
 		color.Green.Sprint("PM4"),
 	)
-	l.RingMutex.Unlock()
+
+	asm.GCFence.Store(false)
 }
 
 func (l *Liverpool) walkIndirectBuffer(ringName string, buffer PM4IndirectBuffer) {
-	address := uintptr(buffer.AddressLow) | (uintptr(buffer.AddressHigh) << 32)
-	if address == 0 || buffer.SizeDW == 0 {
+	if buffer.Address == 0 || buffer.SizeDW == 0 {
 		return
 	}
 
-	dwords := unsafe.Slice((*uint32)(unsafe.Pointer(address)), int(buffer.SizeDW))
+	dwords := unsafe.Slice((*uint32)(unsafe.Pointer(buffer.Address)), int(buffer.SizeDW))
 	l.walkStream(ringName, dwords)
 }
 
@@ -192,9 +206,7 @@ func (l *Liverpool) handleNumInstances(ringName string, payload []uint32) {
 		)
 		return
 	}
-	l.StateMutex.Lock()
 	l.DrawState.InstanceCount = payload[0]
-	l.StateMutex.Unlock()
 	if LogPM4Packets {
 		logger.Printf("[%s] set num instances to %s.\n",
 			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
@@ -210,9 +222,7 @@ func (l *Liverpool) handleIndexType(ringName string, payload []uint32) {
 		)
 		return
 	}
-	l.StateMutex.Lock()
 	l.DrawState.IndexType = payload[0] & 1
-	l.StateMutex.Unlock()
 	if LogPM4Packets {
 		switch l.DrawState.IndexType {
 		case 0:
@@ -230,9 +240,7 @@ func (l *Liverpool) handleIndexBufferSize(ringName string, payload []uint32) {
 		)
 		return
 	}
-	l.StateMutex.Lock()
 	l.DrawState.IndexBufferSize = payload[0]
-	l.StateMutex.Unlock()
 	if LogPM4Packets {
 		logger.Printf("[%s] set index buffer size to %s.\n",
 			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
@@ -242,63 +250,95 @@ func (l *Liverpool) handleIndexBufferSize(ringName string, payload []uint32) {
 }
 
 func (l *Liverpool) handleEventWriteEop(ringName string, payload []uint32) {
-	if len(payload) < 5 {
+	if len(payload) < 4 {
 		logger.Printf("[%s] event write eop payload too short.\n",
 			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
 		)
 		return
 	}
+	dataHigh := uint32(0)
+	if len(payload) >= 5 {
+		dataHigh = payload[4]
+	}
+	l.handleEventWriteEopEos(ringName, "eop", payload[1], payload[2], payload[3], dataHigh)
+}
 
+func (l *Liverpool) handleEventWriteEos(ringName string, payload []uint32) {
+	if len(payload) < 4 {
+		logger.Printf("[%s] event write eos payload too short.\n",
+			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
+		)
+		return
+	}
+	l.handleEventWriteEopEos(ringName, "eos", payload[1], payload[2], payload[3], 0)
+}
+
+func (l *Liverpool) handleEventWriteEopEos(ringName, kind string, addrLow, addrHighAndSel, dataLow, dataHigh uint32) {
 	// Get address of destination.
-	addressLow := uint64(payload[1])
-	addressHigh := uint64(payload[2] & 0xFFFF)
+	addressLow := uint64(addrLow)
+	addressHigh := uint64(addrHighAndSel & 0xFFFF)
 	address := uintptr(addressLow | (addressHigh << 32))
 	if address == 0 {
-		logger.Printf("[%s] write data invalid address.\n",
-			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
+		logger.Printf("[%s] write %s data invalid address.\n",
+			color.Green.Sprintf("PM4-%s", ringName),
+			color.Blue.Sprint(kind),
 		)
 		return
 	}
 
 	// Write data.
-	dataSelection := (payload[2] >> 29) & 0x7
+	dataSelection := (addrHighAndSel >> 29) & 0x7
 	switch dataSelection {
 	case 0: // No write.
 		if LogPM4Packets {
-			logger.Printf("[%s] skipped write to %s.\n",
-				color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
+			logger.Printf("[%s] skipped %s write to %s.\n",
+				color.Green.Sprintf("PM4-%s", ringName),
+				color.Blue.Sprint(kind),
 				color.Yellow.Sprintf("0x%X", address),
 			)
 		}
 	case 1: // 32-bit value.
-		value := payload[3]
-		*(*uint32)(unsafe.Pointer(address)) = value
+		*(*uint32)(unsafe.Pointer(address)) = dataLow
 		if LogPM4Packets {
-			logger.Printf("[%s] wrote 32-bit %s to %s.\n",
-				color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
-				color.Yellow.Sprintf("0x%X", value),
+			logger.Printf("[%s] wrote %s 32-bit %s to %s.\n",
+				color.Green.Sprintf("PM4-%s", ringName),
+				color.Blue.Sprint(kind),
+				color.Yellow.Sprintf("0x%X", dataLow),
 				color.Yellow.Sprintf("0x%X", address),
 			)
 		}
 	case 2: // 64-bit value.
-		value := uint64(payload[3]) | uint64(payload[4])<<32
+		value := uint64(dataLow) | uint64(dataHigh)<<32
 		*(*uint64)(unsafe.Pointer(address)) = value
 		if LogPM4Packets {
-			logger.Printf("[%s] wrote 64-bit %s to %s.\n",
-				color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
+			logger.Printf("[%s] wrote %s 64-bit %s to %s.\n",
+				color.Green.Sprintf("PM4-%s", ringName),
+				color.Blue.Sprint(kind),
 				color.Yellow.Sprintf("0x%X", value),
 				color.Yellow.Sprintf("0x%X", address),
 			)
 		}
 	case 3: // GPU timestamp.
 		if LogPM4Packets {
-			logger.Printf("[%s] wrote GPU timestamp to %s.\n",
-				color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
+			logger.Printf("[%s] wrote %s GPU timestamp to %s.\n",
+				color.Green.Sprintf("PM4-%s", ringName),
+				color.Blue.Sprint(kind),
 				color.Yellow.Sprintf("0x%X", address),
 			)
 		}
 		*(*uint64)(unsafe.Pointer(address)) = 0
 	}
+}
+
+func (l *Liverpool) handleWaitOnDeCounterDiff(ringName string, payload []uint32) {
+	if len(payload) < 1 {
+		logger.Printf("[%s] wait on de counter payload too short.\n",
+			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
+		)
+		return
+	}
+	// diff := payload[0] & 0xFF
+	// TODO: this
 }
 
 func (l *Liverpool) handleDispatchDirect(ringName string, payload []uint32) {
@@ -308,6 +348,17 @@ func (l *Liverpool) handleDispatchDirect(ringName string, payload []uint32) {
 		)
 		return
 	}
+
+	l.StateMutex.Lock()
+	csPgmLo := l.Registers.Shader[gcn.GREG_MM_COMPUTE_PGM_LO]
+	csPgmHi := l.Registers.Shader[gcn.GREG_MM_COMPUTE_PGM_HI]
+	csRsrc1 := l.Registers.Shader[gcn.GREG_MM_COMPUTE_PGM_RSRC1]
+	csRsrc2 := l.Registers.Shader[gcn.GREG_MM_COMPUTE_PGM_RSRC2]
+	l.StateMutex.Unlock()
+
+	csAddress := (uintptr(csPgmLo) | uintptr(csPgmHi)<<32) << 8
+	l.DumpShaderOnce(csAddress, "CS", csRsrc1, csRsrc2)
+
 	if LogPM4Packets {
 		logger.Printf("[%s] dispatch direct (payload[0]=%s, payload[1]=%s, payload[2]=%s, payload[3]=%s).\n",
 			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),

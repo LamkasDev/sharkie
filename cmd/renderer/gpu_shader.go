@@ -26,11 +26,11 @@ func loadShaderModule(dev vk.Device, path string) (vk.ShaderModule, error) {
 			uint32(code[i*4+3])<<24
 	}
 
-	var mod vk.ShaderModule
+	var module vk.ShaderModule
 	result := vk.CreateShaderModule(dev, &vk.ShaderModuleCreateInfo{
 		SType:    vk.StructureTypeShaderModuleCreateInfo,
 		CodeSize: uint(len(code)),
 		PCode:    words,
-	}, nil, &mod)
-	return mod, as.NewError(result)
+	}, nil, &module)
+	return module, as.NewError(result)
 }

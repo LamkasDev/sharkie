@@ -90,7 +90,7 @@ func RegisterVariableStub(libraryName, symbolName string, size uintptr) *asm.Stu
 // CreateTrampoline generates an assembly trampoline that calls the specified Go function.
 func CreateTrampoline(goFuncAddr uintptr) uintptr {
 	// Allocate executable memory for the trampoline.
-	trampolineSize := uintptr(22) // MOV to RAX (10), MOV to R11 (10), JMP RAX (2)
+	trampolineSize := uint64(22) // MOV to RAX (10), MOV to R11 (10), JMP RAX (2)
 	trampolineAddr, _ := sys_struct.AllocExecutableMemory(trampolineSize)
 
 	// MOV stubAsm, RAX

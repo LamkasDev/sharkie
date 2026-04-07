@@ -29,8 +29,9 @@ func libKernel_scePthreadMutexInit(mutexHandlePtr, attrPtr uintptr, namePtr Cstr
 	var name string
 	if namePtr != nil {
 		name = GoString(namePtr)
-	} else {
-		name = fmt.Sprintf("Mutex_%x", mutexAddr)
+	}
+	if name == "" {
+		name = fmt.Sprintf("0x%X", mutexAddr)
 	}
 	mutex.Name = name
 

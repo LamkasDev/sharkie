@@ -2,7 +2,6 @@ package renderer
 
 import (
 	"runtime"
-	"sync"
 
 	"github.com/LamkasDev/sharkie/cmd/structs/gpu"
 	. "github.com/LamkasDev/sharkie/cmd/structs/video"
@@ -25,11 +24,7 @@ type Renderer struct {
 	RenderPass          vk.RenderPass
 	PipelineCache       vk.PipelineCache
 
-	// TODO: framebuffer texture is already double-buffered, so
-	//   	 maybe we should split it so it makes more sense?
-	FramebufferMutex   sync.RWMutex
-	Framebuffers       map[uintptr]*GuestFramebuffer
-	FramebufferTexture *FramebufferTexture
+	DisplayTextureId imgui.TextureRef
 }
 
 func NewRenderer(context as.Context, dimensions *as.SwapchainDimensions) *Renderer {
@@ -37,16 +32,15 @@ func NewRenderer(context as.Context, dimensions *as.SwapchainDimensions) *Render
 		Handles:             NewVulkanHandles(context),
 		SwapchainDimensions: dimensions,
 		FrameSource:         NewFrameSource(),
-		Framebuffers:        make(map[uintptr]*GuestFramebuffer),
 	}
 
 	var err error
 	if r.Backend, err = backend.CreateBackend(glfwvulkanbackend.NewGLFWBackend()); err != nil {
 		panic(err)
 	}
-	/* if r.GpuTranslator, err = NewGpuTranslator(r.Handles); err != nil {
+	if r.GpuTranslator, err = NewGpuTranslator(r.Handles, r.Backend); err != nil {
 		panic(err)
-	} */
+	}
 
 	r.Depth = NewDepth(r)
 	r.prepareRenderPass()
@@ -66,9 +60,8 @@ func NewRenderer(context as.Context, dimensions *as.SwapchainDimensions) *Render
 func (r *Renderer) Destroy() {
 	vk.DeviceWaitIdle(r.Handles.Device)
 	r.Backend.Cleanup()
-	if r.FramebufferTexture != nil {
-		r.FramebufferTexture.Destroy(&r.Handles)
-		r.FramebufferTexture = nil
+	if r.GpuTranslator != nil {
+		r.GpuTranslator.Destroy()
 	}
 	vk.DestroyPipelineCache(r.Handles.Device, r.PipelineCache, nil)
 	vk.DestroyRenderPass(r.Handles.Device, r.RenderPass, nil)
@@ -86,8 +79,8 @@ func (r *Renderer) DrawFramebuffer() {
 	imgui.SetNextWindowSize(imgui.Vec2{X: float32(r.SwapchainDimensions.Width), Y: float32(r.SwapchainDimensions.Height)})
 	imgui.PushStyleColorVec4(imgui.ColWindowBg, imgui.Vec4{X: 10 / 255.0, Y: 10 / 255.0, Z: 12 / 255.0, W: 1.0})
 	if imgui.BeginV("##fb", nil, ImguiOverlayFlags|imgui.WindowFlagsNoBringToFrontOnFocus) {
-		if r.FramebufferTexture != nil && r.FramebufferTexture.TextureId.CData != nil {
-			imgui.Image(r.FramebufferTexture.TextureId, imgui.Vec2{
+		if r.DisplayTextureId.CData != nil {
+			imgui.Image(r.DisplayTextureId, imgui.Vec2{
 				X: float32(r.SwapchainDimensions.Width),
 				Y: float32(r.SwapchainDimensions.Height),
 			})
@@ -112,41 +105,20 @@ func (r *Renderer) ConsumeFrames(done chan struct{}) {
 		if len(draws) > 0 && r.GpuTranslator != nil {
 			r.GpuTranslator.Submit(draws)
 		}
-
-		r.FramebufferMutex.RLock()
-		framebuffer, ok := r.Framebuffers[frame.GpuAddress]
-		r.FramebufferMutex.RUnlock()
-
-		// Detile from guest memory and copy to staging buffer.
-		if ok && r.FramebufferTexture != nil {
-			texture := framebuffer.Snapshot()
-			r.FramebufferTexture.WritePixels(texture.Pix)
-		}
 	}
 }
 
 func (r *Renderer) RegisterFramebuffer(address uintptr, attribute *VideoOutBufferAttribute) {
-	framebuffer := NewGuestFramebuffer(
-		address, int(attribute.Width), int(attribute.Height),
-		int(attribute.PitchInPixel), int(attribute.TilingMode),
-	)
-	r.FramebufferMutex.Lock()
-	r.Framebuffers[address] = framebuffer
-	r.FramebufferMutex.Unlock()
-	r.Overlay.LatestFramebuffer.Store(framebuffer)
-
-	if r.FramebufferTexture == nil {
-		var err error
-		r.FramebufferTexture, err = NewFramebufferTexture(&r.Handles, r.Backend, attribute.Width, attribute.Height)
-		if err != nil {
-			panic("renderer: could not allocate framebuffer texture: " + err.Error())
-		}
+	if r.GpuTranslator == nil {
+		return
+	}
+	textureId, err := r.GpuTranslator.RegisterSurface(address, attribute.Width, attribute.Height)
+	if err != nil {
+		panic("renderer: could not register GPU surface: " + err.Error())
 	}
 
-	if r.GpuTranslator != nil {
-		if err := r.GpuTranslator.RegisterSurface(address, attribute.Width, attribute.Height); err != nil {
-			panic("renderer: could not register GPU surface: " + err.Error())
-		}
+	if r.DisplayTextureId.CData == nil && textureId.CData != nil {
+		r.DisplayTextureId = textureId
 	}
 }
 

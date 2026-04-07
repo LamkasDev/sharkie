@@ -108,8 +108,8 @@ func (p *Patcher) CreateTcbAccessTrampoline(e *elf.Elf, instruction gapstone.Ins
 	}
 	trampolineAsm.mov_r64_from_mem(dstReg, scratchReg, int32(displacement))
 	trampolineCode := trampolineAsm.bytes()
-	trampolineSize := len(trampolineCode) + 5 // 5 bytes for jmp rel32
-	trampolineAddr, _ := sys_struct.AllocExecutableMemory(uintptr(trampolineSize))
+	trampolineSize := uint64(len(trampolineCode) + 5) // 5 bytes for jmp rel32
+	trampolineAddr, _ := sys_struct.AllocExecutableMemory(trampolineSize)
 
 	jumpBackAsm := newAsmHelper()
 	jumpBackSourceAddr := uint64(trampolineAddr) + uint64(len(trampolineCode))

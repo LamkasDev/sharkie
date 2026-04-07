@@ -30,10 +30,9 @@ type ImguiOverlay struct {
 	IconTexture imgui.TextureRef
 	Font        *imgui.Font
 
-	ShowOverlay       atomic.Bool
-	FrameCount        atomic.Uint64
-	LastFlip          atomic.Pointer[Frame]
-	LatestFramebuffer atomic.Pointer[GuestFramebuffer]
+	ShowOverlay atomic.Bool
+	FrameCount  atomic.Uint64
+	LastFlip    atomic.Pointer[Frame]
 }
 
 func NewImguiOverlay(bknd backend.Backend[glfwvulkanbackend.GLFWWindowFlags]) *ImguiOverlay {
@@ -142,7 +141,6 @@ func (overlay *ImguiOverlay) DrawHud(frameCount uint64) {
 		imgui.Separator()
 		imgui.Spacing()
 		HudRow("ring slot", colGreen, RingSlotText())
-		HudRow("surface", colGreen, SurfaceText(overlay.LatestFramebuffer.Load()))
 
 		imgui.PopStyleVar()
 		imgui.End()
@@ -176,20 +174,10 @@ func FlipArgText(frame *Frame) string {
 }
 
 func RingSlotText() string {
+	gpu.GlobalLiverpool.RingMutex.Lock()
+	defer gpu.GlobalLiverpool.RingMutex.Unlock()
 	return fmt.Sprintf("%d (%d & %d pending buffers)",
 		gc.GlobalGraphicsController.ActiveRingSlot,
 		len(gpu.GlobalLiverpool.ComputeRing.Pending),
 		len(gpu.GlobalLiverpool.GraphicsRing.Pending))
-}
-
-func SurfaceText(framebuffer *GuestFramebuffer) string {
-	if framebuffer == nil {
-		return "-"
-	}
-	tiling := "linear"
-	if framebuffer.Tiled {
-		tiling = "tiled"
-	}
-	return fmt.Sprintf("%dx%d %s pitch=%d",
-		framebuffer.Width, framebuffer.Height, tiling, framebuffer.PitchPixels)
 }

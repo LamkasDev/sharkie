@@ -7,12 +7,16 @@ import (
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/structs/gpu"
+	"github.com/elokore/cimgui-go-vulkan/backend"
+	glfwvulkanbackend "github.com/elokore/cimgui-go-vulkan/backend/glfwvulkan-backend"
+	"github.com/elokore/cimgui-go-vulkan/imgui"
 	vk "github.com/vulkan-go/vulkan"
 )
 
 // GpuTranslator converts decoded DrawCalls into Vulkan commands.
 type GpuTranslator struct {
 	handles  VulkanHandles
+	backend  backend.Backend[glfwvulkanbackend.GLFWWindowFlags]
 	mutex    sync.Mutex
 	surfaces map[uintptr]*GpuSurface
 
@@ -25,15 +29,13 @@ type GpuTranslator struct {
 	// Command pool/buffer for this frame's GPU work.
 	pool          vk.CommandPool
 	commandBuffer vk.CommandBuffer
-
-	// LastRenderedSurface is the last surface a draw was recorded into.
-	LastRenderedSurface *GpuSurface
 }
 
 // NewGpuTranslator creates a GpuTranslator, loads stub shaders and builds the stub pipeline layout.
-func NewGpuTranslator(handles VulkanHandles) (*GpuTranslator, error) {
+func NewGpuTranslator(handles VulkanHandles, bknd backend.Backend[glfwvulkanbackend.GLFWWindowFlags]) (*GpuTranslator, error) {
 	t := &GpuTranslator{
 		handles:  handles,
+		backend:  bknd,
 		surfaces: make(map[uintptr]*GpuSurface),
 	}
 	if err := t.createCommandPool(); err != nil {
@@ -52,10 +54,12 @@ func NewGpuTranslator(handles VulkanHandles) (*GpuTranslator, error) {
 // Destroy frees all Vulkan resources.
 func (t *GpuTranslator) Destroy() {
 	device := t.handles.Device
+	t.mutex.Lock()
 	vk.DeviceWaitIdle(device)
 	for _, s := range t.surfaces {
 		s.Destroy(device)
 	}
+	t.mutex.Unlock()
 	if t.stubPipeline != vk.NullPipeline {
 		vk.DestroyPipeline(device, t.stubPipeline, nil)
 	}
@@ -74,11 +78,11 @@ func (t *GpuTranslator) Destroy() {
 }
 
 // RegisterSurface registers a GPU address as a Vulkan render target.
-func (t *GpuTranslator) RegisterSurface(address uintptr, width, height uint32) error {
+func (t *GpuTranslator) RegisterSurface(address uintptr, width, height uint32) (imgui.TextureRef, error) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
-	if _, exists := t.surfaces[address]; exists {
-		return nil
+	if surface, exists := t.surfaces[address]; exists {
+		return surface.TextureId, nil
 	}
 
 	surface := &GpuSurface{
@@ -89,11 +93,12 @@ func (t *GpuTranslator) RegisterSurface(address uintptr, width, height uint32) e
 		firstUse:   true,
 	}
 	if err := t.allocSurface(surface); err != nil {
-		return fmt.Errorf("RegisterSurface 0x%X: %w", address, err)
+		return imgui.TextureRef{}, fmt.Errorf("RegisterSurface 0x%X: %w", address, err)
 	}
+	surface.TextureId = t.backend.CreateVulkanTexture(surface.sampler, surface.imageView, vk.ImageLayoutShaderReadOnlyOptimal)
 	t.surfaces[address] = surface
 
-	return nil
+	return surface.TextureId, nil
 }
 
 // Submit translates a slice of DrawCalls into Vulkan commands and submits them.
@@ -142,8 +147,14 @@ func (t *GpuTranslator) recordDraw(draw *gpu.LiverpoolDrawCall) {
 	}
 
 	// Transition image layout on first use.
-	if surface.firstUse {
-		t.transitionImage(surface, vk.ImageLayoutUndefined, vk.ImageLayoutColorAttachmentOptimal)
+	if !surface.firstUse {
+		t.imageBarrier(surface.image,
+			vk.ImageLayoutShaderReadOnlyOptimal, vk.ImageLayoutColorAttachmentOptimal,
+			vk.AccessFlags(vk.AccessShaderReadBit), vk.AccessFlags(vk.AccessColorAttachmentWriteBit),
+			vk.PipelineStageFlags(vk.PipelineStageFragmentShaderBit),
+			vk.PipelineStageFlags(vk.PipelineStageColorAttachmentOutputBit),
+		)
+	} else {
 		surface.firstUse = false
 	}
 
@@ -160,7 +171,7 @@ func (t *GpuTranslator) recordDraw(draw *gpu.LiverpoolDrawCall) {
 	}, vk.SubpassContentsInline)
 
 	vk.CmdBindPipeline(t.commandBuffer, vk.PipelineBindPointGraphics, t.stubPipeline)
-	t.setDynamicState(draw)
+	t.setDynamicState(draw, surface)
 
 	// Push a color constant.
 	stubColor := [4]float32{0.8, 0.0, 0.8, 1.0}
@@ -179,24 +190,26 @@ func (t *GpuTranslator) recordDraw(draw *gpu.LiverpoolDrawCall) {
 	vk.CmdDraw(t.commandBuffer, 3, instanceCount, 0, 0)
 
 	vk.CmdEndRenderPass(t.commandBuffer)
-	t.LastRenderedSurface = surface
 }
 
-func (t *GpuTranslator) setDynamicState(draw *gpu.LiverpoolDrawCall) {
-	// Viewport: GCN stores XScale and XOffset separately.
-	// VpXOffset = width/2, |VpYScale| = height/2.
+func (t *GpuTranslator) setDynamicState(draw *gpu.LiverpoolDrawCall, surface *GpuSurface) {
+	// Derive viewport from GCN scale/offset registers.
+	// XScale = width/2, YScale = -height/2 (GCN NDC => screen, Y is flipped).
 	vpWidth := float32(math.Abs(float64(draw.VpXScale)) * 2)
 	vpHeight := float32(math.Abs(float64(draw.VpYScale)) * 2)
 	vpX := draw.VpXOffset - vpWidth/2
 	vpY := draw.VpYOffset - vpHeight/2
 
-	// GCN Y-scale is negative (flips Y), which Vulkan handles natively with
-	// a negative-height viewport (VK_KHR_maintenance1).
+	// Negative height = Vulkan's built-in Y-flip (VK_KHR_maintenance1).
 	if draw.VpYScale < 0 {
 		vpY = draw.VpYOffset + vpHeight/2
 		vpHeight = -vpHeight
 	}
-
+	if vpWidth <= 0 || vpHeight == 0 {
+		vpWidth = float32(surface.Width)
+		vpHeight = float32(surface.Height)
+		vpX, vpY = 0, 0
+	}
 	vk.CmdSetViewport(t.commandBuffer, 0, 1, []vk.Viewport{{
 		X:        vpX,
 		Y:        vpY,
@@ -207,6 +220,11 @@ func (t *GpuTranslator) setDynamicState(draw *gpu.LiverpoolDrawCall) {
 	}})
 
 	sx, sy, sw, sh := draw.ScissorRect()
+	if sw <= 0 || sh <= 0 {
+		sw = int(surface.Width)
+		sh = int(surface.Height)
+		sx, sy = 0, 0
+	}
 	vk.CmdSetScissor(t.commandBuffer, 0, 1, []vk.Rect2D{{
 		Offset: vk.Offset2D{X: int32(sx), Y: int32(sy)},
 		Extent: vk.Extent2D{Width: uint32(sw), Height: uint32(sh)},

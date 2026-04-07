@@ -3,7 +3,6 @@ package lib
 import (
 	"encoding/binary"
 	"fmt"
-	"strings"
 	"time"
 	"unsafe"
 
@@ -21,11 +20,14 @@ func libKernel_sceKernelCreateSema(handlePtr uintptr, namePtr Cstring, attribute
 	}
 
 	semaphore := CreateSemaphore("unnamed", attributes, currentCount, maxCount)
+	var name string
 	if namePtr != nil {
-		semaphore.Name = strings.Clone(GoString(namePtr))
-	} else {
-		semaphore.Name = fmt.Sprintf("0x%X", semaphore.Handle)
+		name = GoString(namePtr)
 	}
+	if name == "" {
+		name = fmt.Sprintf("0x%X", semaphore.Handle)
+	}
+	semaphore.Name = name
 
 	handleSlice := unsafe.Slice((*byte)(unsafe.Pointer(handlePtr)), 4)
 	binary.LittleEndian.PutUint32(handleSlice, uint32(semaphore.Handle))

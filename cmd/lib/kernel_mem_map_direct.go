@@ -44,7 +44,7 @@ func libKernel_sceKernelMapNamedDirectMemory(addrPtr uintptr, length uint64, pro
 func libKernel_sys_sceKernelMapDirectMemory(addrPtr uintptr, length uint64, prot, flags int32, offset, alignment uintptr) uintptr {
 	// Perform initial pointer checks.
 	if alignment != 0 {
-		if !IsPowerOfTwo(alignment) {
+		if (alignment & (alignment - 1)) != 0 {
 			logger.Printf("%-132s %s failed due to invalid alignment %s.\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("sceKernelMapDirectMemory"),
@@ -63,7 +63,7 @@ func libKernel_sys_sceKernelMapDirectMemory(addrPtr uintptr, length uint64, prot
 			return ERR_PTR
 		}
 	}
-	if length < MEMORY_ALIGN || (length&(MEMORY_ALIGN-1)) != 0 {
+	if length == 0 || (length%uint64(MemoryPageSize)) != 0 {
 		logger.Printf("%-132s %s failed due to invalid size %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceKernelMapDirectMemory"),
@@ -81,9 +81,6 @@ func libKernel_sys_sceKernelMapDirectMemory(addrPtr uintptr, length uint64, prot
 		return ERR_PTR
 	}
 
-	// Write back offset.
-	WriteAddress(addrPtr, offset)
-
 	if _, err := ProtectKernelMemory(offset, length, prot); err != nil {
 		logger.Printf("%-132s %s failed due to memory protection error (%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -93,6 +90,9 @@ func libKernel_sys_sceKernelMapDirectMemory(addrPtr uintptr, length uint64, prot
 		SetErrno(EFAULT)
 		return ERR_PTR
 	}
+
+	// Write back offset.
+	WriteAddress(addrPtr, offset)
 
 	logger.Printf("%-132s %s mapped %s bytes at %s (addrPtr=%s, prot=%s, flags=%s, alignment=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),

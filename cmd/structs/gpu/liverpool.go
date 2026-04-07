@@ -21,6 +21,7 @@ type Liverpool struct {
 	PendingDrawCalls []LiverpoolDrawCall
 	ConstRam         [LiverpoolConstRamSize]uint32
 
+	SeenShaders     sync.Map
 	DisplaySurfaces map[uintptr]*LiverpoolDisplaySurface
 	PM4Handlers     map[uint8]PM4Handler
 
@@ -74,8 +75,10 @@ func (l *Liverpool) SubmitCommandBuffers(indirectBuffers []PM4IndirectBuffer) {
 }
 
 func (l *Liverpool) FlushDrawCalls() []LiverpoolDrawCall {
+	l.StateMutex.Lock()
 	drawCalls := l.PendingDrawCalls
 	l.PendingDrawCalls = l.PendingDrawCalls[:0]
+	l.StateMutex.Unlock()
 
 	return drawCalls
 }

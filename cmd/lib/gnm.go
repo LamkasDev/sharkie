@@ -1,6 +1,8 @@
 package lib
 
-import "github.com/LamkasDev/sharkie/cmd/elf"
+import (
+	"github.com/LamkasDev/sharkie/cmd/elf"
+)
 
 func RegisterGnmDriverStubs() {
 	// Command functions.

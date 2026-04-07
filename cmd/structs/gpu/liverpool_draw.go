@@ -56,10 +56,10 @@ type LiverpoolDrawCall struct {
 	ScissorBr uint32
 
 	// Shader programs.
-	PixShPgmLo uint32
-	PixShPgmHi uint32
-	VerShPgmLo uint32
-	VerShPgmHi uint32
+	PixShPgmLo, PixShPgmHi uint32
+	PixShRsrc1, PixShRsrc2 uint32
+	VerShPgmLo, VerShPgmHi uint32
+	VerShRsrc1, VerShRsrc2 uint32
 }
 
 // RtGpuAddress returns the 40-bit GPU address of the render target surface.
@@ -99,6 +99,8 @@ func (l *Liverpool) NewDrawCall(vertexCount uint32, isIndexed bool) LiverpoolDra
 		instanceCount = 1
 	}
 
+	l.StateMutex.Lock()
+	defer l.StateMutex.Unlock()
 	return LiverpoolDrawCall{
 		PrimType:      l.Registers.UserConfig[gcn.GREG_MM_VGT_PRIMITIVE_TYPE__CI__VI],
 		VertexCount:   vertexCount,
@@ -134,7 +136,11 @@ func (l *Liverpool) NewDrawCall(vertexCount uint32, isIndexed bool) LiverpoolDra
 
 		PixShPgmLo: l.Registers.Shader[gcn.GREG_MM_SPI_SHADER_PGM_LO_PS],
 		PixShPgmHi: l.Registers.Shader[gcn.GREG_MM_SPI_SHADER_PGM_HI_PS],
+		PixShRsrc1: l.Registers.Shader[gcn.GREG_MM_SPI_SHADER_PGM_RSRC1_PS],
+		PixShRsrc2: l.Registers.Shader[gcn.GREG_MM_SPI_SHADER_PGM_RSRC2_PS],
 		VerShPgmLo: l.Registers.Shader[gcn.GREG_MM_SPI_SHADER_PGM_LO_VS],
 		VerShPgmHi: l.Registers.Shader[gcn.GREG_MM_SPI_SHADER_PGM_HI_VS],
+		VerShRsrc1: l.Registers.Shader[gcn.GREG_MM_SPI_SHADER_PGM_RSRC1_VS],
+		VerShRsrc2: l.Registers.Shader[gcn.GREG_MM_SPI_SHADER_PGM_RSRC2_VS],
 	}
 }

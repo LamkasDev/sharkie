@@ -1,8 +1,10 @@
 package emu
 
 import (
+	"context"
 	"fmt"
 	"runtime"
+	"runtime/pprof"
 	"strings"
 	"sync"
 	"unsafe"
@@ -147,7 +149,7 @@ func (t *Thread) CallAndWait(funcAddr uintptr, arg uintptr) {
 // Run creates a new goroutine, pushes arguments on stack and calls the program's entry point.
 // It is non-blocking (we shouldn't return from there anyway).
 func (t *Thread) Run(e *elf.Elf) {
-	go func() {
+	go pprof.Do(context.Background(), pprof.Labels("name", t.Name), func(ctx context.Context) {
 		runtime.LockOSThread()
 		defer runtime.UnlockOSThread()
 
@@ -174,7 +176,7 @@ func (t *Thread) Run(e *elf.Elf) {
 
 		// This should not be reached.
 		logger.Println("Returned from run - this should not happen.")
-	}()
+	})
 }
 
 func (t *Thread) Exit(exitCode uintptr) {

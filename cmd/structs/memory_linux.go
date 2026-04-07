@@ -4,6 +4,8 @@ package structs
 
 import (
 	"syscall"
+
+	"github.com/LamkasDev/sharkie/cmd/sys_struct"
 )
 
 // MemoryProtToLinuxProt converts memory protection flags to Linux mmap/mprotect flags.
@@ -49,6 +51,7 @@ func AllocKernelMemory(addr uintptr, length uint64, prot, flags int32) (uintptr,
 		}
 		return addr, nil
 	}
+	addr = sys_struct.GetNextAlignedAddress(addr, length)
 	allocatedAddr, _, err := syscall.Syscall6(
 		syscall.SYS_MMAP,
 		addr,

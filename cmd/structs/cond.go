@@ -1,6 +1,8 @@
 package structs
 
 import (
+	"context"
+	"runtime/pprof"
 	"sync"
 	"time"
 )
@@ -39,11 +41,11 @@ func GetCond(guestAddress uintptr) *sync.Cond {
 
 func CondWaitTimeout(cond *sync.Cond, timeout time.Duration) bool {
 	done := make(chan struct{})
-	go func() {
+	go pprof.Do(context.Background(), pprof.Labels("name", "CondWaitTimeout"), func(ctx context.Context) {
 		cond.Wait()
 		cond.L.Unlock()
 		close(done)
-	}()
+	})
 
 	select {
 	case <-done:

@@ -1,6 +1,9 @@
 package renderer
 
-import vk "github.com/vulkan-go/vulkan"
+import (
+	"github.com/elokore/cimgui-go-vulkan/imgui"
+	vk "github.com/vulkan-go/vulkan"
+)
 
 // GpuSurface is a Vulkan-side render target that corresponds to a single
 // GPU-address-identified framebuffer surface registered by the game.
@@ -9,11 +12,13 @@ type GpuSurface struct {
 	Width      uint32
 	Height     uint32
 	Format     vk.Format
+	TextureId  imgui.TextureRef
 
 	// Vulkan objects.
 	image       vk.Image
 	imageMem    vk.DeviceMemory
 	imageView   vk.ImageView
+	sampler     vk.Sampler
 	framebuffer vk.Framebuffer
 	renderPass  vk.RenderPass
 

@@ -48,7 +48,7 @@ func stubGo() {
 	stubInfo := StubsMap[fnPtr]
 
 	// Call the function.
-	// fmt.Printf("[%d] %s:%s\n", threadContext.ThreadId, stubInfo.LibraryName, stubInfo.SymbolName)
+	// fmt.Printf("%s:%s\n", stubInfo.LibraryName, stubInfo.SymbolName)
 	ctx.AX = stubInfo.Dispatcher(ctx)
 
 	threadContext.LastGoSP = threadContext.GoSP

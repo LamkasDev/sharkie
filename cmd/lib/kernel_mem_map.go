@@ -29,6 +29,15 @@ func libKernel_mmap_0(addr uintptr, length uint64, prot, flags int32, fd FileDes
 		SetErrno(EINVAL)
 		return ERR_PTR
 	}
+	if addr != 0 && (addr%uintptr(MemoryPageSize)) != 0 {
+		logger.Printf("%-132s %s failed due to invalid address alignment %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("mmap_0"),
+			color.Yellow.Sprintf("0x%X", addr),
+		)
+		SetErrno(EINVAL)
+		return ERR_PTR
+	}
 
 	// If we need to write into the block, we need to set the flag it for a bit.
 	tempProt := prot

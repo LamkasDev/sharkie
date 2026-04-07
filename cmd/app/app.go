@@ -1,8 +1,10 @@
 package app
 
 import (
+	"context"
 	"fmt"
 	"log"
+	"runtime/pprof"
 	"time"
 
 	"github.com/LamkasDev/sharkie/cmd/logger"
@@ -75,7 +77,9 @@ func RunApplication() error {
 
 	// Start goroutine to consume new frames.
 	consumeFramesDone := make(chan struct{})
-	go GlobalApplication.Renderer.ConsumeFrames(consumeFramesDone)
+	go pprof.Do(context.Background(), pprof.Labels("name", "ConsumeFrames"), func(ctx context.Context) {
+		GlobalApplication.Renderer.ConsumeFrames(consumeFramesDone)
+	})
 
 	// Start the main render loop.
 	exitC := make(chan struct{}, 1)
@@ -106,9 +110,6 @@ func RunApplication() error {
 				panic(fmt.Errorf("AcquireNextImage: %w", err))
 			}
 
-			if GlobalApplication.Renderer.FramebufferTexture != nil {
-				GlobalApplication.Renderer.FramebufferTexture.UploadPending(&GlobalApplication.Renderer.Handles)
-			}
 			GlobalApplication.Renderer.Backend.NewFrame(imageIdx)
 			GlobalApplication.Renderer.Render()
 			GlobalApplication.Renderer.Backend.RenderFrame(imageIdx)

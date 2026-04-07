@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/logger"
@@ -16,12 +17,6 @@ var GlobalAllocator *Allocator
 
 // GlobalGoAllocator should be used for implicit allocations (inside init stubs, etc.)
 var GlobalGoAllocator *GoAllocator
-
-const (
-	// Alignment requirements (16KB).
-	MEMORY_ALIGN_MASK = 0x3FFF
-	MEMORY_ALIGN      = 0x4000
-)
 
 const (
 	SCE_KERNEL_MTYPE_WB_ONION  = 0x0 // Onion Bus (CPU shared)
@@ -52,10 +47,10 @@ const (
 )
 
 const (
-	DirectMemoryDefaultSize = 0x100000000 // 4GB
-	GpuMemoryDefaultSize    = 0x080000000 // 2GB
-	MemoryPageSize          = 0x4000      // 16KB
-	GuardPageSize           = 4096        // 4KB
+	DirectMemoryDefaultSize = uint64(0x100000000) // 4GB
+	GpuMemoryDefaultSize    = uint64(0x080000000) // 2GB
+	MemoryPageSize          = uint64(0x4000)      // 16KB
+	GuardPageSize           = uint64(4096)        // 4KB
 )
 
 const (
@@ -114,10 +109,10 @@ func NewAllocator() *Allocator {
 // NewGoAllocator creates a new instance of GoAllocator.
 func NewGoAllocator() *GoAllocator {
 	goAllocator := &GoAllocator{
-		Allocator:   gomem.NewScalableMemoryAllocator(1024),
 		Allocations: map[uintptr][]byte{},
 		Lock:        sync.Mutex{},
 	}
+	goAllocator.Allocator = gomem.NewScalableMemoryAllocator(1025)
 
 	return goAllocator
 }
@@ -199,6 +194,22 @@ func (allocator *GoAllocator) Realloc(ptr uintptr, newSize uintptr) uintptr {
 	allocator.Free(ptr)
 
 	return newAddress
+}
+
+func (allocator *Allocator) GetNextAlignedGpuMemoryAddress(alignment, length uint64) uintptr {
+	alignedLength := (length + (alignment - 1)) &^ (alignment - 1)
+	addr := (atomic.LoadUintptr(&allocator.GpuMemoryCurrent) + uintptr(alignment-1)) &^ uintptr(alignment-1)
+	atomic.StoreUintptr(&allocator.GpuMemoryCurrent, addr+uintptr(alignedLength))
+
+	return addr
+}
+
+func (allocator *Allocator) GetNextAlignedDirectMemoryAddress(alignment, length uint64) uintptr {
+	alignedLength := (length + (alignment - 1)) &^ (alignment - 1)
+	addr := (atomic.LoadUintptr(&allocator.DirectMemoryCurrent) + uintptr(alignment-1)) &^ uintptr(alignment-1)
+	atomic.StoreUintptr(&allocator.DirectMemoryCurrent, addr+uintptr(alignedLength))
+
+	return addr
 }
 
 func MemoryIsDirectOrGpu(addr uintptr) (bool, bool) {

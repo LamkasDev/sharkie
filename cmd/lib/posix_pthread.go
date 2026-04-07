@@ -1,8 +1,10 @@
 package lib
 
 import (
+	"context"
 	"encoding/binary"
 	"runtime"
+	"runtime/pprof"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
@@ -114,10 +116,10 @@ func libKernel_pthread_create_name_np(threadPtr, attrHandlePtr, entryPoint, arg 
 		WriteAddress(threadPtr, pthreadAddr)
 	}
 
-	go func() {
+	go pprof.Do(context.Background(), pprof.Labels("name", thread.Name), func(ctx context.Context) {
 		thread.Call(entryPoint, arg)
 		thread.Exit(0xDEAD)
-	}()
+	})
 
 	logger.Printf("%-132s %s created thread %s at %s (%s at %s, arg=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),

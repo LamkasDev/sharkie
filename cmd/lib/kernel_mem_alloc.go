@@ -30,18 +30,15 @@ func libKernel_sys_sceKernelAllocateDirectMemory(searchStart, searchEnd uintptr,
 		return ERR_PTR
 	}
 	if alignment == 0 {
-		alignment = MEMORY_ALIGN
+		alignment = MemoryPageSize
 	}
 
 	// Get the direct memory address.
 	var directAddr uintptr
 	if memType == SCE_KERNEL_MTYPE_WC_GARLIC || memType == SCE_KERNEL_MTYPE_WB_ONION {
-		directAddr = GlobalAllocator.GpuMemoryCurrent
+		directAddr = GlobalAllocator.GetNextAlignedGpuMemoryAddress(alignment, length)
 	} else {
-		directAddr = GlobalAllocator.DirectMemoryCurrent
-	}
-	if directAddr%uintptr(alignment) != 0 {
-		directAddr += uintptr(alignment) - (directAddr % uintptr(alignment))
+		directAddr = GlobalAllocator.GetNextAlignedDirectMemoryAddress(alignment, length)
 	}
 
 	// Allocate direct memory and perform alignment check.
@@ -49,24 +46,9 @@ func libKernel_sys_sceKernelAllocateDirectMemory(searchStart, searchEnd uintptr,
 	if allocatedAddr == ERR_PTR {
 		return ERR_PTR
 	}
-	if allocatedAddr%uintptr(alignment) != 0 {
-		logger.Printf("%-132s %s failed due to ignored alignment of %s (got=%s, wanted=%s).\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("sceKernelAllocateDirectMemory"),
-			color.Yellow.Sprintf("0x%X", alignment),
-			color.Yellow.Sprintf("0x%X", allocatedAddr),
-			color.Yellow.Sprintf("0x%X", directAddr),
-		)
-		return ERR_PTR
-	}
 
 	// Write back pointer.
 	WriteAddress(destPtr, allocatedAddr)
-	if memType == SCE_KERNEL_MTYPE_WC_GARLIC || memType == SCE_KERNEL_MTYPE_WB_ONION {
-		GlobalAllocator.GpuMemoryCurrent = allocatedAddr + uintptr(length)
-	} else {
-		GlobalAllocator.DirectMemoryCurrent = allocatedAddr + uintptr(length)
-	}
 
 	logger.Printf("%-132s %s stored pointer at %s (type=%s, alignment=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),

@@ -8,19 +8,23 @@ import (
 )
 
 func (t *GpuTranslator) createCommandPool() error {
+	var pool vk.CommandPool
 	result := vk.CreateCommandPool(t.handles.Device, &vk.CommandPoolCreateInfo{
 		SType:            vk.StructureTypeCommandPoolCreateInfo,
 		QueueFamilyIndex: t.handles.GraphicsQueueFamilyIndex,
 		Flags:            vk.CommandPoolCreateFlags(vk.CommandPoolCreateResetCommandBufferBit),
-	}, nil, &t.pool)
-	return as.NewError(result)
+	}, nil, &pool)
+	if err := as.NewError(result); err != nil {
+		return err
+	}
+	t.pool = pool
+	return nil
 }
 
 func (t *GpuTranslator) allocSurface(s *GpuSurface) error {
-	device := t.handles.Device
-
 	// Create the render-target image.
-	result := vk.CreateImage(device, &vk.ImageCreateInfo{
+	var image vk.Image
+	result := vk.CreateImage(t.handles.Device, &vk.ImageCreateInfo{
 		SType:         vk.StructureTypeImageCreateInfo,
 		ImageType:     vk.ImageType2d,
 		Format:        s.Format,
@@ -32,26 +36,30 @@ func (t *GpuTranslator) allocSurface(s *GpuSurface) error {
 		Usage:         vk.ImageUsageFlags(vk.ImageUsageColorAttachmentBit | vk.ImageUsageSampledBit | vk.ImageUsageTransferSrcBit),
 		SharingMode:   vk.SharingModeExclusive,
 		InitialLayout: vk.ImageLayoutUndefined,
-	}, nil, &s.image)
+	}, nil, &image)
 	if err := as.NewError(result); err != nil {
 		return fmt.Errorf("vkCreateImage: %w", err)
 	}
+	s.image = image
 
 	var memReqs vk.MemoryRequirements
-	vk.GetImageMemoryRequirements(device, s.image, &memReqs)
+	vk.GetImageMemoryRequirements(t.handles.Device, s.image, &memReqs)
 	memReqs.Deref()
 
-	result = vk.AllocateMemory(device, &vk.MemoryAllocateInfo{
+	var imageMem vk.DeviceMemory
+	result = vk.AllocateMemory(t.handles.Device, &vk.MemoryAllocateInfo{
 		SType:           vk.StructureTypeMemoryAllocateInfo,
 		AllocationSize:  memReqs.Size,
 		MemoryTypeIndex: t.handles.FindMemoryType(memReqs.MemoryTypeBits, vk.MemoryPropertyDeviceLocalBit),
-	}, nil, &s.imageMem)
+	}, nil, &imageMem)
 	if err := as.NewError(result); err != nil {
 		return fmt.Errorf("vkAllocateMemory: %w", err)
 	}
-	vk.BindImageMemory(device, s.image, s.imageMem, 0)
+	s.imageMem = imageMem
+	vk.BindImageMemory(t.handles.Device, s.image, s.imageMem, 0)
 
-	result = vk.CreateImageView(device, &vk.ImageViewCreateInfo{
+	var imageView vk.ImageView
+	result = vk.CreateImageView(t.handles.Device, &vk.ImageViewCreateInfo{
 		SType:    vk.StructureTypeImageViewCreateInfo,
 		Image:    s.image,
 		ViewType: vk.ImageViewType2d,
@@ -61,29 +69,28 @@ func (t *GpuTranslator) allocSurface(s *GpuSurface) error {
 			LevelCount: 1,
 			LayerCount: 1,
 		},
-	}, nil, &s.imageView)
+	}, nil, &imageView)
 	if err := as.NewError(result); err != nil {
 		return fmt.Errorf("vkCreateImageView: %w", err)
 	}
+	s.imageView = imageView
 
-	if err := t.createSurfaceRenderPass(s); err != nil {
-		return err
+	var sampler vk.Sampler
+	result = vk.CreateSampler(t.handles.Device, &vk.SamplerCreateInfo{
+		SType:        vk.StructureTypeSamplerCreateInfo,
+		MagFilter:    vk.FilterNearest,
+		MinFilter:    vk.FilterNearest,
+		AddressModeU: vk.SamplerAddressModeClampToEdge,
+		AddressModeV: vk.SamplerAddressModeClampToEdge,
+		AddressModeW: vk.SamplerAddressModeClampToEdge,
+	}, nil, &sampler)
+	if err := as.NewError(result); err != nil {
+		return fmt.Errorf("vkCreateSampler: %w", err)
 	}
+	s.sampler = sampler
 
-	result = vk.CreateFramebuffer(device, &vk.FramebufferCreateInfo{
-		SType:           vk.StructureTypeFramebufferCreateInfo,
-		RenderPass:      s.renderPass,
-		AttachmentCount: 1,
-		PAttachments:    []vk.ImageView{s.imageView},
-		Width:           s.Width,
-		Height:          s.Height,
-		Layers:          1,
-	}, nil, &s.framebuffer)
-	return as.NewError(result)
-}
-
-func (t *GpuTranslator) createSurfaceRenderPass(s *GpuSurface) error {
-	result := vk.CreateRenderPass(t.handles.Device, &vk.RenderPassCreateInfo{
+	var renderPass vk.RenderPass
+	result = vk.CreateRenderPass(t.handles.Device, &vk.RenderPassCreateInfo{
 		SType:           vk.StructureTypeRenderPassCreateInfo,
 		AttachmentCount: 1,
 		PAttachments: []vk.AttachmentDescription{{
@@ -105,25 +112,50 @@ func (t *GpuTranslator) createSurfaceRenderPass(s *GpuSurface) error {
 				Layout:     vk.ImageLayoutColorAttachmentOptimal,
 			}},
 		}},
-	}, nil, &s.renderPass)
-	return as.NewError(result)
+	}, nil, &renderPass)
+	if err := as.NewError(result); err != nil {
+		return fmt.Errorf("vkCreateRenderPass: %w", err)
+	}
+	s.renderPass = renderPass
+
+	var framebuffer vk.Framebuffer
+	result = vk.CreateFramebuffer(t.handles.Device, &vk.FramebufferCreateInfo{
+		SType:           vk.StructureTypeFramebufferCreateInfo,
+		RenderPass:      s.renderPass,
+		AttachmentCount: 1,
+		PAttachments:    []vk.ImageView{s.imageView},
+		Width:           s.Width,
+		Height:          s.Height,
+		Layers:          1,
+	}, nil, &framebuffer)
+	if err := as.NewError(result); err != nil {
+		return fmt.Errorf("vkCreateFramebuffer: %w", err)
+	}
+	s.framebuffer = framebuffer
+
+	return nil
 }
 
 func (t *GpuTranslator) loadStubShaders() error {
 	var err error
-	t.stubVertShader, err = loadShaderModule(t.handles.Device, "data/shaders/stub_vert.spv")
+	var vertModule vk.ShaderModule
+	vertModule, err = loadShaderModule(t.handles.Device, "data/shaders/stub_vert.spv")
 	if err != nil {
 		return fmt.Errorf("stub_vert.spv: %w", err)
 	}
-	t.stubFragShader, err = loadShaderModule(t.handles.Device, "data/shaders/stub_frag.spv")
+	t.stubVertShader = vertModule
+	var fragModule vk.ShaderModule
+	fragModule, err = loadShaderModule(t.handles.Device, "data/shaders/stub_frag.spv")
 	if err != nil {
 		return fmt.Errorf("stub_frag.spv: %w", err)
 	}
+	t.stubFragShader = fragModule
+
 	return nil
 }
 
 func (t *GpuTranslator) createStubPipelineLayout() error {
-	// Push constants: 4×float32 (16 bytes) for a debug colour.
+	var layout vk.PipelineLayout
 	result := vk.CreatePipelineLayout(t.handles.Device, &vk.PipelineLayoutCreateInfo{
 		SType: vk.StructureTypePipelineLayoutCreateInfo,
 		PPushConstantRanges: []vk.PushConstantRange{{
@@ -132,8 +164,13 @@ func (t *GpuTranslator) createStubPipelineLayout() error {
 			Size:       16,
 		}},
 		PushConstantRangeCount: 1,
-	}, nil, &t.stubPipelineLayout)
-	return as.NewError(result)
+	}, nil, &layout)
+	if err := as.NewError(result); err != nil {
+		return err
+	}
+	t.stubPipelineLayout = layout
+
+	return nil
 }
 
 func (t *GpuTranslator) createStubPipeline(renderPass vk.RenderPass, width, height uint32) error {
@@ -200,6 +237,7 @@ func (t *GpuTranslator) createStubPipeline(renderPass vk.RenderPass, width, heig
 		PAttachments:    []vk.PipelineColorBlendAttachmentState{blendAttach},
 	}
 
+	pipelines := make([]vk.Pipeline, 1)
 	result := vk.CreateGraphicsPipelines(t.handles.Device, vk.NullPipelineCache, 1,
 		[]vk.GraphicsPipelineCreateInfo{{
 			SType:               vk.StructureTypeGraphicsPipelineCreateInfo,
@@ -215,19 +253,22 @@ func (t *GpuTranslator) createStubPipeline(renderPass vk.RenderPass, width, heig
 			Layout:              t.stubPipelineLayout,
 			RenderPass:          renderPass,
 		}},
-		nil, []vk.Pipeline{t.stubPipeline})
-	return as.NewError(result)
+		nil, pipelines)
+	if err := as.NewError(result); err != nil {
+		return err
+	}
+	t.stubPipeline = pipelines[0]
+
+	return nil
 }
 
-func (t *GpuTranslator) transitionImage(s *GpuSurface, oldLayout, newLayout vk.ImageLayout) {
-	commandBuffer := t.handles.AllocateCommandBuffer(t.pool)
-	vk.BeginCommandBuffer(commandBuffer, &vk.CommandBufferBeginInfo{
-		SType: vk.StructureTypeCommandBufferBeginInfo,
-		Flags: vk.CommandBufferUsageFlags(vk.CommandBufferUsageOneTimeSubmitBit),
-	})
-	vk.CmdPipelineBarrier(commandBuffer,
-		vk.PipelineStageFlags(vk.PipelineStageTopOfPipeBit),
-		vk.PipelineStageFlags(vk.PipelineStageColorAttachmentOutputBit),
+func (t *GpuTranslator) imageBarrier(image vk.Image,
+	oldLayout, newLayout vk.ImageLayout,
+	srcAccess, dstAccess vk.AccessFlags,
+	srcStage, dstStage vk.PipelineStageFlags,
+) {
+	vk.CmdPipelineBarrier(t.commandBuffer,
+		srcStage, dstStage,
 		0, 0, nil, 0, nil,
 		1, []vk.ImageMemoryBarrier{{
 			SType:               vk.StructureTypeImageMemoryBarrier,
@@ -235,20 +276,13 @@ func (t *GpuTranslator) transitionImage(s *GpuSurface, oldLayout, newLayout vk.I
 			NewLayout:           newLayout,
 			SrcQueueFamilyIndex: vk.QueueFamilyIgnored,
 			DstQueueFamilyIndex: vk.QueueFamilyIgnored,
-			Image:               s.image,
+			Image:               image,
 			SubresourceRange: vk.ImageSubresourceRange{
 				AspectMask: vk.ImageAspectFlags(vk.ImageAspectColorBit),
 				LevelCount: 1,
 				LayerCount: 1,
 			},
-			DstAccessMask: vk.AccessFlags(vk.AccessColorAttachmentWriteBit),
+			SrcAccessMask: srcAccess,
+			DstAccessMask: dstAccess,
 		}})
-	vk.EndCommandBuffer(commandBuffer)
-	vk.QueueSubmit(t.handles.GraphicsQueue, 1, []vk.SubmitInfo{{
-		SType:              vk.StructureTypeSubmitInfo,
-		CommandBufferCount: 1,
-		PCommandBuffers:    []vk.CommandBuffer{commandBuffer},
-	}}, vk.NullFence)
-	vk.QueueWaitIdle(t.handles.GraphicsQueue)
-	vk.FreeCommandBuffers(t.handles.Device, t.pool, 1, []vk.CommandBuffer{commandBuffer})
 }

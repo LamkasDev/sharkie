@@ -14,11 +14,14 @@ func (l *Liverpool) handleDrawIndexAuto(ringName string, payload []uint32) {
 	}
 
 	// Record draw.
-	l.StateMutex.Lock()
 	count := payload[0]
 	drawCall := l.NewDrawCall(count, false)
+	l.StateMutex.Lock()
 	l.PendingDrawCalls = append(l.PendingDrawCalls, drawCall)
 	l.StateMutex.Unlock()
+
+	l.DumpShaderOnce(drawCall.VsGpuAddress(), "VS", drawCall.VerShRsrc1, drawCall.VerShRsrc2)
+	l.DumpShaderOnce(drawCall.PsGpuAddress(), "PS", drawCall.PixShRsrc1, drawCall.PixShRsrc2)
 
 	if LogPM4Packets {
 		logger.Printf("[%s] draw index auto (vertex=%s, prim=%s, rt=%s, vs=%s, ps=%s).\n",
@@ -41,13 +44,16 @@ func (l *Liverpool) handleDrawIndex2(ringName string, payload []uint32) {
 	}
 
 	// Record draw.
-	l.StateMutex.Lock()
 	l.DrawState.IndexBase = uintptr(uint64(payload[1]) | uint64(payload[2])<<32)
 	l.DrawState.IndexBufferSize = payload[0]
 	count := payload[3]
 	drawCall := l.NewDrawCall(count, true)
+	l.StateMutex.Lock()
 	l.PendingDrawCalls = append(l.PendingDrawCalls, drawCall)
 	l.StateMutex.Unlock()
+
+	l.DumpShaderOnce(drawCall.VsGpuAddress(), "VS", drawCall.VerShRsrc1, drawCall.VerShRsrc2)
+	l.DumpShaderOnce(drawCall.PsGpuAddress(), "PS", drawCall.PixShRsrc1, drawCall.PixShRsrc2)
 
 	if LogPM4Packets {
 		logger.Printf("[%s] draw index 2 (index_count=%s, index_base=%s, prim=%s, rt=%s, vs=%s, ps=%s).\n",

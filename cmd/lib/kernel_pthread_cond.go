@@ -24,8 +24,9 @@ func libKernel_scePthreadCondInit(condHandlePtr, attrHandlePtr uintptr, namePtr 
 	var name string
 	if namePtr != nil {
 		name = GoString(namePtr)
-	} else {
-		name = fmt.Sprintf("Cond_%x", condAddr)
+	}
+	if name == "" {
+		name = fmt.Sprintf("0x%X", condAddr)
 	}
 	cond.Name = name
 

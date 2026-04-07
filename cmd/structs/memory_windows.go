@@ -49,6 +49,7 @@ func AllocKernelMemory(addr uintptr, length uint64, prot, flags int32) (uintptr,
 	if !isDirectMemory && !isGpuMemory {
 		allocationType |= windows.MEM_RESERVE
 	}
+	addr = sys_struct.GetNextAlignedAddress(addr, length)
 	allocatedAddr, _, err := sys_struct.VirtualAlloc.Call(
 		addr,
 		uintptr(length),

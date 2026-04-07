@@ -8,8 +8,9 @@ import (
 
 // AllocExecutableMemory allocates a chunk of executable memory with the defined size.
 func AllocExecutableMemory(size uintptr) (uintptr, error) {
+	targetAddr := GetNextAlignedAddress(0, size)
 	addr, _, err := VirtualAlloc.Call(
-		0,
+		targetAddr,
 		size,
 		windows.MEM_COMMIT|windows.MEM_RESERVE,
 		windows.PAGE_EXECUTE_READWRITE,
