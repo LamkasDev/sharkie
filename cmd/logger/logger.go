@@ -12,13 +12,16 @@ const (
 	LogSyncing = false
 
 	// Logs syncing timeouts, attempts, etc.
-	LogSyncingFail = true
+	LogSyncingFail = false
 
 	// Logs when thread goes to sleep.
 	LogSleep = false
 
 	// Logs memory allocations.
 	LogAlloc = false
+
+	// Logs filesystem operations.
+	LogFilesystem = false
 
 	// Logs gnm & video functions.
 	LogGraphics = false

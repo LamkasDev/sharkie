@@ -57,13 +57,15 @@ func libKernel__read(fd FileDescriptor, bufPtr uintptr, length uint64) int64 {
 		return ERR_PTRI
 	}
 
-	logger.Printf("%-132s %s read %s bytes from %s (length=%s).\n",
-		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprint("_read"),
-		color.Yellow.Sprintf("0x%X", readBytes),
-		color.Yellow.Sprintf("0x%X", fd),
-		color.Yellow.Sprintf("0x%X", length),
-	)
+	if logger.LogFilesystem {
+		logger.Printf("%-132s %s read %s bytes from %s (length=%s).\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("_read"),
+			color.Yellow.Sprintf("0x%X", readBytes),
+			color.Yellow.Sprintf("0x%X", fd),
+			color.Yellow.Sprintf("0x%X", length),
+		)
+	}
 	return int64(readBytes)
 }
 
@@ -125,13 +127,15 @@ func libKernel_pread_0(fd FileDescriptor, bufPtr uintptr, length uint64, offset 
 		return ERR_PTRI
 	}
 
-	logger.Printf("%-132s %s read %s bytes from %s at offset %s (length=%s).\n",
-		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprint("pread_0"),
-		color.Yellow.Sprintf("0x%X", readBytes),
-		color.Yellow.Sprintf("0x%X", fd),
-		color.Yellow.Sprintf("0x%X", offset),
-		color.Yellow.Sprintf("0x%X", length),
-	)
+	if logger.LogFilesystem {
+		logger.Printf("%-132s %s read %s bytes from %s at offset %s (length=%s).\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("pread_0"),
+			color.Yellow.Sprintf("0x%X", readBytes),
+			color.Yellow.Sprintf("0x%X", fd),
+			color.Yellow.Sprintf("0x%X", offset),
+			color.Yellow.Sprintf("0x%X", length),
+		)
+	}
 	return int64(readBytes)
 }

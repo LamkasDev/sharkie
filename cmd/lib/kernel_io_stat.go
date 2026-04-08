@@ -115,11 +115,13 @@ func libKernel_fstat(fd FileDescriptor, statPtr uintptr) int32 {
 	stat.ImplementationDetails = 0
 	stat.CreateTime = Timestamp{Seconds: 0, Nanoseconds: 0}
 
-	logger.Printf("%-132s %s returned file stat for %s (size=%s).\n",
-		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprint("fstat"),
-		color.Yellow.Sprintf("0x%X", fd),
-		color.Yellow.Sprintf("0x%X", stat.Size),
-	)
+	if logger.LogFilesystem {
+		logger.Printf("%-132s %s returned file stat for %s (size=%s).\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("fstat"),
+			color.Yellow.Sprintf("0x%X", fd),
+			color.Yellow.Sprintf("0x%X", stat.Size),
+		)
+	}
 	return 0
 }

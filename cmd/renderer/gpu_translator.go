@@ -27,8 +27,7 @@ type GpuTranslator struct {
 	stubFragShader     vk.ShaderModule
 
 	// Command pool/buffer for this frame's GPU work.
-	pool          vk.CommandPool
-	commandBuffer vk.CommandBuffer
+	pool vk.CommandPool
 }
 
 // NewGpuTranslator creates a GpuTranslator, loads stub shaders and builds the stub pipeline layout.
@@ -101,36 +100,31 @@ func (t *GpuTranslator) RegisterSurface(address uintptr, width, height uint32) (
 	return surface.TextureId, nil
 }
 
-// Submit translates a slice of DrawCalls into Vulkan commands and submits them.
-func (t *GpuTranslator) Submit(draws []gpu.LiverpoolDrawCall) {
+// Translate translates a slice of DrawCalls into Vulkan commands and returns the command buffer.
+func (t *GpuTranslator) Translate(draws []gpu.LiverpoolDrawCall) *vk.CommandBuffer {
 	if len(draws) == 0 {
-		return
+		return nil
 	}
 
 	// Begin recording.
-	t.commandBuffer = t.handles.AllocateCommandBuffer(t.pool)
-	vk.BeginCommandBuffer(t.commandBuffer, &vk.CommandBufferBeginInfo{
+	commandBuffer := t.handles.AllocateCommandBuffer(t.pool)
+	vk.BeginCommandBuffer(commandBuffer, &vk.CommandBufferBeginInfo{
 		SType: vk.StructureTypeCommandBufferBeginInfo,
 		Flags: vk.CommandBufferUsageFlags(vk.CommandBufferUsageOneTimeSubmitBit),
 	})
 	for i := range draws {
-		t.recordDraw(&draws[i])
+		t.recordDraw(commandBuffer, &draws[i])
 	}
-	vk.EndCommandBuffer(t.commandBuffer)
+	vk.EndCommandBuffer(commandBuffer)
 
-	// Submit.
-	vk.QueueSubmit(t.handles.GraphicsQueue, 1, []vk.SubmitInfo{{
-		SType:              vk.StructureTypeSubmitInfo,
-		CommandBufferCount: 1,
-		PCommandBuffers:    []vk.CommandBuffer{t.commandBuffer},
-	}}, vk.NullFence)
-	vk.QueueWaitIdle(t.handles.GraphicsQueue)
-
-	vk.FreeCommandBuffers(t.handles.Device, t.pool, 1, []vk.CommandBuffer{t.commandBuffer})
-	// t.commandBuffer = vk.NullCommandBuffer
+	return &commandBuffer
 }
 
-func (t *GpuTranslator) recordDraw(draw *gpu.LiverpoolDrawCall) {
+func (t *GpuTranslator) FreeBuffer(commandBuffer vk.CommandBuffer) {
+	vk.FreeCommandBuffers(t.handles.Device, t.pool, 1, []vk.CommandBuffer{commandBuffer})
+}
+
+func (t *GpuTranslator) recordDraw(commandBuffer vk.CommandBuffer, draw *gpu.LiverpoolDrawCall) {
 	rtAddress := draw.RtGpuAddress()
 	t.mutex.Lock()
 	surface, ok := t.surfaces[rtAddress]
@@ -148,7 +142,7 @@ func (t *GpuTranslator) recordDraw(draw *gpu.LiverpoolDrawCall) {
 
 	// Transition image layout on first use.
 	if !surface.firstUse {
-		t.imageBarrier(surface.image,
+		t.imageBarrier(commandBuffer, surface.image,
 			vk.ImageLayoutShaderReadOnlyOptimal, vk.ImageLayoutColorAttachmentOptimal,
 			vk.AccessFlags(vk.AccessShaderReadBit), vk.AccessFlags(vk.AccessColorAttachmentWriteBit),
 			vk.PipelineStageFlags(vk.PipelineStageFragmentShaderBit),
@@ -161,7 +155,7 @@ func (t *GpuTranslator) recordDraw(draw *gpu.LiverpoolDrawCall) {
 	// Derive clear color from the stub.
 	clearColor := vk.ClearValue{}
 	clearColor.SetColor([]float32{0.8, 0.0, 0.8, 1.0})
-	vk.CmdBeginRenderPass(t.commandBuffer, &vk.RenderPassBeginInfo{
+	vk.CmdBeginRenderPass(commandBuffer, &vk.RenderPassBeginInfo{
 		SType:           vk.StructureTypeRenderPassBeginInfo,
 		RenderPass:      surface.renderPass,
 		Framebuffer:     surface.framebuffer,
@@ -170,13 +164,13 @@ func (t *GpuTranslator) recordDraw(draw *gpu.LiverpoolDrawCall) {
 		PClearValues:    []vk.ClearValue{clearColor},
 	}, vk.SubpassContentsInline)
 
-	vk.CmdBindPipeline(t.commandBuffer, vk.PipelineBindPointGraphics, t.stubPipeline)
-	t.setDynamicState(draw, surface)
+	vk.CmdBindPipeline(commandBuffer, vk.PipelineBindPointGraphics, t.stubPipeline)
+	t.setDynamicState(commandBuffer, draw, surface)
 
 	// Push a color constant.
 	stubColor := [4]float32{0.8, 0.0, 0.8, 1.0}
 	vk.CmdPushConstants(
-		t.commandBuffer, t.stubPipelineLayout,
+		commandBuffer, t.stubPipelineLayout,
 		vk.ShaderStageFlags(vk.ShaderStageFragmentBit),
 		0, 16,
 		unsafe.Pointer(&stubColor[0]),
@@ -187,12 +181,12 @@ func (t *GpuTranslator) recordDraw(draw *gpu.LiverpoolDrawCall) {
 	if instanceCount == 0 {
 		instanceCount = 1
 	}
-	vk.CmdDraw(t.commandBuffer, 3, instanceCount, 0, 0)
+	vk.CmdDraw(commandBuffer, 3, instanceCount, 0, 0)
 
-	vk.CmdEndRenderPass(t.commandBuffer)
+	vk.CmdEndRenderPass(commandBuffer)
 }
 
-func (t *GpuTranslator) setDynamicState(draw *gpu.LiverpoolDrawCall, surface *GpuSurface) {
+func (t *GpuTranslator) setDynamicState(commandBuffer vk.CommandBuffer, draw *gpu.LiverpoolDrawCall, surface *GpuSurface) {
 	// Derive viewport from GCN scale/offset registers.
 	// XScale = width/2, YScale = -height/2 (GCN NDC => screen, Y is flipped).
 	vpWidth := float32(math.Abs(float64(draw.VpXScale)) * 2)
@@ -210,7 +204,7 @@ func (t *GpuTranslator) setDynamicState(draw *gpu.LiverpoolDrawCall, surface *Gp
 		vpHeight = float32(surface.Height)
 		vpX, vpY = 0, 0
 	}
-	vk.CmdSetViewport(t.commandBuffer, 0, 1, []vk.Viewport{{
+	vk.CmdSetViewport(commandBuffer, 0, 1, []vk.Viewport{{
 		X:        vpX,
 		Y:        vpY,
 		Width:    vpWidth,
@@ -225,7 +219,7 @@ func (t *GpuTranslator) setDynamicState(draw *gpu.LiverpoolDrawCall, surface *Gp
 		sh = int(surface.Height)
 		sx, sy = 0, 0
 	}
-	vk.CmdSetScissor(t.commandBuffer, 0, 1, []vk.Rect2D{{
+	vk.CmdSetScissor(commandBuffer, 0, 1, []vk.Rect2D{{
 		Offset: vk.Offset2D{X: int32(sx), Y: int32(sy)},
 		Extent: vk.Extent2D{Width: uint32(sw), Height: uint32(sh)},
 	}})

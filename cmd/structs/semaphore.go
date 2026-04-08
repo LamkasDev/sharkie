@@ -3,6 +3,8 @@ package structs
 import (
 	"fmt"
 	"sync"
+
+	. "github.com/LamkasDev/sharkie/cmd/structs/cond"
 )
 
 var (
@@ -21,8 +23,8 @@ type Semaphore struct {
 	Attributes   uint32
 	CurrentCount int32
 	MaxCount     int32
-	Lock         sync.Mutex
-	Cond         *sync.Cond
+
+	Cond *CondWaitable
 }
 
 func CreateSemaphore(name string, attributes uint32, currentCount, maxCount int32) *Semaphore {
@@ -35,9 +37,8 @@ func CreateSemaphore(name string, attributes uint32, currentCount, maxCount int3
 		Attributes:   attributes,
 		CurrentCount: currentCount,
 		MaxCount:     maxCount,
-		Lock:         sync.Mutex{},
+		Cond:         NewCondWaitable(),
 	}
-	semaphore.Cond = sync.NewCond(&semaphore.Lock)
 	SemaphoreRepo[semaphore.Handle] = semaphore
 	NextSemaphoreId++
 	return semaphore

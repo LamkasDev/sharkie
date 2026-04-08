@@ -1,6 +1,7 @@
 package lib
 
 import (
+	"time"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
@@ -72,6 +73,9 @@ func libSceVideoOut_sceVideoOutSubmitEopFlip(rawHandle, bufferIndex, flipMode, f
 	// Ask GPU to present new buffer.
 	handle.CurrentBuffer = uint32(bufferIndex)
 	GlobalLiverpool.Flip(buffer.GpuAddress, uint64(flipArg))
+
+	// TODO: actually sync it with the ticker (too lazy).
+	time.Sleep(16666 * time.Microsecond)
 
 	// Simulate EOP completion.
 	if handle.LabelBufferAddress != 0 {

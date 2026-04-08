@@ -2,6 +2,7 @@ package renderer
 
 import (
 	"runtime"
+	"time"
 
 	"github.com/LamkasDev/sharkie/cmd/structs/gpu"
 	. "github.com/LamkasDev/sharkie/cmd/structs/video"
@@ -19,19 +20,21 @@ type Renderer struct {
 	FrameSource   *FrameSource
 	Overlay       *ImguiOverlay
 
-	SwapchainDimensions *as.SwapchainDimensions
-	Depth               *Depth
-	RenderPass          vk.RenderPass
-	PipelineCache       vk.PipelineCache
+	SwapchainDimensions   *as.SwapchainDimensions
+	Depth                 *Depth
+	RenderPass            vk.RenderPass
+	PipelineCache         vk.PipelineCache
+	PendingCommandBuffers chan vk.CommandBuffer
 
 	DisplayTextureId imgui.TextureRef
 }
 
 func NewRenderer(context as.Context, dimensions *as.SwapchainDimensions) *Renderer {
 	r := &Renderer{
-		Handles:             NewVulkanHandles(context),
-		SwapchainDimensions: dimensions,
-		FrameSource:         NewFrameSource(),
+		Handles:               NewVulkanHandles(context),
+		SwapchainDimensions:   dimensions,
+		FrameSource:           NewFrameSource(),
+		PendingCommandBuffers: make(chan vk.CommandBuffer),
 	}
 
 	var err error
@@ -95,17 +98,34 @@ func (r *Renderer) ConsumeFrames(done chan struct{}) {
 	defer runtime.UnlockOSThread()
 	defer close(done)
 
-	for rawFrame := range r.FrameSource.Channel {
-		frame := rawFrame
-		r.Overlay.LastFlip.Store(&frame)
-		r.Overlay.FrameCount.Add(1)
+	for range r.FrameSource.Channel {
+		r.UpdateCounters()
 
 		gpu.GlobalLiverpool.Walk()
 		draws := gpu.GlobalLiverpool.FlushDrawCalls()
 		if len(draws) > 0 && r.GpuTranslator != nil {
-			r.GpuTranslator.Submit(draws)
+			commandBuffer := r.GpuTranslator.Translate(draws)
+			if commandBuffer == nil {
+				continue
+			}
+			r.PendingCommandBuffers <- *commandBuffer
 		}
 	}
+}
+
+func (r *Renderer) UpdateCounters() {
+	r.Overlay.FrameCount.Add(1)
+	now := time.Now().UnixNano()
+	last := r.Overlay.FrameLastTime.Swap(now)
+	delta := float64(now-last) / float64(time.Second)
+	if delta <= 0 {
+		return
+	}
+	instantFramerate := 1.0 / delta
+	alpha := 0.1
+	oldFramerate := r.Overlay.Framerate.Load()
+	newFramerate := (instantFramerate * alpha) + (oldFramerate * (1.0 - alpha))
+	r.Overlay.Framerate.Store(newFramerate)
 }
 
 func (r *Renderer) RegisterFramebuffer(address uintptr, attribute *VideoOutBufferAttribute) {

@@ -11,6 +11,7 @@ import (
 	"github.com/elokore/cimgui-go-vulkan/backend"
 	glfwvulkanbackend "github.com/elokore/cimgui-go-vulkan/backend/glfwvulkan-backend"
 	"github.com/elokore/cimgui-go-vulkan/imgui"
+	atomicc "go.uber.org/atomic"
 )
 
 var (
@@ -30,9 +31,10 @@ type ImguiOverlay struct {
 	IconTexture imgui.TextureRef
 	Font        *imgui.Font
 
-	ShowOverlay atomic.Bool
-	FrameCount  atomic.Uint64
-	LastFlip    atomic.Pointer[Frame]
+	ShowOverlay   atomic.Bool
+	FrameCount    atomic.Uint64
+	FrameLastTime atomic.Int64
+	Framerate     atomicc.Float64
 }
 
 func NewImguiOverlay(bknd backend.Backend[glfwvulkanbackend.GLFWWindowFlags]) *ImguiOverlay {
@@ -108,8 +110,6 @@ func (overlay *ImguiOverlay) DrawWelcomeSplash(width, height uint32) {
 }
 
 func (overlay *ImguiOverlay) DrawHud(frameCount uint64) {
-	flip := overlay.LastFlip.Load()
-
 	imgui.SetNextWindowPos(imgui.Vec2{X: 8, Y: 8})
 	imgui.SetNextWindowSize(imgui.Vec2{X: 340, Y: 220})
 	imgui.PushStyleColorVec4(imgui.ColWindowBg, colOverlayBg)
@@ -132,9 +132,8 @@ func (overlay *ImguiOverlay) DrawHud(frameCount uint64) {
 		imgui.Spacing()
 		imgui.Separator()
 		imgui.Spacing()
-		HudRow("frames", colGreen, fmt.Sprintf("%d", frameCount))
-		HudRow("flip addr", colYellow, FlipAddressText(flip))
-		HudRow("flip arg", colYellow, FlipArgText(flip))
+		HudRow("frames", colGreen, fmt.Sprint(frameCount))
+		HudRow("fps", colGreen, fmt.Sprintf("%.1f", overlay.Framerate.Load()))
 
 		// Graphics card info.
 		imgui.Spacing()
@@ -157,20 +156,6 @@ func HudRow(label string, valueColor imgui.Vec4, value string) {
 	imgui.PushStyleColorVec4(imgui.ColText, valueColor)
 	imgui.Text(value)
 	imgui.PopStyleColor()
-}
-
-func FlipAddressText(frame *Frame) string {
-	if frame == nil {
-		return "-"
-	}
-	return fmt.Sprintf("0x%X", frame.GpuAddress)
-}
-
-func FlipArgText(frame *Frame) string {
-	if frame == nil {
-		return "-"
-	}
-	return fmt.Sprintf("0x%X", frame.FlipArg)
 }
 
 func RingSlotText() string {

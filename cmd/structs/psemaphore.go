@@ -3,13 +3,15 @@ package structs
 import (
 	"sync"
 	"unsafe"
+
+	"github.com/LamkasDev/sharkie/cmd/structs/cond"
 )
 
 const PSemaphoreMagic = 0x736D
 
 var (
-	// PSemaphoreRepo maps guest addresses (uintptr) to host semaphores (*sync.Cond).
-	PSemaphoreRepo = map[uintptr]*sync.Cond{}
+	// PSemaphoreRepo maps guest addresses (uintptr) to host semaphores (*CondWaitable).
+	PSemaphoreRepo = map[uintptr]*cond.CondWaitable{}
 
 	// PSemaphoreLock protects PSemaphoreRepo, so multiple threads can look up locks safely.
 	PSemaphoreLock sync.RWMutex
@@ -26,8 +28,8 @@ type PSemaphore struct {
 
 const PSemaphoreSize = unsafe.Sizeof(PSemaphore{})
 
-// GetPSemaphore retrieves or creates Go sync.Cond corresponding to a guest address.
-func GetPSemaphore(guestAddress uintptr) *sync.Cond {
+// GetPSemaphore retrieves or creates CondWaitable corresponding to a guest address.
+func GetPSemaphore(guestAddress uintptr) *cond.CondWaitable {
 	PSemaphoreLock.RLock()
 	semaphore, ok := PSemaphoreRepo[guestAddress]
 	PSemaphoreLock.RUnlock()
@@ -42,7 +44,7 @@ func GetPSemaphore(guestAddress uintptr) *sync.Cond {
 		return semaphore
 	}
 
-	semaphore = sync.NewCond(&sync.Mutex{})
+	semaphore = cond.NewCondWaitable()
 	PSemaphoreRepo[guestAddress] = semaphore
 	return semaphore
 }

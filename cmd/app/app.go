@@ -111,6 +111,17 @@ func RunApplication() error {
 			}
 
 			GlobalApplication.Renderer.Backend.NewFrame(imageIdx)
+			select {
+			case commandBuffer := <-GlobalApplication.Renderer.PendingCommandBuffers:
+				vk.QueueSubmit(GlobalApplication.Renderer.Handles.GraphicsQueue, 1, []vk.SubmitInfo{{
+					SType:              vk.StructureTypeSubmitInfo,
+					CommandBufferCount: 1,
+					PCommandBuffers:    []vk.CommandBuffer{commandBuffer},
+				}}, vk.NullFence)
+				vk.QueueWaitIdle(GlobalApplication.Renderer.Handles.GraphicsQueue)
+				GlobalApplication.Renderer.GpuTranslator.FreeBuffer(commandBuffer)
+			default:
+			}
 			GlobalApplication.Renderer.Render()
 			GlobalApplication.Renderer.Backend.RenderFrame(imageIdx)
 			imgui.UpdatePlatformWindows()

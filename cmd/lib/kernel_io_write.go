@@ -71,13 +71,15 @@ func libKernel__write(fd FileDescriptor, bufPtr uintptr, length uint64) int64 {
 		return ERR_PTRI
 	}
 
-	logger.Printf("%-132s %s wrote %s bytes to %s (length=%s).\n",
-		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprint("_write"),
-		color.Yellow.Sprintf("0x%X", wroteBytes),
-		color.Yellow.Sprintf("0x%X", fd),
-		color.Yellow.Sprintf("0x%X", length),
-	)
+	if logger.LogFilesystem {
+		logger.Printf("%-132s %s wrote %s bytes to %s (length=%s).\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("_write"),
+			color.Yellow.Sprintf("0x%X", wroteBytes),
+			color.Yellow.Sprintf("0x%X", fd),
+			color.Yellow.Sprintf("0x%X", length),
+		)
+	}
 	return int64(wroteBytes)
 }
 
@@ -139,12 +141,14 @@ func libKernel_pwrite_0(fd FileDescriptor, bufPtr uintptr, length uint64, offset
 		return ERR_PTRI
 	}
 
-	logger.Printf("%-132s %s wrote %s bytes to %s at offset %s.\n",
-		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprint("pwrite_0"),
-		color.Yellow.Sprintf("0x%X", wroteBytes),
-		color.Yellow.Sprintf("0x%X", fd),
-		color.Yellow.Sprintf("0x%X", offset),
-	)
+	if logger.LogFilesystem {
+		logger.Printf("%-132s %s wrote %s bytes to %s at offset %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("pwrite_0"),
+			color.Yellow.Sprintf("0x%X", wroteBytes),
+			color.Yellow.Sprintf("0x%X", fd),
+			color.Yellow.Sprintf("0x%X", offset),
+		)
+	}
 	return int64(wroteBytes)
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sync"
 
+	. "github.com/LamkasDev/sharkie/cmd/structs/cond"
 	"github.com/gookit/color"
 )
 
@@ -38,8 +39,7 @@ type EventFlag struct {
 	CurrentPattern uint64
 	InitialPattern uint64
 
-	Lock sync.Mutex
-	Cond *sync.Cond
+	Cond *CondWaitable
 }
 
 func NewEventFlag(name string, attributes uint32, currentPattern, initialPattern uint64) *EventFlag {
@@ -49,9 +49,8 @@ func NewEventFlag(name string, attributes uint32, currentPattern, initialPattern
 		Attributes:     attributes,
 		CurrentPattern: currentPattern,
 		InitialPattern: initialPattern,
-		Lock:           sync.Mutex{},
+		Cond:           NewCondWaitable(),
 	}
-	eventFlag.Cond = sync.NewCond(&eventFlag.Lock)
 
 	return eventFlag
 }

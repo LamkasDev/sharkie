@@ -111,12 +111,10 @@ func libKernel_sceKernelWaitSema(handle uintptr, needed int32, timeoutPtr uintpt
 		timeout = time.Duration(timeoutObj.Microseconds) * time.Microsecond
 	}
 
-	semaphore.Lock.Lock()
-	defer semaphore.Lock.Unlock()
-
 	start := time.Now()
 	for {
 		// Check value.
+		semaphore.Cond.Mutex.Lock()
 		if semaphore.CurrentCount >= needed {
 			semaphore.CurrentCount -= needed
 			logger.Printf("%-132s %s decremented semaphore %s to %s.\n",
@@ -125,8 +123,10 @@ func libKernel_sceKernelWaitSema(handle uintptr, needed int32, timeoutPtr uintpt
 				color.Blue.Sprint(semaphore.Name),
 				color.Green.Sprint(semaphore.CurrentCount),
 			)
+			semaphore.Cond.Mutex.Unlock()
 			return 0
 		}
+		semaphore.Cond.Mutex.Unlock()
 
 		if timeout != -1 {
 			if time.Since(start) >= timeout {
@@ -149,7 +149,7 @@ func libKernel_sceKernelWaitSema(handle uintptr, needed int32, timeoutPtr uintpt
 		if timeout == -1 {
 			semaphore.Cond.Wait()
 		} else {
-			waited := CondWaitTimeout(semaphore.Cond, timeout)
+			waited := semaphore.Cond.WaitTimeout(timeout)
 			if !waited {
 				logger.Printf("%-132s %s timed out on semaphore %s.\n",
 					emu.GlobalModuleManager.GetCallSiteText(),
@@ -170,8 +170,8 @@ func libKernel_sceKernelPollSema(handle uintptr, needed int32) uintptr {
 		return SCE_KERNEL_ERROR_ENOENT
 	}
 
-	semaphore.Lock.Lock()
-	defer semaphore.Lock.Unlock()
+	semaphore.Cond.Mutex.Lock()
+	defer semaphore.Cond.Mutex.Unlock()
 
 	if semaphore.CurrentCount >= needed {
 		semaphore.CurrentCount -= needed
@@ -197,8 +197,8 @@ func libKernel_sceKernelSignalSema(handle uintptr, signalCount int32) uintptr {
 		return SCE_KERNEL_ERROR_ENOENT
 	}
 
-	semaphore.Lock.Lock()
-	defer semaphore.Lock.Unlock()
+	semaphore.Cond.Mutex.Lock()
+	defer semaphore.Cond.Mutex.Unlock()
 
 	if semaphore.CurrentCount+signalCount > semaphore.MaxCount {
 		return SCE_KERNEL_ERROR_EINVAL

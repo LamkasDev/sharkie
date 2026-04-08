@@ -56,11 +56,13 @@ func libKernel__close(fd FileDescriptor) int32 {
 		return ERR_PTRI
 	}
 
-	logger.Printf("%-132s %s closed file %s (path=%s).\n",
-		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprint("_close"),
-		color.Yellow.Sprintf("0x%X", file.Descriptor),
-		color.Blue.Sprint(file.Path),
-	)
+	if logger.LogFilesystem {
+		logger.Printf("%-132s %s closed file %s (path=%s).\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("_close"),
+			color.Yellow.Sprintf("0x%X", file.Descriptor),
+			color.Blue.Sprint(file.Path),
+		)
+	}
 	return 0
 }

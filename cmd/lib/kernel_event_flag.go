@@ -141,12 +141,10 @@ func libKernel_sys_evf_wait(handle uintptr, waitPattern uint64, waitMode uint32,
 		timeout = time.Duration(timeoutObj.Microseconds) * time.Microsecond
 	}
 
-	eventFlag.Lock.Lock()
-	defer eventFlag.Lock.Unlock()
-
 	start := time.Now()
 	for {
 		// Check condition.
+		eventFlag.Cond.Mutex.Lock()
 		if CheckEventFlagCondition(eventFlag.CurrentPattern, waitPattern, waitMode) {
 			if outPatternPtr != 0 {
 				outPatternSlice := unsafe.Slice((*byte)(unsafe.Pointer(outPatternPtr)), 8)
@@ -167,8 +165,10 @@ func libKernel_sys_evf_wait(handle uintptr, waitPattern uint64, waitMode uint32,
 					GetEventFlagName(eventFlag),
 				)
 			}
+			eventFlag.Cond.Mutex.Unlock()
 			return 0
 		}
+		eventFlag.Cond.Mutex.Unlock()
 
 		if timeout != -1 {
 			if time.Since(start) >= timeout {
@@ -195,7 +195,7 @@ func libKernel_sys_evf_wait(handle uintptr, waitPattern uint64, waitMode uint32,
 		if timeout == -1 {
 			eventFlag.Cond.Wait()
 		} else {
-			waited := CondWaitTimeout(eventFlag.Cond, timeout)
+			waited := eventFlag.Cond.WaitTimeout(timeout)
 			if !waited {
 				if logger.LogSyncingFail {
 					logger.Printf("%-132s %s timed out on event flag %s.\n",
@@ -232,8 +232,8 @@ func libKernel_sys_evf_trywait(handle uintptr, waitPattern uint64, waitMode uint
 		return SCE_KERNEL_ERROR_ENOENT
 	}
 
-	eventFlag.Lock.Lock()
-	defer eventFlag.Lock.Unlock()
+	eventFlag.Cond.Mutex.Lock()
+	defer eventFlag.Cond.Mutex.Unlock()
 
 	// Check condition.
 	if CheckEventFlagCondition(eventFlag.CurrentPattern, waitPattern, waitMode) {
@@ -291,9 +291,9 @@ func libKernel_sys_evf_set(handle uintptr, bits uint64) uintptr {
 		return SCE_KERNEL_ERROR_ENOENT
 	}
 
-	eventFlag.Lock.Lock()
+	eventFlag.Cond.Mutex.Lock()
 	eventFlag.CurrentPattern |= bits
-	eventFlag.Lock.Unlock()
+	eventFlag.Cond.Mutex.Unlock()
 	eventFlag.Cond.Broadcast()
 
 	logger.Printf("%-132s %s set event flag %s to %s.\n",

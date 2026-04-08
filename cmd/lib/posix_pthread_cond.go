@@ -7,6 +7,7 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	. "github.com/LamkasDev/sharkie/cmd/structs"
+	. "github.com/LamkasDev/sharkie/cmd/structs/cond"
 	. "github.com/LamkasDev/sharkie/cmd/structs/pthread"
 	"github.com/gookit/color"
 )
@@ -201,9 +202,7 @@ func libKernel_pthread_cond_wait(condHandlePtr, mutexHandlePtr uintptr) uintptr 
 		)
 	}
 	hostCond := GetCond(condAddr)
-	hostCond.L.Lock()
 	hostCond.Wait()
-	hostCond.L.Unlock()
 	err = libKernel_pthread_mutex_lock(mutexHandlePtr)
 	if err != 0 {
 		return err
@@ -265,9 +264,7 @@ func libKernel_pthread_cond_timedwait(condHandlePtr, mutexHandlePtr, timestampPt
 		)
 	}
 	hostCond := GetCond(condAddr)
-	hostCond.L.Lock()
-	waited := CondWaitTimeout(hostCond, timeout)
-	hostCond.L.Unlock()
+	waited := hostCond.WaitTimeout(timeout)
 	err = libKernel_pthread_mutex_lock(mutexHandlePtr)
 	if err != 0 {
 		return err
@@ -327,9 +324,7 @@ func libKernel_pthread_cond_reltimedwait_np(condHandlePtr, mutexHandlePtr, micro
 		)
 	}
 	hostCond := GetCond(condAddr)
-	hostCond.L.Lock()
-	waited := CondWaitTimeout(hostCond, timeout)
-	hostCond.L.Unlock()
+	waited := hostCond.WaitTimeout(timeout)
 	err = libKernel_pthread_mutex_lock(mutexHandlePtr)
 	if err != 0 {
 		return err

@@ -262,12 +262,12 @@ func (t *GpuTranslator) createStubPipeline(renderPass vk.RenderPass, width, heig
 	return nil
 }
 
-func (t *GpuTranslator) imageBarrier(image vk.Image,
+func (t *GpuTranslator) imageBarrier(commandBuffer vk.CommandBuffer, image vk.Image,
 	oldLayout, newLayout vk.ImageLayout,
 	srcAccess, dstAccess vk.AccessFlags,
 	srcStage, dstStage vk.PipelineStageFlags,
 ) {
-	vk.CmdPipelineBarrier(t.commandBuffer,
+	vk.CmdPipelineBarrier(commandBuffer,
 		srcStage, dstStage,
 		0, 0, nil, 0, nil,
 		1, []vk.ImageMemoryBarrier{{

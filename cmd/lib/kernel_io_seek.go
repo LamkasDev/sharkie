@@ -68,11 +68,13 @@ func libKernel_lseek_0(fd FileDescriptor, offset int64, whence int32) int64 {
 		return -1
 	}
 
-	logger.Printf("%-132s %s moved %s cursor to %s.\n",
-		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprint("lseek_0"),
-		color.Yellow.Sprintf("0x%X", fd),
-		color.Yellow.Sprintf("0x%X", newOffset),
-	)
+	if logger.LogFilesystem {
+		logger.Printf("%-132s %s moved %s cursor to %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("lseek_0"),
+			color.Yellow.Sprintf("0x%X", fd),
+			color.Yellow.Sprintf("0x%X", newOffset),
+		)
+	}
 	return newOffset
 }

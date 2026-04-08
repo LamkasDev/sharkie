@@ -121,6 +121,7 @@ func SprintException(ctx *sys_struct.SIGNAL_CONTEXT) (result string) {
 
 // SetupSignalHandler registers the assembly trampoline for specified signals.
 func SetupSignalHandler() {
+	return
 	if C.setup_signal_stack() != 0 {
 		panic("failed to setup signal stack")
 	}

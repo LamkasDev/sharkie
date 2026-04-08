@@ -17,4 +17,5 @@ require (
 require (
 	github.com/xlab/linmath v0.0.0-20220922225318-40b6290c3b40 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
+	go.uber.org/atomic v1.11.0 // indirect
 )

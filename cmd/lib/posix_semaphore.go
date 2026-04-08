@@ -159,11 +159,10 @@ func libKernel_sem_timedwait(semPtr, timestampPtr uintptr) uintptr {
 
 	// Lock semaphore.
 	hostSemaphore := GetPSemaphore(semPtr)
-	hostSemaphore.L.Lock()
-	defer hostSemaphore.L.Unlock()
 
 	for {
 		// Check value again (holding lock this time).
+		hostSemaphore.Mutex.Lock()
 		if semaphore.Value > 0 {
 			semaphore.Value--
 			if logger.LogSyncing {
@@ -173,8 +172,10 @@ func libKernel_sem_timedwait(semPtr, timestampPtr uintptr) uintptr {
 					color.Yellow.Sprintf("0x%X", semPtr),
 				)
 			}
+			hostSemaphore.Mutex.Unlock()
 			return 0
 		}
+		hostSemaphore.Mutex.Unlock()
 
 		// Wait.
 		if logger.LogSyncing {
@@ -188,7 +189,7 @@ func libKernel_sem_timedwait(semPtr, timestampPtr uintptr) uintptr {
 		if timeout == -1 {
 			hostSemaphore.Wait()
 		} else {
-			waited := CondWaitTimeout(hostSemaphore, timeout)
+			waited := hostSemaphore.WaitTimeout(timeout)
 			if !waited {
 				if logger.LogSyncingFail {
 					logger.Printf("%-132s %s timed out on semaphore %s.\n",
@@ -231,7 +232,6 @@ func libKernel_sem_post(semPtr uintptr) uintptr {
 
 	// Signal slow-path.
 	hostSemaphore := GetPSemaphore(semPtr)
-	hostSemaphore.L.Lock()
 	hostSemaphore.Signal()
 	if logger.LogSyncing {
 		logger.Printf("%-132s %s signaled semaphore %s (value=%d).\n",
@@ -241,7 +241,6 @@ func libKernel_sem_post(semPtr uintptr) uintptr {
 			semaphore.Value,
 		)
 	}
-	hostSemaphore.L.Unlock()
 
 	return 0
 }

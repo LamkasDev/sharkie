@@ -72,12 +72,14 @@ func libKernel_truncate_0(pathPtr Cstring, length int64) int32 {
 		return ERR_PTRI
 	}
 
-	logger.Printf("%-132s %s truncated %s to %s bytes.\n",
-		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprint("truncate_0"),
-		color.Yellow.Sprintf("0x%X", fd),
-		color.Yellow.Sprintf("0x%X", length),
-	)
+	if logger.LogFilesystem {
+		logger.Printf("%-132s %s truncated %s to %s bytes.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("truncate_0"),
+			color.Yellow.Sprintf("0x%X", fd),
+			color.Yellow.Sprintf("0x%X", length),
+		)
+	}
 	return 0
 }
 
@@ -124,11 +126,13 @@ func libKernel_ftruncate_0(fd FileDescriptor, length int64) int32 {
 		return ERR_PTRI
 	}
 
-	logger.Printf("%-132s %s truncated %s to %s bytes.\n",
-		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprint("ftruncate_0"),
-		color.Yellow.Sprintf("0x%X", fd),
-		color.Yellow.Sprintf("0x%X", length),
-	)
+	if logger.LogFilesystem {
+		logger.Printf("%-132s %s truncated %s to %s bytes.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("ftruncate_0"),
+			color.Yellow.Sprintf("0x%X", fd),
+			color.Yellow.Sprintf("0x%X", length),
+		)
+	}
 	return 0
 }

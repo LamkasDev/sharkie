@@ -211,8 +211,8 @@ func libKernel_ipmimgr_call(op, handle, resultPtr, paramsPtr, paramsSize, magic,
 			return SCE_KERNEL_ERROR_EINVAL
 		}
 
-		client.Server.EventFlag.Lock.Lock()
-		defer client.Server.EventFlag.Lock.Unlock()
+		client.Server.EventFlag.Cond.Mutex.Lock()
+		defer client.Server.EventFlag.Cond.Mutex.Unlock()
 
 		pollEventFlag := (*IpmiPollEventFlag)(unsafe.Pointer(paramsPtr))
 		if CheckEventFlagCondition(client.Server.EventFlag.CurrentPattern, uint64(pollEventFlag.WaitPattern), pollEventFlag.WaitMode) {

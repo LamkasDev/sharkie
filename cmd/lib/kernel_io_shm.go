@@ -32,13 +32,15 @@ func libKernel_shm_open(pathPtr Cstring, oflag FileFlags, mode FileMode) int32 {
 		return ERR_PTRI
 	}
 
-	logger.Printf("%-132s %s opened file %s (path=%s, oflag=%s, mode=%s).\n",
-		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprint("shm_open"),
-		color.Yellow.Sprintf("0x%X", fd),
-		color.Blue.Sprint(path),
-		color.Yellow.Sprintf("0x%X", oflag),
-		color.Yellow.Sprintf("0x%X", mode),
-	)
+	if logger.LogFilesystem {
+		logger.Printf("%-132s %s opened file %s (path=%s, oflag=%s, mode=%s).\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("shm_open"),
+			color.Yellow.Sprintf("0x%X", fd),
+			color.Blue.Sprint(path),
+			color.Yellow.Sprintf("0x%X", oflag),
+			color.Yellow.Sprintf("0x%X", mode),
+		)
+	}
 	return int32(fd)
 }
