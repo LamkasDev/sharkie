@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"unsafe"
+	"strings"
 
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/LamkasDev/sharkie/cmd/structs/gcn"
@@ -20,25 +20,21 @@ func (l *Liverpool) DumpShaderOnce(address uintptr, stage string, rsrc1, rsrc2 u
 		return nil
 	}
 
-	// Scan guest memory for shader byte-code.
-	dwords, foundEndpgm := scanShader(address)
-	if dwords == nil {
-		return fmt.Errorf("could not read memory")
-	}
-	if !foundEndpgm {
-		logger.Printf("[%s] Hit cap on shader %s, skipping rest...",
-			color.Blue.Sprint("SHADER"),
-			color.Yellow.Sprintf("0x%X", address),
-		)
-	}
+	// Decode inputs.
 	vgprs, sgprs := decodeRsrc1(rsrc1)
 	scratchEnable := rsrc2 & 1
 	userDataCount := (rsrc2 >> 1) & 0x1F
+
+	// Create a new shader from shader byte-code.
+	shader, err := gcn.NewGcnShader(address)
+	if err != nil {
+		panic(err)
+	}
 	logger.Printf("[%s] Scanned %s shader %s of %s bytes (vgprs=%s, sgprs=%s, scratchEnable=%s, userDataCount=%s, rsrc1=%s, rsrc2=%s)...\n",
 		color.Blue.Sprint("SHADER"),
 		color.Blue.Sprint(stage),
 		color.Yellow.Sprintf("0x%X", address),
-		color.Green.Sprint(len(dwords)*4),
+		color.Green.Sprint(shader.DwordLength*4),
 		color.Yellow.Sprintf("0x%X", vgprs),
 		color.Yellow.Sprintf("0x%X", sgprs),
 		color.Yellow.Sprintf("0x%X", scratchEnable),
@@ -47,55 +43,55 @@ func (l *Liverpool) DumpShaderOnce(address uintptr, stage string, rsrc1, rsrc2 u
 		color.Yellow.Sprintf("0x%X", rsrc2),
 	)
 
-	// Disassemble into GCN instructions.
-	shader, err := gcn.NewGcnShader(dwords)
-	if err != nil {
-		panic(err)
-	}
-	var text string
-	for i, instr := range shader.Instructions {
-		instrText := instr.String()
-		logger.Printf("[%s] %s: %s\n",
+	// Print the disassembly.
+	var sb strings.Builder
+	for _, block := range shader.Cfg.Blocks {
+		fmt.Fprintf(&sb, "[%s] Block %s (%s):\n",
 			color.Blue.Sprint("SHADER"),
-			color.Green.Sprintf("%-4d", i),
-			color.Cyan.Sprint(instrText),
+			color.Green.Sprint(block.Id),
+			color.Yellow.Sprintf("0x%X", block.DwordOffset),
 		)
-		text += fmt.Sprintf("%s\n", instrText)
+		for _, instr := range block.Instructions {
+			fmt.Fprintf(&sb, "[%s] %s: %s\n",
+				color.Blue.Sprint("SHADER"),
+				color.Yellow.Sprintf("0x%04X", instr.DwordOffset),
+				color.Cyan.Sprint(instr.String()),
+			)
+		}
+		fmt.Fprintf(&sb, "[%s] Branches (%s)",
+			color.Blue.Sprint("SHADER"),
+			color.Blue.Sprint(block.Term),
+		)
+		if block.BranchCond != gcn.CondNone {
+			fmt.Fprintf(&sb, " on %s",
+				color.Magenta.Sprint(block.BranchCond),
+			)
+		}
+		switch len(block.Successors) {
+		case 0:
+			fmt.Fprintf(&sb, " to %s.\n", color.Red.Sprint("Exit"))
+		case 1:
+			fmt.Fprintf(&sb, " to %s.\n", color.Green.Sprint(block.Successors[0]))
+		case 2:
+			fmt.Fprintf(&sb, " to %s (falls to %s).\n",
+				color.Green.Sprint(block.Successors[1]),
+				color.Green.Sprint(block.Successors[0]),
+			)
+		}
 	}
+	logger.Print(sb.String())
 
-	// Dump the raw & disassembled shader.
-	data := unsafe.Slice((*byte)(unsafe.Pointer(address)), len(dwords)*4)
-	if err = os.MkdirAll(path.Join("temp", "shaders"), 0777); err != nil {
-		return err
-	}
-	binFilename := path.Join("temp", "shaders", fmt.Sprintf("shader_0x%X_%s.bin", address, stage))
-	if err = os.WriteFile(binFilename, data, 0777); err != nil {
-		return err
-	}
+	// Dump the disassembled shader.
 	textFilename := path.Join("temp", "shaders", fmt.Sprintf("shader_0x%X_%s.txt", address, stage))
-	if err = os.WriteFile(textFilename, []byte(text), 0777); err != nil {
+	if err = os.WriteFile(textFilename, []byte(sb.String()), 0777); err != nil {
 		return err
 	}
 	logger.Printf("[%s] Dumped shader to %s...\n",
 		color.Blue.Sprint("SHADER"),
-		color.Blue.Sprint(binFilename),
+		color.Blue.Sprint(textFilename),
 	)
 
 	return nil
-}
-
-// scanShader reads dwords from address until it finds S_ENDPGM or hits the limit.
-func scanShader(address uintptr) (dwords []uint32, foundEndpgm bool) {
-	dwords = make([]uint32, 0, 256)
-	for i := 0; i < gcn.GcnShaderMaxDwords; i++ {
-		dw := *(*uint32)(unsafe.Pointer(address + uintptr(i)*4))
-		dwords = append(dwords, dw)
-		if dw == gcn.GcnShaderEndProgram {
-			return dwords, true
-		}
-	}
-
-	return dwords, false
 }
 
 // decodeRsrc1 extracts VGPR and SGPR counts from a SPI_SHADER_PGM_RSRC1 or COMPUTE_PGM_RSRC1 value.

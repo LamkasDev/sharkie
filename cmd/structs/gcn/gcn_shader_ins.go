@@ -22,9 +22,10 @@ var InstructionDecodeMap = map[Encoding]InstructionDecodeFunc{
 // Following based on this doc:
 // https://docs.amd.com/v/u/en-US/sea-islands-instruction-set-architecture_0
 type Instruction struct {
-	Encoding Encoding
-	Dwords   [2]uint32
-	DwordLen int
+	Encoding    Encoding
+	DwordOffset uintptr
+	Dwords      [2]uint32
+	DwordLen    int
 
 	// Follows some instructions when SRC0/SSRC0 == 0xFF.
 	HasLiteral bool
@@ -35,7 +36,7 @@ type Instruction struct {
 	SDst   uint32 // scalar destination register index (SOP2 / SOPK / SOP1)
 	SSrc0  uint32 // scalar source 0 (SOP2 / SOP1 / SOPC)
 	SSrc1  uint32 // scalar source 1 (SOP2 / SOPC)
-	Simm16 uint32 // signed immediate (SOPK / SOPP)
+	Simm16 int16  // signed immediate (SOPK / SOPP)
 
 	// Vector instructions.
 	VOp   uint32 // instruction opcode
@@ -97,10 +98,11 @@ type Instruction struct {
 	ExpVSrcs  [4]uint32
 }
 
-func NewInstruction(enc Encoding, dwords []uint32) (Instruction, error) {
+func NewInstruction(dwordOffset uintptr, enc Encoding, dwords []uint32) (Instruction, error) {
 	instr := Instruction{
-		Encoding: enc,
-		DwordLen: len(dwords),
+		Encoding:    enc,
+		DwordOffset: dwordOffset,
+		DwordLen:    len(dwords),
 	}
 	copy(instr.Dwords[:], dwords)
 	decodeFunc, ok := InstructionDecodeMap[instr.Encoding]
@@ -110,46 +112,6 @@ func NewInstruction(enc Encoding, dwords []uint32) (Instruction, error) {
 	decodeFunc(&instr)
 
 	return instr, nil
-}
-
-func (instr *Instruction) DecodeSOP2() {
-	dw := instr.Dwords[0]
-	instr.SSrc0 = dw & 0b1111_1111
-	instr.SSrc1 = (dw >> 8) & 0b1111_1111
-	instr.SDst = (dw >> 16) & 0b1111_111
-	instr.SOp = (dw >> 23) & 0b1111_111
-	if instr.DwordLen > 1 {
-		instr.HasLiteral = true
-		instr.Literal = instr.Dwords[1]
-	}
-}
-
-func (instr *Instruction) DecodeSOP1() {
-	dw := instr.Dwords[0]
-	instr.SSrc0 = dw & 0b1111_1111
-	instr.SOp = (dw >> 8) & 0b1111_1111
-	instr.SDst = (dw >> 16) & 0b1111_111
-	if instr.DwordLen > 1 {
-		instr.HasLiteral = true
-		instr.Literal = instr.Dwords[1]
-	}
-}
-
-func (instr *Instruction) DecodeSOPC() {
-	dw := instr.Dwords[0]
-	instr.SSrc0 = dw & 0b1111_1111
-	instr.SSrc1 = (dw >> 8) & 0b1111_1111
-	instr.SOp = (dw >> 16) & 0b1111_111
-	if instr.DwordLen > 1 {
-		instr.HasLiteral = true
-		instr.Literal = instr.Dwords[1]
-	}
-}
-
-func (instr *Instruction) DecodeSOPP() {
-	dw := instr.Dwords[0]
-	instr.Simm16 = dw & 0b1111_1111_1111_1111
-	instr.SOp = (dw >> 16) & 0b1111_111
 }
 
 func (instr *Instruction) DecodeVOP2() {
