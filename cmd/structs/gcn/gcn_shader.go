@@ -40,5 +40,5 @@ func (instr *Instruction) String() string {
 		rawHex += fmt.Sprintf(" 0x%08X", instr.Dwords[1])
 	}
 
-	return fmt.Sprintf("%-6s  %-25s  %-20s  %s", instr.Encoding, rawHex, "??", "??")
+	return fmt.Sprintf("%-6s  %-22s  %-24s  %s", instr.Encoding, rawHex, instr.GetMnemotic(), instr.GetFieldsString())
 }

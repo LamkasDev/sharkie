@@ -1,5 +1,7 @@
 github.com/bpfsnoop/gapstone v0.0.0-20250326154852-7e3bee2c2f09 h1:TPzMoLxK2lYzfEewH2/3h1c+8W9mMkJ/9QyiAiaKR58=
 github.com/bpfsnoop/gapstone v0.0.0-20250326154852-7e3bee2c2f09/go.mod h1:z8pjvjRs6upeW3rOvXbyAua+ngoozVZg6HwTdRsALoM=
+github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
+github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/elokore/cimgui-go-vulkan v0.0.0-20260121015643-83ae24cbf143 h1:LuhtV/ZvpOBqEM4qMoCp2udrsgH9rA/giBMncFAOaOE=
 github.com/elokore/cimgui-go-vulkan v0.0.0-20260121015643-83ae24cbf143/go.mod h1:CGO3/43BMQkgNZNf2dLYrGCkcykIZCCS2boofPKm2fI=
 github.com/elokore/glfw/v3.4/glfw v0.0.0-20251221231958-c1dc85df2170 h1:8erI7Buk8dSAVxBmQxiTnJDESbIoEesxEN8ZzjZcOE0=
@@ -10,6 +12,10 @@ github.com/gookit/color v1.6.0 h1:JjJXBTk1ETNyqyilJhkTXJYYigHG24TM9Xa2M1xAhRA=
 github.com/gookit/color v1.6.0/go.mod h1:9ACFc7/1IpHGBW8RwuDm/0YEnhg3dwwXpoMsmtyHfjs=
 github.com/langhuihui/gomem v0.0.0-20251013004544-ee5a2a75c165 h1:lmJwCqfrlAdifn9S4zDjRKRFPhb0k4jVR4m2y2mRRC0=
 github.com/langhuihui/gomem v0.0.0-20251013004544-ee5a2a75c165/go.mod h1:BTPq1+4YUP4i7w8VHzs5AUIdn3T5gXjIUXbxgHW9TIQ=
+github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
+github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
+github.com/stretchr/testify v1.3.0 h1:TivCn/peBQ7UY8ooIcPgZFpTNSz0Q2U6UrFlUfqbe0Q=
+github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UVUgZn+9EI=
 github.com/vulkan-go/asche v0.0.0-20190912134304-d4b318b67e07 h1:QIXP1nx5b+YZt1cKDP5SR/89tRXrLxWslBBFBvH/+Y0=
 github.com/vulkan-go/asche v0.0.0-20190912134304-d4b318b67e07/go.mod h1:fIbNY6YffQRtdF22h26OXRprI/BGOWPKlxJWtNC78OA=
 github.com/vulkan-go/vulkan v0.0.0-20221209234627-c0a353ae26c8 h1:qPHDyQTLtn40kezY6y4UL7bH7Z0Im9wSu1tQtM2wbUU=
@@ -22,6 +28,8 @@ github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e h1:JVG44RsyaB9T2KIHavM
 github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e/go.mod h1:RbqR21r5mrJuqunuUZ/Dhy/avygyECGrLceyNeo4LiM=
 go.uber.org/atomic v1.11.0 h1:ZvwS0R+56ePWxUNi+Atn9dWONBPp/AUETXlHW0DxSjE=
 go.uber.org/atomic v1.11.0/go.mod h1:LUxbIzbOniOlMKjJjyPfpl4v+PKK2cNJn91OQbhoJI0=
+go101.org/nstd v0.2.3 h1:bdA8csF5WXG1Be92pPw0co2REGi1j/lQd8ONIxXGDTA=
+go101.org/nstd v0.2.3/go.mod h1:YUg7KaqhXgUz70QOtuF4JaVerJQKC9qbOuDbmEcD1U4=
 golang.org/x/exp v0.0.0-20220909182711-5c715a9e8561 h1:MDc5xs78ZrZr3HMQugiXOAkSZtfTpbJLDr/lwfgO53E=
 golang.org/x/exp v0.0.0-20220909182711-5c715a9e8561/go.mod h1:cyybsKvd6eL0RnXn6p/Grxp8F5bW7iYuBgsNCOHpMYE=
 golang.org/x/sys v0.42.0 h1:omrd2nAlyT5ESRdCLYdm3+fMfNFE/+Rf4bDIQImRJeo=

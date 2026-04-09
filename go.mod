@@ -11,11 +11,12 @@ require (
 	github.com/vulkan-go/asche v0.0.0-20190912134304-d4b318b67e07
 	github.com/vulkan-go/vulkan v0.0.0-20221209234627-c0a353ae26c8
 	github.com/xlab/closer v1.1.0
+	go.uber.org/atomic v1.11.0
+	go101.org/nstd v0.2.3
 	golang.org/x/sys v0.42.0
 )
 
 require (
 	github.com/xlab/linmath v0.0.0-20220922225318-40b6290c3b40 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
-	go.uber.org/atomic v1.11.0 // indirect
 )

@@ -13,11 +13,11 @@ const (
 	EncSOPP // Scalar ALU program flow
 
 	// [Vector ALU Operations] 6.1 Microcode Encodings.
-	EncVOP2  // Vector ALU, 2 sources
-	EncVOP1  // Vector ALU, 1 source
-	EncVOPC  // Vector ALU compare
-	EncINTRP // Vector ALU interpolate
-	EncVOP3  // Vector ALU 3-source (classic or scalar destination)
+	EncVOP2   // Vector ALU, 2 sources
+	EncVOP1   // Vector ALU, 1 source
+	EncVOPC   // Vector ALU compare
+	EncVINTRP // Vector ALU interpolate
+	EncVOP3   // Vector ALU 3-source (classic or scalar destination)
 
 	// [Scalar Memory Operations] 7.1 Microcode Encoding
 	EncSMRD // Scalar Memory read
@@ -48,7 +48,7 @@ var EncodingNames = map[Encoding]string{
 	EncVOP2:    "VOP2",
 	EncVOP1:    "VOP1",
 	EncVOPC:    "VOPC",
-	EncINTRP:   "INTRP",
+	EncVINTRP:  "VINTRP",
 	EncVOP3:    "VOP3",
 	EncSMRD:    "SMRD",
 	EncMTBUF:   "MTBUF",
