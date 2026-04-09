@@ -8,7 +8,7 @@ import (
 
 	"github.com/LamkasDev/sharkie/cmd/asm"
 	"github.com/LamkasDev/sharkie/cmd/logger"
-	"github.com/LamkasDev/sharkie/cmd/structs/gcn"
+	. "github.com/LamkasDev/sharkie/cmd/structs/gcn"
 	"github.com/gookit/color"
 )
 
@@ -350,14 +350,13 @@ func (l *Liverpool) handleDispatchDirect(ringName string, payload []uint32) {
 	}
 
 	l.StateMutex.Lock()
-	csPgmLo := l.Registers.Shader[gcn.GREG_MM_COMPUTE_PGM_LO]
-	csPgmHi := l.Registers.Shader[gcn.GREG_MM_COMPUTE_PGM_HI]
-	csRsrc1 := l.Registers.Shader[gcn.GREG_MM_COMPUTE_PGM_RSRC1]
-	csRsrc2 := l.Registers.Shader[gcn.GREG_MM_COMPUTE_PGM_RSRC2]
+	computeShPgmLo := l.Registers.Shader[GREG_MM_COMPUTE_PGM_LO]
+	computeShPgmHi := l.Registers.Shader[GREG_MM_COMPUTE_PGM_HI]
+	csAddress := (uintptr(computeShPgmLo) | uintptr(computeShPgmHi)<<32) << 8
 	l.StateMutex.Unlock()
 
-	csAddress := (uintptr(csPgmLo) | uintptr(csPgmHi)<<32) << 8
-	l.DumpShaderOnce(csAddress, "CS", csRsrc1, csRsrc2)
+	// Force it to load.
+	l.GetShader(GcnShaderStageCompute, csAddress)
 
 	if LogPM4Packets {
 		logger.Printf("[%s] dispatch direct (payload[0]=%s, payload[1]=%s, payload[2]=%s, payload[3]=%s).\n",

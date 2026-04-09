@@ -4,7 +4,10 @@ package gpu
 import (
 	"sync"
 
+	"github.com/LamkasDev/sharkie/cmd/logger"
+	. "github.com/LamkasDev/sharkie/cmd/structs/gcn"
 	. "github.com/LamkasDev/sharkie/cmd/structs/video"
+	"github.com/gookit/color"
 )
 
 var GlobalLiverpool *Liverpool
@@ -21,7 +24,9 @@ type Liverpool struct {
 	PendingDrawCalls []LiverpoolDrawCall
 	ConstRam         [LiverpoolConstRamSize]uint32
 
-	SeenShaders     sync.Map
+	ShadersMutex  sync.Mutex
+	LoadedShaders map[uintptr]*GcnShader
+
 	DisplaySurfaces map[uintptr]*LiverpoolDisplaySurface
 	PM4Handlers     map[uint8]PM4Handler
 
@@ -36,6 +41,9 @@ func NewLiverpool() *Liverpool {
 		ComputeRing:  &LiverpoolCommandRing{},
 
 		StateMutex: sync.Mutex{},
+
+		LoadedShaders: map[uintptr]*GcnShader{},
+		ShadersMutex:  sync.Mutex{},
 
 		DisplaySurfaces: map[uintptr]*LiverpoolDisplaySurface{},
 		PM4Handlers:     map[uint8]PM4Handler{},
@@ -87,6 +95,36 @@ func (l *Liverpool) Flip(gpuAddress uintptr, flipArg uint64) {
 	if l.OnFlip != nil {
 		l.OnFlip(gpuAddress, flipArg)
 	}
+}
+
+func (l *Liverpool) GetShader(stage GcnShaderStage, address uintptr) *GcnShader {
+	// Get already loaded shader.
+	l.ShadersMutex.Lock()
+	shader, ok := l.LoadedShaders[address]
+	l.ShadersMutex.Unlock()
+	if ok {
+		return shader
+	}
+
+	// Load the shader.
+	l.ShadersMutex.Lock()
+	shader, err := NewGcnShader(stage, address)
+	if err != nil {
+		panic(err)
+	}
+	logger.Printf("[%s] Loaded %s shader %s of %s bytes...\n",
+		color.Blue.Sprint("SHADER"),
+		color.Blue.Sprint(stage),
+		color.Yellow.Sprintf("0x%X", address),
+		color.Green.Sprint(shader.DwordLength*4),
+	)
+	if err = l.DumpShaderOnce(shader); err != nil {
+		panic(err)
+	}
+	l.LoadedShaders[address] = shader
+	l.ShadersMutex.Unlock()
+
+	return shader
 }
 
 func SetupLiverpool() {

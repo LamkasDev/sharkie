@@ -8,14 +8,40 @@ import (
 	"github.com/gookit/color"
 )
 
+type GcnShaderStage uint8
+
+const (
+	GcnShaderStageVertex GcnShaderStage = iota
+	GcnShaderStageHull
+	GcnShaderStageEvaluation
+	GcnShaderStageGeometry
+	GcnShaderStageFragment
+	GcnShaderStageCompute
+)
+
+var GcnShaderStageNames = map[GcnShaderStage]string{
+	GcnShaderStageVertex:     "VS",
+	GcnShaderStageHull:       "HS",
+	GcnShaderStageEvaluation: "ES",
+	GcnShaderStageGeometry:   "GS",
+	GcnShaderStageFragment:   "FS",
+	GcnShaderStageCompute:    "CS",
+}
+
+func (stage GcnShaderStage) String() string {
+	return GcnShaderStageNames[stage]
+}
+
 type GcnShader struct {
+	Stage       GcnShaderStage
 	Address     uintptr
 	DwordLength uint64
 	Cfg         GcnShaderCfg
 }
 
-func NewGcnShader(address uintptr) (GcnShader, error) {
-	shader := GcnShader{
+func NewGcnShader(stage GcnShaderStage, address uintptr) (*GcnShader, error) {
+	shader := &GcnShader{
+		Stage:   stage,
 		Address: address,
 	}
 

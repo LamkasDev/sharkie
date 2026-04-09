@@ -159,9 +159,9 @@ func (t *GpuTranslator) createStubPipelineLayout() error {
 	result := vk.CreatePipelineLayout(t.handles.Device, &vk.PipelineLayoutCreateInfo{
 		SType: vk.StructureTypePipelineLayoutCreateInfo,
 		PPushConstantRanges: []vk.PushConstantRange{{
-			StageFlags: vk.ShaderStageFlags(vk.ShaderStageFragmentBit),
+			StageFlags: vk.ShaderStageFlags(vk.ShaderStageVertexBit | vk.ShaderStageFragmentBit),
 			Offset:     0,
-			Size:       16,
+			Size:       4,
 		}},
 		PushConstantRangeCount: 1,
 	}, nil, &layout)

@@ -20,9 +20,6 @@ func (l *Liverpool) handleDrawIndexAuto(ringName string, payload []uint32) {
 	l.PendingDrawCalls = append(l.PendingDrawCalls, drawCall)
 	l.StateMutex.Unlock()
 
-	l.DumpShaderOnce(drawCall.VsGpuAddress(), "VS", drawCall.VerShRsrc1, drawCall.VerShRsrc2)
-	l.DumpShaderOnce(drawCall.PsGpuAddress(), "PS", drawCall.PixShRsrc1, drawCall.PixShRsrc2)
-
 	if LogPM4Packets {
 		logger.Printf("[%s] draw index auto (vertex=%s, prim=%s, rt=%s, vs=%s, ps=%s).\n",
 			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
@@ -51,9 +48,6 @@ func (l *Liverpool) handleDrawIndex2(ringName string, payload []uint32) {
 	l.StateMutex.Lock()
 	l.PendingDrawCalls = append(l.PendingDrawCalls, drawCall)
 	l.StateMutex.Unlock()
-
-	l.DumpShaderOnce(drawCall.VsGpuAddress(), "VS", drawCall.VerShRsrc1, drawCall.VerShRsrc2)
-	l.DumpShaderOnce(drawCall.PsGpuAddress(), "PS", drawCall.PixShRsrc1, drawCall.PixShRsrc2)
 
 	if LogPM4Packets {
 		logger.Printf("[%s] draw index 2 (index_count=%s, index_base=%s, prim=%s, rt=%s, vs=%s, ps=%s).\n",

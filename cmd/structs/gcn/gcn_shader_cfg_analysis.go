@@ -7,14 +7,14 @@ func (cfg *GcnShaderCfg) Analyze() {
 		return
 	}
 
-	rpo := cfg.reversePostOrder()
+	rpo := cfg.ReversePostOrder()
 	idom := cfg.computeDominators(rpo)
 	cfg.detectLoops(rpo, idom)
 	cfg.computeMergeBlocks(idom)
 }
 
-// reversePostOrder returns block IDs in reverse post-order starting from the entry.
-func (cfg *GcnShaderCfg) reversePostOrder() []int {
+// ReversePostOrder returns block IDs in reverse post-order starting from the entry.
+func (cfg *GcnShaderCfg) ReversePostOrder() []int {
 	n := len(cfg.Blocks)
 	visitedBlockIds := make([]bool, n)
 	poBlockIds := make([]int, 0, n)
