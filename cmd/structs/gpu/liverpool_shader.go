@@ -46,11 +46,24 @@ func (l *Liverpool) DumpShaderOnce(address uintptr, stage string, rsrc1, rsrc2 u
 	// Print the disassembly.
 	var sb strings.Builder
 	for _, block := range shader.Cfg.Blocks {
-		fmt.Fprintf(&sb, "[%s] Block %s (%s):\n",
+		fmt.Fprintf(&sb, "[%s] Block %s (",
 			color.Blue.Sprint("SHADER"),
 			color.Green.Sprint(block.Id),
-			color.Yellow.Sprintf("0x%X", block.DwordOffset),
 		)
+		if block.IsLoopHeader {
+			fmt.Fprintf(&sb, "loop continue=%s ",
+				color.Green.Sprint(block.ContinueBlockId),
+			)
+		}
+		if block.MergeBlockId >= 0 {
+			fmt.Fprintf(&sb, "merge=%s",
+				color.Green.Sprint(block.MergeBlockId),
+			)
+		} else {
+			fmt.Fprintf(&sb, "no merge")
+		}
+		fmt.Fprint(&sb, "):\n")
+
 		for _, instr := range block.Instructions {
 			fmt.Fprintf(&sb, "[%s] %s: %s\n",
 				color.Blue.Sprint("SHADER"),
@@ -58,6 +71,7 @@ func (l *Liverpool) DumpShaderOnce(address uintptr, stage string, rsrc1, rsrc2 u
 				color.Cyan.Sprint(instr.String()),
 			)
 		}
+
 		fmt.Fprintf(&sb, "[%s] Branches (%s)",
 			color.Blue.Sprint("SHADER"),
 			color.Blue.Sprint(block.Term),
@@ -73,7 +87,7 @@ func (l *Liverpool) DumpShaderOnce(address uintptr, stage string, rsrc1, rsrc2 u
 		case 1:
 			fmt.Fprintf(&sb, " to %s.\n", color.Green.Sprint(block.Successors[0]))
 		case 2:
-			fmt.Fprintf(&sb, " to %s (falls to %s).\n",
+			fmt.Fprintf(&sb, " to %s (fallthrough=%s).\n",
 				color.Green.Sprint(block.Successors[1]),
 				color.Green.Sprint(block.Successors[0]),
 			)

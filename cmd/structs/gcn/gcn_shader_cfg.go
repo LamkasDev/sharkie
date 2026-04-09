@@ -105,6 +105,9 @@ func NewGcnShaderCfg(instructions []Instruction) (GcnShaderCfg, error) {
 		}
 	}
 
+	// Analyze created graph for SPIR-V annotations.
+	cfg.Analyze()
+
 	return cfg, nil
 }
 
