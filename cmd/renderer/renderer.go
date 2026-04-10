@@ -4,13 +4,13 @@ import (
 	"runtime"
 	"time"
 
+	as "github.com/LamkasDev/asche"
+	"github.com/LamkasDev/cimgui-go-vulkan/backend"
+	glfwvulkanbackend "github.com/LamkasDev/cimgui-go-vulkan/backend/glfwvulkan-backend"
+	"github.com/LamkasDev/cimgui-go-vulkan/imgui"
 	"github.com/LamkasDev/sharkie/cmd/structs/gpu"
 	. "github.com/LamkasDev/sharkie/cmd/structs/video"
-	"github.com/elokore/cimgui-go-vulkan/backend"
-	glfwvulkanbackend "github.com/elokore/cimgui-go-vulkan/backend/glfwvulkan-backend"
-	"github.com/elokore/cimgui-go-vulkan/imgui"
-	as "github.com/vulkan-go/asche"
-	vk "github.com/vulkan-go/vulkan"
+	vk "github.com/goki/vulkan"
 )
 
 type Renderer struct {
@@ -176,7 +176,7 @@ func (r *Renderer) prepareRenderPass() {
 		SType:           vk.StructureTypeRenderPassCreateInfo,
 		AttachmentCount: 2,
 		PAttachments: []vk.AttachmentDescription{{
-			Format:         r.SwapchainDimensions.Format,
+			Format:         vk.Format(r.SwapchainDimensions.Format),
 			Samples:        vk.SampleCount1Bit,
 			LoadOp:         vk.AttachmentLoadOpClear,
 			StoreOp:        vk.AttachmentStoreOpStore,

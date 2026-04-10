@@ -1,8 +1,8 @@
 package renderer
 
 import (
-	as "github.com/vulkan-go/asche"
-	vk "github.com/vulkan-go/vulkan"
+	as "github.com/LamkasDev/asche"
+	vk "github.com/goki/vulkan"
 )
 
 type Depth struct {

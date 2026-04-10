@@ -5,12 +5,12 @@ import (
 	"path"
 	"sync/atomic"
 
+	"github.com/LamkasDev/cimgui-go-vulkan/backend"
+	glfwvulkanbackend "github.com/LamkasDev/cimgui-go-vulkan/backend/glfwvulkan-backend"
+	"github.com/LamkasDev/cimgui-go-vulkan/imgui"
 	"github.com/LamkasDev/sharkie/cmd/goutils"
 	"github.com/LamkasDev/sharkie/cmd/structs/gc"
 	"github.com/LamkasDev/sharkie/cmd/structs/gpu"
-	"github.com/elokore/cimgui-go-vulkan/backend"
-	glfwvulkanbackend "github.com/elokore/cimgui-go-vulkan/backend/glfwvulkan-backend"
-	"github.com/elokore/cimgui-go-vulkan/imgui"
 	atomicc "go.uber.org/atomic"
 )
 

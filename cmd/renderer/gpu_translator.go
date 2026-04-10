@@ -1,16 +1,17 @@
 package renderer
 
+import "C"
 import (
 	"fmt"
 	"sync"
 
+	"github.com/LamkasDev/cimgui-go-vulkan/backend"
+	glfwvulkanbackend "github.com/LamkasDev/cimgui-go-vulkan/backend/glfwvulkan-backend"
+	"github.com/LamkasDev/cimgui-go-vulkan/imgui"
 	"github.com/LamkasDev/sharkie/cmd/structs/gcn"
 	. "github.com/LamkasDev/sharkie/cmd/structs/gpu"
 	. "github.com/LamkasDev/sharkie/cmd/structs/spirv"
-	"github.com/elokore/cimgui-go-vulkan/backend"
-	glfwvulkanbackend "github.com/elokore/cimgui-go-vulkan/backend/glfwvulkan-backend"
-	"github.com/elokore/cimgui-go-vulkan/imgui"
-	vk "github.com/vulkan-go/vulkan"
+	vk "github.com/goki/vulkan"
 )
 
 type GpuTranslatorPipelineKey struct {
@@ -44,6 +45,11 @@ type GpuTranslator struct {
 	pipelinesMutex sync.Mutex
 	pipelines      map[GpuTranslatorPipelineKey]vk.Pipeline
 
+	// Physical buffers for Constant RAM snapshots.
+	constRamBuffersMutex sync.Mutex
+	constRamBuffers      map[uint32]vk.Buffer
+	constRamBufferMems   map[uint32]vk.DeviceMemory
+
 	// Command pool/buffer for this frame's GPU work.
 	pool vk.CommandPool
 }
@@ -51,16 +57,19 @@ type GpuTranslator struct {
 // NewGpuTranslator creates a GpuTranslator, loads stub shaders and builds the stub pipeline layout.
 func NewGpuTranslator(handles VulkanHandles, bknd backend.Backend[glfwvulkanbackend.GLFWWindowFlags]) (*GpuTranslator, error) {
 	t := &GpuTranslator{
-		handles:            handles,
-		backend:            bknd,
-		surfacesMutex:      sync.Mutex{},
-		surfaces:           map[uintptr]*GpuSurface{},
-		shadersMutex:       sync.Mutex{},
-		shaders:            map[uintptr]*SpirvShader{},
-		shaderModulesMutex: sync.Mutex{},
-		shaderModules:      map[uintptr]vk.ShaderModule{},
-		pipelinesMutex:     sync.Mutex{},
-		pipelines:          map[GpuTranslatorPipelineKey]vk.Pipeline{},
+		handles:              handles,
+		backend:              bknd,
+		surfacesMutex:        sync.Mutex{},
+		surfaces:             map[uintptr]*GpuSurface{},
+		shadersMutex:         sync.Mutex{},
+		shaders:              map[uintptr]*SpirvShader{},
+		shaderModulesMutex:   sync.Mutex{},
+		shaderModules:        map[uintptr]vk.ShaderModule{},
+		pipelinesMutex:       sync.Mutex{},
+		pipelines:            map[GpuTranslatorPipelineKey]vk.Pipeline{},
+		constRamBuffersMutex: sync.Mutex{},
+		constRamBuffers:      map[uint32]vk.Buffer{},
+		constRamBufferMems:   map[uint32]vk.DeviceMemory{},
 	}
 	if err := t.createCommandPool(); err != nil {
 		return nil, fmt.Errorf("GpuTranslator: command pool: %w", err)
@@ -88,6 +97,12 @@ func (t *GpuTranslator) Destroy() {
 		vk.DestroyPipeline(t.handles.Device, p, nil)
 	}
 	t.pipelinesMutex.Unlock()
+	t.constRamBuffersMutex.Lock()
+	for h, b := range t.constRamBuffers {
+		vk.DestroyBuffer(t.handles.Device, b, nil)
+		vk.FreeMemory(t.handles.Device, t.constRamBufferMems[h], nil)
+	}
+	t.constRamBuffersMutex.Unlock()
 	t.shaderModulesMutex.Lock()
 	for _, m := range t.shaderModules {
 		vk.DestroyShaderModule(t.handles.Device, m, nil)
@@ -142,6 +157,9 @@ func (t *GpuTranslator) Translate(draws []LiverpoolDrawCall) *vk.CommandBuffer {
 		return nil
 	}
 
+	// Update buffers holding const ram.
+	t.UpdateConstRamBuffers(draws)
+
 	// Begin recording.
 	commandBuffer := t.handles.AllocateCommandBuffer(t.pool)
 	vk.BeginCommandBuffer(commandBuffer, &vk.CommandBufferBeginInfo{
@@ -154,6 +172,10 @@ func (t *GpuTranslator) Translate(draws []LiverpoolDrawCall) *vk.CommandBuffer {
 	vk.EndCommandBuffer(commandBuffer)
 
 	return &commandBuffer
+}
+
+func (t *GpuTranslator) GetBufferAddress(buffer vk.Buffer) uint64 {
+	return uint64(GetBufferDeviceAddress(t.handles.Instance, t.handles.Device, buffer))
 }
 
 func (t *GpuTranslator) FreeBuffer(commandBuffer vk.CommandBuffer) {

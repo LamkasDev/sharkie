@@ -1,11 +1,5 @@
 package spirv
 
-import (
-	"math"
-
-	"go101.org/nstd"
-)
-
 // SpvBuilder accumulates SPIR-V words so we can assemble them in the correct order.
 type SpvBuilder struct {
 	nextId    uint32
@@ -75,107 +69,6 @@ func (b *SpvBuilder) EmitMemberDecorate(structType, member, decoration uint32, v
 	b.instr(&b.annots, SpvOpMemberDecorate, operands...)
 }
 
-// EmitTypeInt declares a void type.
-func (b *SpvBuilder) EmitTypeVoid() uint32 {
-	id := b.AllocId()
-	b.instr(&b.types, SpvOpTypeVoid, id)
-	return id
-}
-
-// EmitTypeInt declares a boolean type.
-func (b *SpvBuilder) EmitTypeBool() uint32 {
-	id := b.AllocId()
-	b.instr(&b.types, SpvOpTypeBool, id)
-	return id
-}
-
-// EmitTypeInt declares an integer type.
-func (b *SpvBuilder) EmitTypeInt(width uint32, signed bool) uint32 {
-	id := b.AllocId()
-	b.instr(&b.types, SpvOpTypeInt, id, width, uint32(nstd.Btoi(signed)))
-	return id
-}
-
-// EmitTypeFloat declares a float type.
-func (b *SpvBuilder) EmitTypeFloat(width uint32) uint32 {
-	id := b.AllocId()
-	b.instr(&b.types, SpvOpTypeFloat, id, width)
-	return id
-}
-
-// EmitTypeVector declares a vector elementType[count].
-func (b *SpvBuilder) EmitTypeVector(elementType, count uint32) uint32 {
-	id := b.AllocId()
-	b.instr(&b.types, SpvOpTypeVector, id, elementType, count)
-	return id
-}
-
-// EmitTypeArray declares an array elementType[length] (length is the ID of an integer constant).
-func (b *SpvBuilder) EmitTypeArray(elementType, lengthID uint32) uint32 {
-	id := b.AllocId()
-	b.instr(&b.types, SpvOpTypeArray, id, elementType, lengthID)
-	return id
-}
-
-// EmitTypeStruct declares a struct with given member types.
-func (b *SpvBuilder) EmitTypeStruct(memberTypes ...uint32) uint32 {
-	id := b.AllocId()
-	operands := append([]uint32{id}, memberTypes...)
-	b.instr(&b.types, SpvOpTypeStruct, operands...)
-	return id
-}
-
-// EmitTypePointer declares a pointer to pointerType in the given storage class.
-func (b *SpvBuilder) EmitTypePointer(storageClass, pointerType uint32) uint32 {
-	id := b.AllocId()
-	b.instr(&b.types, SpvOpTypePointer, id, storageClass, pointerType)
-	return id
-}
-
-// EmitTypeFunction emits OpTypeFunction.
-func (b *SpvBuilder) EmitTypeFunction(returnType uint32, paramTypes ...uint32) uint32 {
-	id := b.AllocId()
-	operands := append([]uint32{id, returnType}, paramTypes...)
-	b.instr(&b.types, SpvOpTypeFunction, operands...)
-	return id
-}
-
-// EmitConstantUint emits OpConstant for a 32-bit unsigned integer.
-func (b *SpvBuilder) EmitConstantUint(uintType, value uint32) uint32 {
-	id := b.AllocId()
-	b.instr(&b.types, SpvOpConstant, uintType, id, value)
-	return id
-}
-
-// EmitConstantFalse emits OpConstantFalse.
-func (b *SpvBuilder) EmitConstantFalse(boolType uint32) uint32 {
-	id := b.AllocId()
-	b.instr(&b.types, SpvOpConstantFalse, boolType, id)
-	return id
-}
-
-// EmitConstantFloat emits OpConstant for a float.
-func (b *SpvBuilder) EmitConstantFloat(floatType uint32, value float32) uint32 {
-	id := b.AllocId()
-	b.instr(&b.types, SpvOpConstant, floatType, id, math.Float32bits(value))
-	return id
-}
-
-// EmitConstantComposite emits OpConstantComposite for a vector or composite constant.
-func (b *SpvBuilder) EmitConstantComposite(resultType uint32, constituents ...uint32) uint32 {
-	id := b.AllocId()
-	operands := append([]uint32{resultType, id}, constituents...)
-	b.instr(&b.types, SpvOpConstantComposite, operands...)
-	return id
-}
-
-// EmitVariable emits a global OpVariable.
-func (b *SpvBuilder) EmitVariable(ptrType, storageClass uint32) uint32 {
-	id := b.AllocId()
-	b.instr(&b.types, SpvOpVariable, ptrType, id, storageClass)
-	return id
-}
-
 // EmitFunction emits OpFunction.
 func (b *SpvBuilder) EmitFunction(returnType, funcControl, funcType, funcID uint32) {
 	b.instr(&b.code, SpvOpFunction, returnType, funcID, funcControl, funcType)
@@ -191,34 +84,39 @@ func (b *SpvBuilder) EmitLabel(id uint32) {
 	b.instr(&b.code, SpvOpLabel, id)
 }
 
-// EmitStore emits OpStore.
-func (b *SpvBuilder) EmitStore(pointer, object uint32) {
-	b.instr(&b.code, SpvOpStore, pointer, object)
-}
-
-// EmitBranch emits OpBranch.
-func (b *SpvBuilder) EmitBranch(targetLabel uint32) {
-	b.instr(&b.code, SpvOpBranch, targetLabel)
-}
-
-// EmitBranchConditional emits OpBranchConditional.
-func (b *SpvBuilder) EmitBranchConditional(condID, trueLabel, falseLabel uint32) {
-	b.instr(&b.code, SpvOpBranchConditional, condID, trueLabel, falseLabel)
-}
-
-// EmitSelectionMerge emits OpSelectionMerge (must appear immediately before the OpBranchConditional or OpSwitch it governs).
-func (b *SpvBuilder) EmitSelectionMerge(mergeBlock, selectionControl uint32) {
-	b.instr(&b.code, SpvOpSelectionMerge, mergeBlock, selectionControl)
-}
-
-// EmitLoopMerge emits OpLoopMerge (must appear immediately before the branch instruction that closes the loop header).
-func (b *SpvBuilder) EmitLoopMerge(mergeBlock, continueBlock, loopControl uint32) {
-	b.instr(&b.code, SpvOpLoopMerge, mergeBlock, continueBlock, loopControl)
-}
-
 // EmitReturn emits OpReturn.
 func (b *SpvBuilder) EmitReturn() {
 	b.instr(&b.code, SpvOpReturn)
+}
+
+// EmitAccessChain emits OpAccessChain and returns the result pointer ID.
+func (b *SpvBuilder) EmitAccessChain(resultType, base uint32, indices ...uint32) uint32 {
+	id := b.AllocId()
+	ops := append([]uint32{resultType, id, base}, indices...)
+	b.instr(&b.code, SpvOpAccessChain, ops...)
+	return id
+}
+
+// EmitBitcast emits OpBitcast and returns the result ID.
+func (b *SpvBuilder) EmitBitcast(resultType, operand uint32) uint32 {
+	id := b.AllocId()
+	b.instr(&b.code, SpvOpBitcast, resultType, id, operand)
+	return id
+}
+
+// EmitExtInst emits OpExtInst (like pack instructions) and returns the result id.
+func (b *SpvBuilder) EmitExtInst(resultType, setID, instruction uint32, operands ...uint32) uint32 {
+	id := b.AllocId()
+	ops := append([]uint32{resultType, id, setID, instruction}, operands...)
+	b.instr(&b.code, SpvOpExtInst, ops...)
+	return id
+}
+
+// EmitExtInstImport emits OpExtInstImport.
+func (b *SpvBuilder) EmitExtInstImport(name string) uint32 {
+	id := b.AllocId()
+	b.instr(&b.exts, SpvOpExtInstImport, append([]uint32{id}, spirvString(name)...)...)
+	return id
 }
 
 // EmitUnreachable emits OpUnreachable.

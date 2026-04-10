@@ -72,7 +72,7 @@ func (l *Liverpool) handleWriteConstRam(ringName string, payload []uint32) {
 
 	// Write data.
 	l.StateMutex.Lock()
-	copy(l.ConstRam[offset:], data)
+	copy(l.DrawState.ConstRam[offset:], data)
 	l.StateMutex.Unlock()
 
 	if LogPM4Packets {

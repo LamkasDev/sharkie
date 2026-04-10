@@ -1,8 +1,8 @@
 package renderer
 
 import (
-	"github.com/elokore/cimgui-go-vulkan/imgui"
-	vk "github.com/vulkan-go/vulkan"
+	"github.com/LamkasDev/cimgui-go-vulkan/imgui"
+	vk "github.com/goki/vulkan"
 )
 
 // GpuSurface is a Vulkan-side render target that corresponds to a single

@@ -1,10 +1,16 @@
 package gpu
 
 import (
+	"hash/adler32"
 	"math"
+	"unsafe"
 
 	. "github.com/LamkasDev/sharkie/cmd/structs/gcn"
 )
+
+type ConstRamSnapshots map[uint32][LiverpoolConstRamSize]uint32
+
+var GlobalConstRamSnapshots = ConstRamSnapshots{}
 
 // LiverpoolDrawState tracks per-draw state decoded from non-register packets.
 type LiverpoolDrawState struct {
@@ -13,6 +19,7 @@ type LiverpoolDrawState struct {
 	IndexBase        uintptr // host address of current index buffer
 	IndexBufferSize  uint32
 	BaseVertexOffset uint32
+	ConstRam         [LiverpoolConstRamSize]uint32
 }
 
 // LiverpoolDrawCall is a snapshot of GPU state needed to issue a single draw.
@@ -73,6 +80,9 @@ type LiverpoolDrawCall struct {
 	EvalShader     *GcnShader
 	GeometryShader *GcnShader
 	PixelShader    *GcnShader
+
+	// Constant RAM snapshot hash.
+	ConstRamHash uint32
 }
 
 // RtGpuAddress returns the 40-bit GPU address of the render target surface.
@@ -128,6 +138,12 @@ func (l *Liverpool) NewDrawCall(vertexCount uint32, isIndexed bool) LiverpoolDra
 	}
 
 	l.StateMutex.Lock()
+	constRam := l.DrawState.ConstRam
+	constRamBytes := unsafe.Slice((*byte)(unsafe.Pointer(&constRam[0])), LiverpoolConstRamSize*4)
+	constRamHash := adler32.Checksum(constRamBytes)
+	if _, ok := GlobalConstRamSnapshots[constRamHash]; !ok {
+		GlobalConstRamSnapshots[constRamHash] = constRam
+	}
 	drawCall := LiverpoolDrawCall{
 		PrimType:      l.Registers.UserConfig[GREG_MM_VGT_PRIMITIVE_TYPE__CI__VI],
 		VertexCount:   vertexCount,
@@ -181,6 +197,8 @@ func (l *Liverpool) NewDrawCall(vertexCount uint32, isIndexed bool) LiverpoolDra
 		PixelShPgmHi:    l.Registers.Shader[GREG_MM_SPI_SHADER_PGM_HI_PS],
 		PixelShRsrc1:    l.Registers.Shader[GREG_MM_SPI_SHADER_PGM_RSRC1_PS],
 		PixelShRsrc2:    l.Registers.Shader[GREG_MM_SPI_SHADER_PGM_RSRC2_PS],
+
+		ConstRamHash: constRamHash,
 	}
 	l.StateMutex.Unlock()
 

@@ -5,9 +5,9 @@ import (
 	"log"
 	"time"
 
+	as "github.com/LamkasDev/asche"
 	"github.com/elokore/glfw/v3.4/glfw"
-	as "github.com/vulkan-go/asche"
-	vk "github.com/vulkan-go/vulkan"
+	vk "github.com/goki/vulkan"
 )
 
 func setupMonitor(monitorNum int) (*glfw.Monitor, *glfw.VidMode) {

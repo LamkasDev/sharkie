@@ -22,7 +22,6 @@ type Liverpool struct {
 	Registers        LiverpoolRegisters
 	DrawState        LiverpoolDrawState
 	PendingDrawCalls []LiverpoolDrawCall
-	ConstRam         [LiverpoolConstRamSize]uint32
 
 	ShadersMutex  sync.Mutex
 	LoadedShaders map[uintptr]*GcnShader

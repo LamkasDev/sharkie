@@ -1,6 +1,8 @@
 package spirv
 
 import (
+	"math"
+
 	. "github.com/LamkasDev/sharkie/cmd/structs/gcn"
 )
 
@@ -19,30 +21,33 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 
 	// Capabilities.
 	b.EmitCapability(SpvCapShader)
+	idGLSL := b.EmitExtInstImport("GLSL.std.450")
 	b.EmitMemoryModel(SpvAddrModelLogical, SpvMemModelGLSL450)
 
 	// Common types.
 	idVoid := b.EmitTypeVoid()
 	idBool := b.EmitTypeBool()
-	// idUint := b.EmitTypeInt(32, false)
+	idUint := b.EmitTypeInt(32, false)
 	idFnType := b.EmitTypeFunction(idVoid)
 
-	/* // Push constants.
+	idFloat := b.EmitTypeFloat(32)
+	idV2Float := b.EmitTypeVector(idFloat, 2)
+	idV4Float := b.EmitTypeVector(idFloat, 4)
+
+	// Push constants.
 	idConst16 := b.EmitConstantUint(idUint, 16)
-	idArrUd := b.EmitTypeArray(idUint, idConst16)
-	idUd := b.EmitTypeStruct(idArrUd)
+	idArrFloat := b.EmitTypeArray(idFloat, idConst16)
+	idUd := b.EmitTypeStruct(idArrFloat)
 	idPtrPc := b.EmitTypePointer(SpvStoragePushConstant, idUd)
-	idPtrPcUint := b.EmitTypePointer(SpvStoragePushConstant, idUint)
-	_ = idPtrPcUint
+	idPtrPcFloat := b.EmitTypePointer(SpvStoragePushConstant, idFloat)
 
 	// Annotations for the push-constant block.
-	b.EmitDecorate(idArrUd, SpvDecorationArrayStride, 4)
+	b.EmitDecorate(idArrFloat, SpvDecorationArrayStride, 4)
 	b.EmitDecorate(idUd, SpvDecorationBlock)
 	b.EmitMemberDecorate(idUd, 0, SpvDecorationOffset, 0)
 
 	// Global push-constant variable.
 	idPCVar := b.EmitVariable(idPtrPc, SpvStoragePushConstant)
-	_ = idPCVar */
 
 	// Stub boolean constant (condition in untranslated conditional branches).
 	idFalse := b.EmitConstantFalse(idBool)
@@ -52,8 +57,6 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	var idColorOut, idZeroVec4 uint32
 	if shader.Stage == GcnShaderStageFragment {
 		// Declare vec4 color output at location 0.
-		idFloat := b.EmitTypeFloat(32)
-		idV4Float := b.EmitTypeVector(idFloat, 4)
 		idPtrOutV4 := b.EmitTypePointer(SpvStorageOutput, idV4Float)
 		idColorOut = b.EmitVariable(idPtrOutV4, SpvStorageOutput)
 		b.EmitDecorate(idColorOut, SpvDecorationLocation, 0)
@@ -85,10 +88,59 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	}
 
 	// Pre-allocate SPIR-V labels ID for GCN CFG blocks.
-	labelID := make([]uint32, len(shader.Cfg.Blocks))
+	labelIds := make([]uint32, len(shader.Cfg.Blocks))
 	for i := range shader.Cfg.Blocks {
-		labelID[i] = b.AllocId()
+		labelIds[i] = b.AllocId()
 	}
+
+	// Register SGPRs and VGPRs.
+	idPtrFnUint := b.EmitTypePointer(SpvStorageFunction, idUint)
+	var sgprIds [104]uint32
+	for i := range sgprIds {
+		sgprIds[i] = b.AllocId()
+	}
+	var vgprIds [256]uint32
+	for i := range vgprIds {
+		vgprIds[i] = b.AllocId()
+	}
+
+	// Special registers.
+	var specialIds [25]uint32
+	specialIds[0] = b.AllocId() // VCC_LO
+	specialIds[1] = b.AllocId() // VCC_HI
+	specialIds[2] = b.AllocId() // TBA_LO
+	specialIds[3] = b.AllocId() // TBA_HI
+	specialIds[4] = b.AllocId() // TMA_LO
+	specialIds[5] = b.AllocId() // TMA_HI
+	for i := range 12 {
+		specialIds[6+i] = b.AllocId() // TTMP
+	}
+	specialIds[18] = b.AllocId() // M0
+	// reserved.
+	specialIds[20] = b.AllocId() // EXEC_LO
+	specialIds[21] = b.AllocId() // EXEC_HI ...
+	specialIds[22] = b.AllocId() // VCCZ
+	specialIds[23] = b.AllocId() // EXECZ
+	specialIds[24] = b.AllocId() // SCC
+
+	// Inline constants.
+	var constIds [120]uint32
+	constIds[0] = b.EmitConstantUint(idUint, 0)
+	for i := uint32(1); i <= 64; i++ {
+		constIds[i] = b.EmitConstantUint(idUint, i)
+	}
+	for i := uint32(65); i <= 80; i++ {
+		constIds[i] = b.EmitConstantUint(idUint, uint32(int32(-(int(i) - 64))))
+	}
+	// 31 reserved.
+	constIds[112] = b.EmitConstantUint(idUint, math.Float32bits(0.5))
+	constIds[113] = b.EmitConstantUint(idUint, math.Float32bits(-0.5))
+	constIds[114] = b.EmitConstantUint(idUint, math.Float32bits(1.0))
+	constIds[115] = b.EmitConstantUint(idUint, math.Float32bits(-1.0))
+	constIds[116] = b.EmitConstantUint(idUint, math.Float32bits(2.0))
+	constIds[117] = b.EmitConstantUint(idUint, math.Float32bits(-2.0))
+	constIds[118] = b.EmitConstantUint(idUint, math.Float32bits(4.0))
+	constIds[119] = b.EmitConstantUint(idUint, math.Float32bits(-4.0))
 
 	// Function body.
 	b.EmitFunction(idVoid, SpvFunctionControlNone, idFnType, idMain)
@@ -96,21 +148,39 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	// Emit reachable blocks in reverse post-order (entry block first).
 	rpoBlockIds := shader.Cfg.ReversePostOrder()
 	emittedBlockIds := make([]bool, len(shader.Cfg.Blocks))
-	bctx := blockEmitCtx{
-		labelId:    labelID,
-		idFalse:    idFalse,
-		idColorOut: idColorOut,
-		idZeroVec4: idZeroVec4,
+	blockContext := SpirvBlockContext{
+		LabelIds: labelIds,
+		Ids: map[SpirvBlockContextId]uint32{
+			SpirvBlockContextIdFalse:      idFalse,
+			SpirvBlockContextIdConst0:     constIds[0],
+			SpirvBlockContextIdConst1:     constIds[1],
+			SpirvBlockContextIdConst2:     constIds[2],
+			SpirvBlockContextIdConst3:     constIds[3],
+			SpirvBlockContextIdColorOut:   idColorOut,
+			SpirvBlockContextIdZeroVec4:   idZeroVec4,
+			SpirvBlockContextIdPcVar:      idPCVar,
+			SpirvBlockContextIdPtrPcFloat: idPtrPcFloat,
+			SpirvBlockContextIdUint:       idUint,
+			SpirvBlockContextIdFloat:      idFloat,
+			SpirvBlockContextIdV2Float:    idV2Float,
+			SpirvBlockContextIdV4Float:    idV4Float,
+			SpirvBlockContextIdPtrFnUint:  idPtrFnUint,
+			SpirvBlockContextIdGlsl:       idGLSL,
+		},
+		SgprIds:    sgprIds,
+		VgprIds:    vgprIds,
+		SpecialIds: specialIds,
+		ConstIds:   constIds,
 	}
 	for _, blockId := range rpoBlockIds {
-		emitBlock(b, &shader.Cfg.Blocks[blockId], bctx)
+		emitBlock(b, &shader.Cfg.Blocks[blockId], blockContext)
 		emittedBlockIds[blockId] = true
 	}
 
 	// Emit any unreachable blocks.
 	for i := range shader.Cfg.Blocks {
 		if !emittedBlockIds[i] {
-			b.EmitLabel(labelID[i])
+			b.EmitLabel(labelIds[i])
 			b.EmitUnreachable()
 		}
 	}
@@ -123,54 +193,4 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 		Stage:   shader.Stage,
 		Code:    b.Assemble(),
 	}, nil
-}
-
-type blockEmitCtx struct {
-	labelId    []uint32
-	idFalse    uint32
-	idColorOut uint32
-	idZeroVec4 uint32
-}
-
-// emitBlock emits the SPIR-V for a single block.
-func emitBlock(b *SpvBuilder, block *GcnShaderCfgBlock, ctx blockEmitCtx) {
-	b.EmitLabel(ctx.labelId[block.Id])
-
-	// TODO: emit other instructions.
-
-	switch block.Term {
-	case TermCBranch:
-		emitConditionalBranch(b, block, ctx)
-	case TermBranch, TermFallthrough:
-		if len(block.Successors) > 0 {
-			b.EmitBranch(ctx.labelId[block.Successors[0]])
-		} else {
-			b.EmitUnreachable()
-		}
-	case TermEndpgm, TermExpDone:
-		if ctx.idColorOut != 0 {
-			b.EmitStore(ctx.idColorOut, ctx.idZeroVec4)
-		}
-		b.EmitReturn()
-	default:
-		b.EmitReturn()
-	}
-}
-
-// emitConditionalBranch handles TermCBranch.
-// OpLoopMerge (loop headers) or OpSelectionMerge (selections) must appear immediately before the OpBranchConditional instruction.
-func emitConditionalBranch(b *SpvBuilder, block *GcnShaderCfgBlock, ctx blockEmitCtx) {
-	if block.IsLoopHeader {
-		mergeLabelId := ctx.labelId[block.MergeBlockId]
-		continueLabelId := ctx.labelId[block.ContinueBlockId]
-		b.EmitLoopMerge(mergeLabelId, continueLabelId, SpvLoopControlNone)
-	} else if block.MergeBlockId >= 0 {
-		b.EmitSelectionMerge(ctx.labelId[block.MergeBlockId], SpvSelectionControlNone)
-	}
-
-	// TODO: we'll need to build the actual condition here.
-
-	falseLabelId := ctx.labelId[block.Successors[0]] // fall-through.
-	trueLabelId := ctx.labelId[block.Successors[1]]  // branch target.
-	b.EmitBranchConditional(ctx.idFalse, trueLabelId, falseLabelId)
 }

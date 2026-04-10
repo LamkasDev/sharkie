@@ -7,12 +7,12 @@ import (
 	"runtime/pprof"
 	"time"
 
+	as "github.com/LamkasDev/asche"
+	"github.com/LamkasDev/cimgui-go-vulkan/imgui"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/LamkasDev/sharkie/cmd/renderer"
-	"github.com/elokore/cimgui-go-vulkan/imgui"
 	"github.com/elokore/glfw/v3.4/glfw"
-	as "github.com/vulkan-go/asche"
-	vk "github.com/vulkan-go/vulkan"
+	vk "github.com/goki/vulkan"
 	"github.com/xlab/closer"
 )
 
@@ -178,6 +178,7 @@ func (app *Application) VulkanLayers() []string {
 func (app *Application) VulkanDeviceExtensions() []string {
 	return []string{
 		"VK_KHR_swapchain",
+		"VK_KHR_buffer_device_address",
 	}
 }
 

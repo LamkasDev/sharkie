@@ -3,8 +3,8 @@ package renderer
 import (
 	"unsafe"
 
-	as "github.com/vulkan-go/asche"
-	vk "github.com/vulkan-go/vulkan"
+	as "github.com/LamkasDev/asche"
+	vk "github.com/goki/vulkan"
 )
 
 // VulkanHandles holds vulkan handles for lifetime of the process.

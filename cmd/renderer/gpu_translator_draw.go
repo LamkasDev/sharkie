@@ -6,13 +6,19 @@ import (
 	"unsafe"
 
 	. "github.com/LamkasDev/sharkie/cmd/structs/gpu"
-	vk "github.com/vulkan-go/vulkan"
+	vk "github.com/goki/vulkan"
 )
 
 var startTime time.Time
 
 func init() {
 	startTime = time.Now()
+}
+
+type StubPushConstants struct {
+	Time            float32
+	_               uint32 // Padding
+	ConstRamAddress uint64
 }
 
 func (t *GpuTranslator) recordDraw(commandBuffer vk.CommandBuffer, draw *LiverpoolDrawCall) {
@@ -80,17 +86,18 @@ func (t *GpuTranslator) recordDraw(commandBuffer vk.CommandBuffer, draw *Liverpo
 	vk.CmdBindPipeline(commandBuffer, vk.PipelineBindPointGraphics, pipeline)
 	t.setDynamicState(commandBuffer, draw, surface)
 
-	// Push a color constant.
-	type StubPushConstants struct {
-		Time float32
-	}
+	// Push constants to shader.
+	t.constRamBuffersMutex.Lock()
+	constRamBuffer := t.constRamBuffers[draw.ConstRamHash]
+	t.constRamBuffersMutex.Unlock()
 	pushData := StubPushConstants{
-		Time: float32(time.Since(startTime).Seconds()),
+		Time:            float32(time.Since(startTime).Seconds()),
+		ConstRamAddress: t.GetBufferAddress(constRamBuffer),
 	}
 	vk.CmdPushConstants(
 		commandBuffer, t.stubPipelineLayout,
 		vk.ShaderStageFlags(vk.ShaderStageVertexBit|vk.ShaderStageFragmentBit),
-		0, 4,
+		0, uint32(unsafe.Sizeof(pushData)),
 		unsafe.Pointer(&pushData),
 	)
 

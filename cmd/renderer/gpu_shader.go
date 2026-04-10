@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	as "github.com/vulkan-go/asche"
-	vk "github.com/vulkan-go/vulkan"
+	as "github.com/LamkasDev/asche"
+	vk "github.com/goki/vulkan"
 )
 
 func loadShaderModule(dev vk.Device, path string) (vk.ShaderModule, error) {
@@ -29,7 +29,7 @@ func loadShaderModule(dev vk.Device, path string) (vk.ShaderModule, error) {
 	var module vk.ShaderModule
 	result := vk.CreateShaderModule(dev, &vk.ShaderModuleCreateInfo{
 		SType:    vk.StructureTypeShaderModuleCreateInfo,
-		CodeSize: uint(len(code)),
+		CodeSize: uint64(len(code)),
 		PCode:    words,
 	}, nil, &module)
 	return module, as.NewError(result)
