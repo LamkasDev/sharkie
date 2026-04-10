@@ -1,6 +1,10 @@
 package spirv
 
-import "go101.org/nstd"
+import (
+	"math"
+
+	"go101.org/nstd"
+)
 
 // SpvBuilder accumulates SPIR-V words so we can assemble them in the correct order.
 type SpvBuilder struct {
@@ -92,6 +96,20 @@ func (b *SpvBuilder) EmitTypeInt(width uint32, signed bool) uint32 {
 	return id
 }
 
+// EmitTypeFloat declares a float type.
+func (b *SpvBuilder) EmitTypeFloat(width uint32) uint32 {
+	id := b.AllocId()
+	b.instr(&b.types, SpvOpTypeFloat, id, width)
+	return id
+}
+
+// EmitTypeVector declares a vector elementType[count].
+func (b *SpvBuilder) EmitTypeVector(elementType, count uint32) uint32 {
+	id := b.AllocId()
+	b.instr(&b.types, SpvOpTypeVector, id, elementType, count)
+	return id
+}
+
 // EmitTypeArray declares an array elementType[length] (length is the ID of an integer constant).
 func (b *SpvBuilder) EmitTypeArray(elementType, lengthID uint32) uint32 {
 	id := b.AllocId()
@@ -136,6 +154,21 @@ func (b *SpvBuilder) EmitConstantFalse(boolType uint32) uint32 {
 	return id
 }
 
+// EmitConstantFloat emits OpConstant for a float.
+func (b *SpvBuilder) EmitConstantFloat(floatType uint32, value float32) uint32 {
+	id := b.AllocId()
+	b.instr(&b.types, SpvOpConstant, floatType, id, math.Float32bits(value))
+	return id
+}
+
+// EmitConstantComposite emits OpConstantComposite for a vector or composite constant.
+func (b *SpvBuilder) EmitConstantComposite(resultType uint32, constituents ...uint32) uint32 {
+	id := b.AllocId()
+	operands := append([]uint32{resultType, id}, constituents...)
+	b.instr(&b.types, SpvOpConstantComposite, operands...)
+	return id
+}
+
 // EmitVariable emits a global OpVariable.
 func (b *SpvBuilder) EmitVariable(ptrType, storageClass uint32) uint32 {
 	id := b.AllocId()
@@ -156,6 +189,11 @@ func (b *SpvBuilder) EmitFunctionEnd() {
 // EmitLabel emits OpLabel.
 func (b *SpvBuilder) EmitLabel(id uint32) {
 	b.instr(&b.code, SpvOpLabel, id)
+}
+
+// EmitStore emits OpStore.
+func (b *SpvBuilder) EmitStore(pointer, object uint32) {
+	b.instr(&b.code, SpvOpStore, pointer, object)
 }
 
 // EmitBranch emits OpBranch.

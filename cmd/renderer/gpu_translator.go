@@ -13,6 +13,11 @@ import (
 	vk "github.com/vulkan-go/vulkan"
 )
 
+type GpuTranslatorPipelineKey struct {
+	PixelShaderAddress uintptr
+	SurfaceAddress     uintptr
+}
+
 // GpuTranslator converts decoded DrawCalls into Vulkan commands.
 type GpuTranslator struct {
 	handles VulkanHandles
@@ -24,13 +29,20 @@ type GpuTranslator struct {
 
 	// Stub pipeline shared across all draws until real shaders are available.
 	stubPipelineLayout vk.PipelineLayout
-	stubPipeline       vk.Pipeline
 	stubVertShader     vk.ShaderModule
 	stubFragShader     vk.ShaderModule
 
 	// Recompiled SPIR-V shaders mirroring Liverpool.LoadedShaders.
 	shadersMutex sync.Mutex
 	shaders      map[uintptr]*SpirvShader
+
+	// VkShaderModules created from SPIR-V shaders.
+	shaderModulesMutex sync.Mutex
+	shaderModules      map[uintptr]vk.ShaderModule
+
+	// Per-draw compiled pipelines.
+	pipelinesMutex sync.Mutex
+	pipelines      map[GpuTranslatorPipelineKey]vk.Pipeline
 
 	// Command pool/buffer for this frame's GPU work.
 	pool vk.CommandPool
@@ -39,12 +51,16 @@ type GpuTranslator struct {
 // NewGpuTranslator creates a GpuTranslator, loads stub shaders and builds the stub pipeline layout.
 func NewGpuTranslator(handles VulkanHandles, bknd backend.Backend[glfwvulkanbackend.GLFWWindowFlags]) (*GpuTranslator, error) {
 	t := &GpuTranslator{
-		handles:       handles,
-		backend:       bknd,
-		surfacesMutex: sync.Mutex{},
-		surfaces:      map[uintptr]*GpuSurface{},
-		shadersMutex:  sync.Mutex{},
-		shaders:       map[uintptr]*SpirvShader{},
+		handles:            handles,
+		backend:            bknd,
+		surfacesMutex:      sync.Mutex{},
+		surfaces:           map[uintptr]*GpuSurface{},
+		shadersMutex:       sync.Mutex{},
+		shaders:            map[uintptr]*SpirvShader{},
+		shaderModulesMutex: sync.Mutex{},
+		shaderModules:      map[uintptr]vk.ShaderModule{},
+		pipelinesMutex:     sync.Mutex{},
+		pipelines:          map[GpuTranslatorPipelineKey]vk.Pipeline{},
 	}
 	if err := t.createCommandPool(); err != nil {
 		return nil, fmt.Errorf("GpuTranslator: command pool: %w", err)
@@ -67,9 +83,16 @@ func (t *GpuTranslator) Destroy() {
 		s.Destroy(t.handles.Device)
 	}
 	t.surfacesMutex.Unlock()
-	if t.stubPipeline != vk.NullPipeline {
-		vk.DestroyPipeline(t.handles.Device, t.stubPipeline, nil)
+	t.pipelinesMutex.Lock()
+	for _, p := range t.pipelines {
+		vk.DestroyPipeline(t.handles.Device, p, nil)
 	}
+	t.pipelinesMutex.Unlock()
+	t.shaderModulesMutex.Lock()
+	for _, m := range t.shaderModules {
+		vk.DestroyShaderModule(t.handles.Device, m, nil)
+	}
+	t.shaderModulesMutex.Unlock()
 	if t.stubPipelineLayout != vk.NullPipelineLayout {
 		vk.DestroyPipelineLayout(t.handles.Device, t.stubPipelineLayout, nil)
 	}

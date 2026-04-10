@@ -3,6 +3,7 @@ package renderer
 import (
 	"fmt"
 
+	. "github.com/LamkasDev/sharkie/cmd/structs/spirv"
 	as "github.com/vulkan-go/asche"
 	vk "github.com/vulkan-go/vulkan"
 )
@@ -18,6 +19,7 @@ func (t *GpuTranslator) createCommandPool() error {
 		return err
 	}
 	t.pool = pool
+
 	return nil
 }
 
@@ -173,18 +175,65 @@ func (t *GpuTranslator) createStubPipelineLayout() error {
 	return nil
 }
 
-func (t *GpuTranslator) createStubPipeline(renderPass vk.RenderPass, width, height uint32) error {
+func (t *GpuTranslator) GetShaderModule(shader *SpirvShader) (vk.ShaderModule, error) {
+	// Get already created shader module.
+	t.shaderModulesMutex.Lock()
+	mod, ok := t.shaderModules[shader.Address]
+	t.shaderModulesMutex.Unlock()
+	if ok {
+		return mod, nil
+	}
+
+	// Create the shader module.
+	var module vk.ShaderModule
+	result := vk.CreateShaderModule(t.handles.Device, &vk.ShaderModuleCreateInfo{
+		SType:    vk.StructureTypeShaderModuleCreateInfo,
+		CodeSize: uint(len(shader.Code) * 4),
+		PCode:    shader.Code,
+	}, nil, &module)
+	if err := as.NewError(result); err != nil {
+		return vk.NullShaderModule, fmt.Errorf("vkCreateShaderModule 0x%X: %w", shader.Address, err)
+	}
+	t.shaderModulesMutex.Lock()
+	t.shaderModules[shader.Address] = module
+	t.shaderModulesMutex.Unlock()
+
+	return module, nil
+}
+
+func (t *GpuTranslator) GetPipeline(key GpuTranslatorPipelineKey, psModule vk.ShaderModule, renderPass vk.RenderPass, width, height uint32) (vk.Pipeline, error) {
+	// Get already created pipeline.
+	t.pipelinesMutex.Lock()
+	pipeline, ok := t.pipelines[key]
+	t.pipelinesMutex.Unlock()
+	if ok {
+		return pipeline, nil
+	}
+
+	// Create the pipeline.
+	pipeline, err := t.createPipelineFromModules(t.stubVertShader, psModule, renderPass, width, height)
+	if err != nil {
+		return vk.NullPipeline, fmt.Errorf("createCompiledPipeline 0x%X: %w", key.PixelShaderAddress, err)
+	}
+	t.pipelinesMutex.Lock()
+	t.pipelines[key] = pipeline
+	t.pipelinesMutex.Unlock()
+
+	return pipeline, nil
+}
+
+func (t *GpuTranslator) createPipelineFromModules(vsModule, fsModule vk.ShaderModule, renderPass vk.RenderPass, width, height uint32) (vk.Pipeline, error) {
 	stages := []vk.PipelineShaderStageCreateInfo{
 		{
 			SType:  vk.StructureTypePipelineShaderStageCreateInfo,
 			Stage:  vk.ShaderStageVertexBit,
-			Module: t.stubVertShader,
+			Module: vsModule,
 			PName:  "main\x00",
 		},
 		{
 			SType:  vk.StructureTypePipelineShaderStageCreateInfo,
 			Stage:  vk.ShaderStageFragmentBit,
-			Module: t.stubFragShader,
+			Module: fsModule,
 			PName:  "main\x00",
 		},
 	}
@@ -255,11 +304,10 @@ func (t *GpuTranslator) createStubPipeline(renderPass vk.RenderPass, width, heig
 		}},
 		nil, pipelines)
 	if err := as.NewError(result); err != nil {
-		return err
+		return vk.NullPipeline, err
 	}
-	t.stubPipeline = pipelines[0]
 
-	return nil
+	return pipelines[0], nil
 }
 
 func (t *GpuTranslator) imageBarrier(commandBuffer vk.CommandBuffer, image vk.Image,

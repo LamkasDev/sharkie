@@ -24,10 +24,10 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	// Common types.
 	idVoid := b.EmitTypeVoid()
 	idBool := b.EmitTypeBool()
-	idUint := b.EmitTypeInt(32, false)
+	// idUint := b.EmitTypeInt(32, false)
 	idFnType := b.EmitTypeFunction(idVoid)
 
-	// Push constants.
+	/* // Push constants.
 	idConst16 := b.EmitConstantUint(idUint, 16)
 	idArrUd := b.EmitTypeArray(idUint, idConst16)
 	idUd := b.EmitTypeStruct(idArrUd)
@@ -42,14 +42,33 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 
 	// Global push-constant variable.
 	idPCVar := b.EmitVariable(idPtrPc, SpvStoragePushConstant)
-	_ = idPCVar
+	_ = idPCVar */
 
 	// Stub boolean constant (condition in untranslated conditional branches).
 	idFalse := b.EmitConstantFalse(idBool)
 
+	// Stage-specific outputs.
+	var interfaceIds []uint32
+	var idColorOut, idZeroVec4 uint32
+	if shader.Stage == GcnShaderStageFragment {
+		// Declare vec4 color output at location 0.
+		idFloat := b.EmitTypeFloat(32)
+		idV4Float := b.EmitTypeVector(idFloat, 4)
+		idPtrOutV4 := b.EmitTypePointer(SpvStorageOutput, idV4Float)
+		idColorOut = b.EmitVariable(idPtrOutV4, SpvStorageOutput)
+		b.EmitDecorate(idColorOut, SpvDecorationLocation, 0)
+
+		// Constant zero vec4 written on exit.
+		idZeroF := b.EmitConstantFloat(idFloat, 0.0)
+		idOneF := b.EmitConstantFloat(idFloat, 1.0)
+		idZeroVec4 = b.EmitConstantComposite(idV4Float, idZeroF, idZeroF, idZeroF, idOneF)
+
+		interfaceIds = append(interfaceIds, idColorOut)
+	}
+
 	// Entry point.
 	idMain := b.AllocId()
-	b.EmitEntryPoint(GncStageToSpvExecModel[shader.Stage], idMain, "main")
+	b.EmitEntryPoint(GncStageToSpvExecModel[shader.Stage], idMain, "main", interfaceIds...)
 
 	// Execution modes.
 	switch shader.Stage {
@@ -77,8 +96,14 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	// Emit reachable blocks in reverse post-order (entry block first).
 	rpoBlockIds := shader.Cfg.ReversePostOrder()
 	emittedBlockIds := make([]bool, len(shader.Cfg.Blocks))
+	bctx := blockEmitCtx{
+		labelId:    labelID,
+		idFalse:    idFalse,
+		idColorOut: idColorOut,
+		idZeroVec4: idZeroVec4,
+	}
 	for _, blockId := range rpoBlockIds {
-		emitBlock(b, &shader.Cfg.Blocks[blockId], labelID, idFalse)
+		emitBlock(b, &shader.Cfg.Blocks[blockId], bctx)
 		emittedBlockIds[blockId] = true
 	}
 
@@ -100,22 +125,32 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	}, nil
 }
 
+type blockEmitCtx struct {
+	labelId    []uint32
+	idFalse    uint32
+	idColorOut uint32
+	idZeroVec4 uint32
+}
+
 // emitBlock emits the SPIR-V for a single block.
-func emitBlock(b *SpvBuilder, block *GcnShaderCfgBlock, labelID []uint32, idFalse uint32) {
-	b.EmitLabel(labelID[block.Id])
+func emitBlock(b *SpvBuilder, block *GcnShaderCfgBlock, ctx blockEmitCtx) {
+	b.EmitLabel(ctx.labelId[block.Id])
 
 	// TODO: emit other instructions.
 
 	switch block.Term {
 	case TermCBranch:
-		emitConditionalBranch(b, block, labelID, idFalse)
+		emitConditionalBranch(b, block, ctx)
 	case TermBranch, TermFallthrough:
 		if len(block.Successors) > 0 {
-			b.EmitBranch(labelID[block.Successors[0]])
+			b.EmitBranch(ctx.labelId[block.Successors[0]])
 		} else {
 			b.EmitUnreachable()
 		}
 	case TermEndpgm, TermExpDone:
+		if ctx.idColorOut != 0 {
+			b.EmitStore(ctx.idColorOut, ctx.idZeroVec4)
+		}
 		b.EmitReturn()
 	default:
 		b.EmitReturn()
@@ -124,18 +159,18 @@ func emitBlock(b *SpvBuilder, block *GcnShaderCfgBlock, labelID []uint32, idFals
 
 // emitConditionalBranch handles TermCBranch.
 // OpLoopMerge (loop headers) or OpSelectionMerge (selections) must appear immediately before the OpBranchConditional instruction.
-func emitConditionalBranch(b *SpvBuilder, block *GcnShaderCfgBlock, labelId []uint32, idFalse uint32) {
+func emitConditionalBranch(b *SpvBuilder, block *GcnShaderCfgBlock, ctx blockEmitCtx) {
 	if block.IsLoopHeader {
-		mergeLabelId := labelId[block.MergeBlockId]
-		continueLabelId := labelId[block.ContinueBlockId]
+		mergeLabelId := ctx.labelId[block.MergeBlockId]
+		continueLabelId := ctx.labelId[block.ContinueBlockId]
 		b.EmitLoopMerge(mergeLabelId, continueLabelId, SpvLoopControlNone)
 	} else if block.MergeBlockId >= 0 {
-		b.EmitSelectionMerge(labelId[block.MergeBlockId], SpvSelectionControlNone)
+		b.EmitSelectionMerge(ctx.labelId[block.MergeBlockId], SpvSelectionControlNone)
 	}
 
 	// TODO: we'll need to build the actual condition here.
 
-	falseLabelId := labelId[block.Successors[0]] // fall-through.
-	trueLabelId := labelId[block.Successors[1]]  // branch target.
-	b.EmitBranchConditional(idFalse, trueLabelId, falseLabelId)
+	falseLabelId := ctx.labelId[block.Successors[0]] // fall-through.
+	trueLabelId := ctx.labelId[block.Successors[1]]  // branch target.
+	b.EmitBranchConditional(ctx.idFalse, trueLabelId, falseLabelId)
 }
