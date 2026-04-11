@@ -36,8 +36,7 @@ func emitSMRD(b *SpvBuilder, instr *Instruction, ctx SpirvBlockContext) {
 			}
 			ptr := b.EmitPtrAccessChain(idPtrPsbUint, ptrBase, idx)
 			val := b.EmitLoad(ctx.GetId(SpirvBlockContextIdUint), ptr, SpvMemoryAccessAligned, 4)
-			ptrReg := ctx.GetRegisterPointer(instr.Details.(*SmrdDetails).Dst + i)
-			b.EmitStore(ptrReg, val)
+			ctx.StoreRegisterPointer(b, instr.Details.(*SmrdDetails).Dst+i, val)
 		}
 	default:
 		panic(fmt.Sprintf("unknown smrd op %d", instr.Details.(*SmrdDetails).Op))

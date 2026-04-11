@@ -138,7 +138,77 @@ func (b *SpvBuilder) EmitISub(resultType, op1, op2 uint32) uint32 {
 	return id
 }
 
-// EmitExtInst emits OpExtInst (like pack instructions) and returns the result id.
+// EmitFAdd emits OpFAdd and returns the result ID.
+func (b *SpvBuilder) EmitFAdd(resultType, op1, op2 uint32) uint32 {
+	id := b.AllocId()
+	b.instr(&b.code, SpvOpFAdd, resultType, id, op1, op2)
+	return id
+}
+
+// EmitFSub emits OpFSub and returns the result ID.
+func (b *SpvBuilder) EmitFSub(resultType, op1, op2 uint32) uint32 {
+	id := b.AllocId()
+	b.instr(&b.code, SpvOpFSub, resultType, id, op1, op2)
+	return id
+}
+
+// EmitFMul emits OpFMul and returns the result ID.
+func (b *SpvBuilder) EmitFMul(resultType, op1, op2 uint32) uint32 {
+	id := b.AllocId()
+	b.instr(&b.code, SpvOpFMul, resultType, id, op1, op2)
+	return id
+}
+
+// EmitLogicalOr emits OpLogicalOr and returns the result ID.
+func (b *SpvBuilder) EmitLogicalOr(resultType, op1, op2 uint32) uint32 {
+	id := b.AllocId()
+	b.instr(&b.code, SpvOpLogicalOr, resultType, id, op1, op2)
+	return id
+}
+
+// EmitBitwiseAnd emits OpBitwiseAnd and returns the result ID.
+func (b *SpvBuilder) EmitBitwiseAnd(resultType, op1, op2 uint32) uint32 {
+	id := b.AllocId()
+	b.instr(&b.code, SpvOpBitwiseAnd, resultType, id, op1, op2)
+	return id
+}
+
+// EmitBitwiseOr emits OpBitwiseOr and returns the result ID.
+func (b *SpvBuilder) EmitBitwiseOr(resultType, op1, op2 uint32) uint32 {
+	id := b.AllocId()
+	b.instr(&b.code, SpvOpBitwiseOr, resultType, id, op1, op2)
+	return id
+}
+
+// EmitShiftLeftLogical emits OpShiftLeftLogical and returns the result ID.
+func (b *SpvBuilder) EmitShiftLeftLogical(resultType, base, shift uint32) uint32 {
+	id := b.AllocId()
+	b.instr(&b.code, SpvOpShiftLeftLogical, resultType, id, base, shift)
+	return id
+}
+
+// EmitShiftRightLogical emits OpShiftRightLogical and returns the result ID.
+func (b *SpvBuilder) EmitShiftRightLogical(resultType, base, shift uint32) uint32 {
+	id := b.AllocId()
+	b.instr(&b.code, SpvOpShiftRightLogical, resultType, id, base, shift)
+	return id
+}
+
+// EmitINotEqual emits OpINotEqual and returns the result ID.
+func (b *SpvBuilder) EmitINotEqual(resultType, op1, op2 uint32) uint32 {
+	id := b.AllocId()
+	b.instr(&b.code, SpvOpINotEqual, resultType, id, op1, op2)
+	return id
+}
+
+// EmitSelect emits OpSelect and returns the result ID.
+func (b *SpvBuilder) EmitSelect(resultType, condition, op1, op2 uint32) uint32 {
+	id := b.AllocId()
+	b.instr(&b.code, SpvOpSelect, resultType, id, condition, op1, op2)
+	return id
+}
+
+// EmitExtInst emits OpExtInst (like pack instructions) and returns the result ID.
 func (b *SpvBuilder) EmitExtInst(resultType, setID, instruction uint32, operands ...uint32) uint32 {
 	id := b.AllocId()
 	ops := append([]uint32{resultType, id, setID, instruction}, operands...)
@@ -146,7 +216,7 @@ func (b *SpvBuilder) EmitExtInst(resultType, setID, instruction uint32, operands
 	return id
 }
 
-// EmitExtInstImport emits OpExtInstImport.
+// EmitExtInstImport emits OpExtInstImport and returns the result ID.
 func (b *SpvBuilder) EmitExtInstImport(name string) uint32 {
 	id := b.AllocId()
 	b.instr(&b.exts, SpvOpExtInstImport, append([]uint32{id}, spirvString(name)...)...)

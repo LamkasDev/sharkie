@@ -12,6 +12,7 @@ type SpirvBlockContextId uint8
 const (
 	SpirvBlockContextIdFalse SpirvBlockContextId = iota
 	SpirvBlockContextIdTrue
+	SpirvBlockContextIdBool
 	SpirvBlockContextIdColorOut
 	SpirvBlockContextIdZeroVec4
 	SpirvBlockContextIdPcVar
@@ -22,26 +23,40 @@ const (
 	SpirvBlockContextIdV4Float
 	SpirvBlockContextIdPtrFnUint
 	SpirvBlockContextIdUint
+	SpirvBlockContextIdInt
 	SpirvBlockContextIdUint64
 	SpirvBlockContextIdV2Float
 	SpirvBlockContextIdGlsl
+	SpirvBlockContextIdC0
+	SpirvBlockContextIdC1
+	SpirvBlockContextIdC2
+	SpirvBlockContextIdC3
+	SpirvBlockContextIdC4
+	SpirvBlockContextIdC5
+	SpirvBlockContextIdC6
+	SpirvBlockContextIdC7
+	SpirvBlockContextIdC11111111
+	SpirvBlockContextIdCFFFFFFFF
 )
 
 const (
-	SpecIdxVccLo  = 0
-	SpecIdxVccHi  = 1
-	SpecIdxTbaLo  = 2
-	SpecIdxTbaHi  = 3
-	SpecIdxTmaLo  = 4
-	SpecIdxTmaHi  = 5
-	SpecIdxTtmp0  = 6
-	SpecIdxTtmp11 = 17
-	SpecIdxM0     = 18
-	SpecIdxExecLo = 20
-	SpecIdxExecHi = 21
-	SpecIdxVccz   = 22
-	SpecIdxExecz  = 23
-	SpecIdxScc    = 24
+	SpecIdxFlatScrLo = 0
+	SpecIdxFlatScrHi = 1
+	SpecIdxVccLo     = 2
+	SpecIdxVccHi     = 3
+	SpecIdxTbaLo     = 4
+	SpecIdxTbaHi     = 5
+	SpecIdxTmaLo     = 6
+	SpecIdxTmaHi     = 7
+	SpecIdxTtmp0     = 8
+	SpecIdxTtmp11    = 19
+	SpecIdxM0        = 20
+	SpecIdxReserved  = 21
+	SpecIdxExecLo    = 22
+	SpecIdxExecHi    = 23
+	SpecIdxVccz      = 24
+	SpecIdxExecz     = 25
+	SpecIdxScc       = 26
 )
 
 const (
@@ -66,7 +81,7 @@ type SpirvBlockContext struct {
 	Ids        map[SpirvBlockContextId]uint32
 	SgprIds    [104]uint32
 	VgprIds    [256]uint32
-	SpecialIds [25]uint32
+	SpecialIds [27]uint32
 	ConstIds   [120]uint32
 }
 
@@ -148,7 +163,7 @@ func emitBlock(b *SpvBuilder, block *GcnShaderCfgBlock, ctx SpirvBlockContext) {
 			b.EmitLocalVariable(idPtrFnUint, ctx.GetVgprId(uint32(i)))
 		}
 		for i := range ctx.SpecialIds {
-			if i == 19 {
+			if i == SpecIdxReserved {
 				continue // reserved.
 			}
 			b.EmitLocalVariable(idPtrFnUint, ctx.GetSpecialId(uint32(i)))

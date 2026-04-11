@@ -7,17 +7,51 @@ import (
 )
 
 func emitVOP2(b *SpvBuilder, instr *Instruction, ctx SpirvBlockContext) {
-	switch instr.Details.(*VectorDetails).Op {
+	details := instr.Details.(*VectorDetails)
+	switch details.Op {
+	case Vop2OpAddF32:
+		val0 := ctx.GetOperandFloatValue(b, details.Src0, instr.Literal)
+		val1 := ctx.GetOperandFloatValue(b, details.Src1+OpVgpr0, 0)
+		resF := b.EmitFAdd(ctx.GetId(SpirvBlockContextIdFloat), val0, val1)
+		ctx.StoreRegisterPointer(b, details.Dst+OpVgpr0, b.EmitBitcast(ctx.GetId(SpirvBlockContextIdUint), resF))
+	case Vop2OpSubF32:
+		val0 := ctx.GetOperandFloatValue(b, details.Src0, instr.Literal)
+		val1 := ctx.GetOperandFloatValue(b, details.Src1+OpVgpr0, 0)
+		resF := b.EmitFSub(ctx.GetId(SpirvBlockContextIdFloat), val0, val1)
+		ctx.StoreRegisterPointer(b, details.Dst+OpVgpr0, b.EmitBitcast(ctx.GetId(SpirvBlockContextIdUint), resF))
+	case Vop2OpSubrevF32:
+		val0 := ctx.GetOperandFloatValue(b, details.Src0, instr.Literal)
+		val1 := ctx.GetOperandFloatValue(b, details.Src1+OpVgpr0, 0)
+		resF := b.EmitFSub(ctx.GetId(SpirvBlockContextIdFloat), val1, val0)
+		ctx.StoreRegisterPointer(b, details.Dst+OpVgpr0, b.EmitBitcast(ctx.GetId(SpirvBlockContextIdUint), resF))
+	case Vop2OpMulF32:
+		val0 := ctx.GetOperandFloatValue(b, details.Src0, instr.Literal)
+		val1 := ctx.GetOperandFloatValue(b, details.Src1+OpVgpr0, 0)
+		resF := b.EmitFMul(ctx.GetId(SpirvBlockContextIdFloat), val0, val1)
+		ctx.StoreRegisterPointer(b, details.Dst+OpVgpr0, b.EmitBitcast(ctx.GetId(SpirvBlockContextIdUint), resF))
+	case Vop2OpMinF32:
+		val0 := ctx.GetOperandFloatValue(b, details.Src0, instr.Literal)
+		val1 := ctx.GetOperandFloatValue(b, details.Src1+OpVgpr0, 0)
+		resF := b.EmitExtInst(ctx.GetId(SpirvBlockContextIdFloat), ctx.GetId(SpirvBlockContextIdGlsl), 37, val0, val1) // FMin
+		ctx.StoreRegisterPointer(b, details.Dst+OpVgpr0, b.EmitBitcast(ctx.GetId(SpirvBlockContextIdUint), resF))
+	case Vop2OpMaxF32:
+		val0 := ctx.GetOperandFloatValue(b, details.Src0, instr.Literal)
+		val1 := ctx.GetOperandFloatValue(b, details.Src1+OpVgpr0, 0)
+		resF := b.EmitExtInst(ctx.GetId(SpirvBlockContextIdFloat), ctx.GetId(SpirvBlockContextIdGlsl), 40, val0, val1) // FMax
+		ctx.StoreRegisterPointer(b, details.Dst+OpVgpr0, b.EmitBitcast(ctx.GetId(SpirvBlockContextIdUint), resF))
+	case Vop2OpMacF32:
+		val0 := ctx.GetOperandFloatValue(b, details.Src0, instr.Literal)
+		val1 := ctx.GetOperandFloatValue(b, details.Src1+OpVgpr0, 0)
+		valD := b.EmitBitcast(ctx.GetId(SpirvBlockContextIdFloat), ctx.LoadRegisterPointer(b, details.Dst+OpVgpr0))
+		resF := b.EmitExtInst(ctx.GetId(SpirvBlockContextIdFloat), ctx.GetId(SpirvBlockContextIdGlsl), 50, val0, val1, valD) // Fma
+		ctx.StoreRegisterPointer(b, details.Dst+OpVgpr0, b.EmitBitcast(ctx.GetId(SpirvBlockContextIdUint), resF))
 	case Vop2OpCvtPkrtzF16F32:
-		val0 := ctx.GetOperandValue(b, instr.Details.(*VectorDetails).Src0, instr.Literal)
-		val1 := ctx.GetOperandValue(b, instr.Details.(*VectorDetails).Src1+OpVgpr0, 0)
-		fval0 := b.EmitBitcast(ctx.GetId(SpirvBlockContextIdFloat), val0)
-		fval1 := b.EmitBitcast(ctx.GetId(SpirvBlockContextIdFloat), val1)
-		vec := b.EmitCompositeConstruct(ctx.GetId(SpirvBlockContextIdV2Float), fval0, fval1)
+		val0 := ctx.GetOperandFloatValue(b, details.Src0, instr.Literal)
+		val1 := ctx.GetOperandFloatValue(b, details.Src1+OpVgpr0, 0)
+		vec := b.EmitCompositeConstruct(ctx.GetId(SpirvBlockContextIdV2Float), val0, val1)
 		resU := b.EmitExtInst(ctx.GetId(SpirvBlockContextIdUint), ctx.GetId(SpirvBlockContextIdGlsl), 58, vec) // PackHalf2x16
-		ptr := ctx.GetRegisterPointer(instr.Details.(*VectorDetails).Dst + OpVgpr0)
-		b.EmitStore(ptr, resU)
+		ctx.StoreRegisterPointer(b, details.Dst+OpVgpr0, resU)
 	default:
-		panic(fmt.Sprintf("unknown vop2 op %d", instr.Details.(*VectorDetails).Op))
+		panic(fmt.Sprintf("unknown vop2 op %d", details.Op))
 	}
 }

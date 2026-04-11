@@ -18,9 +18,7 @@ func emitEXP(b *SpvBuilder, instr *Instruction, ctx SpirvBlockContext) {
 		f2 := b.EmitCompositeExtract(ctx.GetId(SpirvBlockContextIdFloat), v23, 0)
 		f3 := b.EmitCompositeExtract(ctx.GetId(SpirvBlockContextIdFloat), v23, 1)
 		vec := b.EmitCompositeConstruct(ctx.GetId(SpirvBlockContextIdV4Float), f0, f1, f2, f3)
-		if idColorOut, ok := ctx.TryGetId(SpirvBlockContextIdColorOut); ok {
-			b.EmitStore(idColorOut, vec)
-		}
+		b.EmitStore(ctx.GetId(SpirvBlockContextIdColorOut), vec)
 	default:
 		panic(fmt.Sprintf("unknown export target %d", instr.Details.(*ExpDetails).Target))
 	}
