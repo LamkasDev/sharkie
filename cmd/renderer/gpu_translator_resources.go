@@ -272,8 +272,22 @@ func (t *GpuTranslator) createPipelineFromModules(vsModule, fsModule vk.ShaderMo
 	}
 
 	multisample := vk.PipelineMultisampleStateCreateInfo{
-		SType:                vk.StructureTypePipelineMultisampleStateCreateInfo,
-		RasterizationSamples: vk.SampleCount1Bit,
+		SType:                 vk.StructureTypePipelineMultisampleStateCreateInfo,
+		RasterizationSamples:  vk.SampleCount1Bit,
+		SampleShadingEnable:   vk.False,
+		MinSampleShading:      1.0,
+		PSampleMask:           nil,
+		AlphaToCoverageEnable: vk.False,
+		AlphaToOneEnable:      vk.False,
+	}
+
+	depthStencil := vk.PipelineDepthStencilStateCreateInfo{
+		SType:                 vk.StructureTypePipelineDepthStencilStateCreateInfo,
+		DepthTestEnable:       vk.False,
+		DepthWriteEnable:      vk.False,
+		DepthCompareOp:        vk.CompareOpLess,
+		DepthBoundsTestEnable: vk.False,
+		StencilTestEnable:     vk.False,
 	}
 
 	// Opaque blend.
@@ -281,9 +295,18 @@ func (t *GpuTranslator) createPipelineFromModules(vsModule, fsModule vk.ShaderMo
 		ColorWriteMask: vk.ColorComponentFlags(
 			vk.ColorComponentRBit | vk.ColorComponentGBit |
 				vk.ColorComponentBBit | vk.ColorComponentABit),
+		BlendEnable:         vk.False,
+		SrcColorBlendFactor: vk.BlendFactorOne,
+		DstColorBlendFactor: vk.BlendFactorZero,
+		ColorBlendOp:        vk.BlendOpAdd,
+		SrcAlphaBlendFactor: vk.BlendFactorOne,
+		DstAlphaBlendFactor: vk.BlendFactorZero,
+		AlphaBlendOp:        vk.BlendOpAdd,
 	}
 	blend := vk.PipelineColorBlendStateCreateInfo{
 		SType:           vk.StructureTypePipelineColorBlendStateCreateInfo,
+		LogicOpEnable:   vk.False,
+		LogicOp:         vk.LogicOpCopy,
 		AttachmentCount: 1,
 		PAttachments:    []vk.PipelineColorBlendAttachmentState{blendAttach},
 	}
@@ -299,6 +322,7 @@ func (t *GpuTranslator) createPipelineFromModules(vsModule, fsModule vk.ShaderMo
 			PViewportState:      &viewportState,
 			PRasterizationState: &raster,
 			PMultisampleState:   &multisample,
+			PDepthStencilState:  &depthStencil,
 			PColorBlendState:    &blend,
 			PDynamicState:       &dynamicState,
 			Layout:              t.stubPipelineLayout,

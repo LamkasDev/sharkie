@@ -11,13 +11,21 @@ const (
 
 // SPIR-V capabilities.
 const (
-	SpvCapShader = uint32(1)
+	SpvCapShader                         = uint32(1)
+	SpvCapAddresses                      = uint32(4)
+	SpvCapInt64                          = uint32(5)
+	SpvCapPhysicalStorageBufferAddresses = uint32(5341)
 )
 
-// SPIR-V addressing and memory models.
+// SPIR-V addressing models.
 const (
-	SpvAddrModelLogical = uint32(iota)
-	SpvMemModelGLSL450
+	SpvAddrModelLogical                 = uint32(0)
+	SpvAddrModelPhysicalStorageBuffer64 = uint32(5348)
+)
+
+// SPIR-V memory models.
+const (
+	SpvMemModelGLSL450 = uint32(1)
 )
 
 // SPIR-V execution models.
@@ -48,22 +56,25 @@ const (
 
 // SPIR-V storage classes.
 const (
-	SpvStorageUniformConstant = uint32(0)
-	SpvStorageInput           = uint32(1)
-	SpvStorageUniform         = uint32(2)
-	SpvStorageOutput          = uint32(3)
-	SpvStorageFunction        = uint32(7)
-	SpvStoragePushConstant    = uint32(9)
+	SpvStorageUniformConstant       = uint32(0)
+	SpvStorageInput                 = uint32(1)
+	SpvStorageUniform               = uint32(2)
+	SpvStorageOutput                = uint32(3)
+	SpvStorageFunction              = uint32(7)
+	SpvStoragePushConstant          = uint32(9)
+	SpvStoragePhysicalStorageBuffer = uint32(5349)
 )
 
 // SPIR-V decorations.
 const (
-	SpvDecorationBlock         = uint32(2)
-	SpvDecorationArrayStride   = uint32(6)
-	SpvDecorationBuiltIn       = uint32(11)
-	SpvDecorationLocation      = uint32(30)
-	SpvDecorationDescriptorSet = uint32(34)
-	SpvDecorationOffset        = uint32(35)
+	SpvDecorationBlock          = uint32(2)
+	SpvDecorationArrayStride    = uint32(6)
+	SpvDecorationBuiltIn        = uint32(11)
+	SpvDecorationAliased        = uint32(15)
+	SpvDecorationLocation       = uint32(30)
+	SpvDecorationDescriptorSet  = uint32(34)
+	SpvDecorationOffset         = uint32(35)
+	SpvDecorationAliasedPointer = uint32(5356)
 )
 
 // SPIR-V function, selection and loop control masks.
@@ -73,9 +84,18 @@ const (
 	SpvLoopControlNone      = uint32(0)
 )
 
+// SPIR-V memory access masks.
+const (
+	SpvMemoryAccessNone        = uint32(0)
+	SpvMemoryAccessVolatile    = uint32(1)
+	SpvMemoryAccessAligned     = uint32(2)
+	SpvMemoryAccessNontemporal = uint32(4)
+)
+
 // SPIR-V Opcodes.
 const (
 	SpvOpNop                = uint32(1)
+	SpvOpExtension          = uint32(10)
 	SpvOpExtInstImport      = uint32(11)
 	SpvOpExtInst            = uint32(12)
 	SpvOpMemoryModel        = uint32(14)
@@ -101,11 +121,15 @@ const (
 	SpvOpLoad               = uint32(61)
 	SpvOpStore              = uint32(62)
 	SpvOpAccessChain        = uint32(65)
+	SpvOpPtrAccessChain     = uint32(67)
 	SpvOpDecorate           = uint32(71)
 	SpvOpMemberDecorate     = uint32(72)
 	SpvOpCompositeConstruct = uint32(80)
 	SpvOpCompositeExtract   = uint32(81)
+	SpvOpConvertUToPtr      = uint32(117)
 	SpvOpBitcast            = uint32(124)
+	SpvOpIAdd               = uint32(128)
+	SpvOpISub               = uint32(130)
 	SpvOpLoopMerge          = uint32(246)
 	SpvOpSelectionMerge     = uint32(247)
 	SpvOpLabel              = uint32(248)

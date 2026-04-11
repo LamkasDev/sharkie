@@ -38,6 +38,11 @@ func (b *SpvBuilder) EmitCapability(cap uint32) {
 	b.instr(&b.caps, SpvOpCapability, cap)
 }
 
+// EmitExtension emits OpExtension.
+func (b *SpvBuilder) EmitExtension(name string) {
+	b.instr(&b.exts, SpvOpExtension, spirvString(name)...)
+}
+
 // EmitMemoryModel emits OpMemoryModel.
 func (b *SpvBuilder) EmitMemoryModel(addrModel, memModel uint32) {
 	b.instr(&b.memModel, SpvOpMemoryModel, addrModel, memModel)
@@ -97,10 +102,39 @@ func (b *SpvBuilder) EmitAccessChain(resultType, base uint32, indices ...uint32)
 	return id
 }
 
+// EmitPtrAccessChain emits OpPtrAccessChain and returns the result pointer ID.
+func (b *SpvBuilder) EmitPtrAccessChain(resultType, base, element uint32, indices ...uint32) uint32 {
+	id := b.AllocId()
+	ops := append([]uint32{resultType, id, base, element}, indices...)
+	b.instr(&b.code, SpvOpPtrAccessChain, ops...)
+	return id
+}
+
 // EmitBitcast emits OpBitcast and returns the result ID.
 func (b *SpvBuilder) EmitBitcast(resultType, operand uint32) uint32 {
 	id := b.AllocId()
 	b.instr(&b.code, SpvOpBitcast, resultType, id, operand)
+	return id
+}
+
+// EmitConvertUToPtr emits OpConvertUToPtr and returns the result ID.
+func (b *SpvBuilder) EmitConvertUToPtr(resultType, operand uint32) uint32 {
+	id := b.AllocId()
+	b.instr(&b.code, SpvOpConvertUToPtr, resultType, id, operand)
+	return id
+}
+
+// EmitIAdd emits OpIAdd and returns the result ID.
+func (b *SpvBuilder) EmitIAdd(resultType, op1, op2 uint32) uint32 {
+	id := b.AllocId()
+	b.instr(&b.code, SpvOpIAdd, resultType, id, op1, op2)
+	return id
+}
+
+// EmitISub emits OpISub and returns the result ID.
+func (b *SpvBuilder) EmitISub(resultType, op1, op2 uint32) uint32 {
+	id := b.AllocId()
+	b.instr(&b.code, SpvOpISub, resultType, id, op1, op2)
 	return id
 }
 

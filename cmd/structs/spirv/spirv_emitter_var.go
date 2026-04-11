@@ -15,16 +15,18 @@ func (b *SpvBuilder) EmitLocalVariable(ptrType, id uint32) {
 }
 
 // EmitLoad emits OpLoad and returns the result ID.
-func (b *SpvBuilder) EmitLoad(resultType, pointer uint32) uint32 {
+func (b *SpvBuilder) EmitLoad(resultType, pointer uint32, memoryAccess ...uint32) uint32 {
 	id := b.AllocId()
-	b.instr(&b.code, SpvOpLoad, resultType, id, pointer)
+	ops := append([]uint32{resultType, id, pointer}, memoryAccess...)
+	b.instr(&b.code, SpvOpLoad, ops...)
 	return id
 }
 
 // EmitStore emits OpStore.
-func (b *SpvBuilder) EmitStore(pointer, object uint32) {
+func (b *SpvBuilder) EmitStore(pointer, object uint32, memoryAccess ...uint32) {
 	if pointer == 0 {
 		panic(fmt.Sprintf("id is zero"))
 	}
-	b.instr(&b.code, SpvOpStore, pointer, object)
+	ops := append([]uint32{pointer, object}, memoryAccess...)
+	b.instr(&b.code, SpvOpStore, ops...)
 }
