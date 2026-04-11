@@ -12,10 +12,6 @@ type SpirvBlockContextId uint8
 const (
 	SpirvBlockContextIdFalse SpirvBlockContextId = iota
 	SpirvBlockContextIdTrue
-	SpirvBlockContextIdConst0
-	SpirvBlockContextIdConst1
-	SpirvBlockContextIdConst2
-	SpirvBlockContextIdConst3
 	SpirvBlockContextIdColorOut
 	SpirvBlockContextIdZeroVec4
 	SpirvBlockContextIdPcVar
@@ -29,6 +25,39 @@ const (
 	SpirvBlockContextIdUint64
 	SpirvBlockContextIdV2Float
 	SpirvBlockContextIdGlsl
+)
+
+const (
+	SpecIdxVccLo  = 0
+	SpecIdxVccHi  = 1
+	SpecIdxTbaLo  = 2
+	SpecIdxTbaHi  = 3
+	SpecIdxTmaLo  = 4
+	SpecIdxTmaHi  = 5
+	SpecIdxTtmp0  = 6
+	SpecIdxTtmp11 = 17
+	SpecIdxM0     = 18
+	SpecIdxExecLo = 20
+	SpecIdxExecHi = 21
+	SpecIdxVccz   = 22
+	SpecIdxExecz  = 23
+	SpecIdxScc    = 24
+)
+
+const (
+	ConstIdx0          = 0
+	ConstIdxInt1       = 1
+	ConstIdxInt64      = 64
+	ConstIdxIntNeg1    = 65
+	ConstIdxIntNeg16   = 80
+	ConstIdxFloat05    = 112
+	ConstIdxFloatNeg05 = 113
+	ConstIdxFloat10    = 114
+	ConstIdxFloatNeg10 = 115
+	ConstIdxFloat20    = 116
+	ConstIdxFloatNeg20 = 117
+	ConstIdxFloat40    = 118
+	ConstIdxFloatNeg40 = 119
 )
 
 type SpirvBlockContext struct {

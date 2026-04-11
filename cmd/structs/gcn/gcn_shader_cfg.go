@@ -18,7 +18,7 @@ func NewGcnShaderCfg(instructions []Instruction) (GcnShaderCfg, error) {
 		if !instr.IsBranchTerminator() {
 			continue
 		}
-		if instr.SOp == SoppOpEndpgm {
+		if instr.Details.(*ScalarDetails).Op == SoppOpEndpgm {
 			continue
 		}
 
@@ -31,7 +31,7 @@ func NewGcnShaderCfg(instructions []Instruction) (GcnShaderCfg, error) {
 	// Treat EXP(done) as a block boundary (terminates PS before ENDPGM).
 	for i := range instructions {
 		instr := &instructions[i]
-		if instr.Encoding == EncEXP && instr.ExpDone {
+		if instr.Encoding == EncEXP && instr.Details.(*ExpDetails).Done {
 			nextOffset := instr.DwordOffset + uintptr(instr.DwordLen)
 			leaders[nextOffset] = true
 		}
@@ -114,17 +114,17 @@ func NewGcnShaderCfg(instructions []Instruction) (GcnShaderCfg, error) {
 // ClassifyTerminator returns Term, BranchCond and Successors for a block.
 func (cfg *GcnShaderCfg) ClassifyTerminator(term *Instruction) (TermKind, BranchCond, []int) {
 	// S_ENDPGM. No successors.
-	if term.Encoding == EncSOPP && term.SOp == SoppOpEndpgm {
+	if term.Encoding == EncSOPP && term.Details.(*ScalarDetails).Op == SoppOpEndpgm {
 		return TermEndpgm, CondNone, nil
 	}
 
 	// EXP with done=true followed by S_ENDPGM. No successors.
-	if term.Encoding == EncEXP && term.ExpDone {
+	if term.Encoding == EncEXP && term.Details.(*ExpDetails).Done {
 		return TermExpDone, CondNone, nil
 	}
 
 	// S_BRANCH (unconditional). One successor.
-	if term.Encoding == EncSOPP && term.SOp == SoppOpBranch {
+	if term.Encoding == EncSOPP && term.Details.(*ScalarDetails).Op == SoppOpBranch {
 		targetId, ok := cfg.BlocksByOffset[term.BranchTargetDwordOffset()]
 		if !ok {
 			return TermBranch, CondNone, nil
@@ -146,7 +146,7 @@ func (cfg *GcnShaderCfg) ClassifyTerminator(term *Instruction) (TermKind, Branch
 			successors = append(successors, targetId)
 		}
 
-		return TermCBranch, NewBranchCond(term.SOp), successors
+		return TermCBranch, NewBranchCond(term.Details.(*ScalarDetails).Op), successors
 	}
 
 	// Block ends because the next block starts (no explicit branch). One successor.

@@ -7,29 +7,29 @@ const (
 	CondNone   BranchCond = iota // unconditional
 	CondScc0                     // branch if SCC == 0
 	CondScc1                     // branch if SCC == 1
-	CondVccZ                     // branch if VCC == 0
-	CondVccNz                    // branch if VCC != 0
-	CondExecZ                    // branch if EXEC == 0
-	CondExecNz                   // branch if EXEC != 0
+	CondVccz                     // branch if VCC == 0
+	CondVccnz                    // branch if VCC != 0
+	CondExecz                    // branch if EXEC == 0
+	CondExecnz                   // branch if EXEC != 0
 )
 
 var BranchCondNames = map[BranchCond]string{
 	CondNone:   "None",
 	CondScc0:   "Scc0",
 	CondScc1:   "Scc1",
-	CondVccZ:   "VccZ",
-	CondVccNz:  "VccNz",
-	CondExecZ:  "ExecZ",
-	CondExecNz: "ExecNz",
+	CondVccz:   "Vccz",
+	CondVccnz:  "Vccnz",
+	CondExecz:  "Execz",
+	CondExecnz: "Execnz",
 }
 
 var BranchCondMap = map[uint32]BranchCond{
 	SoppOpCBranchScc0:   CondScc0,
 	SoppOpCBranchScc1:   CondScc1,
-	SoppOpCBranchVccZ:   CondVccZ,
-	SoppOpCBranchVccNz:  CondVccNz,
-	SoppOpCBranchExecZ:  CondExecZ,
-	SoppOpCBranchExecNz: CondExecNz,
+	SoppOpCBranchVccz:   CondVccz,
+	SoppOpCBranchVccnz:  CondVccnz,
+	SoppOpCBranchExecz:  CondExecz,
+	SoppOpCBranchExecnz: CondExecnz,
 }
 
 func (c BranchCond) String() string {

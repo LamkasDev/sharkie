@@ -90,7 +90,7 @@ func NewGcnShader(stage GcnShaderStage, address uintptr) (*GcnShader, error) {
 		i += instr.DwordLen
 
 		// S_ENDPGM (SOPP op=1) terminates the shader.
-		if instr.Encoding == EncSOPP && instr.SOp == 1 {
+		if instr.Encoding == EncSOPP && instr.Details.(*ScalarDetails).Op == 1 {
 			break
 		}
 	}

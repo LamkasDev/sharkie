@@ -122,41 +122,40 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 
 	// Special registers.
 	var specialIds [25]uint32
-	specialIds[0] = b.AllocId() // VCC_LO
-	specialIds[1] = b.AllocId() // VCC_HI
-	specialIds[2] = b.AllocId() // TBA_LO
-	specialIds[3] = b.AllocId() // TBA_HI
-	specialIds[4] = b.AllocId() // TMA_LO
-	specialIds[5] = b.AllocId() // TMA_HI
+	specialIds[SpecIdxVccLo] = b.AllocId()
+	specialIds[SpecIdxVccHi] = b.AllocId()
+	specialIds[SpecIdxTbaLo] = b.AllocId()
+	specialIds[SpecIdxTbaHi] = b.AllocId()
+	specialIds[SpecIdxTmaLo] = b.AllocId()
+	specialIds[SpecIdxTmaHi] = b.AllocId()
 	for i := range 12 {
-		specialIds[6+i] = b.AllocId() // TTMP
+		specialIds[SpecIdxTtmp0+i] = b.AllocId()
 	}
-	specialIds[18] = b.AllocId() // M0
-	// reserved.
-	specialIds[20] = b.AllocId() // EXEC_LO
-	specialIds[21] = b.AllocId() // EXEC_HI ...
-	specialIds[22] = b.AllocId() // VCCZ
-	specialIds[23] = b.AllocId() // EXECZ
-	specialIds[24] = b.AllocId() // SCC
+	specialIds[SpecIdxM0] = b.AllocId()
+	specialIds[SpecIdxExecLo] = b.AllocId()
+	specialIds[SpecIdxExecHi] = b.AllocId()
+	specialIds[SpecIdxVccz] = b.AllocId()
+	specialIds[SpecIdxExecz] = b.AllocId()
+	specialIds[SpecIdxScc] = b.AllocId()
 
 	// Inline constants.
 	var constIds [120]uint32
-	constIds[0] = b.EmitConstantUint(idUint, 0)
-	for i := uint32(1); i <= 64; i++ {
+	constIds[ConstIdx0] = b.EmitConstantUint(idUint, 0)
+	for i := uint32(ConstIdxInt1); i <= ConstIdxInt64; i++ {
 		constIds[i] = b.EmitConstantUint(idUint, i)
 	}
-	for i := uint32(65); i <= 80; i++ {
-		constIds[i] = b.EmitConstantUint(idUint, uint32(int32(-(int(i) - 64))))
+	for i := uint32(ConstIdxIntNeg1); i <= ConstIdxIntNeg16; i++ {
+		val := uint32(int32(-(int(i) - ConstIdxInt64)))
+		constIds[i] = b.EmitConstantUint(idUint, val)
 	}
-	// 31 reserved.
-	constIds[112] = b.EmitConstantUint(idUint, math.Float32bits(0.5))
-	constIds[113] = b.EmitConstantUint(idUint, math.Float32bits(-0.5))
-	constIds[114] = b.EmitConstantUint(idUint, math.Float32bits(1.0))
-	constIds[115] = b.EmitConstantUint(idUint, math.Float32bits(-1.0))
-	constIds[116] = b.EmitConstantUint(idUint, math.Float32bits(2.0))
-	constIds[117] = b.EmitConstantUint(idUint, math.Float32bits(-2.0))
-	constIds[118] = b.EmitConstantUint(idUint, math.Float32bits(4.0))
-	constIds[119] = b.EmitConstantUint(idUint, math.Float32bits(-4.0))
+	constIds[ConstIdxFloat05] = b.EmitConstantUint(idUint, math.Float32bits(0.5))
+	constIds[ConstIdxFloatNeg05] = b.EmitConstantUint(idUint, math.Float32bits(-0.5))
+	constIds[ConstIdxFloat10] = b.EmitConstantUint(idUint, math.Float32bits(1.0))
+	constIds[ConstIdxFloatNeg10] = b.EmitConstantUint(idUint, math.Float32bits(-1.0))
+	constIds[ConstIdxFloat20] = b.EmitConstantUint(idUint, math.Float32bits(2.0))
+	constIds[ConstIdxFloatNeg20] = b.EmitConstantUint(idUint, math.Float32bits(-2.0))
+	constIds[ConstIdxFloat40] = b.EmitConstantUint(idUint, math.Float32bits(4.0))
+	constIds[ConstIdxFloatNeg40] = b.EmitConstantUint(idUint, math.Float32bits(-4.0))
 
 	// Function body.
 	b.EmitFunction(idVoid, SpvFunctionControlNone, idFnType, idMain)
@@ -169,10 +168,6 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 		LabelIds: labelIds,
 		Ids: map[SpirvBlockContextId]uint32{
 			SpirvBlockContextIdFalse:        idFalse,
-			SpirvBlockContextIdConst0:       constIds[0],
-			SpirvBlockContextIdConst1:       constIds[1],
-			SpirvBlockContextIdConst2:       constIds[2],
-			SpirvBlockContextIdConst3:       constIds[3],
 			SpirvBlockContextIdColorOut:     idColorOut,
 			SpirvBlockContextIdZeroVec4:     idZeroVec4,
 			SpirvBlockContextIdPcVar:        idPCVar,
