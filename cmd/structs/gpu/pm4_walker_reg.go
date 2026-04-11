@@ -2,6 +2,7 @@ package gpu
 
 import (
 	"runtime"
+	"slices"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/logger"
@@ -23,6 +24,26 @@ func (l *Liverpool) handleSetContextReg(ringName string, payload []uint32) {
 
 func (l *Liverpool) handleSetUserConfigReg(ringName string, payload []uint32) {
 	l.handleSetRegs(ringName, l.Registers.UserConfig[:], "user_config", gcn.UserConfigRegisterNames, payload)
+}
+
+func (l *Liverpool) handleSetRegsRaw(ringName string, offset uint32, payload []uint32) {
+	switch {
+	case offset >= gcn.GcnRegBaseUserConfig:
+		payload = slices.Insert(payload, 0, offset-gcn.GcnRegBaseUserConfig)
+		l.handleSetRegs(ringName, l.Registers.UserConfig[:], "user_config", gcn.UserConfigRegisterNames, payload)
+	case offset >= gcn.GcnRegBaseContext:
+		payload = slices.Insert(payload, 0, offset-gcn.GcnRegBaseContext)
+		l.handleSetRegs(ringName, l.Registers.Context[:], "context", gcn.ContextRegisterNames, payload)
+	case offset >= gcn.GcnRegBaseShader:
+		payload = slices.Insert(payload, 0, offset-gcn.GcnRegBaseShader)
+		l.handleSetRegs(ringName, l.Registers.Shader[:], "shader", gcn.ShaderRegisterNames, payload)
+	case offset >= gcn.GcnRegBaseConfig:
+		payload = slices.Insert(payload, 0, offset-gcn.GcnRegBaseConfig)
+		l.handleSetRegs(ringName, l.Registers.Config[:], "config", gcn.ConfigRegisterNames, payload)
+	case offset >= gcn.GcnRegBaseSystem:
+		payload = slices.Insert(payload, 0, offset-gcn.GcnRegBaseSystem)
+		l.handleSetRegs(ringName, l.Registers.System[:], "system", gcn.SystemRegisterNames, payload)
+	}
 }
 
 func (l *Liverpool) handleSetRegs(ringName string, bank []uint32, bankName string, bankRegNames map[uint32]string, payload []uint32) {

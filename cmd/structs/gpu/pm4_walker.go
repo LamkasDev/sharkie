@@ -96,28 +96,24 @@ func (l *Liverpool) walkIndirectBuffer(ringName string, buffer PM4IndirectBuffer
 func (l *Liverpool) walkStream(ringName string, dwords []uint32) {
 	i := 0
 	for i < len(dwords) {
-		header := dwords[i]
-
 		// Type-2 is the single DWORD NOP padding.
-		if header == PM4_HEADER_TYPE2 {
+		header := dwords[i]
+		if header == 0 || header == PM4_HEADER_TYPE2 {
 			i++
 			continue
 		}
 
-		// All normal packets must be Type-3.
-		if (header>>30)&3 != PM4_TYPE_3 {
-			i++
-			continue
-		}
-
-		// count is the number of payload DWORDs.
+		// Extract header data.
+		headerType := (header >> 30) & 0x3
 		count := int((header>>16)&0x3FFF) + 1
 		opcode := uint8((header >> 8) & 0xFF)
-
 		end := i + 1 + count
+
+		// Check if the packet is truncated.
 		if end > len(dwords) {
-			logger.Printf("[%s] truncated pm4 opcode %s (expected=%s, got=%s).\n",
+			logger.Printf("[%s] truncated %s-pm4 opcode %s (expected=%s, got=%s).\n",
 				color.Green.Sprintf("PM4-%s", ringName),
+				color.Green.Sprintf("%d", headerType),
 				color.Yellow.Sprintf("0x%X", opcode),
 				color.Green.Sprintf("%d", count),
 				color.Green.Sprintf("%d", len(dwords)-i-1),
@@ -125,12 +121,19 @@ func (l *Liverpool) walkStream(ringName string, dwords []uint32) {
 			break
 		}
 
-		l.dispatchPacket(ringName, opcode, dwords[i+1:end])
+		switch headerType {
+		case PM4_TYPE_0:
+			regOffset := header & 0xFFFF
+			l.handleSetRegsRaw(ringName, regOffset, dwords[i+1:end])
+		case PM4_TYPE_3:
+			l.dispatchType3Packet(ringName, opcode, dwords[i+1:end])
+		}
+
 		i = end
 	}
 }
 
-func (l *Liverpool) dispatchPacket(ringName string, opcode uint8, payload []uint32) {
+func (l *Liverpool) dispatchType3Packet(ringName string, opcode uint8, payload []uint32) {
 	if handler, ok := l.PM4Handlers[opcode]; ok {
 		handler(ringName, payload)
 		return

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	. "github.com/LamkasDev/sharkie/cmd/structs/gcn"
+	"github.com/LamkasDev/sharkie/cmd/structs/gpu"
 )
 
 type SpirvBlockContextId uint8
@@ -31,6 +32,7 @@ const (
 )
 
 type SpirvBlockContext struct {
+	Stage      GcnShaderStage
 	LabelIds   []uint32
 	Ids        map[SpirvBlockContextId]uint32
 	SgprIds    [104]uint32
@@ -104,6 +106,7 @@ func (ctx *SpirvBlockContext) GetConstId(reg uint32) uint32 {
 
 // emitBlock emits the SPIR-V for a single block.
 func emitBlock(b *SpvBuilder, block *GcnShaderCfgBlock, ctx SpirvBlockContext) {
+	// Start current block.
 	b.EmitLabel(ctx.GetLabelId(block.Id))
 
 	// Declare variables in entry block.
@@ -121,12 +124,28 @@ func emitBlock(b *SpvBuilder, block *GcnShaderCfgBlock, ctx SpirvBlockContext) {
 			}
 			b.EmitLocalVariable(idPtrFnUint, ctx.GetSpecialId(uint32(i)))
 		}
+
+		// Load user data buffer address from the push constant.
+		idPtrPsbUint := ctx.GetId(SpirvBlockContextIdPtrPsbUint)
+		ptrPcPsbUint := b.EmitAccessChain(ctx.GetId(SpirvBlockContextIdPtrPcPsbUint), ctx.GetId(SpirvBlockContextIdPcVar), b.EmitConstantUint(ctx.GetId(SpirvBlockContextIdUint), 3))
+		ptrBase := b.EmitLoad(idPtrPsbUint, ptrPcPsbUint)
+
+		// Load 16 user data registers into s0-s15.
+		stageOffset := gpu.GcnStageToUserDataOffset[ctx.Stage]
+		for i := range uint32(16) {
+			idx := b.EmitConstantUint(ctx.GetId(SpirvBlockContextIdUint), stageOffset+i)
+			ptr := b.EmitPtrAccessChain(idPtrPsbUint, ptrBase, idx)
+			val := b.EmitLoad(ctx.GetId(SpirvBlockContextIdUint), ptr, SpvMemoryAccessAligned, 4)
+			b.EmitStore(ctx.GetSgprId(i), val)
+		}
 	}
 
+	// Emit instructions for current block.
 	for i := range block.Instructions {
 		emitInstruction(b, &block.Instructions[i], ctx)
 	}
 
+	// Terminate current block.
 	switch block.Term {
 	case TermCBranch:
 		emitConditionalBranch(b, block, ctx)

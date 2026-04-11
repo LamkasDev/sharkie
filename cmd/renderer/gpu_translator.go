@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 
+	as "github.com/LamkasDev/asche"
 	"github.com/LamkasDev/cimgui-go-vulkan/backend"
 	glfwvulkanbackend "github.com/LamkasDev/cimgui-go-vulkan/backend/glfwvulkan-backend"
 	"github.com/LamkasDev/cimgui-go-vulkan/imgui"
@@ -50,6 +51,11 @@ type GpuTranslator struct {
 	constRamBuffers      map[uint32]vk.Buffer
 	constRamBufferMems   map[uint32]vk.DeviceMemory
 
+	// Physical buffers for User Data snapshots.
+	userDataBuffersMutex sync.Mutex
+	userDataBuffers      map[uint32]vk.Buffer
+	userDataBufferMems   map[uint32]vk.DeviceMemory
+
 	// Command pool/buffer for this frame's GPU work.
 	pool vk.CommandPool
 }
@@ -70,6 +76,9 @@ func NewGpuTranslator(handles VulkanHandles, bknd backend.Backend[glfwvulkanback
 		constRamBuffersMutex: sync.Mutex{},
 		constRamBuffers:      map[uint32]vk.Buffer{},
 		constRamBufferMems:   map[uint32]vk.DeviceMemory{},
+		userDataBuffersMutex: sync.Mutex{},
+		userDataBuffers:      map[uint32]vk.Buffer{},
+		userDataBufferMems:   map[uint32]vk.DeviceMemory{},
 	}
 	if err := t.createCommandPool(); err != nil {
 		return nil, fmt.Errorf("GpuTranslator: command pool: %w", err)
@@ -103,6 +112,12 @@ func (t *GpuTranslator) Destroy() {
 		vk.FreeMemory(t.handles.Device, t.constRamBufferMems[h], nil)
 	}
 	t.constRamBuffersMutex.Unlock()
+	t.userDataBuffersMutex.Lock()
+	for h, b := range t.userDataBuffers {
+		vk.DestroyBuffer(t.handles.Device, b, nil)
+		vk.FreeMemory(t.handles.Device, t.userDataBufferMems[h], nil)
+	}
+	t.userDataBuffersMutex.Unlock()
 	t.shaderModulesMutex.Lock()
 	for _, m := range t.shaderModules {
 		vk.DestroyShaderModule(t.handles.Device, m, nil)
@@ -122,35 +137,6 @@ func (t *GpuTranslator) Destroy() {
 	}
 }
 
-// RegisterSurface registers a GPU address as a Vulkan render target.
-func (t *GpuTranslator) RegisterSurface(address uintptr, width, height uint32) (imgui.TextureRef, error) {
-	// Check if it already exists.
-	t.surfacesMutex.Lock()
-	surface, exists := t.surfaces[address]
-	t.surfacesMutex.Unlock()
-	if exists {
-		return surface.TextureId, nil
-	}
-
-	// Create a new one.
-	surface = &GpuSurface{
-		GPUAddress: address,
-		Width:      width,
-		Height:     height,
-		Format:     vk.FormatR8g8b8a8Unorm,
-		firstUse:   true,
-	}
-	if err := t.allocSurface(surface); err != nil {
-		return imgui.TextureRef{}, fmt.Errorf("RegisterSurface 0x%X: %w", address, err)
-	}
-	surface.TextureId = t.backend.CreateVulkanTexture(surface.sampler, surface.imageView, vk.ImageLayoutShaderReadOnlyOptimal)
-	t.surfacesMutex.Lock()
-	t.surfaces[address] = surface
-	t.surfacesMutex.Unlock()
-
-	return surface.TextureId, nil
-}
-
 // Translate translates a slice of DrawCalls into Vulkan commands and returns the command buffer.
 func (t *GpuTranslator) Translate(draws []LiverpoolDrawCall) *vk.CommandBuffer {
 	if len(draws) == 0 {
@@ -159,6 +145,7 @@ func (t *GpuTranslator) Translate(draws []LiverpoolDrawCall) *vk.CommandBuffer {
 
 	// Update buffers holding const ram.
 	t.UpdateConstRamBuffers(draws)
+	t.UpdateUserDataBuffers(draws)
 
 	// Begin recording.
 	commandBuffer := t.handles.AllocateCommandBuffer(t.pool)
@@ -172,14 +159,6 @@ func (t *GpuTranslator) Translate(draws []LiverpoolDrawCall) *vk.CommandBuffer {
 	vk.EndCommandBuffer(commandBuffer)
 
 	return &commandBuffer
-}
-
-func (t *GpuTranslator) GetBufferAddress(buffer vk.Buffer) uint64 {
-	return uint64(GetBufferDeviceAddress(t.handles.Instance, t.handles.Device, buffer))
-}
-
-func (t *GpuTranslator) FreeBuffer(commandBuffer vk.CommandBuffer) {
-	vk.FreeCommandBuffers(t.handles.Device, t.pool, 1, []vk.CommandBuffer{commandBuffer})
 }
 
 func (t *GpuTranslator) GetShader(drawShader *gcn.GcnShader) *SpirvShader {
@@ -206,13 +185,96 @@ func (t *GpuTranslator) GetShader(drawShader *gcn.GcnShader) *SpirvShader {
 	return shader
 }
 
-// SurfaceImageView returns the VkImageView for a registered surface so the renderer can display it as a texture.
+func (t *GpuTranslator) GetShaderModule(shader *SpirvShader) (vk.ShaderModule, error) {
+	// Get already created shader module.
+	t.shaderModulesMutex.Lock()
+	mod, ok := t.shaderModules[shader.Address]
+	t.shaderModulesMutex.Unlock()
+	if ok {
+		return mod, nil
+	}
+
+	// Create the shader module.
+	var module vk.ShaderModule
+	result := vk.CreateShaderModule(t.handles.Device, &vk.ShaderModuleCreateInfo{
+		SType:    vk.StructureTypeShaderModuleCreateInfo,
+		CodeSize: uint64(len(shader.Code) * 4),
+		PCode:    shader.Code,
+	}, nil, &module)
+	if err := as.NewError(result); err != nil {
+		return vk.NullShaderModule, fmt.Errorf("vkCreateShaderModule 0x%X: %w", shader.Address, err)
+	}
+	t.shaderModulesMutex.Lock()
+	t.shaderModules[shader.Address] = module
+	t.shaderModulesMutex.Unlock()
+
+	return module, nil
+}
+
+func (t *GpuTranslator) GetPipeline(key GpuTranslatorPipelineKey, psModule vk.ShaderModule, renderPass vk.RenderPass, width, height uint32) (vk.Pipeline, error) {
+	// Get already created pipeline.
+	t.pipelinesMutex.Lock()
+	pipeline, ok := t.pipelines[key]
+	t.pipelinesMutex.Unlock()
+	if ok {
+		return pipeline, nil
+	}
+
+	// Create the pipeline.
+	pipeline, err := t.createPipelineFromModules(t.stubVertShader, psModule, renderPass, width, height)
+	if err != nil {
+		return vk.NullPipeline, fmt.Errorf("createCompiledPipeline 0x%X: %w", key.PixelShaderAddress, err)
+	}
+	t.pipelinesMutex.Lock()
+	t.pipelines[key] = pipeline
+	t.pipelinesMutex.Unlock()
+
+	return pipeline, nil
+}
+
+func (t *GpuTranslator) GetSurface(address uintptr, width, height uint32) (imgui.TextureRef, error) {
+	// Check if it already exists.
+	t.surfacesMutex.Lock()
+	surface, ok := t.surfaces[address]
+	t.surfacesMutex.Unlock()
+	if ok {
+		return surface.TextureId, nil
+	}
+
+	// Create a new one.
+	surface = &GpuSurface{
+		GPUAddress: address,
+		Width:      width,
+		Height:     height,
+		Format:     vk.FormatR8g8b8a8Unorm,
+		firstUse:   true,
+	}
+	if err := t.allocSurface(surface); err != nil {
+		return imgui.TextureRef{}, fmt.Errorf("RegisterSurface 0x%X: %w", address, err)
+	}
+	surface.TextureId = t.backend.CreateVulkanTexture(surface.sampler, surface.imageView, vk.ImageLayoutShaderReadOnlyOptimal)
+	t.surfacesMutex.Lock()
+	t.surfaces[address] = surface
+	t.surfacesMutex.Unlock()
+
+	return surface.TextureId, nil
+}
+
+// GetSurfaceImageView returns the VkImageView for a registered surface so the renderer can display it as a texture.
 // Returns vk.NullImageView if unknown.
-func (t *GpuTranslator) SurfaceImageView(gpuAddress uintptr) vk.ImageView {
+func (t *GpuTranslator) GetSurfaceImageView(gpuAddress uintptr) vk.ImageView {
 	t.surfacesMutex.Lock()
 	defer t.surfacesMutex.Unlock()
 	if s, ok := t.surfaces[gpuAddress]; ok {
 		return s.imageView
 	}
 	return vk.NullImageView
+}
+
+func (t *GpuTranslator) GetBufferAddress(buffer vk.Buffer) uint64 {
+	return uint64(GetBufferDeviceAddress(t.handles.Instance, t.handles.Device, buffer))
+}
+
+func (t *GpuTranslator) FreeBuffer(commandBuffer vk.CommandBuffer) {
+	vk.FreeCommandBuffers(t.handles.Device, t.pool, 1, []vk.CommandBuffer{commandBuffer})
 }

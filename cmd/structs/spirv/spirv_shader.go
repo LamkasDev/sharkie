@@ -47,8 +47,9 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	// 	float Time;
 	// 	uint32 _;
 	// 	PhysicalStorageBuffer uint* ConstRamAddress;
+	// 	PhysicalStorageBuffer uint* UserDataAddress;
 	// }
-	idUd := b.EmitTypeStruct(idFloat, idUint, idPtrPsbUint)
+	idUd := b.EmitTypeStruct(idFloat, idUint, idPtrPsbUint, idPtrPsbUint)
 	idPtrPc := b.EmitTypePointer(SpvStoragePushConstant, idUd)
 	idPtrPcFloat := b.EmitTypePointer(SpvStoragePushConstant, idFloat)
 	idPtrPcPsbUint := b.EmitTypePointer(SpvStoragePushConstant, idPtrPsbUint)
@@ -58,6 +59,7 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	b.EmitMemberDecorate(idUd, 0, SpvDecorationOffset, 0)
 	b.EmitMemberDecorate(idUd, 1, SpvDecorationOffset, 4)
 	b.EmitMemberDecorate(idUd, 2, SpvDecorationOffset, 8)
+	b.EmitMemberDecorate(idUd, 3, SpvDecorationOffset, 16)
 
 	// Global push-constant variable.
 	idPCVar := b.EmitVariable(idPtrPc, SpvStoragePushConstant)
@@ -163,6 +165,7 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	rpoBlockIds := shader.Cfg.ReversePostOrder()
 	emittedBlockIds := make([]bool, len(shader.Cfg.Blocks))
 	blockContext := SpirvBlockContext{
+		Stage:    shader.Stage,
 		LabelIds: labelIds,
 		Ids: map[SpirvBlockContextId]uint32{
 			SpirvBlockContextIdFalse:        idFalse,

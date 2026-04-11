@@ -5,6 +5,7 @@ package gcn
 const (
 	GcnRegBankSize = 0x400 // 1024 DWORDs per bank
 
+	GcnRegBaseSystem     = 0x0000
 	GcnRegBaseConfig     = 0x2000
 	GcnRegBaseShader     = 0x2C00
 	GcnRegBaseContext    = 0xA000

@@ -161,7 +161,8 @@ func libSceGnmDriver_sceGnmSubmitAndFlipCommandBuffersForWorkload(workloadId, co
 	lastIdx := count - 1
 	lastDcbAddress := dcbAddresses[lastIdx]
 	lastDcbSizeDW := dcbSizes[lastIdx] >> 2
-	if err := gnmPatchPrepareFlip(lastDcbAddress, lastDcbSizeDW, videoOutHandle, bufferIndex, flipMode, flipArg); err != nil {
+	newDcbSizeDW, err := gnmPatchPrepareFlip(lastDcbAddress, lastDcbSizeDW, videoOutHandle, bufferIndex, flipMode, flipArg)
+	if err != nil {
 		logger.Printf("%-132s %s failed due to gnmPatchPrepareFlip error (%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceGnmSubmitAndFlipCommandBuffersForWorkload"),
@@ -169,6 +170,7 @@ func libSceGnmDriver_sceGnmSubmitAndFlipCommandBuffersForWorkload(workloadId, co
 		)
 		return SCE_GNM_ERROR_FLIP_FAILED
 	}
+	dcbSizes[lastIdx] = newDcbSizeDW * 4
 
 	// Rotate ring and submit buffers.
 	GlobalGraphicsController.ActiveRingSlot++
@@ -233,7 +235,8 @@ func libSceGnmDriver_sceGnmRequestFlipAndSubmitDoneForWorkload(ctxPtr, dcbPtr, r
 	pkt[1] = GNM_PREPARE_FLIP_VARIANT_BASE
 
 	// Patch the prepare flip block and schedule it.
-	if err := gnmPatchPrepareFlip(dcbPtr, uint32(len(pkt)), uint32(videoOutHandle), uint32(bufferIndex), uint32(flipMode), int64(flipArg)); err != nil {
+	newDcbSizeDW, err := gnmPatchPrepareFlip(dcbPtr, uint32(len(pkt)), uint32(videoOutHandle), uint32(bufferIndex), uint32(flipMode), int64(flipArg))
+	if err != nil {
 		logger.Printf("%-132s %s failed due to gnmPatchPrepareFlip error (%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceGnmRequestFlipAndSubmitDoneForWorkload"),
@@ -243,7 +246,7 @@ func libSceGnmDriver_sceGnmRequestFlipAndSubmitDoneForWorkload(ctxPtr, dcbPtr, r
 	}
 
 	// Build a single IB packet pointing at the inline DCB.
-	buffer := NewPM4IndirectBuffer(dcbPtr, uint32(unsafe.Sizeof(pkt)), false)
+	buffer := NewPM4IndirectBuffer(dcbPtr, newDcbSizeDW*4, false)
 	buffers := []PM4IndirectBuffer{buffer}
 
 	// Submit it.
@@ -267,12 +270,12 @@ func libSceGnmDriver_sceGnmRequestFlipAndSubmitDoneForWorkload(ctxPtr, dcbPtr, r
 	return 0
 }
 
-func gnmPatchPrepareFlip(lastDcbAddress uintptr, lastDcbSizeDW, videoOutHandle, bufferIndex, flipMode uint32, flipArg int64) error {
+func gnmPatchPrepareFlip(lastDcbAddress uintptr, lastDcbSizeDW, videoOutHandle, bufferIndex, flipMode uint32, flipArg int64) (uint32, error) {
 	if bufferIndex == 0xFFFFFFFF {
-		return fmt.Errorf("invalid buffer index")
+		return 0, fmt.Errorf("invalid buffer index")
 	}
 	if lastDcbSizeDW < GNM_PREPARE_FLIP_OFFSET_DWORDS {
-		return fmt.Errorf("last DCB too small to hold prepare flip block (%d DWORDs)", lastDcbSizeDW)
+		return 0, fmt.Errorf("last DCB too small to hold prepare flip block (%d DWORDs)", lastDcbSizeDW)
 	}
 
 	// The prepare flip packet starts 64 DWORDs before end of the last DCB.
@@ -280,20 +283,20 @@ func gnmPatchPrepareFlip(lastDcbAddress uintptr, lastDcbSizeDW, videoOutHandle, 
 	packetPtr := lastDcbAddress + uintptr(packetDWOffset)*4
 	packetBase := (*[GNM_PREPARE_FLIP_OFFSET_DWORDS]uint32)(unsafe.Pointer(packetPtr))
 	if packetBase[0] != GNM_PREPARE_FLIP_MAGIC {
-		return fmt.Errorf("prepare flip header mismatch at DCB+%d (got 0x%X, want 0x%X)", packetDWOffset, packetBase[0], GNM_PREPARE_FLIP_MAGIC)
+		return 0, fmt.Errorf("prepare flip header mismatch at DCB+%d (got 0x%X, want 0x%X)", packetDWOffset, packetBase[0], GNM_PREPARE_FLIP_MAGIC)
 	}
 	variant := packetBase[1]
 	if variant < GNM_PREPARE_FLIP_VARIANT_BASE || variant > GNM_PREPARE_FLIP_VARIANT_MAX {
-		return fmt.Errorf("unknown prepare flip variant 0x%X", variant)
+		return 0, fmt.Errorf("unknown prepare flip variant 0x%X", variant)
 	}
 	if variant == GNM_PREPARE_FLIP_VARIANT_ADDR && (packetBase[2]&3) != 0 {
-		return fmt.Errorf("prepare flip variant ADDR gpu address 0x%X is not 4-byte aligned", packetBase[2])
+		return 0, fmt.Errorf("prepare flip variant ADDR gpu address 0x%X is not 4-byte aligned", packetBase[2])
 	}
 
 	// Schedule the flip.
 	flipResult := libSceVideoOut_sceVideoOutSubmitEopFlip(uintptr(videoOutHandle), uintptr(bufferIndex), uintptr(flipMode), uintptr(flipArg), 0)
 	if flipResult != 0 {
-		return fmt.Errorf("sceVideoOutSubmitEopFlip returned 0x%X", flipResult)
+		return 0, fmt.Errorf("sceVideoOutSubmitEopFlip returned 0x%X", flipResult)
 	}
 
 	// Get the handle's label buffer base address to build the WRITE_DATA target.
@@ -306,7 +309,7 @@ func gnmPatchPrepareFlip(lastDcbAddress uintptr, lastDcbSizeDW, videoOutHandle, 
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("gnmPatchPrepareFlip"),
 		)
-		return nil
+		return packetDWOffset, nil
 	}
 
 	// Patch the prepare flip packet to a PM4 WRITE_DATA packet.
@@ -325,7 +328,7 @@ func gnmPatchPrepareFlip(lastDcbAddress uintptr, lastDcbSizeDW, videoOutHandle, 
 			color.Yellow.Sprintf("0x%X", labelAddress),
 		)
 	}
-	return nil
+	return packetDWOffset + 5, nil
 }
 
 // 0x0000000000001720

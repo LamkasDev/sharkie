@@ -19,6 +19,15 @@ const (
 	GcnShaderStageCompute
 )
 
+var GcnShaderStages = []GcnShaderStage{
+	GcnShaderStageVertex,
+	GcnShaderStageHull,
+	GcnShaderStageEvaluation,
+	GcnShaderStageGeometry,
+	GcnShaderStageFragment,
+	GcnShaderStageCompute,
+}
+
 var GcnShaderStageNames = map[GcnShaderStage]string{
 	GcnShaderStageVertex:     "VS",
 	GcnShaderStageHull:       "HS",

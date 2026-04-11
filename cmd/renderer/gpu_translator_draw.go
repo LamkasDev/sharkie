@@ -19,6 +19,7 @@ type StubPushConstants struct {
 	Time            float32
 	_               uint32 // Padding
 	ConstRamAddress uint64
+	UserDataAddress uint64
 }
 
 func (t *GpuTranslator) recordDraw(commandBuffer vk.CommandBuffer, draw *LiverpoolDrawCall) {
@@ -86,13 +87,19 @@ func (t *GpuTranslator) recordDraw(commandBuffer vk.CommandBuffer, draw *Liverpo
 	vk.CmdBindPipeline(commandBuffer, vk.PipelineBindPointGraphics, pipeline)
 	t.setDynamicState(commandBuffer, draw, surface)
 
-	// Push constants to shader.
+	// Get buffer addresses.
 	t.constRamBuffersMutex.Lock()
 	constRamBuffer := t.constRamBuffers[draw.ConstRamHash]
 	t.constRamBuffersMutex.Unlock()
+	t.userDataBuffersMutex.Lock()
+	userDataBuffer := t.userDataBuffers[draw.UserDataHash]
+	t.userDataBuffersMutex.Unlock()
+
+	// Push constants to shader.
 	pushData := StubPushConstants{
 		Time:            float32(time.Since(startTime).Seconds()),
 		ConstRamAddress: t.GetBufferAddress(constRamBuffer),
+		UserDataAddress: t.GetBufferAddress(userDataBuffer),
 	}
 	vk.CmdPushConstants(
 		commandBuffer, t.stubPipelineLayout,

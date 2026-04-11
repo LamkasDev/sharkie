@@ -132,7 +132,7 @@ func (r *Renderer) RegisterFramebuffer(address uintptr, attribute *VideoOutBuffe
 	if r.GpuTranslator == nil {
 		return
 	}
-	textureId, err := r.GpuTranslator.RegisterSurface(address, attribute.Width, attribute.Height)
+	textureId, err := r.GpuTranslator.GetSurface(address, attribute.Width, attribute.Height)
 	if err != nil {
 		panic("renderer: could not register GPU surface: " + err.Error())
 	}
