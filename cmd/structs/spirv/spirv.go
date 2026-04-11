@@ -14,7 +14,13 @@ const (
 	SpvCapShader                         = uint32(1)
 	SpvCapAddresses                      = uint32(4)
 	SpvCapInt64                          = uint32(5)
+	SpvCapSubgroupBallotKHR              = uint32(4423)
 	SpvCapPhysicalStorageBufferAddresses = uint32(5341)
+)
+
+// SPIR-V built-in decorations.
+const (
+	SpvBuiltInSubgroupLocalInvocationId = uint32(41)
 )
 
 // SPIR-V addressing models.
@@ -70,7 +76,7 @@ const (
 	SpvDecorationBlock          = uint32(2)
 	SpvDecorationArrayStride    = uint32(6)
 	SpvDecorationBuiltIn        = uint32(11)
-	SpvDecorationAliased        = uint32(15)
+	SpvDecorationAliased        = uint32(20)
 	SpvDecorationLocation       = uint32(30)
 	SpvDecorationDescriptorSet  = uint32(34)
 	SpvDecorationOffset         = uint32(35)
@@ -126,12 +132,14 @@ const (
 	SpvOpMemberDecorate     = uint32(72)
 	SpvOpCompositeConstruct = uint32(80)
 	SpvOpCompositeExtract   = uint32(81)
-	SpvOpConvertUToPtr      = uint32(117)
+	SpvOpUConvert           = uint32(113)
+	SpvOpConvertUToPtr      = uint32(120)
 	SpvOpBitcast            = uint32(124)
 	SpvOpIAdd               = uint32(128)
 	SpvOpFAdd               = uint32(129)
 	SpvOpISub               = uint32(130)
 	SpvOpFSub               = uint32(131)
+	SpvOpIMul               = uint32(132)
 	SpvOpFMul               = uint32(133)
 	SpvOpLogicalOr          = uint32(166)
 	SpvOpSelect             = uint32(169)

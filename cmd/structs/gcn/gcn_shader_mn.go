@@ -895,6 +895,20 @@ func (instr *Instruction) GetFieldsString() string {
 		)
 	case EncMTBUF:
 	case EncMUBUF:
+		fmt.Fprintf(&b, "offset=%d offen=%d idxen=%d glc=%d addr64=%d lds=%d vaddr=%d vdata=%d srsrc=%d slc=%d tfe=%d soffset=%d",
+			instr.Details.(*MubufDetails).Offset,
+			nstd.Btoi(instr.Details.(*MubufDetails).Offen),
+			nstd.Btoi(instr.Details.(*MubufDetails).Idxen),
+			nstd.Btoi(instr.Details.(*MubufDetails).Glc),
+			nstd.Btoi(instr.Details.(*MubufDetails).Addr64),
+			nstd.Btoi(instr.Details.(*MubufDetails).Lds),
+			instr.Details.(*MubufDetails).Vaddr,
+			instr.Details.(*MubufDetails).Vdata,
+			instr.Details.(*MubufDetails).Srsrc,
+			nstd.Btoi(instr.Details.(*MubufDetails).Slc),
+			nstd.Btoi(instr.Details.(*MubufDetails).Tfe),
+			instr.Details.(*MubufDetails).Soffset,
+		)
 	case EncMIMG:
 		fmt.Fprintf(&b, "ssamp=%d srsrc=%d vdata=%d vaddr=%d slc=%d lwe=%d tfe=%d r128=%d da=%d glc=%d unrm=%d dmask=%d",
 			instr.Details.(*MimgDetails).Ssamp,

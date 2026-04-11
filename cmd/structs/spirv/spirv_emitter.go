@@ -110,6 +110,13 @@ func (b *SpvBuilder) EmitPtrAccessChain(resultType, base, element uint32, indice
 	return id
 }
 
+// EmitUConvert emits OpUConvert and returns the result ID.
+func (b *SpvBuilder) EmitUConvert(resultType, operand uint32) uint32 {
+	id := b.AllocId()
+	b.instr(&b.code, SpvOpUConvert, resultType, id, operand)
+	return id
+}
+
 // EmitBitcast emits OpBitcast and returns the result ID.
 func (b *SpvBuilder) EmitBitcast(resultType, operand uint32) uint32 {
 	id := b.AllocId()
@@ -149,6 +156,13 @@ func (b *SpvBuilder) EmitFAdd(resultType, op1, op2 uint32) uint32 {
 func (b *SpvBuilder) EmitFSub(resultType, op1, op2 uint32) uint32 {
 	id := b.AllocId()
 	b.instr(&b.code, SpvOpFSub, resultType, id, op1, op2)
+	return id
+}
+
+// EmitIMul emits OpIMul and returns the result ID.
+func (b *SpvBuilder) EmitIMul(resultType, op1, op2 uint32) uint32 {
+	id := b.AllocId()
+	b.instr(&b.code, SpvOpIMul, resultType, id, op1, op2)
 	return id
 }
 

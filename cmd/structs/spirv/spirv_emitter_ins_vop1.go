@@ -7,11 +7,12 @@ import (
 )
 
 func emitVOP1(b *SpvBuilder, instr *Instruction, ctx SpirvBlockContext) {
-	switch instr.Details.(*VectorDetails).Op {
+	details := instr.Details.(*VectorDetails)
+	switch details.Op {
 	case Vop1OpMovB32:
-		val := ctx.GetOperandValue(b, instr.Details.(*VectorDetails).Src0, instr.Literal)
-		ctx.StoreRegisterPointer(b, instr.Details.(*VectorDetails).Dst+OpVgpr0, val)
+		val := ctx.GetOperandValue(b, details.Src0, instr.Literal)
+		ctx.StoreRegisterPointer(b, details.Dst+OpVgpr0, val)
 	default:
-		panic(fmt.Sprintf("unknown vop1 op %d", instr.Details.(*VectorDetails).Op))
+		panic(fmt.Sprintf("unknown vop1 op %d", details.Op))
 	}
 }

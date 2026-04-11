@@ -12,32 +12,35 @@ type SpirvBlockContextId uint8
 const (
 	SpirvBlockContextIdFalse SpirvBlockContextId = iota
 	SpirvBlockContextIdTrue
-	SpirvBlockContextIdBool
-	SpirvBlockContextIdColorOut
-	SpirvBlockContextIdZeroVec4
-	SpirvBlockContextIdPcVar
+	SpirvBlockContextIdTypeBool
+	SpirvBlockContextIdTypeFloat
+	SpirvBlockContextIdTypeInt
+	SpirvBlockContextIdTypeUint
+	SpirvBlockContextIdTypeUint64
+	SpirvBlockContextIdTypeV2Float
+	SpirvBlockContextIdTypeV4Float
 	SpirvBlockContextIdPtrPcFloat
 	SpirvBlockContextIdPtrPcPsbUint
 	SpirvBlockContextIdPtrPcPsbUint64
 	SpirvBlockContextIdPtrPsbUint
-	SpirvBlockContextIdFloat
-	SpirvBlockContextIdV4Float
 	SpirvBlockContextIdPtrFnUint
-	SpirvBlockContextIdUint
-	SpirvBlockContextIdInt
-	SpirvBlockContextIdUint64
-	SpirvBlockContextIdV2Float
+	SpirvBlockContextIdColorOut
+	SpirvBlockContextIdZeroVec4
+	SpirvBlockContextIdPcVar
 	SpirvBlockContextIdGlsl
-	SpirvBlockContextIdC0
-	SpirvBlockContextIdC1
-	SpirvBlockContextIdC2
-	SpirvBlockContextIdC3
-	SpirvBlockContextIdC4
-	SpirvBlockContextIdC5
-	SpirvBlockContextIdC6
-	SpirvBlockContextIdC7
-	SpirvBlockContextIdC11111111
-	SpirvBlockContextIdCFFFFFFFF
+	SpirvBlockContextIdSubgroupLocalInvocationId
+	SpirvBlockContextIdConstUint0
+	SpirvBlockContextIdConstUint1
+	SpirvBlockContextIdConstUint2
+	SpirvBlockContextIdConstUint3
+	SpirvBlockContextIdConstUint4
+	SpirvBlockContextIdConstUint5
+	SpirvBlockContextIdConstUint6
+	SpirvBlockContextIdConstUint7
+	SpirvBlockContextIdConstUint32
+	SpirvBlockContextIdConstUintFFFF
+	SpirvBlockContextIdConstUint11111111
+	SpirvBlockContextIdConstUintFFFFFFFF
 )
 
 const (
@@ -172,15 +175,15 @@ func emitBlock(b *SpvBuilder, block *GcnShaderCfgBlock, ctx SpirvBlockContext) {
 
 		// Load user data buffer address from the push constant.
 		idPtrPsbUint := ctx.GetId(SpirvBlockContextIdPtrPsbUint)
-		ptrPcPsbUint := b.EmitAccessChain(ctx.GetId(SpirvBlockContextIdPtrPcPsbUint), ctx.GetId(SpirvBlockContextIdPcVar), b.EmitConstantUint(ctx.GetId(SpirvBlockContextIdUint), 3))
+		ptrPcPsbUint := b.EmitAccessChain(ctx.GetId(SpirvBlockContextIdPtrPcPsbUint), ctx.GetId(SpirvBlockContextIdPcVar), b.EmitConstantUint(ctx.GetId(SpirvBlockContextIdTypeUint), 3))
 		ptrBase := b.EmitLoad(idPtrPsbUint, ptrPcPsbUint)
 
 		// Load 16 user data registers into s0-s15.
 		stageOffset := gpu.GcnStageToUserDataOffset[ctx.Stage]
 		for i := range uint32(16) {
-			idx := b.EmitConstantUint(ctx.GetId(SpirvBlockContextIdUint), stageOffset+i)
+			idx := b.EmitConstantUint(ctx.GetId(SpirvBlockContextIdTypeUint), stageOffset+i)
 			ptr := b.EmitPtrAccessChain(idPtrPsbUint, ptrBase, idx)
-			val := b.EmitLoad(ctx.GetId(SpirvBlockContextIdUint), ptr, SpvMemoryAccessAligned, 4)
+			val := b.EmitLoad(ctx.GetId(SpirvBlockContextIdTypeUint), ptr, SpvMemoryAccessAligned, 4)
 			b.EmitStore(ctx.GetSgprId(i), val)
 		}
 	}

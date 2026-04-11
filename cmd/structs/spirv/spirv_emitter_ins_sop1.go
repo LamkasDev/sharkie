@@ -17,10 +17,10 @@ func emitSOP1(b *SpvBuilder, instr *Instruction, ctx SpirvBlockContext) {
 		ctx.StoreRegisterPointer(b, details.Dst, valLo)
 		ctx.StoreRegisterPointer(b, details.Dst+1, valHi)
 	case Sop1OpWqmB32:
-		idUint := ctx.GetId(SpirvBlockContextIdUint)
-		idBool := ctx.GetId(SpirvBlockContextIdBool)
-		idC0 := ctx.GetId(SpirvBlockContextIdC0)
-		idC1 := ctx.GetId(SpirvBlockContextIdC1)
+		idUint := ctx.GetId(SpirvBlockContextIdTypeUint)
+		idBool := ctx.GetId(SpirvBlockContextIdTypeBool)
+		idC0 := ctx.GetId(SpirvBlockContextIdConstUint0)
+		idC1 := ctx.GetId(SpirvBlockContextIdConstUint1)
 
 		val := ctx.GetOperandUintValue(b, details.Src0, instr.Literal)
 		res := emitWqmDword(b, ctx, val)
@@ -30,10 +30,10 @@ func emitSOP1(b *SpvBuilder, instr *Instruction, ctx SpirvBlockContext) {
 		sccVal := b.EmitSelect(idUint, isNonZero, idC1, idC0)
 		ctx.StoreRegisterPointer(b, OpScc, sccVal)
 	case Sop1OpWqmB64:
-		idUint := ctx.GetId(SpirvBlockContextIdUint)
-		idBool := ctx.GetId(SpirvBlockContextIdBool)
-		idC0 := ctx.GetId(SpirvBlockContextIdC0)
-		idC1 := ctx.GetId(SpirvBlockContextIdC1)
+		idUint := ctx.GetId(SpirvBlockContextIdTypeUint)
+		idBool := ctx.GetId(SpirvBlockContextIdTypeBool)
+		idC0 := ctx.GetId(SpirvBlockContextIdConstUint0)
+		idC1 := ctx.GetId(SpirvBlockContextIdConstUint1)
 
 		valLo, valHi := ctx.GetOperand64Value(b, details.Src0, instr.Literal)
 		resLo := emitWqmDword(b, ctx, valLo)
@@ -52,11 +52,11 @@ func emitSOP1(b *SpvBuilder, instr *Instruction, ctx SpirvBlockContext) {
 }
 
 func emitWqmDword(b *SpvBuilder, ctx SpirvBlockContext, val uint32) uint32 {
-	idUint := ctx.GetId(SpirvBlockContextIdUint)
-	idC1 := ctx.GetId(SpirvBlockContextIdC1)
-	idC2 := ctx.GetId(SpirvBlockContextIdC2)
-	idC3 := ctx.GetId(SpirvBlockContextIdC3)
-	idMask := ctx.GetId(SpirvBlockContextIdC11111111)
+	idUint := ctx.GetId(SpirvBlockContextIdTypeUint)
+	idC1 := ctx.GetId(SpirvBlockContextIdConstUint1)
+	idC2 := ctx.GetId(SpirvBlockContextIdConstUint2)
+	idC3 := ctx.GetId(SpirvBlockContextIdConstUint3)
+	idMask := ctx.GetId(SpirvBlockContextIdConstUint11111111)
 
 	// Whole quad mode checks each group of four bits in the bitmask;
 	// if any bit is set to 1, all four bits are set to 1 in the result.

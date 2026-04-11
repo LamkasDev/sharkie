@@ -23,6 +23,7 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	b.EmitCapability(SpvCapShader)
 	b.EmitCapability(SpvCapAddresses)
 	b.EmitCapability(SpvCapInt64)
+	b.EmitCapability(SpvCapSubgroupBallotKHR)
 	b.EmitCapability(SpvCapPhysicalStorageBufferAddresses)
 	b.EmitExtension("SPV_KHR_physical_storage_buffer")
 	idGLSL := b.EmitExtInstImport("GLSL.std.450")
@@ -39,6 +40,14 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	idFloat := b.EmitTypeFloat(32)
 	idV2Float := b.EmitTypeVector(idFloat, 2)
 	idV4Float := b.EmitTypeVector(idFloat, 4)
+
+	idTrue := b.EmitConstantTrue(idBool)
+	idFalse := b.EmitConstantFalse(idBool)
+
+	// Built-ins.
+	idPtrInputUint := b.EmitTypePointer(SpvStorageInput, idUint)
+	idSubgroupLocalInvocationId := b.EmitVariable(idPtrInputUint, SpvStorageInput)
+	b.EmitDecorate(idSubgroupLocalInvocationId, SpvDecorationBuiltIn, SpvBuiltInSubgroupLocalInvocationId)
 
 	// Types for constant RAM access via PhysicalStorageBuffer.
 	idPtrPsbUint := b.EmitTypePointer(SpvStoragePhysicalStorageBuffer, idUint)
@@ -71,11 +80,8 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	idPCVar := b.EmitVariable(idPtrPc, SpvStoragePushConstant)
 	b.EmitDecorate(idPCVar, SpvDecorationAliasedPointer)
 
-	// Stub boolean constant (condition in untranslated conditional branches).
-	idFalse := b.EmitConstantFalse(idBool)
-
 	// Stage-specific outputs.
-	var interfaceIds []uint32
+	interfaceIds := []uint32{idSubgroupLocalInvocationId}
 	var idColorOut, idZeroVec4 uint32
 	if shader.Stage == GcnShaderStageFragment {
 		// Declare vec4 color output at location 0.
@@ -173,6 +179,8 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	idC5 := b.EmitConstantUint(idUint, 5)
 	idC6 := b.EmitConstantUint(idUint, 6)
 	idC7 := b.EmitConstantUint(idUint, 7)
+	idC32 := b.EmitConstantUint(idUint, 32)
+	idCFFFF := b.EmitConstantUint(idUint, 0xFFFF)
 	icC11111111 := b.EmitConstantUint(idUint, 0x11111111)
 	idCFFFFFFFF := b.EmitConstantUint(idUint, 0xFFFFFFFF)
 
@@ -186,33 +194,37 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 		Stage:    shader.Stage,
 		LabelIds: labelIds,
 		Ids: map[SpirvBlockContextId]uint32{
-			SpirvBlockContextIdFalse:          idFalse,
-			SpirvBlockContextIdBool:           idBool,
-			SpirvBlockContextIdColorOut:       idColorOut,
-			SpirvBlockContextIdZeroVec4:       idZeroVec4,
-			SpirvBlockContextIdPcVar:          idPCVar,
-			SpirvBlockContextIdPtrPcFloat:     idPtrPcFloat,
-			SpirvBlockContextIdPtrPcPsbUint:   idPtrPcPsbUint,
-			SpirvBlockContextIdPtrPcPsbUint64: idPtrPcPsbUint64,
-			SpirvBlockContextIdPtrPsbUint:     idPtrPsbUint,
-			SpirvBlockContextIdUint:           idUint,
-			SpirvBlockContextIdInt:            idInt,
-			SpirvBlockContextIdUint64:         idUint64,
-			SpirvBlockContextIdFloat:          idFloat,
-			SpirvBlockContextIdV2Float:        idV2Float,
-			SpirvBlockContextIdV4Float:        idV4Float,
-			SpirvBlockContextIdPtrFnUint:      idPtrFnUint,
-			SpirvBlockContextIdGlsl:           idGLSL,
-			SpirvBlockContextIdC0:             idC0,
-			SpirvBlockContextIdC1:             idC1,
-			SpirvBlockContextIdC2:             idC2,
-			SpirvBlockContextIdC3:             idC3,
-			SpirvBlockContextIdC4:             idC4,
-			SpirvBlockContextIdC5:             idC5,
-			SpirvBlockContextIdC6:             idC6,
-			SpirvBlockContextIdC7:             idC7,
-			SpirvBlockContextIdC11111111:      icC11111111,
-			SpirvBlockContextIdCFFFFFFFF:      idCFFFFFFFF,
+			SpirvBlockContextIdFalse:                     idFalse,
+			SpirvBlockContextIdTrue:                      idTrue,
+			SpirvBlockContextIdTypeBool:                  idBool,
+			SpirvBlockContextIdTypeFloat:                 idFloat,
+			SpirvBlockContextIdTypeInt:                   idInt,
+			SpirvBlockContextIdTypeUint:                  idUint,
+			SpirvBlockContextIdTypeUint64:                idUint64,
+			SpirvBlockContextIdTypeV2Float:               idV2Float,
+			SpirvBlockContextIdTypeV4Float:               idV4Float,
+			SpirvBlockContextIdPtrPcFloat:                idPtrPcFloat,
+			SpirvBlockContextIdPtrPcPsbUint:              idPtrPcPsbUint,
+			SpirvBlockContextIdPtrPcPsbUint64:            idPtrPcPsbUint64,
+			SpirvBlockContextIdPtrPsbUint:                idPtrPsbUint,
+			SpirvBlockContextIdPtrFnUint:                 idPtrFnUint,
+			SpirvBlockContextIdColorOut:                  idColorOut,
+			SpirvBlockContextIdZeroVec4:                  idZeroVec4,
+			SpirvBlockContextIdPcVar:                     idPCVar,
+			SpirvBlockContextIdGlsl:                      idGLSL,
+			SpirvBlockContextIdSubgroupLocalInvocationId: idSubgroupLocalInvocationId,
+			SpirvBlockContextIdConstUint0:                idC0,
+			SpirvBlockContextIdConstUint1:                idC1,
+			SpirvBlockContextIdConstUint2:                idC2,
+			SpirvBlockContextIdConstUint3:                idC3,
+			SpirvBlockContextIdConstUint4:                idC4,
+			SpirvBlockContextIdConstUint5:                idC5,
+			SpirvBlockContextIdConstUint6:                idC6,
+			SpirvBlockContextIdConstUint7:                idC7,
+			SpirvBlockContextIdConstUint32:               idC32,
+			SpirvBlockContextIdConstUintFFFF:             idCFFFF,
+			SpirvBlockContextIdConstUint11111111:         icC11111111,
+			SpirvBlockContextIdConstUintFFFFFFFF:         idCFFFFFFFF,
 		},
 		SgprIds:    sgprIds,
 		VgprIds:    vgprIds,

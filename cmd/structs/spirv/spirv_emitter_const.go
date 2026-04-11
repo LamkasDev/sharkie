@@ -4,6 +4,13 @@ import (
 	"math"
 )
 
+// EmitConstantFalse emits OpConstantTrue.
+func (b *SpvBuilder) EmitConstantTrue(boolType uint32) uint32 {
+	id := b.AllocId()
+	b.instr(&b.types, SpvOpConstantTrue, boolType, id)
+	return id
+}
+
 // EmitConstantFalse emits OpConstantFalse.
 func (b *SpvBuilder) EmitConstantFalse(boolType uint32) uint32 {
 	id := b.AllocId()
@@ -18,10 +25,17 @@ func (b *SpvBuilder) EmitConstantUint(uintType, value uint32) uint32 {
 	return id
 }
 
-// EmitConstantFloat emits OpConstant for a float.
-func (b *SpvBuilder) EmitConstantFloat(floatType uint32, value float32) uint32 {
+// EmitConstantUint64 emits OpConstant for a uint64.
+func (b *SpvBuilder) EmitConstantUint64(resultType uint32, value uint64) uint32 {
 	id := b.AllocId()
-	b.instr(&b.types, SpvOpConstant, floatType, id, math.Float32bits(value))
+	b.instr(&b.types, SpvOpConstant, resultType, id, uint32(value), uint32(value>>32))
+	return id
+}
+
+// EmitConstantFloat emits OpConstant for a float32.
+func (b *SpvBuilder) EmitConstantFloat(resultType uint32, value float32) uint32 {
+	id := b.AllocId()
+	b.instr(&b.types, SpvOpConstant, resultType, id, math.Float32bits(value))
 	return id
 }
 

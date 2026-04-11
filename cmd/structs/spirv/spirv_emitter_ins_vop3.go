@@ -7,8 +7,9 @@ import (
 )
 
 func emitVOP3(b *SpvBuilder, instr *Instruction, ctx SpirvBlockContext) {
-	switch instr.Details.(*Vop3Details).Op {
+	details := instr.Details.(*Vop3Details)
+	switch details.Op {
 	default:
-		panic(fmt.Sprintf("unknown vop3 op %d", instr.Details.(*VectorDetails).Op))
+		panic(fmt.Sprintf("unknown vop3 op %d", details.Op))
 	}
 }
