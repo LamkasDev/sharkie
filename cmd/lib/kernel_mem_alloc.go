@@ -35,14 +35,40 @@ func libKernel_sys_sceKernelAllocateDirectMemory(searchStart, searchEnd uintptr,
 
 	// Get the direct memory address.
 	var directAddr uintptr
-	if memType == SCE_KERNEL_MTYPE_WC_GARLIC || memType == SCE_KERNEL_MTYPE_WB_ONION {
-		directAddr = GlobalAllocator.GetNextAlignedGpuMemoryAddress(alignment, length)
+	var vulkanHandle uintptr
+	if memType == SCE_KERNEL_MTYPE_WC_GARLIC || memType == SCE_KERNEL_MTYPE_WB_GARLIC {
+		directAddr = GlobalGpuAllocator.GetNextAlignedGpuMemoryAddress(alignment, length)
+		var err error
+		vulkanHandle, err = GlobalGpuAllocator.Alloc(length)
+		if err != nil {
+			logger.Printf("%-132s %s failed Vulkan allocation (%s).\n",
+				emu.GlobalModuleManager.GetCallSiteText(),
+				color.Magenta.Sprint("sceKernelAllocateDirectMemory"),
+				err.Error(),
+			)
+			SetErrno(ENOMEM)
+			return ERR_PTR
+		}
 	} else {
 		directAddr = GlobalAllocator.GetNextAlignedDirectMemoryAddress(alignment, length)
 	}
 
 	// Allocate direct memory and perform alignment check.
-	allocatedAddr := libKernel_mmap(directAddr, length, PROT_READ|PROT_WRITE, MAP_ANON|MAP_PRIVATE|MAP_FIXED, ERR_PTRI, 0)
+	var allocatedAddr uintptr
+	if vulkanHandle != 0 {
+		if err := GlobalGpuAllocator.Map(directAddr, length, vulkanHandle); err != nil {
+			logger.Printf("%-132s %s failed Vulkan mapping (%s).\n",
+				emu.GlobalModuleManager.GetCallSiteText(),
+				color.Magenta.Sprint("sceKernelAllocateDirectMemory"),
+				err.Error(),
+			)
+			SetErrno(ENOMEM)
+			return ERR_PTR
+		}
+		allocatedAddr = directAddr
+	} else {
+		allocatedAddr = libKernel_mmap(directAddr, length, PROT_READ|PROT_WRITE, MAP_ANON|MAP_PRIVATE|MAP_FIXED, ERR_PTRI, 0)
+	}
 	if allocatedAddr == ERR_PTR {
 		return ERR_PTR
 	}

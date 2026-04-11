@@ -3,12 +3,14 @@ package renderer
 import "C"
 import (
 	"fmt"
+	"runtime"
 	"sync"
 
 	as "github.com/LamkasDev/asche"
 	"github.com/LamkasDev/cimgui-go-vulkan/backend"
 	glfwvulkanbackend "github.com/LamkasDev/cimgui-go-vulkan/backend/glfwvulkan-backend"
 	"github.com/LamkasDev/cimgui-go-vulkan/imgui"
+	"github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/LamkasDev/sharkie/cmd/structs/gcn"
 	. "github.com/LamkasDev/sharkie/cmd/structs/gpu"
 	. "github.com/LamkasDev/sharkie/cmd/structs/spirv"
@@ -79,6 +81,25 @@ func NewGpuTranslator(handles VulkanHandles, bknd backend.Backend[glfwvulkanback
 		userDataBuffersMutex: sync.Mutex{},
 		userDataBuffers:      map[uint32]vk.Buffer{},
 		userDataBufferMems:   map[uint32]vk.DeviceMemory{},
+	}
+	structs.GlobalGpuAllocator = &structs.GpuAllocator{
+		GpuMemoryBase:    0xFE0000000,
+		GpuMemoryCurrent: 0xFE0000000,
+		GpuMemorySize:    structs.GpuMemoryDefaultSize,
+		Alloc: func(size uint64) (uintptr, error) {
+			_, mem, err := t.AllocExternalBuffer(vk.DeviceSize(size),
+				vk.BufferUsageFlags(vk.BufferUsageShaderDeviceAddressBit|vk.BufferUsageStorageBufferBit|vk.BufferUsageVertexBufferBit|vk.BufferUsageIndexBufferBit),
+				vk.MemoryPropertyFlags(vk.MemoryPropertyHostVisibleBit|vk.MemoryPropertyHostCoherentBit))
+			if err != nil {
+				return 0, err
+			}
+			if runtime.GOOS == "windows" {
+				return GetMemoryWin32Handle(t.handles.Instance, t.handles.Device, mem), nil
+			}
+
+			return uintptr(GetMemoryFd(t.handles.Instance, t.handles.Device, mem)), nil
+		},
+		Map: structs.MapVulkanMemory,
 	}
 	if err := t.createCommandPool(); err != nil {
 		return nil, fmt.Errorf("GpuTranslator: command pool: %w", err)

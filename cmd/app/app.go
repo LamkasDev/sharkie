@@ -176,10 +176,16 @@ func (app *Application) VulkanLayers() []string {
 }
 
 func (app *Application) VulkanDeviceExtensions() []string {
-	return []string{
+	extensions := []string{
 		"VK_KHR_swapchain",
 		"VK_KHR_buffer_device_address",
+		"VK_KHR_external_memory",
 	}
+	// TODO: use runtime.GOOS
+	extensions = append(extensions, "VK_KHR_external_memory_fd")
+	extensions = append(extensions, "VK_KHR_external_memory_win32")
+
+	return extensions
 }
 
 func (app *Application) VulkanInstanceExtensions() []string {

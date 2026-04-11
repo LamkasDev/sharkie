@@ -61,19 +61,20 @@ const (
 
 // Vector memory buffer instructions.
 type MubufDetails struct {
-	Op      uint32
+	Offset uint32
+	Offen  bool
+	Idxen  bool
+	Glc    bool
+	Addr64 bool
+	Lds    bool
+	Op     uint32
+
 	Vaddr   uint32
 	Vdata   uint32
 	Srsrc   uint32
-	Soffset uint32
-	Offset  uint32
-	Offen   bool
-	Idxen   bool
-	Glc     bool
-	Addr64  bool
-	Lds     bool
 	Slc     bool
 	Tfe     bool
+	Soffset uint32
 }
 
 func (instr *Instruction) DecodeMUBUF() {

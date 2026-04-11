@@ -3,6 +3,7 @@
 package structs
 
 import (
+	"fmt"
 	"syscall"
 
 	"github.com/LamkasDev/sharkie/cmd/sys_struct"
@@ -44,8 +45,8 @@ func ReserveKernelMemory(addr uintptr, length uint64) (uintptr, error) {
 }
 
 func AllocKernelMemory(addr uintptr, length uint64, prot, flags int32) (uintptr, error) {
-	isDirectMemory, isGpuMemory := MemoryIsDirectOrGpu(addr)
-	if isDirectMemory || isGpuMemory {
+	isDirectMemory := MemoryIsDirect(addr)
+	if isDirectMemory {
 		if _, err := ProtectKernelMemory(addr, length, prot); err != nil {
 			return 0, err
 		}
@@ -97,4 +98,27 @@ func ProtectKernelMemory(addr uintptr, length uint64, prot int32) (uintptr, erro
 	}
 
 	return 1, nil
+}
+
+func MapVulkanMemory(addr uintptr, length uint64, fd uintptr) error {
+	if _, _, err := syscall.Syscall(syscall.SYS_MUNMAP, addr, uintptr(length), 0); err != 0 {
+		return err
+	}
+	allocatedAddr, _, err := syscall.Syscall6(
+		syscall.SYS_MMAP,
+		addr,
+		uintptr(length),
+		uintptr(syscall.PROT_READ|syscall.PROT_WRITE),
+		uintptr(syscall.MAP_SHARED|syscall.MAP_FIXED),
+		fd,
+		0,
+	)
+	if err != 0 {
+		return err
+	}
+	if allocatedAddr != addr {
+		return fmt.Errorf("MapVulkanMemory: failed to map at fixed address")
+	}
+
+	return nil
 }

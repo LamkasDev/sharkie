@@ -18,4 +18,6 @@ var (
 	GetCurrentThread            = Kernel32.NewProc("GetCurrentThread")
 	GetThreadContext            = Kernel32.NewProc("GetThreadContext")
 	SetThreadContext            = Kernel32.NewProc("SetThreadContext")
+	MapViewOfFileEx             = Kernel32.NewProc("MapViewOfFileEx")
+	UnmapViewOfFile             = Kernel32.NewProc("UnmapViewOfFile")
 )

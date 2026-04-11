@@ -5,6 +5,7 @@ import (
 	"time"
 	"unsafe"
 
+	. "github.com/LamkasDev/sharkie/cmd/structs"
 	. "github.com/LamkasDev/sharkie/cmd/structs/gpu"
 	vk "github.com/goki/vulkan"
 )
@@ -20,6 +21,8 @@ type StubPushConstants struct {
 	_               uint32 // Padding
 	ConstRamAddress uint64
 	UserDataAddress uint64
+	GarlicAddress   uint64
+	OnionAddress    uint64
 }
 
 func (t *GpuTranslator) recordDraw(commandBuffer vk.CommandBuffer, draw *LiverpoolDrawCall) {
@@ -100,6 +103,8 @@ func (t *GpuTranslator) recordDraw(commandBuffer vk.CommandBuffer, draw *Liverpo
 		Time:            float32(time.Since(startTime).Seconds()),
 		ConstRamAddress: t.GetBufferAddress(constRamBuffer),
 		UserDataAddress: t.GetBufferAddress(userDataBuffer),
+		GarlicAddress:   uint64(GlobalGpuAllocator.GpuMemoryBase),
+		OnionAddress:    uint64(GlobalAllocator.DirectMemoryBase),
 	}
 	vk.CmdPushConstants(
 		commandBuffer, t.stubPipelineLayout,

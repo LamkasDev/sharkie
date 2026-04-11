@@ -15,6 +15,9 @@ import (
 // GlobalAllocator should be used for explicit allocations (mmap, etc.)
 var GlobalAllocator *Allocator
 
+// GlobalGpuAllocator should be used for GPU-memory allocations.
+var GlobalGpuAllocator *GpuAllocator
+
 // GlobalGoAllocator should be used for implicit allocations (inside init stubs, etc.)
 var GlobalGoAllocator *GoAllocator
 
@@ -62,9 +65,14 @@ type Allocator struct {
 	DirectMemoryBase    uintptr
 	DirectMemoryCurrent uintptr
 	DirectMemorySize    uint64
-	GpuMemoryBase       uintptr
-	GpuMemoryCurrent    uintptr
-	GpuMemorySize       uint64
+}
+
+type GpuAllocator struct {
+	GpuMemoryBase    uintptr
+	GpuMemoryCurrent uintptr
+	GpuMemorySize    uint64
+	Alloc            func(size uint64) (uintptr, error)
+	Map              func(addr uintptr, length uint64, handle uintptr) error
 }
 
 type GoAllocator struct {
@@ -83,24 +91,16 @@ func NewAllocator() *Allocator {
 	var err error
 	allocator := &Allocator{
 		DirectMemorySize: DirectMemoryDefaultSize,
-		GpuMemorySize:    GpuMemoryDefaultSize,
 	}
 	allocator.DirectMemoryBase, err = ReserveKernelMemory(0x400000000, allocator.DirectMemorySize)
 	if allocator.DirectMemoryBase == 0 {
 		panic(err)
 	}
 	allocator.DirectMemoryCurrent = allocator.DirectMemoryBase
-	allocator.GpuMemoryBase, err = ReserveKernelMemory(0xFE0000000, allocator.GpuMemorySize)
-	if allocator.GpuMemoryBase == 0 {
-		panic(err)
-	}
-	allocator.GpuMemoryCurrent = allocator.GpuMemoryBase
 	logger.Printf(
-		"Reserved %s of direct memory (%s) and %s bytes of graphics memory (%s).\n",
+		"Reserved %s of direct memory (%s).\n",
 		color.Yellow.Sprintf("0x%X", allocator.DirectMemorySize),
 		color.Yellow.Sprintf("0x%X", allocator.DirectMemoryBase),
-		color.Yellow.Sprintf("0x%X", allocator.GpuMemorySize),
-		color.Yellow.Sprintf("0x%X", allocator.GpuMemoryBase),
 	)
 
 	return allocator
@@ -196,10 +196,10 @@ func (allocator *GoAllocator) Realloc(ptr uintptr, newSize uintptr) uintptr {
 	return newAddress
 }
 
-func (allocator *Allocator) GetNextAlignedGpuMemoryAddress(alignment, length uint64) uintptr {
+func (gpuAllocator *GpuAllocator) GetNextAlignedGpuMemoryAddress(alignment, length uint64) uintptr {
 	alignedLength := (length + (alignment - 1)) &^ (alignment - 1)
-	addr := (atomic.LoadUintptr(&allocator.GpuMemoryCurrent) + uintptr(alignment-1)) &^ uintptr(alignment-1)
-	atomic.StoreUintptr(&allocator.GpuMemoryCurrent, addr+uintptr(alignedLength))
+	addr := (atomic.LoadUintptr(&gpuAllocator.GpuMemoryCurrent) + uintptr(alignment-1)) &^ uintptr(alignment-1)
+	atomic.StoreUintptr(&gpuAllocator.GpuMemoryCurrent, addr+uintptr(alignedLength))
 
 	return addr
 }
@@ -212,15 +212,12 @@ func (allocator *Allocator) GetNextAlignedDirectMemoryAddress(alignment, length 
 	return addr
 }
 
-func MemoryIsDirectOrGpu(addr uintptr) (bool, bool) {
+func MemoryIsDirect(addr uintptr) bool {
 	isDirectMemory := addr != 0 &&
 		addr >= GlobalAllocator.DirectMemoryBase &&
 		addr < GlobalAllocator.DirectMemoryBase+uintptr(GlobalAllocator.DirectMemorySize)
-	isGpuMemory := addr != 0 &&
-		addr >= GlobalAllocator.GpuMemoryBase &&
-		addr < GlobalAllocator.GpuMemoryBase+uintptr(GlobalAllocator.GpuMemorySize)
 
-	return isDirectMemory, isGpuMemory
+	return isDirectMemory
 }
 
 func MemoryProtName(prot int32) string {

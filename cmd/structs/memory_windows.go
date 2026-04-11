@@ -3,6 +3,7 @@
 package structs
 
 import (
+	"fmt"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/sys_struct"
@@ -45,8 +46,8 @@ func ReserveKernelMemory(addr uintptr, length uint64) (uintptr, error) {
 
 func AllocKernelMemory(addr uintptr, length uint64, prot, flags int32) (uintptr, error) {
 	allocationType := uintptr(windows.MEM_COMMIT)
-	isDirectMemory, isGpuMemory := MemoryIsDirectOrGpu(addr)
-	if !isDirectMemory && !isGpuMemory {
+	isDirectMemory := MemoryIsDirect(addr)
+	if !isDirectMemory {
 		allocationType |= windows.MEM_RESERVE
 	}
 	addr = sys_struct.GetNextAlignedAddress(addr, length)
@@ -89,4 +90,27 @@ func ProtectKernelMemory(addr uintptr, length uint64, prot int32) (uintptr, erro
 	}
 
 	return ret, nil
+}
+
+func MapVulkanMemory(addr uintptr, length uint64, handle uintptr) error {
+	ret, _, err := sys_struct.UnmapViewOfFile.Call(addr)
+	if ret == 0 {
+		return err
+	}
+	allocatedAddr, _, err := sys_struct.MapViewOfFileEx.Call(
+		handle,
+		0xF001F, // FILE_MAP_ALL_ACCESS = 0xF001F (READ | WRITE | ...)
+		0,
+		0,
+		uintptr(length),
+		addr,
+	)
+	if allocatedAddr == 0 {
+		return err
+	}
+	if allocatedAddr != addr {
+		return fmt.Errorf("MapVulkanMemory: failed to map at fixed address")
+	}
+
+	return nil
 }

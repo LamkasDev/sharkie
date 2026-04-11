@@ -18,6 +18,7 @@ const (
 	SpirvBlockContextIdPcVar
 	SpirvBlockContextIdPtrPcFloat
 	SpirvBlockContextIdPtrPcPsbUint
+	SpirvBlockContextIdPtrPcPsbUint64
 	SpirvBlockContextIdPtrPsbUint
 	SpirvBlockContextIdFloat
 	SpirvBlockContextIdV4Float

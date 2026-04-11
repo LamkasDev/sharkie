@@ -12,7 +12,7 @@ func (t *GpuTranslator) createStubPipelineLayout() error {
 		PPushConstantRanges: []vk.PushConstantRange{{
 			StageFlags: vk.ShaderStageFlags(vk.ShaderStageVertexBit | vk.ShaderStageFragmentBit),
 			Offset:     0,
-			Size:       32,
+			Size:       40,
 		}},
 		PushConstantRangeCount: 1,
 	}, nil, &layout)
