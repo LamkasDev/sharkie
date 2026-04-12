@@ -8,7 +8,7 @@ import (
 
 func emitVOPC(b *SpvBuilder, instr *Instruction, ctx SpirvBlockContext) {
 	details := instr.Details.(*VectorDetails)
-	idBool := ctx.GetId(SpirvBlockContextIdTypeBool)
+	idBool := ctx.GetId(BlockContextIdTypeBool)
 	var resB uint32
 	switch details.Op {
 	case VopcOpCmpEqF32:
@@ -31,8 +31,8 @@ func emitVOPC(b *SpvBuilder, instr *Instruction, ctx SpirvBlockContext) {
 }
 
 func emitVCCUpdate(b *SpvBuilder, ctx SpirvBlockContext, cond uint32) {
-	idV4Uint := ctx.GetId(SpirvBlockContextIdTypeV4Uint)
-	idUint := ctx.GetId(SpirvBlockContextIdTypeUint)
+	idV4Uint := ctx.GetId(BlockContextIdTypeV4Uint)
+	idUint := ctx.GetId(BlockContextIdTypeUint)
 
 	// Combine boolean results into VCC.
 	ballot := b.EmitGroupNonUniformBallot(idV4Uint, SpvScopeSubgroup, cond)

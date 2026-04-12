@@ -84,19 +84,39 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 
 	// Stage-specific outputs.
 	interfaceIds := []uint32{idSubgroupLocalInvocationId}
-	var idColorOut, idZeroVec4 uint32
-	if shader.Stage == GcnShaderStageFragment {
-		// Declare vec4 color output at location 0.
-		idPtrOutV4 := b.EmitTypePointer(SpvStorageOutput, idV4Float)
-		idColorOut = b.EmitVariable(idPtrOutV4, SpvStorageOutput)
-		b.EmitDecorate(idColorOut, SpvDecorationLocation, 0)
+	var idPosOut, idFragDepthOut uint32
+	var idColorOuts [8]uint32
+	var idParamOuts [32]uint32
+	var idZeroVec4 uint32
+
+	idPtrOutV4 := b.EmitTypePointer(SpvStorageOutput, idV4Float)
+	idPtrOutF := b.EmitTypePointer(SpvStorageOutput, idFloat)
+
+	if shader.Stage == GcnShaderStageVertex {
+		idPosOut = b.EmitVariable(idPtrOutV4, SpvStorageOutput)
+		b.EmitDecorate(idPosOut, SpvDecorationBuiltIn, SpvBuiltInPosition)
+		interfaceIds = append(interfaceIds, idPosOut)
+
+		for i := range idParamOuts {
+			idParamOuts[i] = b.EmitVariable(idPtrOutV4, SpvStorageOutput)
+			b.EmitDecorate(idParamOuts[i], SpvDecorationLocation, uint32(i))
+			interfaceIds = append(interfaceIds, idParamOuts[i])
+		}
+	} else if shader.Stage == GcnShaderStageFragment {
+		for i := range idColorOuts {
+			idColorOuts[i] = b.EmitVariable(idPtrOutV4, SpvStorageOutput)
+			b.EmitDecorate(idColorOuts[i], SpvDecorationLocation, uint32(i))
+			interfaceIds = append(interfaceIds, idColorOuts[i])
+		}
+
+		idFragDepthOut = b.EmitVariable(idPtrOutF, SpvStorageOutput)
+		b.EmitDecorate(idFragDepthOut, SpvDecorationBuiltIn, SpvBuiltInFragDepth)
+		interfaceIds = append(interfaceIds, idFragDepthOut)
 
 		// Constant zero vec4 written on exit.
 		idZeroF := b.EmitConstantFloat(idFloat, 0.0)
 		idOneF := b.EmitConstantFloat(idFloat, 1.0)
 		idZeroVec4 = b.EmitConstantComposite(idV4Float, idZeroF, idZeroF, idZeroF, idOneF)
-
-		interfaceIds = append(interfaceIds, idColorOut)
 	}
 
 	// Entry point.
@@ -123,69 +143,55 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 		labelIds[i] = b.AllocId()
 	}
 
-	// Register SGPRs and VGPRs.
+	// Register GCN SGPRs and VGPRs.
 	idPtrFnUint := b.EmitTypePointer(SpvStorageFunction, idUint)
-	var sgprIds [104]uint32
-	for i := range sgprIds {
-		sgprIds[i] = b.AllocId()
+	var gcnSgprIds [104]uint32
+	for i := range gcnSgprIds {
+		gcnSgprIds[i] = b.AllocId()
 	}
-	var vgprIds [256]uint32
-	for i := range vgprIds {
-		vgprIds[i] = b.AllocId()
+	var gcnVgprIds [256]uint32
+	for i := range gcnVgprIds {
+		gcnVgprIds[i] = b.AllocId()
 	}
 
-	// Special registers.
-	var specialIds [27]uint32
-	specialIds[SpecIdxFlatScrLo] = b.AllocId()
-	specialIds[SpecIdxFlatScrHi] = b.AllocId()
-	specialIds[SpecIdxVccLo] = b.AllocId()
-	specialIds[SpecIdxVccHi] = b.AllocId()
-	specialIds[SpecIdxTbaLo] = b.AllocId()
-	specialIds[SpecIdxTbaHi] = b.AllocId()
-	specialIds[SpecIdxTmaLo] = b.AllocId()
-	specialIds[SpecIdxTmaHi] = b.AllocId()
+	// GCN special registers.
+	var gcnSpecialIds [27]uint32
+	gcnSpecialIds[GcnSpecIdxFlatScrLo] = b.AllocId()
+	gcnSpecialIds[GcnSpecIdxFlatScrHi] = b.AllocId()
+	gcnSpecialIds[GcnSpecIdxVccLo] = b.AllocId()
+	gcnSpecialIds[GcnSpecIdxVccHi] = b.AllocId()
+	gcnSpecialIds[GcnSpecIdxTbaLo] = b.AllocId()
+	gcnSpecialIds[GcnSpecIdxTbaHi] = b.AllocId()
+	gcnSpecialIds[GcnSpecIdxTmaLo] = b.AllocId()
+	gcnSpecialIds[GcnSpecIdxTmaHi] = b.AllocId()
 	for i := range 12 {
-		specialIds[SpecIdxTtmp0+i] = b.AllocId()
+		gcnSpecialIds[GcnSpecIdxTtmp0+i] = b.AllocId()
 	}
-	specialIds[SpecIdxM0] = b.AllocId()
-	specialIds[SpecIdxExecLo] = b.AllocId()
-	specialIds[SpecIdxExecHi] = b.AllocId()
-	specialIds[SpecIdxVccz] = b.AllocId()
-	specialIds[SpecIdxExecz] = b.AllocId()
-	specialIds[SpecIdxScc] = b.AllocId()
+	gcnSpecialIds[GcnSpecIdxM0] = b.AllocId()
+	gcnSpecialIds[GcnSpecIdxExecLo] = b.AllocId()
+	gcnSpecialIds[GcnSpecIdxExecHi] = b.AllocId()
+	gcnSpecialIds[GcnSpecIdxVccz] = b.AllocId()
+	gcnSpecialIds[GcnSpecIdxExecz] = b.AllocId()
+	gcnSpecialIds[GcnSpecIdxScc] = b.AllocId()
 
-	// Inline constants.
-	var constIds [120]uint32
-	constIds[ConstIdx0] = b.EmitConstantUint(idUint, 0)
-	for i := uint32(ConstIdxInt1); i <= ConstIdxInt64; i++ {
-		constIds[i] = b.EmitConstantUint(idUint, i)
+	// GCN inline constants.
+	var gcnConstIds [120]uint32
+	gcnConstIds[GcnConstIdx0] = b.EmitConstantUint(idUint, 0)
+	for i := uint32(GcnConstIdxInt1); i <= GcnConstIdxInt64; i++ {
+		gcnConstIds[i] = b.EmitConstantUint(idUint, i)
 	}
-	for i := uint32(ConstIdxIntNeg1); i <= ConstIdxIntNeg16; i++ {
-		val := uint32(int32(-(int(i) - ConstIdxInt64)))
-		constIds[i] = b.EmitConstantUint(idUint, val)
+	for i := uint32(GcnConstIdxIntNeg1); i <= GcnConstIdxIntNeg16; i++ {
+		val := uint32(int32(-(int(i) - GcnConstIdxInt64)))
+		gcnConstIds[i] = b.EmitConstantUint(idUint, val)
 	}
-	constIds[ConstIdxFloat05] = b.EmitConstantUint(idUint, math.Float32bits(0.5))
-	constIds[ConstIdxFloatNeg05] = b.EmitConstantUint(idUint, math.Float32bits(-0.5))
-	constIds[ConstIdxFloat10] = b.EmitConstantUint(idUint, math.Float32bits(1.0))
-	constIds[ConstIdxFloatNeg10] = b.EmitConstantUint(idUint, math.Float32bits(-1.0))
-	constIds[ConstIdxFloat20] = b.EmitConstantUint(idUint, math.Float32bits(2.0))
-	constIds[ConstIdxFloatNeg20] = b.EmitConstantUint(idUint, math.Float32bits(-2.0))
-	constIds[ConstIdxFloat40] = b.EmitConstantUint(idUint, math.Float32bits(4.0))
-	constIds[ConstIdxFloatNeg40] = b.EmitConstantUint(idUint, math.Float32bits(-4.0))
-
-	idC0 := b.EmitConstantUint(idUint, 0)
-	idC1 := b.EmitConstantUint(idUint, 1)
-	idC2 := b.EmitConstantUint(idUint, 2)
-	idC3 := b.EmitConstantUint(idUint, 3)
-	idC4 := b.EmitConstantUint(idUint, 4)
-	idC5 := b.EmitConstantUint(idUint, 5)
-	idC6 := b.EmitConstantUint(idUint, 6)
-	idC7 := b.EmitConstantUint(idUint, 7)
-	idC32 := b.EmitConstantUint(idUint, 32)
-	idC63 := b.EmitConstantUint(idUint, 63)
-	idCFFFF := b.EmitConstantUint(idUint, 0xFFFF)
-	icC11111111 := b.EmitConstantUint(idUint, 0x11111111)
-	idCFFFFFFFF := b.EmitConstantUint(idUint, 0xFFFFFFFF)
+	gcnConstIds[GcnConstIdxFloat05] = b.EmitConstantUint(idUint, math.Float32bits(0.5))
+	gcnConstIds[GcnConstIdxFloatNeg05] = b.EmitConstantUint(idUint, math.Float32bits(-0.5))
+	gcnConstIds[GcnConstIdxFloat10] = b.EmitConstantUint(idUint, math.Float32bits(1.0))
+	gcnConstIds[GcnConstIdxFloatNeg10] = b.EmitConstantUint(idUint, math.Float32bits(-1.0))
+	gcnConstIds[GcnConstIdxFloat20] = b.EmitConstantUint(idUint, math.Float32bits(2.0))
+	gcnConstIds[GcnConstIdxFloatNeg20] = b.EmitConstantUint(idUint, math.Float32bits(-2.0))
+	gcnConstIds[GcnConstIdxFloat40] = b.EmitConstantUint(idUint, math.Float32bits(4.0))
+	gcnConstIds[GcnConstIdxFloatNeg40] = b.EmitConstantUint(idUint, math.Float32bits(-4.0))
 
 	// Function body.
 	b.EmitFunction(idVoid, SpvFunctionControlNone, idFnType, idMain)
@@ -193,50 +199,68 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	// Emit reachable blocks in reverse post-order (entry block first).
 	rpoBlockIds := shader.Cfg.ReversePostOrder()
 	emittedBlockIds := make([]bool, len(shader.Cfg.Blocks))
+
+	// Prepare internal IDs.
+	ids := map[BlockContextId]uint32{
+		BlockContextIdFalse:                     idFalse,
+		BlockContextIdTrue:                      idTrue,
+		BlockContextIdTypeBool:                  idBool,
+		BlockContextIdTypeFloat:                 idFloat,
+		BlockContextIdTypeInt:                   idInt,
+		BlockContextIdTypeUint:                  idUint,
+		BlockContextIdTypeUint64:                idUint64,
+		BlockContextIdTypeInt64:                 idInt64,
+		BlockContextIdTypeV2Float:               idV2Float,
+		BlockContextIdTypeV4Float:               idV4Float,
+		BlockContextIdTypeV4Uint:                idV4Uint,
+		BlockContextIdPtrPcFloat:                idPtrPcFloat,
+		BlockContextIdPtrPcPsbUint:              idPtrPcPsbUint,
+		BlockContextIdPtrPcPsbUint64:            idPtrPcPsbUint64,
+		BlockContextIdPtrPsbUint:                idPtrPsbUint,
+		BlockContextIdPtrFnUint:                 idPtrFnUint,
+		BlockContextIdPosOut:                    idPosOut,
+		BlockContextIdFragDepthOut:              idFragDepthOut,
+		BlockContextIdZeroVec4:                  idZeroVec4,
+		BlockContextIdPcVar:                     idPCVar,
+		BlockContextIdGlsl:                      idGLSL,
+		BlockContextIdSubgroupLocalInvocationId: idSubgroupLocalInvocationId,
+	}
+	for i, id := range idColorOuts {
+		ids[BlockContextIdColorOut0+BlockContextId(i)] = id
+	}
+	for i, id := range idParamOuts {
+		ids[BlockContextIdParamOut0+BlockContextId(i)] = id
+	}
+
+	// Prepare block context with all GCN and our internal IDs.
 	blockContext := SpirvBlockContext{
 		Stage:    shader.Stage,
 		LabelIds: labelIds,
-		Ids: map[SpirvBlockContextId]uint32{
-			SpirvBlockContextIdFalse:                     idFalse,
-			SpirvBlockContextIdTrue:                      idTrue,
-			SpirvBlockContextIdTypeBool:                  idBool,
-			SpirvBlockContextIdTypeFloat:                 idFloat,
-			SpirvBlockContextIdTypeInt:                   idInt,
-			SpirvBlockContextIdTypeUint:                  idUint,
-			SpirvBlockContextIdTypeUint64:                idUint64,
-			SpirvBlockContextIdTypeInt64:                 idInt64,
-			SpirvBlockContextIdTypeV2Float:               idV2Float,
-			SpirvBlockContextIdTypeV4Float:               idV4Float,
-			SpirvBlockContextIdTypeV4Uint:                idV4Uint,
-			SpirvBlockContextIdPtrPcFloat:                idPtrPcFloat,
-			SpirvBlockContextIdPtrPcPsbUint:              idPtrPcPsbUint,
-			SpirvBlockContextIdPtrPcPsbUint64:            idPtrPcPsbUint64,
-			SpirvBlockContextIdPtrPsbUint:                idPtrPsbUint,
-			SpirvBlockContextIdPtrFnUint:                 idPtrFnUint,
-			SpirvBlockContextIdColorOut:                  idColorOut,
-			SpirvBlockContextIdZeroVec4:                  idZeroVec4,
-			SpirvBlockContextIdPcVar:                     idPCVar,
-			SpirvBlockContextIdGlsl:                      idGLSL,
-			SpirvBlockContextIdSubgroupLocalInvocationId: idSubgroupLocalInvocationId,
-			SpirvBlockContextIdConstUint0:                idC0,
-			SpirvBlockContextIdConstUint1:                idC1,
-			SpirvBlockContextIdConstUint2:                idC2,
-			SpirvBlockContextIdConstUint3:                idC3,
-			SpirvBlockContextIdConstUint4:                idC4,
-			SpirvBlockContextIdConstUint5:                idC5,
-			SpirvBlockContextIdConstUint6:                idC6,
-			SpirvBlockContextIdConstUint7:                idC7,
-			SpirvBlockContextIdConstUint32:               idC32,
-			SpirvBlockContextIdConstUint63:               idC63,
-			SpirvBlockContextIdConstUintFFFF:             idCFFFF,
-			SpirvBlockContextIdConstUint11111111:         icC11111111,
-			SpirvBlockContextIdConstUintFFFFFFFF:         idCFFFFFFFF,
+		Ids:      ids,
+		ConstIds: map[BlockContextId]uint32{
+			ConstIdxUint0:        b.EmitConstantUint(idUint, 0),
+			ConstIdxUint1:        b.EmitConstantUint(idUint, 1),
+			ConstIdxUint2:        b.EmitConstantUint(idUint, 2),
+			ConstIdxUint3:        b.EmitConstantUint(idUint, 3),
+			ConstIdxUint4:        b.EmitConstantUint(idUint, 4),
+			ConstIdxUint5:        b.EmitConstantUint(idUint, 5),
+			ConstIdxUint6:        b.EmitConstantUint(idUint, 6),
+			ConstIdxUint7:        b.EmitConstantUint(idUint, 7),
+			ConstIdxUint32:       b.EmitConstantUint(idUint, 32),
+			ConstIdxUint63:       b.EmitConstantUint(idUint, 63),
+			ConstIdxUintFFFF:     b.EmitConstantUint(idUint, 0xFFFF),
+			ConstIdxUint11111111: b.EmitConstantUint(idUint, 0x11111111),
+			ConstIdxUintFFFFFFFF: b.EmitConstantUint(idUint, 0xFFFFFFFF),
+			ConstIdxFloat1:       b.EmitConstantFloat(idFloat, 1.0),
+			ConstIdxFloat0:       b.EmitConstantFloat(idFloat, 0.0),
 		},
-		SgprIds:    sgprIds,
-		VgprIds:    vgprIds,
-		SpecialIds: specialIds,
-		ConstIds:   constIds,
+		GcnSgprIds:    gcnSgprIds,
+		GcnVgprIds:    gcnVgprIds,
+		GcnSpecialIds: gcnSpecialIds,
+		GcnConstIds:   gcnConstIds,
 	}
+
+	// Emit reachable blocks.
 	for _, blockId := range rpoBlockIds {
 		emitBlock(b, &shader.Cfg.Blocks[blockId], blockContext)
 		emittedBlockIds[blockId] = true

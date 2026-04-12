@@ -137,6 +137,7 @@ const (
 	VopcOpCmpLgI32     = 0x85
 	VopcOpCmpGeI32     = 0x86
 	VopcOpCmpTruI32    = 0x87
+	VopcOpCmpClassF32  = 0x88
 	VopcOpCmpxFI32     = 0x90
 	VopcOpCmpxLtI32    = 0x91
 	VopcOpCmpxEqI32    = 0x92
@@ -145,6 +146,7 @@ const (
 	VopcOpCmpxLgI32    = 0x95
 	VopcOpCmpxGeI32    = 0x96
 	VopcOpCmpxTruI32   = 0x97
+	VopcOpCmpxClassF32 = 0x98
 	VopcOpCmpFI64      = 0xA0
 	VopcOpCmpLtI64     = 0xA1
 	VopcOpCmpEqI64     = 0xA2
@@ -153,6 +155,7 @@ const (
 	VopcOpCmpLgI64     = 0xA5
 	VopcOpCmpGeI64     = 0xA6
 	VopcOpCmpTruI64    = 0xA7
+	VopcOpCmpClassF64  = 0xA8
 	VopcOpCmpxFI64     = 0xB0
 	VopcOpCmpxLtI64    = 0xB1
 	VopcOpCmpxEqI64    = 0xB2
@@ -161,6 +164,7 @@ const (
 	VopcOpCmpxLgI64    = 0xB5
 	VopcOpCmpxGeI64    = 0xB6
 	VopcOpCmpxTruI64   = 0xB7
+	VopcOpCmpxClassF64 = 0xB8
 	VopcOpCmpFU32      = 0xC0
 	VopcOpCmpLtU32     = 0xC1
 	VopcOpCmpEqU32     = 0xC2
@@ -193,10 +197,6 @@ const (
 	VopcOpCmpxLgU64    = 0xF5
 	VopcOpCmpxGeU64    = 0xF6
 	VopcOpCmpxTruU64   = 0xF7
-	VopcOpCmpClassF32  = 0x88
-	VopcOpCmpxClassF32 = 0x98
-	VopcOpCmpClassF64  = 0xA8
-	VopcOpCmpxClassF64 = 0xB8
 )
 
 func (instr *Instruction) DecodeVOPC() {

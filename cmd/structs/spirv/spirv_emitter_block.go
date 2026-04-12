@@ -7,90 +7,147 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/structs/gpu"
 )
 
-type SpirvBlockContextId uint8
+type BlockContextId uint8
 
 const (
-	SpirvBlockContextIdFalse SpirvBlockContextId = iota
-	SpirvBlockContextIdTrue
-	SpirvBlockContextIdTypeBool
-	SpirvBlockContextIdTypeFloat
-	SpirvBlockContextIdTypeInt
-	SpirvBlockContextIdTypeUint
-	SpirvBlockContextIdTypeUint64
-	SpirvBlockContextIdTypeInt64
-	SpirvBlockContextIdTypeV2Float
-	SpirvBlockContextIdTypeV4Float
-	SpirvBlockContextIdTypeV4Uint
-	SpirvBlockContextIdPtrPcFloat
-	SpirvBlockContextIdPtrPcPsbUint
-	SpirvBlockContextIdPtrPcPsbUint64
-	SpirvBlockContextIdPtrPsbUint
-	SpirvBlockContextIdPtrFnUint
-	SpirvBlockContextIdColorOut
-	SpirvBlockContextIdZeroVec4
-	SpirvBlockContextIdPcVar
-	SpirvBlockContextIdGlsl
-	SpirvBlockContextIdSubgroupLocalInvocationId
-	SpirvBlockContextIdConstUint0
-	SpirvBlockContextIdConstUint1
-	SpirvBlockContextIdConstUint2
-	SpirvBlockContextIdConstUint3
-	SpirvBlockContextIdConstUint4
-	SpirvBlockContextIdConstUint5
-	SpirvBlockContextIdConstUint6
-	SpirvBlockContextIdConstUint7
-	SpirvBlockContextIdConstUint32
-	SpirvBlockContextIdConstUint63
-	SpirvBlockContextIdConstUintFFFF
-	SpirvBlockContextIdConstUint11111111
-	SpirvBlockContextIdConstUintFFFFFFFF
+	BlockContextIdFalse BlockContextId = iota
+	BlockContextIdTrue
+	BlockContextIdTypeBool
+	BlockContextIdTypeFloat
+	BlockContextIdTypeInt
+	BlockContextIdTypeUint
+	BlockContextIdTypeUint64
+	BlockContextIdTypeInt64
+	BlockContextIdTypeV2Float
+	BlockContextIdTypeV4Float
+	BlockContextIdTypeV4Uint
+	BlockContextIdPtrPcFloat
+	BlockContextIdPtrPcPsbUint
+	BlockContextIdPtrPcPsbUint64
+	BlockContextIdPtrPsbUint
+	BlockContextIdPtrFnUint
+	BlockContextIdPosOut
+	BlockContextIdFragDepthOut
+	BlockContextIdColorOut0
+	BlockContextIdColorOut1
+	BlockContextIdColorOut2
+	BlockContextIdColorOut3
+	BlockContextIdColorOut4
+	BlockContextIdColorOut5
+	BlockContextIdColorOut6
+	BlockContextIdColorOut7
+	BlockContextIdParamOut0
+	BlockContextIdParamOut1
+	BlockContextIdParamOut2
+	BlockContextIdParamOut3
+	BlockContextIdParamOut4
+	BlockContextIdParamOut5
+	BlockContextIdParamOut6
+	BlockContextIdParamOut7
+	BlockContextIdParamOut8
+	BlockContextIdParamOut9
+	BlockContextIdParamOut10
+	BlockContextIdParamOut11
+	BlockContextIdParamOut12
+	BlockContextIdParamOut13
+	BlockContextIdParamOut14
+	BlockContextIdParamOut15
+	BlockContextIdParamOut16
+	BlockContextIdParamOut17
+	BlockContextIdParamOut18
+	BlockContextIdParamOut19
+	BlockContextIdParamOut20
+	BlockContextIdParamOut21
+	BlockContextIdParamOut22
+	BlockContextIdParamOut23
+	BlockContextIdParamOut24
+	BlockContextIdParamOut25
+	BlockContextIdParamOut26
+	BlockContextIdParamOut27
+	BlockContextIdParamOut28
+	BlockContextIdParamOut29
+	BlockContextIdParamOut30
+	BlockContextIdParamOut31
+	BlockContextIdZeroVec4
+	BlockContextIdPcVar
+	BlockContextIdGlsl
+	BlockContextIdSubgroupLocalInvocationId
 )
 
 const (
-	SpecIdxFlatScrLo = 0
-	SpecIdxFlatScrHi = 1
-	SpecIdxVccLo     = 2
-	SpecIdxVccHi     = 3
-	SpecIdxTbaLo     = 4
-	SpecIdxTbaHi     = 5
-	SpecIdxTmaLo     = 6
-	SpecIdxTmaHi     = 7
-	SpecIdxTtmp0     = 8
-	SpecIdxTtmp11    = 19
-	SpecIdxM0        = 20
-	SpecIdxReserved  = 21
-	SpecIdxExecLo    = 22
-	SpecIdxExecHi    = 23
-	SpecIdxVccz      = 24
-	SpecIdxExecz     = 25
-	SpecIdxScc       = 26
+	GcnSpecIdxFlatScrLo = 0
+	GcnSpecIdxFlatScrHi = 1
+	GcnSpecIdxVccLo     = 2
+	GcnSpecIdxVccHi     = 3
+	GcnSpecIdxTbaLo     = 4
+	GcnSpecIdxTbaHi     = 5
+	GcnSpecIdxTmaLo     = 6
+	GcnSpecIdxTmaHi     = 7
+	GcnSpecIdxTtmp0     = 8
+	GcnSpecIdxTtmp11    = 19
+	GcnSpecIdxM0        = 20
+	GcnSpecIdxReserved  = 21
+	GcnSpecIdxExecLo    = 22
+	GcnSpecIdxExecHi    = 23
+	GcnSpecIdxVccz      = 24
+	GcnSpecIdxExecz     = 25
+	GcnSpecIdxScc       = 26
 )
 
 const (
-	ConstIdx0          = 0
-	ConstIdxInt1       = 1
-	ConstIdxInt64      = 64
-	ConstIdxIntNeg1    = 65
-	ConstIdxIntNeg16   = 80
-	ConstIdxFloat05    = 112
-	ConstIdxFloatNeg05 = 113
-	ConstIdxFloat10    = 114
-	ConstIdxFloatNeg10 = 115
-	ConstIdxFloat20    = 116
-	ConstIdxFloatNeg20 = 117
-	ConstIdxFloat40    = 118
-	ConstIdxFloatNeg40 = 119
+	GcnConstIdx0          = 0
+	GcnConstIdxInt1       = 1
+	GcnConstIdxInt64      = 64
+	GcnConstIdxIntNeg1    = 65
+	GcnConstIdxIntNeg16   = 80
+	GcnConstIdxFloat05    = 112
+	GcnConstIdxFloatNeg05 = 113
+	GcnConstIdxFloat10    = 114
+	GcnConstIdxFloatNeg10 = 115
+	GcnConstIdxFloat20    = 116
+	GcnConstIdxFloatNeg20 = 117
+	GcnConstIdxFloat40    = 118
+	GcnConstIdxFloatNeg40 = 119
+)
+
+const (
+	ConstIdxUint0 BlockContextId = iota
+	ConstIdxUint1
+	ConstIdxUint2
+	ConstIdxUint3
+	ConstIdxUint4
+	ConstIdxUint5
+	ConstIdxUint6
+	ConstIdxUint7
+	ConstIdxUint32
+	ConstIdxUint63
+	ConstIdxUintFFFF
+	ConstIdxUint11111111
+	ConstIdxUintFFFFFFFF
+	ConstIdxFloat1
+	ConstIdxFloat0
+)
+
+const (
+	PushConstantTime            = 0
+	PushConstant_               = 1
+	PushConstantConstRamAddress = 2
+	PushConstantUserDataAddress = 3
+	PushConstantGarlicAddress   = 4
+	PushConstantOnionAddress    = 5
 )
 
 type SpirvBlockContext struct {
-	Stage       GcnShaderStage
-	LabelIds    []uint32
-	Ids         map[SpirvBlockContextId]uint32
-	SgprIds     [104]uint32
-	VgprIds     [256]uint32
-	SpecialIds  [27]uint32
-	ConstIds    [120]uint32
-	ConditionId uint32
+	Stage    GcnShaderStage
+	LabelIds []uint32
+	Ids      map[BlockContextId]uint32
+	ConstIds map[BlockContextId]uint32
+
+	GcnSgprIds     [104]uint32
+	GcnVgprIds     [256]uint32
+	GcnSpecialIds  [27]uint32
+	GcnConstIds    [120]uint32
+	GcnConditionId uint32
 }
 
 func (ctx *SpirvBlockContext) GetLabelId(i int) uint32 {
@@ -102,7 +159,7 @@ func (ctx *SpirvBlockContext) GetLabelId(i int) uint32 {
 	return id
 }
 
-func (ctx *SpirvBlockContext) GetId(i SpirvBlockContextId) uint32 {
+func (ctx *SpirvBlockContext) GetId(i BlockContextId) uint32 {
 	id := ctx.Ids[i]
 	if id == 0 {
 		panic(fmt.Sprintf("id %d is zero", i))
@@ -111,46 +168,46 @@ func (ctx *SpirvBlockContext) GetId(i SpirvBlockContextId) uint32 {
 	return id
 }
 
-func (ctx *SpirvBlockContext) TryGetId(i SpirvBlockContextId) (uint32, bool) {
-	id, ok := ctx.Ids[i]
-	if ok && id == 0 {
-		panic(fmt.Sprintf("id %d is zero", i))
-	}
-
-	return id, ok
-}
-
-func (ctx *SpirvBlockContext) GetSgprId(reg uint32) uint32 {
-	id := ctx.SgprIds[reg]
+func (ctx *SpirvBlockContext) GetConstId(i BlockContextId) uint32 {
+	id := ctx.ConstIds[i]
 	if id == 0 {
-		panic(fmt.Sprintf("sgpr id %d is zero", reg))
+		panic(fmt.Sprintf("const id %d is zero", i))
 	}
 
 	return id
 }
 
-func (ctx *SpirvBlockContext) GetVgprId(reg uint32) uint32 {
-	id := ctx.VgprIds[reg]
+func (ctx *SpirvBlockContext) GetGcnSgprId(reg uint32) uint32 {
+	id := ctx.GcnSgprIds[reg]
 	if id == 0 {
-		panic(fmt.Sprintf("vgpr id %d is zero", reg))
+		panic(fmt.Sprintf("gcn sgpr id %d is zero", reg))
 	}
 
 	return id
 }
 
-func (ctx *SpirvBlockContext) GetSpecialId(reg uint32) uint32 {
-	id := ctx.SpecialIds[reg]
+func (ctx *SpirvBlockContext) GetGcnVgprId(reg uint32) uint32 {
+	id := ctx.GcnVgprIds[reg]
 	if id == 0 {
-		panic(fmt.Sprintf("special id %d is zero", reg))
+		panic(fmt.Sprintf("gcn vgpr id %d is zero", reg))
 	}
 
 	return id
 }
 
-func (ctx *SpirvBlockContext) GetConstId(reg uint32) uint32 {
-	id := ctx.ConstIds[reg]
+func (ctx *SpirvBlockContext) GetGcnSpecialId(reg uint32) uint32 {
+	id := ctx.GcnSpecialIds[reg]
 	if id == 0 {
-		panic(fmt.Sprintf("const id %d is zero", reg))
+		panic(fmt.Sprintf("gcn special id %d is zero", reg))
+	}
+
+	return id
+}
+
+func (ctx *SpirvBlockContext) GetGcnConstId(reg uint32) uint32 {
+	id := ctx.GcnConstIds[reg]
+	if id == 0 {
+		panic(fmt.Sprintf("gcn const id %d is zero", reg))
 	}
 
 	return id
@@ -163,37 +220,36 @@ func emitBlock(b *SpvBuilder, block *GcnShaderCfgBlock, ctx SpirvBlockContext) {
 
 	// Declare variables in entry block.
 	if block.DwordOffset == 0 {
-		idPtrFnUint := ctx.GetId(SpirvBlockContextIdPtrFnUint)
-		for i := range ctx.SgprIds {
-			b.EmitLocalVariable(idPtrFnUint, ctx.GetSgprId(uint32(i)))
+		idPtrFnUint := ctx.GetId(BlockContextIdPtrFnUint)
+		for i := range ctx.GcnSgprIds {
+			b.EmitLocalVariable(idPtrFnUint, ctx.GetGcnSgprId(uint32(i)))
 		}
-		for i := range ctx.VgprIds {
-			b.EmitLocalVariable(idPtrFnUint, ctx.GetVgprId(uint32(i)))
+		for i := range ctx.GcnVgprIds {
+			b.EmitLocalVariable(idPtrFnUint, ctx.GetGcnVgprId(uint32(i)))
 		}
-		for i := range ctx.SpecialIds {
-			if i == SpecIdxReserved {
+		for i := range ctx.GcnSpecialIds {
+			if i == GcnSpecIdxReserved {
 				continue // reserved.
 			}
-			b.EmitLocalVariable(idPtrFnUint, ctx.GetSpecialId(uint32(i)))
+			b.EmitLocalVariable(idPtrFnUint, ctx.GetGcnSpecialId(uint32(i)))
 		}
 
 		// Load user data buffer address from the push constant.
-		idPtrPsbUint := ctx.GetId(SpirvBlockContextIdPtrPsbUint)
-		ptrPcPsbUint := b.EmitAccessChain(ctx.GetId(SpirvBlockContextIdPtrPcPsbUint), ctx.GetId(SpirvBlockContextIdPcVar), b.EmitConstantUint(ctx.GetId(SpirvBlockContextIdTypeUint), 3))
-		ptrBase := b.EmitLoad(idPtrPsbUint, ptrPcPsbUint)
+		idPtrPsbUint := ctx.GetId(BlockContextIdPtrPsbUint)
+		ptrBase := ctx.LoadPushConstantPtr(b, PushConstantUserDataAddress)
 
 		// Load 16 user data registers into s0-s15.
 		stageOffset := gpu.GcnStageToUserDataOffset[ctx.Stage]
 		for i := range uint32(16) {
-			idx := b.EmitConstantUint(ctx.GetId(SpirvBlockContextIdTypeUint), stageOffset+i)
+			idx := b.EmitConstantUint(ctx.GetId(BlockContextIdTypeUint), stageOffset+i)
 			ptr := b.EmitPtrAccessChain(idPtrPsbUint, ptrBase, idx)
-			val := b.EmitLoad(ctx.GetId(SpirvBlockContextIdTypeUint), ptr, SpvMemoryAccessAligned, 4)
-			b.EmitStore(ctx.GetSgprId(i), val)
+			val := b.EmitLoad(ctx.GetId(BlockContextIdTypeUint), ptr, SpvMemoryAccessAligned, 4)
+			b.EmitStore(ctx.GetGcnSgprId(i), val)
 		}
 	}
 
 	// Reset condition ID.
-	ctx.ConditionId = ctx.GetId(SpirvBlockContextIdFalse)
+	ctx.GcnConditionId = ctx.GetId(BlockContextIdFalse)
 
 	// Emit instructions for current block.
 	for i := range block.Instructions {

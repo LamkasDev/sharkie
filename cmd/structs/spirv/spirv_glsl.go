@@ -2,6 +2,7 @@ package spirv
 
 // GLSL.std.450 extended instructions
 const (
+	SpvGlslOpSqrt           = uint32(31)
 	SpvGlslOpFMin           = uint32(37)
 	SpvGlslOpFMax           = uint32(40)
 	SpvGlslOpFma            = uint32(50)

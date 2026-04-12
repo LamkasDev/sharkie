@@ -8,8 +8,8 @@ import (
 
 func emitMUBUF(b *SpvBuilder, instr *Instruction, ctx SpirvBlockContext) {
 	details := instr.Details.(*MubufDetails)
-	idUint := ctx.GetId(SpirvBlockContextIdTypeUint)
-	idUint64 := ctx.GetId(SpirvBlockContextIdTypeUint64)
+	idUint := ctx.GetId(BlockContextIdTypeUint)
+	idUint64 := ctx.GetId(BlockContextIdTypeUint64)
 
 	// Resource descriptor (SRSRC) is 4 SGPRs.
 	sgprBase := details.Srsrc * 4
@@ -39,15 +39,15 @@ func emitMUBUF(b *SpvBuilder, instr *Instruction, ctx SpirvBlockContext) {
 		baseOffset := ctx.GetOperandUintValue(b, details.Soffset, 0)
 		iOffset := b.EmitConstantUint(idUint, details.Offset)
 
-		vIndex := ctx.GetId(SpirvBlockContextIdConstUint0)
+		vIndex := ctx.GetConstId(ConstIdxUint0)
 		if details.Idxen {
 			vIndex = ctx.LoadRegisterPointer(b, OpVgpr0+details.Vaddr)
 		}
 
-		threadId := b.EmitLoad(idUint, ctx.GetId(SpirvBlockContextIdSubgroupLocalInvocationId))
+		threadId := b.EmitLoad(idUint, ctx.GetId(BlockContextIdSubgroupLocalInvocationId))
 		vIndexWithThreadId := b.EmitSelect(idUint, addTidEnableBool, b.EmitIAdd(idUint, vIndex, threadId), vIndex)
 
-		vOffset := ctx.GetId(SpirvBlockContextIdConstUint0)
+		vOffset := ctx.GetConstId(ConstIdxUint0)
 		if details.Offen {
 			vaddrOffset := details.Vaddr
 			if details.Idxen {
@@ -63,7 +63,7 @@ func emitMUBUF(b *SpvBuilder, instr *Instruction, ctx SpirvBlockContext) {
 
 	switch details.Op {
 	case MubufOpLoadFormatXyzw:
-		idPtrPsbUint := ctx.GetId(SpirvBlockContextIdPtrPsbUint)
+		idPtrPsbUint := ctx.GetId(BlockContextIdPtrPsbUint)
 		ptr := b.EmitConvertUToPtr(idPtrPsbUint, addr)
 		for i := range uint32(4) {
 			elementPtr := b.EmitPtrAccessChain(idPtrPsbUint, ptr, b.EmitConstantUint(idUint, i))

@@ -14,8 +14,8 @@ func emitSOPP(b *SpvBuilder, instr *Instruction, ctx SpirvBlockContext) {
 	case SoppOpCbranchExecz:
 		valLo, valHi := ctx.GetOperand64Value(b, OpExecLo, 0)
 		val64 := ctx.Pack64(b, valLo, valHi)
-		zero64 := b.EmitConstantUint64(ctx.GetId(SpirvBlockContextIdTypeUint64), 0)
-		ctx.ConditionId = b.EmitIEqual(ctx.GetId(SpirvBlockContextIdTypeBool), val64, zero64)
+		zero64 := b.EmitConstantUint64(ctx.GetId(BlockContextIdTypeUint64), 0)
+		ctx.GcnConditionId = b.EmitIEqual(ctx.GetId(BlockContextIdTypeBool), val64, zero64)
 	default:
 		panic(fmt.Sprintf("unknown sopp op %s", Mnemotics[EncSOPP][details.Op]))
 	}

@@ -37,5 +37,5 @@ func emitConditionalBranch(b *SpvBuilder, block *GcnShaderCfgBlock, ctx SpirvBlo
 
 	falseLabelId := ctx.GetLabelId(block.Successors[0]) // fall-through.
 	trueLabelId := ctx.GetLabelId(block.Successors[1])  // branch target.
-	b.EmitBranchConditional(ctx.ConditionId, trueLabelId, falseLabelId)
+	b.EmitBranchConditional(ctx.GcnConditionId, trueLabelId, falseLabelId)
 }

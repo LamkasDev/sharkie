@@ -17,25 +17,25 @@ func emitSOP1(b *SpvBuilder, instr *Instruction, ctx SpirvBlockContext) {
 		ctx.StoreRegisterPointer(b, details.Dst, valLo)
 		ctx.StoreRegisterPointer(b, details.Dst+1, valHi)
 	case Sop1OpFlbitI32I64:
-		idInt := ctx.GetId(SpirvBlockContextIdTypeInt)
-		idInt64 := ctx.GetId(SpirvBlockContextIdTypeInt64)
-		idC63 := ctx.GetId(SpirvBlockContextIdConstUint63)
-		idNeg1 := ctx.GetConstId(ConstIdxIntNeg1)
+		idInt := ctx.GetId(BlockContextIdTypeInt)
+		idInt64 := ctx.GetId(BlockContextIdTypeInt64)
+		idC63 := ctx.GetConstId(ConstIdxUint63)
+		idNeg1 := ctx.GetGcnConstId(GcnConstIdxIntNeg1)
 
 		valLo, valHi := ctx.GetOperand64Value(b, details.Src0, instr.Literal)
 		val64 := b.EmitBitcast(idInt64, ctx.Pack64(b, valLo, valHi))
-		msb := b.EmitExtInst(idInt, ctx.GetId(SpirvBlockContextIdGlsl), SpvGlslOpFindSMsb, val64)
+		msb := b.EmitExtInst(idInt, ctx.GetId(BlockContextIdGlsl), SpvGlslOpFindSMsb, val64)
 
 		// If msb is -1 (input is 0 or -1) => return -1.
 		// Else => return 63 - msb.
-		isNeg1 := b.EmitIEqual(ctx.GetId(SpirvBlockContextIdTypeBool), msb, idNeg1)
+		isNeg1 := b.EmitIEqual(ctx.GetId(BlockContextIdTypeBool), msb, idNeg1)
 		res := b.EmitSelect(idInt, isNeg1, idNeg1, b.EmitISub(idInt, idC63, b.EmitBitcast(idInt, msb)))
-		ctx.StoreRegisterPointer(b, details.Dst, b.EmitBitcast(ctx.GetId(SpirvBlockContextIdTypeUint), res))
+		ctx.StoreRegisterPointer(b, details.Dst, b.EmitBitcast(ctx.GetId(BlockContextIdTypeUint), res))
 	case Sop1OpWqmB32:
-		idUint := ctx.GetId(SpirvBlockContextIdTypeUint)
-		idBool := ctx.GetId(SpirvBlockContextIdTypeBool)
-		idC0 := ctx.GetId(SpirvBlockContextIdConstUint0)
-		idC1 := ctx.GetId(SpirvBlockContextIdConstUint1)
+		idUint := ctx.GetId(BlockContextIdTypeUint)
+		idBool := ctx.GetId(BlockContextIdTypeBool)
+		idC0 := ctx.GetConstId(ConstIdxUint0)
+		idC1 := ctx.GetConstId(ConstIdxUint1)
 
 		val := ctx.GetOperandUintValue(b, details.Src0, instr.Literal)
 		res := emitWqmDword(b, ctx, val)
@@ -45,10 +45,10 @@ func emitSOP1(b *SpvBuilder, instr *Instruction, ctx SpirvBlockContext) {
 		sccVal := b.EmitSelect(idUint, isNonZero, idC1, idC0)
 		ctx.StoreRegisterPointer(b, OpScc, sccVal)
 	case Sop1OpWqmB64:
-		idUint := ctx.GetId(SpirvBlockContextIdTypeUint)
-		idBool := ctx.GetId(SpirvBlockContextIdTypeBool)
-		idC0 := ctx.GetId(SpirvBlockContextIdConstUint0)
-		idC1 := ctx.GetId(SpirvBlockContextIdConstUint1)
+		idUint := ctx.GetId(BlockContextIdTypeUint)
+		idBool := ctx.GetId(BlockContextIdTypeBool)
+		idC0 := ctx.GetConstId(ConstIdxUint0)
+		idC1 := ctx.GetConstId(ConstIdxUint1)
 
 		valLo, valHi := ctx.GetOperand64Value(b, details.Src0, instr.Literal)
 		resLo := emitWqmDword(b, ctx, valLo)
@@ -67,11 +67,11 @@ func emitSOP1(b *SpvBuilder, instr *Instruction, ctx SpirvBlockContext) {
 }
 
 func emitWqmDword(b *SpvBuilder, ctx SpirvBlockContext, val uint32) uint32 {
-	idUint := ctx.GetId(SpirvBlockContextIdTypeUint)
-	idC1 := ctx.GetId(SpirvBlockContextIdConstUint1)
-	idC2 := ctx.GetId(SpirvBlockContextIdConstUint2)
-	idC3 := ctx.GetId(SpirvBlockContextIdConstUint3)
-	idMask := ctx.GetId(SpirvBlockContextIdConstUint11111111)
+	idUint := ctx.GetId(BlockContextIdTypeUint)
+	idC1 := ctx.GetConstId(ConstIdxUint1)
+	idC2 := ctx.GetConstId(ConstIdxUint2)
+	idC3 := ctx.GetConstId(ConstIdxUint3)
+	idMask := ctx.GetConstId(ConstIdxUint11111111)
 
 	// Whole quad mode checks each group of four bits in the bitmask;
 	// if any bit is set to 1, all four bits are set to 1 in the result.
