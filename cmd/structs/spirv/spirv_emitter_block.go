@@ -17,8 +17,10 @@ const (
 	SpirvBlockContextIdTypeInt
 	SpirvBlockContextIdTypeUint
 	SpirvBlockContextIdTypeUint64
+	SpirvBlockContextIdTypeInt64
 	SpirvBlockContextIdTypeV2Float
 	SpirvBlockContextIdTypeV4Float
+	SpirvBlockContextIdTypeV4Uint
 	SpirvBlockContextIdPtrPcFloat
 	SpirvBlockContextIdPtrPcPsbUint
 	SpirvBlockContextIdPtrPcPsbUint64
@@ -38,6 +40,7 @@ const (
 	SpirvBlockContextIdConstUint6
 	SpirvBlockContextIdConstUint7
 	SpirvBlockContextIdConstUint32
+	SpirvBlockContextIdConstUint63
 	SpirvBlockContextIdConstUintFFFF
 	SpirvBlockContextIdConstUint11111111
 	SpirvBlockContextIdConstUintFFFFFFFF
@@ -80,13 +83,14 @@ const (
 )
 
 type SpirvBlockContext struct {
-	Stage      GcnShaderStage
-	LabelIds   []uint32
-	Ids        map[SpirvBlockContextId]uint32
-	SgprIds    [104]uint32
-	VgprIds    [256]uint32
-	SpecialIds [27]uint32
-	ConstIds   [120]uint32
+	Stage       GcnShaderStage
+	LabelIds    []uint32
+	Ids         map[SpirvBlockContextId]uint32
+	SgprIds     [104]uint32
+	VgprIds     [256]uint32
+	SpecialIds  [27]uint32
+	ConstIds    [120]uint32
+	ConditionId uint32
 }
 
 func (ctx *SpirvBlockContext) GetLabelId(i int) uint32 {
@@ -187,6 +191,9 @@ func emitBlock(b *SpvBuilder, block *GcnShaderCfgBlock, ctx SpirvBlockContext) {
 			b.EmitStore(ctx.GetSgprId(i), val)
 		}
 	}
+
+	// Reset condition ID.
+	ctx.ConditionId = ctx.GetId(SpirvBlockContextIdFalse)
 
 	// Emit instructions for current block.
 	for i := range block.Instructions {

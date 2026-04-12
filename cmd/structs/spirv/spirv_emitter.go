@@ -180,6 +180,13 @@ func (b *SpvBuilder) EmitLogicalOr(resultType, op1, op2 uint32) uint32 {
 	return id
 }
 
+// EmitIEqual emits OpIEqual and returns the result ID.
+func (b *SpvBuilder) EmitIEqual(resultType, op1, op2 uint32) uint32 {
+	id := b.AllocId()
+	b.instr(&b.code, SpvOpIEqual, resultType, id, op1, op2)
+	return id
+}
+
 // EmitBitwiseAnd emits OpBitwiseAnd and returns the result ID.
 func (b *SpvBuilder) EmitBitwiseAnd(resultType, op1, op2 uint32) uint32 {
 	id := b.AllocId()
@@ -212,6 +219,34 @@ func (b *SpvBuilder) EmitShiftRightLogical(resultType, base, shift uint32) uint3
 func (b *SpvBuilder) EmitINotEqual(resultType, op1, op2 uint32) uint32 {
 	id := b.AllocId()
 	b.instr(&b.code, SpvOpINotEqual, resultType, id, op1, op2)
+	return id
+}
+
+// EmitUGreaterThan emits OpUGreaterThan and returns the result ID.
+func (b *SpvBuilder) EmitUGreaterThan(resultType, op1, op2 uint32) uint32 {
+	id := b.AllocId()
+	b.instr(&b.code, SpvOpUGreaterThan, resultType, id, op1, op2)
+	return id
+}
+
+// EmitFOrdEqual emits OpFOrdEqual and returns the result ID.
+func (b *SpvBuilder) EmitFOrdEqual(resultType, op1, op2 uint32) uint32 {
+	id := b.AllocId()
+	b.instr(&b.code, SpvOpFOrdEqual, resultType, id, op1, op2)
+	return id
+}
+
+// EmitFUnordNotEqual emits OpFUnordNotEqual and returns the result ID.
+func (b *SpvBuilder) EmitFUnordNotEqual(resultType, op1, op2 uint32) uint32 {
+	id := b.AllocId()
+	b.instr(&b.code, SpvOpFUnordNotEqual, resultType, id, op1, op2)
+	return id
+}
+
+// EmitGroupNonUniformBallot emits OpGroupNonUniformBallot and returns the result ID.
+func (b *SpvBuilder) EmitGroupNonUniformBallot(resultType, scope, predicate uint32) uint32 {
+	id := b.AllocId()
+	b.instr(&b.code, SpvOpGroupNonUniformBallot, resultType, id, scope, predicate)
 	return id
 }
 

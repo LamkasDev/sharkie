@@ -10,6 +10,6 @@ func emitVOP3(b *SpvBuilder, instr *Instruction, ctx SpirvBlockContext) {
 	details := instr.Details.(*Vop3Details)
 	switch details.Op {
 	default:
-		panic(fmt.Sprintf("unknown vop3 op %d", details.Op))
+		panic(fmt.Sprintf("unknown vop3 op %s", Mnemotics[EncVOP3][details.Op]))
 	}
 }

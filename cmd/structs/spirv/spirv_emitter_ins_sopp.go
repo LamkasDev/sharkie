@@ -7,10 +7,16 @@ import (
 )
 
 func emitSOPP(b *SpvBuilder, instr *Instruction, ctx SpirvBlockContext) {
-	switch instr.Details.(*ScalarDetails).Op {
+	details := instr.Details.(*ScalarDetails)
+	switch details.Op {
 	case SoppOpWaitcnt:
 		// No-op in SPIR-V for now.
+	case SoppOpCbranchExecz:
+		valLo, valHi := ctx.GetOperand64Value(b, OpExecLo, 0)
+		val64 := ctx.Pack64(b, valLo, valHi)
+		zero64 := b.EmitConstantUint64(ctx.GetId(SpirvBlockContextIdTypeUint64), 0)
+		ctx.ConditionId = b.EmitIEqual(ctx.GetId(SpirvBlockContextIdTypeBool), val64, zero64)
 	default:
-		panic(fmt.Sprintf("unknown sopp op %d", instr.Details.(*ScalarDetails).Op))
+		panic(fmt.Sprintf("unknown sopp op %s", Mnemotics[EncSOPP][details.Op]))
 	}
 }

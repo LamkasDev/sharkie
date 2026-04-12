@@ -7,8 +7,9 @@ import (
 )
 
 func emitSOP2(b *SpvBuilder, instr *Instruction, ctx SpirvBlockContext) {
-	switch instr.Details.(*ScalarDetails).Op {
+	details := instr.Details.(*ScalarDetails)
+	switch details.Op {
 	default:
-		panic(fmt.Sprintf("unknown sop2 op %d", instr.Details.(*ScalarDetails).Op))
+		panic(fmt.Sprintf("unknown sop2 op %s", Mnemotics[EncSOP2][details.Op]))
 	}
 }

@@ -24,12 +24,12 @@ var BranchCondNames = map[BranchCond]string{
 }
 
 var BranchCondMap = map[uint32]BranchCond{
-	SoppOpCBranchScc0:   CondScc0,
-	SoppOpCBranchScc1:   CondScc1,
-	SoppOpCBranchVccz:   CondVccz,
-	SoppOpCBranchVccnz:  CondVccnz,
-	SoppOpCBranchExecz:  CondExecz,
-	SoppOpCBranchExecnz: CondExecnz,
+	SoppOpCbranchScc0:   CondScc0,
+	SoppOpCbranchScc1:   CondScc1,
+	SoppOpCbranchVccz:   CondVccz,
+	SoppOpCbranchVccnz:  CondVccnz,
+	SoppOpCbranchExecz:  CondExecz,
+	SoppOpCbranchExecnz: CondExecnz,
 }
 
 func (c BranchCond) String() string {

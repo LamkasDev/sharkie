@@ -35,11 +35,13 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	idInt := b.EmitTypeInt(32, true)
 	idUint := b.EmitTypeInt(32, false)
 	idUint64 := b.EmitTypeInt(64, false)
+	idInt64 := b.EmitTypeInt(64, true)
 	idFnType := b.EmitTypeFunction(idVoid)
 
 	idFloat := b.EmitTypeFloat(32)
 	idV2Float := b.EmitTypeVector(idFloat, 2)
 	idV4Float := b.EmitTypeVector(idFloat, 4)
+	idV4Uint := b.EmitTypeVector(idUint, 4)
 
 	idTrue := b.EmitConstantTrue(idBool)
 	idFalse := b.EmitConstantFalse(idBool)
@@ -180,6 +182,7 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	idC6 := b.EmitConstantUint(idUint, 6)
 	idC7 := b.EmitConstantUint(idUint, 7)
 	idC32 := b.EmitConstantUint(idUint, 32)
+	idC63 := b.EmitConstantUint(idUint, 63)
 	idCFFFF := b.EmitConstantUint(idUint, 0xFFFF)
 	icC11111111 := b.EmitConstantUint(idUint, 0x11111111)
 	idCFFFFFFFF := b.EmitConstantUint(idUint, 0xFFFFFFFF)
@@ -201,8 +204,10 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 			SpirvBlockContextIdTypeInt:                   idInt,
 			SpirvBlockContextIdTypeUint:                  idUint,
 			SpirvBlockContextIdTypeUint64:                idUint64,
+			SpirvBlockContextIdTypeInt64:                 idInt64,
 			SpirvBlockContextIdTypeV2Float:               idV2Float,
 			SpirvBlockContextIdTypeV4Float:               idV4Float,
+			SpirvBlockContextIdTypeV4Uint:                idV4Uint,
 			SpirvBlockContextIdPtrPcFloat:                idPtrPcFloat,
 			SpirvBlockContextIdPtrPcPsbUint:              idPtrPcPsbUint,
 			SpirvBlockContextIdPtrPcPsbUint64:            idPtrPcPsbUint64,
@@ -222,6 +227,7 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 			SpirvBlockContextIdConstUint6:                idC6,
 			SpirvBlockContextIdConstUint7:                idC7,
 			SpirvBlockContextIdConstUint32:               idC32,
+			SpirvBlockContextIdConstUint63:               idC63,
 			SpirvBlockContextIdConstUintFFFF:             idCFFFF,
 			SpirvBlockContextIdConstUint11111111:         icC11111111,
 			SpirvBlockContextIdConstUintFFFFFFFF:         idCFFFFFFFF,

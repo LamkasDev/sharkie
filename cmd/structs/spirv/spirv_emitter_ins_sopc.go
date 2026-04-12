@@ -7,8 +7,9 @@ import (
 )
 
 func emitSOPC(b *SpvBuilder, instr *Instruction, ctx SpirvBlockContext) {
-	switch instr.Details.(*ScalarDetails).Op {
+	details := instr.Details.(*ScalarDetails)
+	switch details.Op {
 	default:
-		panic(fmt.Sprintf("unknown sopc op %d", instr.Details.(*ScalarDetails).Op))
+		panic(fmt.Sprintf("unknown sopc op %s", Mnemotics[EncSOPC][details.Op]))
 	}
 }

@@ -16,6 +16,21 @@ func emitSOP1(b *SpvBuilder, instr *Instruction, ctx SpirvBlockContext) {
 		valLo, valHi := ctx.GetOperand64Value(b, details.Src0, instr.Literal)
 		ctx.StoreRegisterPointer(b, details.Dst, valLo)
 		ctx.StoreRegisterPointer(b, details.Dst+1, valHi)
+	case Sop1OpFlbitI32I64:
+		idInt := ctx.GetId(SpirvBlockContextIdTypeInt)
+		idInt64 := ctx.GetId(SpirvBlockContextIdTypeInt64)
+		idC63 := ctx.GetId(SpirvBlockContextIdConstUint63)
+		idNeg1 := ctx.GetConstId(ConstIdxIntNeg1)
+
+		valLo, valHi := ctx.GetOperand64Value(b, details.Src0, instr.Literal)
+		val64 := b.EmitBitcast(idInt64, ctx.Pack64(b, valLo, valHi))
+		msb := b.EmitExtInst(idInt, ctx.GetId(SpirvBlockContextIdGlsl), SpvGlslOpFindSMsb, val64)
+
+		// If msb is -1 (input is 0 or -1) => return -1.
+		// Else => return 63 - msb.
+		isNeg1 := b.EmitIEqual(ctx.GetId(SpirvBlockContextIdTypeBool), msb, idNeg1)
+		res := b.EmitSelect(idInt, isNeg1, idNeg1, b.EmitISub(idInt, idC63, b.EmitBitcast(idInt, msb)))
+		ctx.StoreRegisterPointer(b, details.Dst, b.EmitBitcast(ctx.GetId(SpirvBlockContextIdTypeUint), res))
 	case Sop1OpWqmB32:
 		idUint := ctx.GetId(SpirvBlockContextIdTypeUint)
 		idBool := ctx.GetId(SpirvBlockContextIdTypeBool)
@@ -47,7 +62,7 @@ func emitSOP1(b *SpvBuilder, instr *Instruction, ctx SpirvBlockContext) {
 		sccVal := b.EmitSelect(idUint, isNonZero, idC1, idC0)
 		ctx.StoreRegisterPointer(b, OpScc, sccVal)
 	default:
-		panic(fmt.Sprintf("unknown sop1 op %d", details.Op))
+		panic(fmt.Sprintf("unknown sop1 op %s", Mnemotics[EncSOP1][details.Op]))
 	}
 }
 

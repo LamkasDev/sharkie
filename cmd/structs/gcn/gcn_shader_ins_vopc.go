@@ -1,54 +1,203 @@
 package gcn
 
-func VopcMap() map[uint32]string {
-	m := make(map[uint32]string)
-	add16 := func(base uint32, prefix, suffix string) {
-		ops := []string{
-			"f", "lt", "eq", "le", "gt", "lg", "ge", "o",
-			"u", "nge", "nlg", "ngt", "nle", "neq", "nlt", "tru",
-		}
-		for i, op := range ops {
-			opcode := base + uint32(i)
-			m[opcode] = "v_cmp" + prefix + "_" + op + suffix
-		}
-	}
-	add8 := func(base uint32, prefix, suffix string) {
-		ops := []string{"f", "lt", "eq", "le", "gt", "lg", "ge", "tru"}
-		for i, op := range ops {
-			opcode := base + uint32(i)
-			m[opcode] = "v_cmp" + prefix + "_" + op + suffix
-		}
-	}
-
-	// VOPC Instructions with 16 Compare Operations.
-	add16(0x00, "", "_f32")  // V_CMP_{OP16}_F32
-	add16(0x10, "x", "_f32") // V_CMPX_{OP16}_F32
-	add16(0x20, "", "_f64")  // V_CMP_{OP16}_F64
-	add16(0x30, "x", "_f64") // V_CMPX_{OP16}_F64
-
-	add16(0x40, "s", "_f32")  // V_CMPS_{OP16}_F32
-	add16(0x50, "sx", "_f32") // V_CMPSX_{OP16}_F32
-	add16(0x60, "s", "_f64")  // V_CMPS_{OP16}_F64
-	add16(0x70, "sx", "_f64") // V_CMPSX_{OP16}_F64
-
-	// VOPC Instructions with Eight Compare Operations.
-	add8(0x80, "", "_i32")  // V_CMP_{OP8}_I32
-	add8(0x90, "x", "_i32") // V_CMPX_{OP8}_I32
-	add8(0xA0, "", "_i64")  // V_CMP_{OP8}_I64
-	add8(0xB0, "x", "_i64") // V_CMPX_{OP8}_I64
-
-	add8(0xC0, "", "_u32")  // V_CMP_{OP8}_U32
-	add8(0xD0, "x", "_u32") // V_CMPX_{OP8}_U32
-	add8(0xE0, "", "_u64")  // V_CMP_{OP8}_U64
-	add8(0xF0, "x", "_u64") // V_CMPX_{OP8}_U64
-
-	m[0x88] = "v_cmp_class_f32"
-	m[0x98] = "v_cmpx_class_f32"
-	m[0xA8] = "v_cmp_class_f64"
-	m[0xB8] = "v_cmpx_class_f64"
-
-	return m
-}
+const (
+	VopcOpCmpFF32      = 0x00
+	VopcOpCmpLtF32     = 0x01
+	VopcOpCmpEqF32     = 0x02
+	VopcOpCmpLeF32     = 0x03
+	VopcOpCmpGtF32     = 0x04
+	VopcOpCmpLgF32     = 0x05
+	VopcOpCmpGeF32     = 0x06
+	VopcOpCmpOF32      = 0x07
+	VopcOpCmpUF32      = 0x08
+	VopcOpCmpNgeF32    = 0x09
+	VopcOpCmpNlgF32    = 0x0A
+	VopcOpCmpNgtF32    = 0x0B
+	VopcOpCmpNleF32    = 0x0C
+	VopcOpCmpNeqF32    = 0x0D
+	VopcOpCmpNltF32    = 0x0E
+	VopcOpCmpTruF32    = 0x0F
+	VopcOpCmpxFF32     = 0x10
+	VopcOpCmpxLtF32    = 0x11
+	VopcOpCmpxEqF32    = 0x12
+	VopcOpCmpxLeF32    = 0x13
+	VopcOpCmpxGtF32    = 0x14
+	VopcOpCmpxLgF32    = 0x15
+	VopcOpCmpxGeF32    = 0x16
+	VopcOpCmpxOF32     = 0x17
+	VopcOpCmpxUF32     = 0x18
+	VopcOpCmpxNgeF32   = 0x19
+	VopcOpCmpxNlgF32   = 0x1A
+	VopcOpCmpxNgtF32   = 0x1B
+	VopcOpCmpxNleF32   = 0x1C
+	VopcOpCmpxNeqF32   = 0x1D
+	VopcOpCmpxNltF32   = 0x1E
+	VopcOpCmpxTruF32   = 0x1F
+	VopcOpCmpFF64      = 0x20
+	VopcOpCmpLtF64     = 0x21
+	VopcOpCmpEqF64     = 0x22
+	VopcOpCmpLeF64     = 0x23
+	VopcOpCmpGtF64     = 0x24
+	VopcOpCmpLgF64     = 0x25
+	VopcOpCmpGeF64     = 0x26
+	VopcOpCmpOF64      = 0x27
+	VopcOpCmpUF64      = 0x28
+	VopcOpCmpNgeF64    = 0x29
+	VopcOpCmpNlgF64    = 0x2A
+	VopcOpCmpNgtF64    = 0x2B
+	VopcOpCmpNleF64    = 0x2C
+	VopcOpCmpNeqF64    = 0x2D
+	VopcOpCmpNltF64    = 0x2E
+	VopcOpCmpTruF64    = 0x2F
+	VopcOpCmpxFF64     = 0x30
+	VopcOpCmpxLtF64    = 0x31
+	VopcOpCmpxEqF64    = 0x32
+	VopcOpCmpxLeF64    = 0x33
+	VopcOpCmpxGtF64    = 0x34
+	VopcOpCmpxLgF64    = 0x35
+	VopcOpCmpxGeF64    = 0x36
+	VopcOpCmpxOF64     = 0x37
+	VopcOpCmpxUF64     = 0x38
+	VopcOpCmpxNgeF64   = 0x39
+	VopcOpCmpxNlgF64   = 0x3A
+	VopcOpCmpxNgtF64   = 0x3B
+	VopcOpCmpxNleF64   = 0x3C
+	VopcOpCmpxNeqF64   = 0x3D
+	VopcOpCmpxNltF64   = 0x3E
+	VopcOpCmpxTruF64   = 0x3F
+	VopcOpCmpSFF32     = 0x40
+	VopcOpCmpSLtF32    = 0x41
+	VopcOpCmpSEqF32    = 0x42
+	VopcOpCmpSLeF32    = 0x43
+	VopcOpCmpSGtF32    = 0x44
+	VopcOpCmpSLgF32    = 0x45
+	VopcOpCmpSGeF32    = 0x46
+	VopcOpCmpSOF32     = 0x47
+	VopcOpCmpSUF32     = 0x48
+	VopcOpCmpSNgeF32   = 0x49
+	VopcOpCmpSNlgF32   = 0x4A
+	VopcOpCmpSNgtF32   = 0x4B
+	VopcOpCmpSNleF32   = 0x4C
+	VopcOpCmpSNeqF32   = 0x4D
+	VopcOpCmpSNltF32   = 0x4E
+	VopcOpCmpSTruF32   = 0x4F
+	VopcOpCmpsxFF32    = 0x50
+	VopcOpCmpsxLtF32   = 0x51
+	VopcOpCmpsxEqF32   = 0x52
+	VopcOpCmpsxLeF32   = 0x53
+	VopcOpCmpsxGtF32   = 0x54
+	VopcOpCmpsxLgF32   = 0x55
+	VopcOpCmpsxGeF32   = 0x56
+	VopcOpCmpsxOF32    = 0x57
+	VopcOpCmpsxUF32    = 0x58
+	VopcOpCmpsxNgeF32  = 0x59
+	VopcOpCmpsxNlgF32  = 0x5A
+	VopcOpCmpsxNgtF32  = 0x5B
+	VopcOpCmpsxNleF32  = 0x5C
+	VopcOpCmpsxNeqF32  = 0x5D
+	VopcOpCmpsxNltF32  = 0x5E
+	VopcOpCmpsxTruF32  = 0x5F
+	VopcOpCmpSFF64     = 0x60
+	VopcOpCmpSLtF64    = 0x61
+	VopcOpCmpSEqF64    = 0x62
+	VopcOpCmpSLeF64    = 0x63
+	VopcOpCmpSGtF64    = 0x64
+	VopcOpCmpSLgF64    = 0x65
+	VopcOpCmpSGeF64    = 0x66
+	VopcOpCmpSOF64     = 0x67
+	VopcOpCmpSUF64     = 0x68
+	VopcOpCmpSNgeF64   = 0x69
+	VopcOpCmpSNlgF64   = 0x6A
+	VopcOpCmpSNgtF64   = 0x6B
+	VopcOpCmpSNleF64   = 0x6C
+	VopcOpCmpSNeqF64   = 0x6D
+	VopcOpCmpSNltF64   = 0x6E
+	VopcOpCmpSTruF64   = 0x6F
+	VopcOpCmpsxFF64    = 0x70
+	VopcOpCmpsxLtF64   = 0x71
+	VopcOpCmpsxEqF64   = 0x72
+	VopcOpCmpsxLeF64   = 0x73
+	VopcOpCmpsxGtF64   = 0x74
+	VopcOpCmpsxLgF64   = 0x75
+	VopcOpCmpsxGeF64   = 0x76
+	VopcOpCmpsxOF64    = 0x77
+	VopcOpCmpsxUF64    = 0x78
+	VopcOpCmpsxNgeF64  = 0x79
+	VopcOpCmpsxNlgF64  = 0x7A
+	VopcOpCmpsxNgtF64  = 0x7B
+	VopcOpCmpsxNleF64  = 0x7C
+	VopcOpCmpsxNeqF64  = 0x7D
+	VopcOpCmpsxNltF64  = 0x7E
+	VopcOpCmpsxTruF64  = 0x7F
+	VopcOpCmpFI32      = 0x80
+	VopcOpCmpLtI32     = 0x81
+	VopcOpCmpEqI32     = 0x82
+	VopcOpCmpLeI32     = 0x83
+	VopcOpCmpGtI32     = 0x84
+	VopcOpCmpLgI32     = 0x85
+	VopcOpCmpGeI32     = 0x86
+	VopcOpCmpTruI32    = 0x87
+	VopcOpCmpxFI32     = 0x90
+	VopcOpCmpxLtI32    = 0x91
+	VopcOpCmpxEqI32    = 0x92
+	VopcOpCmpxLeI32    = 0x93
+	VopcOpCmpxGtI32    = 0x94
+	VopcOpCmpxLgI32    = 0x95
+	VopcOpCmpxGeI32    = 0x96
+	VopcOpCmpxTruI32   = 0x97
+	VopcOpCmpFI64      = 0xA0
+	VopcOpCmpLtI64     = 0xA1
+	VopcOpCmpEqI64     = 0xA2
+	VopcOpCmpLeI64     = 0xA3
+	VopcOpCmpGtI64     = 0xA4
+	VopcOpCmpLgI64     = 0xA5
+	VopcOpCmpGeI64     = 0xA6
+	VopcOpCmpTruI64    = 0xA7
+	VopcOpCmpxFI64     = 0xB0
+	VopcOpCmpxLtI64    = 0xB1
+	VopcOpCmpxEqI64    = 0xB2
+	VopcOpCmpxLeI64    = 0xB3
+	VopcOpCmpxGtI64    = 0xB4
+	VopcOpCmpxLgI64    = 0xB5
+	VopcOpCmpxGeI64    = 0xB6
+	VopcOpCmpxTruI64   = 0xB7
+	VopcOpCmpFU32      = 0xC0
+	VopcOpCmpLtU32     = 0xC1
+	VopcOpCmpEqU32     = 0xC2
+	VopcOpCmpLeU32     = 0xC3
+	VopcOpCmpGtU32     = 0xC4
+	VopcOpCmpLgU32     = 0xC5
+	VopcOpCmpGeU32     = 0xC6
+	VopcOpCmpTruU32    = 0xC7
+	VopcOpCmpxFU32     = 0xD0
+	VopcOpCmpxLtU32    = 0xD1
+	VopcOpCmpxEqU32    = 0xD2
+	VopcOpCmpxLeU32    = 0xD3
+	VopcOpCmpxGtU32    = 0xD4
+	VopcOpCmpxLgU32    = 0xD5
+	VopcOpCmpxGeU32    = 0xD6
+	VopcOpCmpxTruU32   = 0xD7
+	VopcOpCmpFU64      = 0xE0
+	VopcOpCmpLtU64     = 0xE1
+	VopcOpCmpEqU64     = 0xE2
+	VopcOpCmpLeU64     = 0xE3
+	VopcOpCmpGtU64     = 0xE4
+	VopcOpCmpLgU64     = 0xE5
+	VopcOpCmpGeU64     = 0xE6
+	VopcOpCmpTruU64    = 0xE7
+	VopcOpCmpxFU64     = 0xF0
+	VopcOpCmpxLtU64    = 0xF1
+	VopcOpCmpxEqU64    = 0xF2
+	VopcOpCmpxLeU64    = 0xF3
+	VopcOpCmpxGtU64    = 0xF4
+	VopcOpCmpxLgU64    = 0xF5
+	VopcOpCmpxGeU64    = 0xF6
+	VopcOpCmpxTruU64   = 0xF7
+	VopcOpCmpClassF32  = 0x88
+	VopcOpCmpxClassF32 = 0x98
+	VopcOpCmpClassF64  = 0xA8
+	VopcOpCmpxClassF64 = 0xB8
+)
 
 func (instr *Instruction) DecodeVOPC() {
 	dw := instr.Dwords[0]

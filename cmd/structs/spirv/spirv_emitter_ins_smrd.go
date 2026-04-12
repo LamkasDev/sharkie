@@ -40,6 +40,6 @@ func emitSMRD(b *SpvBuilder, instr *Instruction, ctx SpirvBlockContext) {
 			ctx.StoreRegisterPointer(b, details.Dst+i, val)
 		}
 	default:
-		panic(fmt.Sprintf("unknown smrd op %d", details.Op))
+		panic(fmt.Sprintf("unknown smrd op %s", Mnemotics[EncSMRD][details.Op]))
 	}
 }

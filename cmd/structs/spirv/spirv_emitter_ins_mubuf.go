@@ -71,6 +71,6 @@ func emitMUBUF(b *SpvBuilder, instr *Instruction, ctx SpirvBlockContext) {
 			ctx.StoreRegisterPointer(b, OpVgpr0+details.Vdata+i, val)
 		}
 	default:
-		panic(fmt.Sprintf("unknown mubuf op %d", details.Op))
+		panic(fmt.Sprintf("unknown mubuf op %s", Mnemotics[EncMUBUF][details.Op]))
 	}
 }

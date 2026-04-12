@@ -7,8 +7,9 @@ import (
 )
 
 func emitMIMG(b *SpvBuilder, instr *Instruction, ctx SpirvBlockContext) {
-	switch instr.Details.(*MimgDetails).Op {
+	details := instr.Details.(*MimgDetails)
+	switch details.Op {
 	default:
-		panic(fmt.Sprintf("unknown mimg op %d", instr.Details.(*MimgDetails).Op))
+		panic(fmt.Sprintf("unknown mimg op %s", Mnemotics[EncMIMG][details.Op]))
 	}
 }

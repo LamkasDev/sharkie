@@ -13,6 +13,6 @@ func emitVOP1(b *SpvBuilder, instr *Instruction, ctx SpirvBlockContext) {
 		val := ctx.GetOperandValue(b, details.Src0, instr.Literal)
 		ctx.StoreRegisterPointer(b, details.Dst+OpVgpr0, val)
 	default:
-		panic(fmt.Sprintf("unknown vop1 op %d", details.Op))
+		panic(fmt.Sprintf("unknown vop1 op %s", Mnemotics[EncVOP1][details.Op]))
 	}
 }

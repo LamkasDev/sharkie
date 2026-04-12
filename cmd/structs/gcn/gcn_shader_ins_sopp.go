@@ -4,12 +4,12 @@ const (
 	SoppOpNop                   = 0x0
 	SoppOpEndpgm                = 0x1
 	SoppOpBranch                = 0x2
-	SoppOpCBranchScc0           = 0x4
-	SoppOpCBranchScc1           = 0x5
-	SoppOpCBranchVccz           = 0x6
-	SoppOpCBranchVccnz          = 0x7
-	SoppOpCBranchExecz          = 0x8
-	SoppOpCBranchExecnz         = 0x9
+	SoppOpCbranchScc0           = 0x4
+	SoppOpCbranchScc1           = 0x5
+	SoppOpCbranchVccz           = 0x6
+	SoppOpCbranchVccnz          = 0x7
+	SoppOpCbranchExecz          = 0x8
+	SoppOpCbranchExecnz         = 0x9
 	SoppOpBarrier               = 0xA
 	SoppOpSetkill               = 0xB
 	SoppOpWaitcnt               = 0xC
@@ -44,9 +44,9 @@ func (instr *Instruction) IsBranchTerminator() bool {
 	}
 	switch instr.Details.(*ScalarDetails).Op {
 	case SoppOpEndpgm, SoppOpBranch,
-		SoppOpCBranchScc0, SoppOpCBranchScc1,
-		SoppOpCBranchVccz, SoppOpCBranchVccnz,
-		SoppOpCBranchExecz, SoppOpCBranchExecnz:
+		SoppOpCbranchScc0, SoppOpCbranchScc1,
+		SoppOpCbranchVccz, SoppOpCbranchVccnz,
+		SoppOpCbranchExecz, SoppOpCbranchExecnz:
 		return true
 	}
 
@@ -59,9 +59,9 @@ func (instr *Instruction) IsConditionalBranch() bool {
 		return false
 	}
 	switch instr.Details.(*ScalarDetails).Op {
-	case SoppOpCBranchScc0, SoppOpCBranchScc1,
-		SoppOpCBranchVccz, SoppOpCBranchVccnz,
-		SoppOpCBranchExecz, SoppOpCBranchExecnz:
+	case SoppOpCbranchScc0, SoppOpCbranchScc1,
+		SoppOpCbranchVccz, SoppOpCbranchVccnz,
+		SoppOpCbranchExecz, SoppOpCbranchExecnz:
 		return true
 	}
 

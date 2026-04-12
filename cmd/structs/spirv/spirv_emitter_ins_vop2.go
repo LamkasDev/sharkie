@@ -32,26 +32,26 @@ func emitVOP2(b *SpvBuilder, instr *Instruction, ctx SpirvBlockContext) {
 	case Vop2OpMinF32:
 		val0 := ctx.GetOperandFloatValue(b, details.Src0, instr.Literal)
 		val1 := ctx.GetOperandFloatValue(b, details.Src1+OpVgpr0, 0)
-		resF := b.EmitExtInst(ctx.GetId(SpirvBlockContextIdTypeFloat), ctx.GetId(SpirvBlockContextIdGlsl), 37, val0, val1) // FMin
+		resF := b.EmitExtInst(ctx.GetId(SpirvBlockContextIdTypeFloat), ctx.GetId(SpirvBlockContextIdGlsl), SpvGlslOpFMin, val0, val1)
 		ctx.StoreRegisterPointer(b, details.Dst+OpVgpr0, b.EmitBitcast(ctx.GetId(SpirvBlockContextIdTypeUint), resF))
 	case Vop2OpMaxF32:
 		val0 := ctx.GetOperandFloatValue(b, details.Src0, instr.Literal)
 		val1 := ctx.GetOperandFloatValue(b, details.Src1+OpVgpr0, 0)
-		resF := b.EmitExtInst(ctx.GetId(SpirvBlockContextIdTypeFloat), ctx.GetId(SpirvBlockContextIdGlsl), 40, val0, val1) // FMax
+		resF := b.EmitExtInst(ctx.GetId(SpirvBlockContextIdTypeFloat), ctx.GetId(SpirvBlockContextIdGlsl), SpvGlslOpFMax, val0, val1)
 		ctx.StoreRegisterPointer(b, details.Dst+OpVgpr0, b.EmitBitcast(ctx.GetId(SpirvBlockContextIdTypeUint), resF))
 	case Vop2OpMacF32:
 		val0 := ctx.GetOperandFloatValue(b, details.Src0, instr.Literal)
 		val1 := ctx.GetOperandFloatValue(b, details.Src1+OpVgpr0, 0)
 		valD := b.EmitBitcast(ctx.GetId(SpirvBlockContextIdTypeFloat), ctx.LoadRegisterPointer(b, details.Dst+OpVgpr0))
-		resF := b.EmitExtInst(ctx.GetId(SpirvBlockContextIdTypeFloat), ctx.GetId(SpirvBlockContextIdGlsl), 50, val0, val1, valD) // Fma
+		resF := b.EmitExtInst(ctx.GetId(SpirvBlockContextIdTypeFloat), ctx.GetId(SpirvBlockContextIdGlsl), SpvGlslOpFma, val0, val1, valD)
 		ctx.StoreRegisterPointer(b, details.Dst+OpVgpr0, b.EmitBitcast(ctx.GetId(SpirvBlockContextIdTypeUint), resF))
 	case Vop2OpCvtPkrtzF16F32:
 		val0 := ctx.GetOperandFloatValue(b, details.Src0, instr.Literal)
 		val1 := ctx.GetOperandFloatValue(b, details.Src1+OpVgpr0, 0)
 		vec := b.EmitCompositeConstruct(ctx.GetId(SpirvBlockContextIdTypeV2Float), val0, val1)
-		resU := b.EmitExtInst(ctx.GetId(SpirvBlockContextIdTypeUint), ctx.GetId(SpirvBlockContextIdGlsl), 58, vec) // PackHalf2x16
+		resU := b.EmitExtInst(ctx.GetId(SpirvBlockContextIdTypeUint), ctx.GetId(SpirvBlockContextIdGlsl), SpvGlslOpPackHalf2x16, vec)
 		ctx.StoreRegisterPointer(b, details.Dst+OpVgpr0, resU)
 	default:
-		panic(fmt.Sprintf("unknown vop2 op %d", details.Op))
+		panic(fmt.Sprintf("unknown vop2 op %s", Mnemotics[EncVOP2][details.Op]))
 	}
 }

@@ -35,9 +35,7 @@ func emitConditionalBranch(b *SpvBuilder, block *GcnShaderCfgBlock, ctx SpirvBlo
 		b.EmitSelectionMerge(ctx.GetLabelId(block.MergeBlockId), SpvSelectionControlNone)
 	}
 
-	// TODO: we'll need to build the actual condition here.
-
 	falseLabelId := ctx.GetLabelId(block.Successors[0]) // fall-through.
 	trueLabelId := ctx.GetLabelId(block.Successors[1])  // branch target.
-	b.EmitBranchConditional(ctx.GetId(SpirvBlockContextIdFalse), trueLabelId, falseLabelId)
+	b.EmitBranchConditional(ctx.ConditionId, trueLabelId, falseLabelId)
 }
