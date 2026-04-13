@@ -35,7 +35,7 @@ func (t *GpuTranslator) recordDraw(commandBuffer vk.CommandBuffer, draw *Liverpo
 	}
 
 	// Force load SPIR-V shaders.
-	t.GetShader(draw.VertexShader)
+	vsSpirv := t.GetShader(draw.VertexShader)
 	if draw.EvalShader != nil {
 		t.GetShader(draw.EvalShader)
 	}
@@ -48,6 +48,10 @@ func (t *GpuTranslator) recordDraw(commandBuffer vk.CommandBuffer, draw *Liverpo
 	psSpirv := t.GetShader(draw.PixelShader)
 
 	// Get shader modules.
+	vsModule, err := t.GetShaderModule(vsSpirv)
+	if err != nil {
+		return
+	}
 	psModule, err := t.GetShaderModule(psSpirv)
 	if err != nil {
 		return
@@ -55,10 +59,11 @@ func (t *GpuTranslator) recordDraw(commandBuffer vk.CommandBuffer, draw *Liverpo
 
 	// Get pipeline for defined shader modules.
 	key := GpuTranslatorPipelineKey{
-		PixelShaderAddress: draw.PixelShader.Address,
-		SurfaceAddress:     rtAddress,
+		VertexShaderAddress: draw.VertexShader.Address,
+		PixelShaderAddress:  draw.PixelShader.Address,
+		SurfaceAddress:      rtAddress,
 	}
-	pipeline, err := t.GetPipeline(key, psModule, surface.renderPass, surface.Width, surface.Height)
+	pipeline, err := t.GetPipeline(key, vsModule, psModule, surface.renderPass, surface.Width, surface.Height)
 	if err != nil {
 		return
 	}

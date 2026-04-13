@@ -33,9 +33,10 @@ func emitVOPC(b *SpvBuilder, instr *Instruction, ctx SpirvBlockContext) {
 func emitVCCUpdate(b *SpvBuilder, ctx SpirvBlockContext, cond uint32) {
 	idV4Uint := ctx.GetId(BlockContextIdTypeV4Uint)
 	idUint := ctx.GetId(BlockContextIdTypeUint)
+	idC3 := ctx.GetConstId(ConstIdxUint3)
 
 	// Combine boolean results into VCC.
-	ballot := b.EmitGroupNonUniformBallot(idV4Uint, SpvScopeSubgroup, cond)
+	ballot := b.EmitGroupNonUniformBallot(idV4Uint, idC3, cond)
 	vccLo := b.EmitCompositeExtract(idUint, ballot, 0)
 	vccHi := b.EmitCompositeExtract(idUint, ballot, 1)
 

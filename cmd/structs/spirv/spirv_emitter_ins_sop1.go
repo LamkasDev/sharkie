@@ -16,21 +16,6 @@ func emitSOP1(b *SpvBuilder, instr *Instruction, ctx SpirvBlockContext) {
 		valLo, valHi := ctx.GetOperand64Value(b, details.Src0, instr.Literal)
 		ctx.StoreRegisterPointer(b, details.Dst, valLo)
 		ctx.StoreRegisterPointer(b, details.Dst+1, valHi)
-	case Sop1OpFlbitI32I64:
-		idInt := ctx.GetId(BlockContextIdTypeInt)
-		idInt64 := ctx.GetId(BlockContextIdTypeInt64)
-		idC63 := ctx.GetConstId(ConstIdxUint63)
-		idNeg1 := ctx.GetGcnConstId(GcnConstIdxIntNeg1)
-
-		valLo, valHi := ctx.GetOperand64Value(b, details.Src0, instr.Literal)
-		val64 := b.EmitBitcast(idInt64, ctx.Pack64(b, valLo, valHi))
-		msb := b.EmitExtInst(idInt, ctx.GetId(BlockContextIdGlsl), SpvGlslOpFindSMsb, val64)
-
-		// If msb is -1 (input is 0 or -1) => return -1.
-		// Else => return 63 - msb.
-		isNeg1 := b.EmitIEqual(ctx.GetId(BlockContextIdTypeBool), msb, idNeg1)
-		res := b.EmitSelect(idInt, isNeg1, idNeg1, b.EmitISub(idInt, idC63, b.EmitBitcast(idInt, msb)))
-		ctx.StoreRegisterPointer(b, details.Dst, b.EmitBitcast(ctx.GetId(BlockContextIdTypeUint), res))
 	case Sop1OpWqmB32:
 		idUint := ctx.GetId(BlockContextIdTypeUint)
 		idBool := ctx.GetId(BlockContextIdTypeBool)
@@ -61,6 +46,37 @@ func emitSOP1(b *SpvBuilder, instr *Instruction, ctx SpirvBlockContext) {
 		isNonZero := b.EmitLogicalOr(idBool, isNonZeroLo, isNonZeroHi)
 		sccVal := b.EmitSelect(idUint, isNonZero, idC1, idC0)
 		ctx.StoreRegisterPointer(b, OpScc, sccVal)
+	case Sop1OpFlbitI32I64:
+		idInt := ctx.GetId(BlockContextIdTypeInt)
+		idUint := ctx.GetId(BlockContextIdTypeUint)
+		idBool := ctx.GetId(BlockContextIdTypeBool)
+		idGlsl := ctx.GetId(BlockContextIdGlsl)
+		idC30 := b.EmitConstantUint(idUint, 30)
+		idC31 := b.EmitConstantUint(idUint, 31)
+		idC62 := b.EmitConstantUint(idUint, 62)
+		idNeg1 := b.EmitConstantUint(idUint, 0xFFFFFFFF)
+
+		valLo, valHi := ctx.GetOperand64Value(b, details.Src0, instr.Literal)
+
+		// 1. Check high 32 bits. bit 31 of valHi is the sign bit.
+		// FindSMsb returns index of first bit != sign bit (0-30), or -1.
+		msbHi := b.EmitExtInst(idInt, idGlsl, SpvGlslOpFindSMsb, b.EmitBitcast(idInt, valHi))
+		isHiNotAllSame := b.EmitINotEqual(idBool, b.EmitBitcast(idUint, msbHi), idNeg1)
+		resHi := b.EmitISub(idUint, idC30, b.EmitBitcast(idUint, msbHi))
+
+		// 2. Check low 32 bits if high bits were all sign bits.
+		// signMask = (int32(valHi) >> 31) -> all 0s or all 1s.
+		signMask := b.EmitShiftRightArithmetic(idInt, b.EmitBitcast(idInt, valHi), idC31)
+		// xLo = valLo ^ signMask -> bits are 1 where they differ from sign.
+		xLo := b.EmitBitwiseXor(idUint, valLo, b.EmitBitcast(idUint, signMask))
+		// FindUMsb returns index of first '1' (0-31), or -1.
+		msbLo := b.EmitExtInst(idUint, idGlsl, SpvGlslOpFindUMsb, xLo)
+		isLoNotAllSame := b.EmitINotEqual(idBool, msbLo, idNeg1)
+		resLo := b.EmitISub(idUint, idC62, msbLo)
+
+		// 3. Final result: Hi distance if found, else Lo distance if found, else -1.
+		res := b.EmitSelect(idUint, isHiNotAllSame, resHi, b.EmitSelect(idUint, isLoNotAllSame, resLo, idNeg1))
+		ctx.StoreRegisterPointer(b, details.Dst, res)
 	default:
 		panic(fmt.Sprintf("unknown sop1 op %s", Mnemotics[EncSOP1][details.Op]))
 	}

@@ -9,4 +9,5 @@ const (
 	SpvGlslOpPackHalf2x16   = uint32(58)
 	SpvGlslOpUnpackHalf2x16 = uint32(62)
 	SpvGlslOpFindSMsb       = uint32(74)
+	SpvGlslOpFindUMsb       = uint32(75)
 )

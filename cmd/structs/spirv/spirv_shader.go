@@ -23,9 +23,15 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	b.EmitCapability(SpvCapShader)
 	b.EmitCapability(SpvCapAddresses)
 	b.EmitCapability(SpvCapInt64)
+	b.EmitCapability(SpvCapSampled1D)
+	b.EmitCapability(SpvCapImageQuery)
+	b.EmitCapability(SpvCapGroupNonUniformBallot)
 	b.EmitCapability(SpvCapSubgroupBallotKHR)
+	b.EmitCapability(SpvCapRuntimeDescriptorArray)
 	b.EmitCapability(SpvCapPhysicalStorageBufferAddresses)
 	b.EmitExtension("SPV_KHR_physical_storage_buffer")
+	b.EmitExtension("SPV_KHR_shader_ballot")
+	b.EmitExtension("SPV_EXT_descriptor_indexing")
 	idGLSL := b.EmitExtInstImport("GLSL.std.450")
 	b.EmitMemoryModel(SpvAddrModelPhysicalStorageBuffer64, SpvMemModelGLSL450)
 
@@ -43,6 +49,12 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	idV4Float := b.EmitTypeVector(idFloat, 4)
 	idV4Uint := b.EmitTypeVector(idUint, 4)
 
+	idImage2D := b.EmitTypeImage(idFloat, 1, 0, 0, 0, 1, 0)
+	idSampledImage2D := b.EmitTypeSampledImage(idImage2D)
+	idBindlessArray2D := b.EmitTypeRuntimeArray(idSampledImage2D)
+	idPtrUniformSampledImage2D := b.EmitTypePointer(SpvStorageUniformConstant, idSampledImage2D)
+	idPtrUniformBindlessArray2D := b.EmitTypePointer(SpvStorageUniformConstant, idBindlessArray2D)
+
 	idTrue := b.EmitConstantTrue(idBool)
 	idFalse := b.EmitConstantFalse(idBool)
 
@@ -53,6 +65,7 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 
 	// Types for constant RAM access via PhysicalStorageBuffer.
 	idPtrPsbUint := b.EmitTypePointer(SpvStoragePhysicalStorageBuffer, idUint)
+	b.EmitDecorate(idPtrPsbUint, SpvDecorationArrayStride, 4)
 
 	// Push constants.
 	// struct StubPushConstants {
@@ -81,6 +94,11 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	// Global push-constant variable.
 	idPCVar := b.EmitVariable(idPtrPc, SpvStoragePushConstant)
 	b.EmitDecorate(idPCVar, SpvDecorationAliasedPointer)
+
+	// Bindless textures.
+	idBindlessTexturesVar := b.EmitVariable(idPtrUniformBindlessArray2D, SpvStorageUniformConstant)
+	b.EmitDecorate(idBindlessTexturesVar, SpvDecorationDescriptorSet, 0)
+	b.EmitDecorate(idBindlessTexturesVar, SpvDecorationBinding, 0)
 
 	// Stage-specific outputs.
 	interfaceIds := []uint32{idSubgroupLocalInvocationId}
@@ -213,6 +231,8 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 		BlockContextIdTypeV2Float:               idV2Float,
 		BlockContextIdTypeV4Float:               idV4Float,
 		BlockContextIdTypeV4Uint:                idV4Uint,
+		BlockContextIdTypeSampledImage:          idSampledImage2D,
+		BlockContextIdPtrUniformSampledImage:    idPtrUniformSampledImage2D,
 		BlockContextIdPtrPcFloat:                idPtrPcFloat,
 		BlockContextIdPtrPcPsbUint:              idPtrPcPsbUint,
 		BlockContextIdPtrPcPsbUint64:            idPtrPcPsbUint64,
@@ -221,6 +241,7 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 		BlockContextIdPosOut:                    idPosOut,
 		BlockContextIdFragDepthOut:              idFragDepthOut,
 		BlockContextIdZeroVec4:                  idZeroVec4,
+		BlockContextIdBindlessTextures:          idBindlessTexturesVar,
 		BlockContextIdPcVar:                     idPCVar,
 		BlockContextIdGlsl:                      idGLSL,
 		BlockContextIdSubgroupLocalInvocationId: idSubgroupLocalInvocationId,

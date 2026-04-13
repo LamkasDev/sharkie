@@ -6,8 +6,26 @@ import (
 )
 
 func (t *GpuTranslator) createStubPipelineLayout() error {
+	// Create descriptor set layout for bindless textures.
+	var descriptorSetLayout vk.DescriptorSetLayout
+	result := vk.CreateDescriptorSetLayout(t.handles.Device, &vk.DescriptorSetLayoutCreateInfo{
+		SType: vk.StructureTypeDescriptorSetLayoutCreateInfo,
+		PBindings: []vk.DescriptorSetLayoutBinding{{
+			Binding:            0,
+			DescriptorType:     vk.DescriptorTypeCombinedImageSampler,
+			DescriptorCount:    1024,
+			StageFlags:         vk.ShaderStageFlags(vk.ShaderStageAllGraphics),
+			PImmutableSamplers: nil,
+		}},
+		BindingCount: 1,
+	}, nil, &descriptorSetLayout)
+	if err := as.NewError(result); err != nil {
+		return err
+	}
+	t.stubDescriptorSetLayout = descriptorSetLayout
+
 	var layout vk.PipelineLayout
-	result := vk.CreatePipelineLayout(t.handles.Device, &vk.PipelineLayoutCreateInfo{
+	result = vk.CreatePipelineLayout(t.handles.Device, &vk.PipelineLayoutCreateInfo{
 		SType: vk.StructureTypePipelineLayoutCreateInfo,
 		PPushConstantRanges: []vk.PushConstantRange{{
 			StageFlags: vk.ShaderStageFlags(vk.ShaderStageVertexBit | vk.ShaderStageFragmentBit),
@@ -15,6 +33,8 @@ func (t *GpuTranslator) createStubPipelineLayout() error {
 			Size:       40,
 		}},
 		PushConstantRangeCount: 1,
+		PSetLayouts:            []vk.DescriptorSetLayout{t.stubDescriptorSetLayout},
+		SetLayoutCount:         1,
 	}, nil, &layout)
 	if err := as.NewError(result); err != nil {
 		return err

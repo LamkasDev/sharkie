@@ -18,8 +18,9 @@ import (
 )
 
 type GpuTranslatorPipelineKey struct {
-	PixelShaderAddress uintptr
-	SurfaceAddress     uintptr
+	VertexShaderAddress uintptr
+	PixelShaderAddress  uintptr
+	SurfaceAddress      uintptr
 }
 
 // GpuTranslator converts decoded DrawCalls into Vulkan commands.
@@ -32,9 +33,10 @@ type GpuTranslator struct {
 	surfaces      map[uintptr]*GpuSurface
 
 	// Stub pipeline shared across all draws until real shaders are available.
-	stubPipelineLayout vk.PipelineLayout
-	stubVertShader     vk.ShaderModule
-	stubFragShader     vk.ShaderModule
+	stubDescriptorSetLayout vk.DescriptorSetLayout
+	stubPipelineLayout      vk.PipelineLayout
+	stubVertShader          vk.ShaderModule
+	stubFragShader          vk.ShaderModule
 
 	// Recompiled SPIR-V shaders mirroring Liverpool.LoadedShaders.
 	shadersMutex sync.Mutex
@@ -147,6 +149,9 @@ func (t *GpuTranslator) Destroy() {
 	if t.stubPipelineLayout != vk.NullPipelineLayout {
 		vk.DestroyPipelineLayout(t.handles.Device, t.stubPipelineLayout, nil)
 	}
+	if t.stubDescriptorSetLayout != vk.NullDescriptorSetLayout {
+		vk.DestroyDescriptorSetLayout(t.handles.Device, t.stubDescriptorSetLayout, nil)
+	}
 	if t.stubVertShader != vk.NullShaderModule {
 		vk.DestroyShaderModule(t.handles.Device, t.stubVertShader, nil)
 	}
@@ -232,7 +237,7 @@ func (t *GpuTranslator) GetShaderModule(shader *SpirvShader) (vk.ShaderModule, e
 	return module, nil
 }
 
-func (t *GpuTranslator) GetPipeline(key GpuTranslatorPipelineKey, psModule vk.ShaderModule, renderPass vk.RenderPass, width, height uint32) (vk.Pipeline, error) {
+func (t *GpuTranslator) GetPipeline(key GpuTranslatorPipelineKey, vsModule, psModule vk.ShaderModule, renderPass vk.RenderPass, width, height uint32) (vk.Pipeline, error) {
 	// Get already created pipeline.
 	t.pipelinesMutex.Lock()
 	pipeline, ok := t.pipelines[key]
@@ -242,7 +247,7 @@ func (t *GpuTranslator) GetPipeline(key GpuTranslatorPipelineKey, psModule vk.Sh
 	}
 
 	// Create the pipeline.
-	pipeline, err := t.createPipelineFromModules(t.stubVertShader, psModule, renderPass, width, height)
+	pipeline, err := t.createPipelineFromModules(vsModule, psModule, renderPass, width, height)
 	if err != nil {
 		return vk.NullPipeline, fmt.Errorf("createCompiledPipeline 0x%X: %w", key.PixelShaderAddress, err)
 	}

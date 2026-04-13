@@ -39,7 +39,7 @@ func emitSMRDLoad(b *SpvBuilder, instr *Instruction, ctx SpirvBlockContext, coun
 
 	// Load constant RAM base address from push constant.
 	idPtrPsbUint := ctx.GetId(BlockContextIdPtrPsbUint)
-	ptrBase := ctx.LoadPushConstantPtr(b, PushConstantConstRamAddress)
+	ptrBase := ctx.LoadPushConstantValue(b, PushConstantConstRamAddress)
 
 	// Calculate offset in dwords.
 	var offset uint32

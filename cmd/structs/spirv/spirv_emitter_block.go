@@ -21,6 +21,8 @@ const (
 	BlockContextIdTypeV2Float
 	BlockContextIdTypeV4Float
 	BlockContextIdTypeV4Uint
+	BlockContextIdTypeSampledImage
+	BlockContextIdPtrUniformSampledImage
 	BlockContextIdPtrPcFloat
 	BlockContextIdPtrPcPsbUint
 	BlockContextIdPtrPcPsbUint64
@@ -69,6 +71,7 @@ const (
 	BlockContextIdParamOut30
 	BlockContextIdParamOut31
 	BlockContextIdZeroVec4
+	BlockContextIdBindlessTextures
 	BlockContextIdPcVar
 	BlockContextIdGlsl
 	BlockContextIdSubgroupLocalInvocationId
@@ -236,7 +239,7 @@ func emitBlock(b *SpvBuilder, block *GcnShaderCfgBlock, ctx SpirvBlockContext) {
 
 		// Load user data buffer address from the push constant.
 		idPtrPsbUint := ctx.GetId(BlockContextIdPtrPsbUint)
-		ptrBase := ctx.LoadPushConstantPtr(b, PushConstantUserDataAddress)
+		ptrBase := ctx.LoadPushConstantValue(b, PushConstantUserDataAddress)
 
 		// Load 16 user data registers into s0-s15.
 		stageOffset := gpu.GcnStageToUserDataOffset[ctx.Stage]

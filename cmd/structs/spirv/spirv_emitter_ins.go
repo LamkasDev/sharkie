@@ -127,11 +127,25 @@ func (ctx *SpirvBlockContext) Pack64(b *SpvBuilder, lo, hi uint32) uint32 {
 	return b.EmitBitwiseOr(idUint64, lo64, hiShifted)
 }
 
-// LoadPushConstantPtr loads a pointer in push constant at offset and returns the ID.
-func (ctx *SpirvBlockContext) LoadPushConstantPtr(b *SpvBuilder, i uint32) uint32 {
-	idPtrPsbUint := ctx.GetId(BlockContextIdPtrPsbUint)
-	ptrPcPsbUint := b.EmitAccessChain(ctx.GetId(BlockContextIdPtrPcPsbUint), ctx.GetId(BlockContextIdPcVar), b.EmitConstantUint(ctx.GetId(BlockContextIdTypeUint), i))
-	return b.EmitLoad(idPtrPsbUint, ptrPcPsbUint)
+// LoadPushConstantValue loads a value from the push constant at the given index.
+func (ctx *SpirvBlockContext) LoadPushConstantValue(b *SpvBuilder, i uint32) uint32 {
+	var valType, ptrType uint32
+	switch i {
+	case PushConstantTime:
+		valType = ctx.GetId(BlockContextIdTypeFloat)
+		ptrType = ctx.GetId(BlockContextIdPtrPcFloat)
+	case PushConstantConstRamAddress, PushConstantUserDataAddress:
+		valType = ctx.GetId(BlockContextIdPtrPsbUint)
+		ptrType = ctx.GetId(BlockContextIdPtrPcPsbUint)
+	case PushConstantGarlicAddress, PushConstantOnionAddress:
+		valType = ctx.GetId(BlockContextIdTypeUint64)
+		ptrType = ctx.GetId(BlockContextIdPtrPcPsbUint64)
+	default:
+		panic(fmt.Sprintf("unknown push constant index %d", i))
+	}
+
+	ptr := b.EmitAccessChain(ptrType, ctx.GetId(BlockContextIdPcVar), b.EmitConstantUint(ctx.GetId(BlockContextIdTypeUint), i))
+	return b.EmitLoad(valType, ptr)
 }
 
 // GetResourceBaseAddress extracts the base address from T# dword 0 and 1.
@@ -144,7 +158,7 @@ func (ctx *SpirvBlockContext) GetResourceBaseAddress(b *SpvBuilder, dw0, dw1 uin
 	base := ctx.Pack64(b, baseLo, baseHi)
 
 	// Add GPU memory offset from push constant.
-	gpuBase := ctx.LoadPushConstantPtr(b, PushConstantGarlicAddress)
+	gpuBase := ctx.LoadPushConstantValue(b, PushConstantGarlicAddress)
 
 	return b.EmitIAdd(idUint64, base, gpuBase)
 }

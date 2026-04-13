@@ -30,3 +30,8 @@ func (b *SpvBuilder) EmitStore(pointer, object uint32, memoryAccess ...uint32) {
 	ops := append([]uint32{pointer, object}, memoryAccess...)
 	b.instr(&b.code, SpvOpStore, ops...)
 }
+
+// EmitMemoryBarrier emits OpMemoryBarrier with the specified scope and semantics.
+func (b *SpvBuilder) EmitMemoryBarrier(scope, semantics uint32) {
+	b.instr(&b.code, SpvOpMemoryBarrier, scope, semantics)
+}

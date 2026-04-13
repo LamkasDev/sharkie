@@ -84,6 +84,13 @@ func (b *SpvBuilder) EmitBitwiseOr(resultType, op1, op2 uint32) uint32 {
 	return id
 }
 
+// EmitBitwiseXor emits OpBitwiseOr and returns the result ID.
+func (b *SpvBuilder) EmitBitwiseXor(resultType, op1, op2 uint32) uint32 {
+	id := b.AllocId()
+	b.instr(&b.code, SpvOpBitwiseXor, resultType, id, op1, op2)
+	return id
+}
+
 // EmitShiftLeftLogical emits OpShiftLeftLogical and returns the result ID.
 func (b *SpvBuilder) EmitShiftLeftLogical(resultType, base, shift uint32) uint32 {
 	id := b.AllocId()
@@ -95,6 +102,13 @@ func (b *SpvBuilder) EmitShiftLeftLogical(resultType, base, shift uint32) uint32
 func (b *SpvBuilder) EmitShiftRightLogical(resultType, base, shift uint32) uint32 {
 	id := b.AllocId()
 	b.instr(&b.code, SpvOpShiftRightLogical, resultType, id, base, shift)
+	return id
+}
+
+// EmitShiftRightArithmetic emits OpShiftRightArithmetic and returns the result ID.
+func (b *SpvBuilder) EmitShiftRightArithmetic(resultType, base, shift uint32) uint32 {
+	id := b.AllocId()
+	b.instr(&b.code, SpvOpShiftRightArithmetic, resultType, id, base, shift)
 	return id
 }
 
@@ -123,6 +137,20 @@ func (b *SpvBuilder) EmitULessThan(resultType, op1, op2 uint32) uint32 {
 func (b *SpvBuilder) EmitBitFieldUExtract(resultType, base, offset, count uint32) uint32 {
 	id := b.AllocId()
 	b.instr(&b.code, SpvOpBitFieldUExtract, resultType, id, base, offset, count)
+	return id
+}
+
+// EmitSampledImage emits OpSampledImage and returns the result ID.
+func (b *SpvBuilder) EmitSampledImage(resultType, image, sampler uint32) uint32 {
+	id := b.AllocId()
+	b.instr(&b.code, SpvOpSampledImage, resultType, id, image, sampler)
+	return id
+}
+
+// EmitImageSampleImplicitLod emits OpImageSampleImplicitLod and returns the result ID.
+func (b *SpvBuilder) EmitImageSampleImplicitLod(resultType, sampledImage, coordinate uint32) uint32 {
+	id := b.AllocId()
+	b.instr(&b.code, SpvOpImageSampleImplicitLod, resultType, id, sampledImage, coordinate)
 	return id
 }
 

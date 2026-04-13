@@ -20,7 +20,7 @@ func emitMUBUF(b *SpvBuilder, instr *Instruction, ctx SpirvBlockContext) {
 	// Base address and stride from resource.
 	base := ctx.GetResourceBaseAddress(b, dw0, dw1)
 	stride := ctx.GetResourceStride(b, dw1)
-	addTidEnableBool := ctx.TestMask(b, dw3, 1<<23)
+	addTidEnableBool := ctx.TestMask(b, dw3, 1<<17)
 
 	var addr uint32
 	if details.Addr64 {
@@ -62,15 +62,28 @@ func emitMUBUF(b *SpvBuilder, instr *Instruction, ctx SpirvBlockContext) {
 	}
 
 	switch details.Op {
-	case MubufOpLoadFormatXyzw:
-		idPtrPsbUint := ctx.GetId(BlockContextIdPtrPsbUint)
-		ptr := b.EmitConvertUToPtr(idPtrPsbUint, addr)
-		for i := range uint32(4) {
-			elementPtr := b.EmitPtrAccessChain(idPtrPsbUint, ptr, b.EmitConstantUint(idUint, i))
-			val := b.EmitLoad(idUint, elementPtr, SpvMemoryAccessAligned, 4)
-			ctx.StoreRegisterPointer(b, OpVgpr0+details.Vdata+i, val)
-		}
+	case MubufOpLoadFormatX, MubufOpLoadDword:
+		emitMUBUFLoad(b, instr, ctx, addr, 1)
+	case MubufOpLoadFormatXy, MubufOpLoadDwordx2:
+		emitMUBUFLoad(b, instr, ctx, addr, 2)
+	case MubufOpLoadFormatXyz, MubufOpLoadDwordx3:
+		emitMUBUFLoad(b, instr, ctx, addr, 3)
+	case MubufOpLoadFormatXyzw, MubufOpLoadDwordx4:
+		emitMUBUFLoad(b, instr, ctx, addr, 4)
 	default:
 		panic(fmt.Sprintf("unknown mubuf op %s", Mnemotics[EncMUBUF][details.Op]))
+	}
+}
+
+func emitMUBUFLoad(b *SpvBuilder, instr *Instruction, ctx SpirvBlockContext, addr uint32, count uint32) {
+	details := instr.Details.(*MubufDetails)
+	idUint := ctx.GetId(BlockContextIdTypeUint)
+	idPtrPsbUint := ctx.GetId(BlockContextIdPtrPsbUint)
+
+	ptr := b.EmitConvertUToPtr(idPtrPsbUint, addr)
+	for i := range count {
+		elementPtr := b.EmitPtrAccessChain(idPtrPsbUint, ptr, b.EmitConstantUint(idUint, i))
+		val := b.EmitLoad(idUint, elementPtr, SpvMemoryAccessAligned, 4)
+		ctx.StoreRegisterPointer(b, OpVgpr0+details.Vdata+i, val)
 	}
 }

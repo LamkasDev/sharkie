@@ -46,6 +46,34 @@ func (b *SpvBuilder) EmitTypeArray(elementType, lengthID uint32) uint32 {
 	return id
 }
 
+// EmitTypeRuntimeArray declares an unsized array elementType[].
+func (b *SpvBuilder) EmitTypeRuntimeArray(elementType uint32) uint32 {
+	id := b.AllocId()
+	b.instr(&b.types, SpvOpTypeRuntimeArray, id, elementType)
+	return id
+}
+
+// EmitTypeImage declares an image type.
+func (b *SpvBuilder) EmitTypeImage(sampledType, dim, depth, arrayed, ms, sampled, format uint32) uint32 {
+	id := b.AllocId()
+	b.instr(&b.types, SpvOpTypeImage, id, sampledType, dim, depth, arrayed, ms, sampled, format)
+	return id
+}
+
+// EmitTypeSampler declares a sampler type.
+func (b *SpvBuilder) EmitTypeSampler() uint32 {
+	id := b.AllocId()
+	b.instr(&b.types, SpvOpTypeSampler, id)
+	return id
+}
+
+// EmitTypeSampledImage declares a combined image/sampler type.
+func (b *SpvBuilder) EmitTypeSampledImage(imageType uint32) uint32 {
+	id := b.AllocId()
+	b.instr(&b.types, SpvOpTypeSampledImage, id, imageType)
+	return id
+}
+
 // EmitTypeStruct declares a struct with given member types.
 func (b *SpvBuilder) EmitTypeStruct(memberTypes ...uint32) uint32 {
 	id := b.AllocId()
