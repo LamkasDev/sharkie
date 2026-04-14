@@ -26,7 +26,7 @@ func (b *SpvBuilder) EmitLoopMerge(mergeBlock, continueBlock, loopControl uint32
 
 // emitConditionalBranch handles TermCBranch.
 // OpLoopMerge (loop headers) or OpSelectionMerge (selections) must appear immediately before the OpBranchConditional instruction.
-func emitConditionalBranch(b *SpvBuilder, block *GcnShaderCfgBlock, ctx SpirvBlockContext) {
+func emitConditionalBranch(b *SpvBuilder, block *GcnShaderCfgBlock, ctx *SpirvBlockContext) {
 	if block.IsLoopHeader {
 		mergeLabelId := ctx.GetLabelId(block.MergeBlockId)
 		continueLabelId := ctx.GetLabelId(block.ContinueBlockId)

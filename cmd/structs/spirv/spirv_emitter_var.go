@@ -14,6 +14,11 @@ func (b *SpvBuilder) EmitLocalVariable(ptrType, id uint32) {
 	b.instr(&b.code, SpvOpVariable, ptrType, id, SpvStorageFunction)
 }
 
+// EmitDeferredLocalVariable emits OpVariable with Function storage into the localVars section.
+func (b *SpvBuilder) EmitDeferredLocalVariable(ptrType, id uint32) {
+	b.instr(&b.deferredLocalVars, SpvOpVariable, ptrType, id, SpvStorageFunction)
+}
+
 // EmitLoad emits OpLoad and returns the result ID.
 func (b *SpvBuilder) EmitLoad(resultType, pointer uint32, memoryAccess ...uint32) uint32 {
 	id := b.AllocId()

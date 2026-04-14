@@ -6,7 +6,7 @@ import (
 	. "github.com/LamkasDev/sharkie/cmd/structs/gcn"
 )
 
-func emitMIMG(b *SpvBuilder, instr *Instruction, ctx SpirvBlockContext) {
+func emitMIMG(b *SpvBuilder, instr *Instruction, ctx *SpirvBlockContext) {
 	details := instr.Details.(*MimgDetails)
 	switch details.Op {
 	case MimgOpSample:

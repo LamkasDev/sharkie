@@ -42,6 +42,13 @@ func (b *SpvBuilder) EmitFMul(resultType, op1, op2 uint32) uint32 {
 	return id
 }
 
+// EmitUDiv emits OpUDiv and returns the result ID.
+func (b *SpvBuilder) EmitUDiv(resultType, op1, op2 uint32) uint32 {
+	id := b.AllocId()
+	b.instr(&b.code, SpvOpUDiv, resultType, id, op1, op2)
+	return id
+}
+
 // EmitFDiv emits OpFDiv and returns the result ID.
 func (b *SpvBuilder) EmitFDiv(resultType, op1, op2 uint32) uint32 {
 	id := b.AllocId()

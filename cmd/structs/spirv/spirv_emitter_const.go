@@ -39,6 +39,21 @@ func (b *SpvBuilder) EmitConstantFloat(resultType uint32, value float32) uint32 
 	return id
 }
 
+// EmitDeferredConstantUint emits OpConstant for a 32-bit unsigned integer into the deferredConstants section.
+func (b *SpvBuilder) EmitDeferredConstantUint(uintType, id, value uint32) {
+	b.instr(&b.deferredConstants, SpvOpConstant, uintType, id, value)
+}
+
+// EmitDeferredConstantUint emits OpConstant for a 64-bit unsigned integer into the deferredConstants section.
+func (b *SpvBuilder) EmitDeferredConstantUint64(uint64Type, id uint32, value uint64) {
+	b.instr(&b.deferredConstants, SpvOpConstant, uint64Type, id, uint32(value), uint32(value>>32))
+}
+
+// EmitDeferredConstantFloat emits OpConstant for a float32 into the deferredConstants section.
+func (b *SpvBuilder) EmitDeferredConstantFloat(resultType, id uint32, value float32) {
+	b.instr(&b.deferredConstants, SpvOpConstant, resultType, id, math.Float32bits(value))
+}
+
 // EmitConstantComposite emits OpConstantComposite for a vector or composite constant.
 func (b *SpvBuilder) EmitConstantComposite(resultType uint32, constituents ...uint32) uint32 {
 	id := b.AllocId()

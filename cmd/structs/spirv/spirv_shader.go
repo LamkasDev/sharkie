@@ -1,6 +1,7 @@
 package spirv
 
 import (
+	"fmt"
 	"math"
 
 	. "github.com/LamkasDev/sharkie/cmd/structs/gcn"
@@ -32,40 +33,39 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	b.EmitExtension("SPV_KHR_physical_storage_buffer")
 	b.EmitExtension("SPV_KHR_shader_ballot")
 	b.EmitExtension("SPV_EXT_descriptor_indexing")
-	idGLSL := b.EmitExtInstImport("GLSL.std.450")
+	typeGLSL := b.EmitExtInstImport("GLSL.std.450")
 	b.EmitMemoryModel(SpvAddrModelPhysicalStorageBuffer64, SpvMemModelGLSL450)
 
 	// Common types.
-	idVoid := b.EmitTypeVoid()
-	idBool := b.EmitTypeBool()
-	idInt := b.EmitTypeInt(32, true)
-	idUint := b.EmitTypeInt(32, false)
-	idUint64 := b.EmitTypeInt(64, false)
-	idInt64 := b.EmitTypeInt(64, true)
-	idFnType := b.EmitTypeFunction(idVoid)
+	typeVoid := b.EmitTypeVoid()
+	typeBool := b.EmitTypeBool()
+	typeInt := b.EmitTypeInt(32, true)
+	typeInt64 := b.EmitTypeInt(64, true)
+	typeUint := b.EmitTypeInt(32, false)
+	typeUint64 := b.EmitTypeInt(64, false)
+	idFnType := b.EmitTypeFunction(typeVoid)
 
-	idFloat := b.EmitTypeFloat(32)
-	idV2Float := b.EmitTypeVector(idFloat, 2)
-	idV4Float := b.EmitTypeVector(idFloat, 4)
-	idV4Uint := b.EmitTypeVector(idUint, 4)
+	typeV2Uint := b.EmitTypeVector(typeUint, 2)
+	typeV3Uint := b.EmitTypeVector(typeUint, 3)
+	typeV4Uint := b.EmitTypeVector(typeUint, 4)
 
-	idImage2D := b.EmitTypeImage(idFloat, 1, 0, 0, 0, 1, 0)
-	idSampledImage2D := b.EmitTypeSampledImage(idImage2D)
-	idBindlessArray2D := b.EmitTypeRuntimeArray(idSampledImage2D)
-	idPtrUniformSampledImage2D := b.EmitTypePointer(SpvStorageUniformConstant, idSampledImage2D)
-	idPtrUniformBindlessArray2D := b.EmitTypePointer(SpvStorageUniformConstant, idBindlessArray2D)
+	typeFloat := b.EmitTypeFloat(32)
+	typeV2Float := b.EmitTypeVector(typeFloat, 2)
+	typeV4Float := b.EmitTypeVector(typeFloat, 4)
 
-	idTrue := b.EmitConstantTrue(idBool)
-	idFalse := b.EmitConstantFalse(idBool)
+	typeImage2d := b.EmitTypeImage(typeFloat, 1, 0, 0, 0, 1, 0)
+	typeSampledImage2d := b.EmitTypeSampledImage(typeImage2d)
+	typeBindlessArray2d := b.EmitTypeRuntimeArray(typeSampledImage2d)
+	typePtrUniformSampledImage2d := b.EmitTypePointer(SpvStorageUniformConstant, typeSampledImage2d)
+	typePtrUniformBindlessArray2d := b.EmitTypePointer(SpvStorageUniformConstant, typeBindlessArray2d)
 
 	// Built-ins.
-	idPtrInputUint := b.EmitTypePointer(SpvStorageInput, idUint)
-	idSubgroupLocalInvocationId := b.EmitVariable(idPtrInputUint, SpvStorageInput)
-	b.EmitDecorate(idSubgroupLocalInvocationId, SpvDecorationBuiltIn, SpvBuiltInSubgroupLocalInvocationId)
+	idTrue := b.EmitConstantTrue(typeBool)
+	idFalse := b.EmitConstantFalse(typeBool)
 
-	// Types for constant RAM access via PhysicalStorageBuffer.
-	idPtrPsbUint := b.EmitTypePointer(SpvStoragePhysicalStorageBuffer, idUint)
-	b.EmitDecorate(idPtrPsbUint, SpvDecorationArrayStride, 4)
+	typePtrInputUint := b.EmitTypePointer(SpvStorageInput, typeUint)
+	typeSubgroupLocalInvocationId := b.EmitVariable(typePtrInputUint, SpvStorageInput)
+	b.EmitDecorate(typeSubgroupLocalInvocationId, SpvDecorationBuiltIn, SpvBuiltInSubgroupLocalInvocationId)
 
 	// Push constants.
 	// struct StubPushConstants {
@@ -76,13 +76,25 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	// 	uint64 GarlicAddress;
 	// 	uint64 OnionAddress;
 	// }
-	idUd := b.EmitTypeStruct(idFloat, idUint, idPtrPsbUint, idPtrPsbUint, idUint64, idUint64)
-	idPtrPc := b.EmitTypePointer(SpvStoragePushConstant, idUd)
-	idPtrPcFloat := b.EmitTypePointer(SpvStoragePushConstant, idFloat)
-	idPtrPcPsbUint := b.EmitTypePointer(SpvStoragePushConstant, idPtrPsbUint)
-	idPtrPcPsbUint64 := b.EmitTypePointer(SpvStoragePushConstant, idUint64)
 
-	// Annotations for the push-constant block.
+	// Push constant types.
+	typePtrPsbUint := b.EmitTypePointer(SpvStoragePhysicalStorageBuffer, typeUint)
+	typePtrPsbV2Uint := b.EmitTypePointer(SpvStoragePhysicalStorageBuffer, typeV2Uint)
+	typePtrPsbV3Uint := b.EmitTypePointer(SpvStoragePhysicalStorageBuffer, typeV3Uint)
+	typePtrPsbV4Uint := b.EmitTypePointer(SpvStoragePhysicalStorageBuffer, typeV4Uint)
+	b.EmitDecorate(typePtrPsbUint, SpvDecorationArrayStride, 4)
+	b.EmitDecorate(typePtrPsbV2Uint, SpvDecorationArrayStride, 8)
+	b.EmitDecorate(typePtrPsbV3Uint, SpvDecorationArrayStride, 12)
+	b.EmitDecorate(typePtrPsbV4Uint, SpvDecorationArrayStride, 16)
+
+	// Push constant struct.
+	idUd := b.EmitTypeStruct(typeFloat, typeUint, typePtrPsbUint, typePtrPsbUint, typeUint64, typeUint64)
+	idPtrPc := b.EmitTypePointer(SpvStoragePushConstant, idUd)
+	typePtrPcFloat := b.EmitTypePointer(SpvStoragePushConstant, typeFloat)
+	typePtrPcPsbUint := b.EmitTypePointer(SpvStoragePushConstant, typePtrPsbUint)
+	typePtrPcPsbUint64 := b.EmitTypePointer(SpvStoragePushConstant, typeUint64)
+
+	// Annotations for the push-constants.
 	b.EmitDecorate(idUd, SpvDecorationBlock)
 	b.EmitMemberDecorate(idUd, 0, SpvDecorationOffset, 0)
 	b.EmitMemberDecorate(idUd, 1, SpvDecorationOffset, 4)
@@ -92,49 +104,54 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	b.EmitMemberDecorate(idUd, 5, SpvDecorationOffset, 32)
 
 	// Global push-constant variable.
-	idPCVar := b.EmitVariable(idPtrPc, SpvStoragePushConstant)
-	b.EmitDecorate(idPCVar, SpvDecorationAliasedPointer)
+	typePcVar := b.EmitVariable(idPtrPc, SpvStoragePushConstant)
+	b.EmitName(typePcVar, "push_constants")
+	b.EmitDecorate(typePcVar, SpvDecorationAliasedPointer)
 
 	// Bindless textures.
-	idBindlessTexturesVar := b.EmitVariable(idPtrUniformBindlessArray2D, SpvStorageUniformConstant)
-	b.EmitDecorate(idBindlessTexturesVar, SpvDecorationDescriptorSet, 0)
-	b.EmitDecorate(idBindlessTexturesVar, SpvDecorationBinding, 0)
+	typeBindlessTexturesVar := b.EmitVariable(typePtrUniformBindlessArray2d, SpvStorageUniformConstant)
+	b.EmitName(typeBindlessTexturesVar, "bindless_textures")
+	b.EmitDecorate(typeBindlessTexturesVar, SpvDecorationDescriptorSet, 0)
+	b.EmitDecorate(typeBindlessTexturesVar, SpvDecorationBinding, 0)
 
 	// Stage-specific outputs.
-	interfaceIds := []uint32{idSubgroupLocalInvocationId}
-	var idPosOut, idFragDepthOut uint32
+	idPtrOutF := b.EmitTypePointer(SpvStorageOutput, typeFloat)
+	idPtrOutV4 := b.EmitTypePointer(SpvStorageOutput, typeV4Float)
+
+	interfaceIds := []uint32{typeSubgroupLocalInvocationId}
+	var typePosOut, typeFragDepthOut uint32
 	var idColorOuts [8]uint32
 	var idParamOuts [32]uint32
-	var idZeroVec4 uint32
+	var typeZeroVec4 uint32
+	switch shader.Stage {
+	case GcnShaderStageVertex:
+		typePosOut = b.EmitVariable(idPtrOutV4, SpvStorageOutput)
+		b.EmitName(typePosOut, "pos_out")
+		b.EmitDecorate(typePosOut, SpvDecorationBuiltIn, SpvBuiltInPosition)
 
-	idPtrOutV4 := b.EmitTypePointer(SpvStorageOutput, idV4Float)
-	idPtrOutF := b.EmitTypePointer(SpvStorageOutput, idFloat)
-
-	if shader.Stage == GcnShaderStageVertex {
-		idPosOut = b.EmitVariable(idPtrOutV4, SpvStorageOutput)
-		b.EmitDecorate(idPosOut, SpvDecorationBuiltIn, SpvBuiltInPosition)
-		interfaceIds = append(interfaceIds, idPosOut)
-
+		interfaceIds = append(interfaceIds, typePosOut)
 		for i := range idParamOuts {
 			idParamOuts[i] = b.EmitVariable(idPtrOutV4, SpvStorageOutput)
 			b.EmitDecorate(idParamOuts[i], SpvDecorationLocation, uint32(i))
 			interfaceIds = append(interfaceIds, idParamOuts[i])
 		}
-	} else if shader.Stage == GcnShaderStageFragment {
+	case GcnShaderStageFragment:
 		for i := range idColorOuts {
 			idColorOuts[i] = b.EmitVariable(idPtrOutV4, SpvStorageOutput)
 			b.EmitDecorate(idColorOuts[i], SpvDecorationLocation, uint32(i))
 			interfaceIds = append(interfaceIds, idColorOuts[i])
 		}
 
-		idFragDepthOut = b.EmitVariable(idPtrOutF, SpvStorageOutput)
-		b.EmitDecorate(idFragDepthOut, SpvDecorationBuiltIn, SpvBuiltInFragDepth)
-		interfaceIds = append(interfaceIds, idFragDepthOut)
+		typeFragDepthOut = b.EmitVariable(idPtrOutF, SpvStorageOutput)
+		b.EmitName(typeFragDepthOut, "frag_depth_out")
+		b.EmitDecorate(typeFragDepthOut, SpvDecorationBuiltIn, SpvBuiltInFragDepth)
+		interfaceIds = append(interfaceIds, typeFragDepthOut)
 
 		// Constant zero vec4 written on exit.
-		idZeroF := b.EmitConstantFloat(idFloat, 0.0)
-		idOneF := b.EmitConstantFloat(idFloat, 1.0)
-		idZeroVec4 = b.EmitConstantComposite(idV4Float, idZeroF, idZeroF, idZeroF, idOneF)
+		idZeroF := b.EmitConstantFloat(typeFloat, 0.0)
+		idOneF := b.EmitConstantFloat(typeFloat, 1.0)
+		typeZeroVec4 = b.EmitConstantComposite(typeV4Float, idZeroF, idZeroF, idZeroF, idOneF)
+		b.EmitName(typeZeroVec4, "zero_vec4")
 	}
 
 	// Entry point.
@@ -155,135 +172,157 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 		b.EmitExecutionMode(idMain, SpvExecModeLocalSize, numThreads[0], numThreads[1], numThreads[2])
 	}
 
+	// Register GCN SGPRs and VGPRs.
+	typePtrFnUint := b.EmitTypePointer(SpvStorageFunction, typeUint)
+	idSgprCount := b.EmitConstantUint(typeUint, 104)
+	idVgprCount := b.EmitConstantUint(typeUint, 256)
+	typeSgprArray := b.EmitTypeArray(typeUint, idSgprCount)
+	typeVgprArray := b.EmitTypeArray(typeUint, idVgprCount)
+	typePtrSgprArray := b.EmitTypePointer(SpvStorageFunction, typeSgprArray)
+	typePtrVgprArray := b.EmitTypePointer(SpvStorageFunction, typeVgprArray)
+
+	idSgprArrayVar := b.AllocId()
+	idVgprArrayVar := b.AllocId()
+	b.EmitName(idSgprArrayVar, "sgprs")
+	b.EmitName(idVgprArrayVar, "vgprs")
+	b.EmitDeferredLocalVariable(typePtrSgprArray, idSgprArrayVar)
+	b.EmitDeferredLocalVariable(typePtrVgprArray, idVgprArrayVar)
+
+	// GCN special registers.
+	var gcnSpecialIds [27]SpirvBlockContextUsedId
+	gcnSpecialIds[GcnSpecIdxFlatScrLo] = SpirvBlockContextUsedId{Id: b.AllocId(), Name: "flat_scr_lo"}
+	gcnSpecialIds[GcnSpecIdxFlatScrHi] = SpirvBlockContextUsedId{Id: b.AllocId(), Name: "flat_scr_hi"}
+	gcnSpecialIds[GcnSpecIdxVccLo] = SpirvBlockContextUsedId{Id: b.AllocId(), Name: "vcc_lo"}
+	gcnSpecialIds[GcnSpecIdxVccHi] = SpirvBlockContextUsedId{Id: b.AllocId(), Name: "vcc_hi"}
+	gcnSpecialIds[GcnSpecIdxTbaLo] = SpirvBlockContextUsedId{Id: b.AllocId(), Name: "tba_lo"}
+	gcnSpecialIds[GcnSpecIdxTbaHi] = SpirvBlockContextUsedId{Id: b.AllocId(), Name: "tba_hi"}
+	gcnSpecialIds[GcnSpecIdxTmaLo] = SpirvBlockContextUsedId{Id: b.AllocId(), Name: "tma_lo"}
+	gcnSpecialIds[GcnSpecIdxTmaHi] = SpirvBlockContextUsedId{Id: b.AllocId(), Name: "tma_hi"}
+	for i := range 12 {
+		gcnSpecialIds[GcnSpecIdxTtmp0+i] = SpirvBlockContextUsedId{Id: b.AllocId(), Name: fmt.Sprintf("ttmp%d", i)}
+	}
+	gcnSpecialIds[GcnSpecIdxM0] = SpirvBlockContextUsedId{Id: b.AllocId(), Name: "m0"}
+	gcnSpecialIds[GcnSpecIdxExecLo] = SpirvBlockContextUsedId{Id: b.AllocId(), Name: "exec_lo"}
+	gcnSpecialIds[GcnSpecIdxExecHi] = SpirvBlockContextUsedId{Id: b.AllocId(), Name: "exec_hi"}
+	gcnSpecialIds[GcnSpecIdxVccz] = SpirvBlockContextUsedId{Id: b.AllocId(), Name: "vccz"}
+	gcnSpecialIds[GcnSpecIdxExecz] = SpirvBlockContextUsedId{Id: b.AllocId(), Name: "execz"}
+	gcnSpecialIds[GcnSpecIdxScc] = SpirvBlockContextUsedId{Id: b.AllocId(), Name: "scc"}
+
+	// GCN inline constants.
+	var gcnConstIds [120]SpirvBlockContextUsedId
+	for i := range gcnConstIds {
+		usedId := SpirvBlockContextUsedId{Id: b.AllocId()}
+		switch {
+		case i == GcnConstIdx0:
+			usedId.Value, usedId.Name = 0, "0"
+		case i >= GcnConstIdxInt1 && i <= GcnConstIdxInt64:
+			usedId.Value, usedId.Name = uint32(i), fmt.Sprint(i)
+		case i >= GcnConstIdxIntNeg1 && i <= GcnConstIdxIntNeg16:
+			v := int32(-(int(i) - GcnConstIdxInt64))
+			usedId.Value, usedId.Name = uint32(v), fmt.Sprint(v)
+		case i == GcnConstIdxFloat05:
+			usedId.Value, usedId.Name = math.Float32bits(0.5), "0.5"
+		case i == GcnConstIdxFloatNeg05:
+			usedId.Value, usedId.Name = math.Float32bits(-0.5), "-0.5"
+		case i == GcnConstIdxFloat10:
+			usedId.Value, usedId.Name = math.Float32bits(1.0), "1.0"
+		case i == GcnConstIdxFloatNeg10:
+			usedId.Value, usedId.Name = math.Float32bits(-1.0), "-1.0"
+		case i == GcnConstIdxFloat20:
+			usedId.Value, usedId.Name = math.Float32bits(2.0), "2.0"
+		case i == GcnConstIdxFloatNeg20:
+			usedId.Value, usedId.Name = math.Float32bits(-2.0), "-2.0"
+		case i == GcnConstIdxFloat40:
+			usedId.Value, usedId.Name = math.Float32bits(4.0), "4.0"
+		case i == GcnConstIdxFloatNeg40:
+			usedId.Value, usedId.Name = math.Float32bits(-4.0), "-4.0"
+		}
+		gcnConstIds[i] = usedId
+	}
+
+	// Internal inline constants.
+	constIds := map[BlockContextId]SpirvBlockContextUsedId{}
+	for i := range BlockContextId(256) {
+		constIds[i] = SpirvBlockContextUsedId{Id: b.AllocId(), Value: uint32(i), Name: fmt.Sprint(i)}
+	}
+	constIds[ConstIdxUint3FFF] = SpirvBlockContextUsedId{Id: b.AllocId(), Value: 0x3FFF, Name: "0x3FFF"}
+	constIds[ConstIdxUintFFFF] = SpirvBlockContextUsedId{Id: b.AllocId(), Value: 0xFFFF, Name: "0xFFFF"}
+	constIds[ConstIdxUint11111111] = SpirvBlockContextUsedId{Id: b.AllocId(), Value: 0x11111111, Name: "0x11111111"}
+	constIds[ConstIdxUintFFFFFFFF] = SpirvBlockContextUsedId{Id: b.AllocId(), Value: 0xFFFFFFFF, Name: "0xFFFFFFFF"}
+	constIds[ConstIdx64Uint0] = SpirvBlockContextUsedId{Id: b.AllocId(), Value64: 0, Name: "64_0"}
+	constIds[ConstIdx64Uint32] = SpirvBlockContextUsedId{Id: b.AllocId(), Value64: 32, Name: "64_32"}
+	constIds[ConstIdxFloat1] = SpirvBlockContextUsedId{Id: b.AllocId(), Value: math.Float32bits(1.0), Name: "1.0"}
+	constIds[ConstIdxFloat0] = SpirvBlockContextUsedId{Id: b.AllocId(), Value: math.Float32bits(0.0), Name: "0.0"}
+
+	// Prepare internal IDs.
+	ids := map[BlockContextId]SpirvBlockContextUsedId{
+		BlockContextIdFalse:                     {Id: idFalse, Name: "false"},
+		BlockContextIdTrue:                      {Id: idTrue, Name: "true"},
+		BlockContextIdTypeBool:                  {Id: typeBool, Name: "bool_t"},
+		BlockContextIdTypeFloat:                 {Id: typeFloat, Name: "float_t"},
+		BlockContextIdTypeInt:                   {Id: typeInt, Name: "int_t"},
+		BlockContextIdTypeUint:                  {Id: typeUint, Name: "uint_t"},
+		BlockContextIdTypeUint64:                {Id: typeUint64, Name: "uint64_t"},
+		BlockContextIdTypeInt64:                 {Id: typeInt64, Name: "int64_t"},
+		BlockContextIdTypeV2Float:               {Id: typeV2Float, Name: "v2float_t"},
+		BlockContextIdTypeV4Float:               {Id: typeV4Float, Name: "v4float_t"},
+		BlockContextIdTypeV2Uint:                {Id: typeV2Uint, Name: "v2uint_t"},
+		BlockContextIdTypeV3Uint:                {Id: typeV3Uint, Name: "v3uint_t"},
+		BlockContextIdTypeV4Uint:                {Id: typeV4Uint, Name: "v4uint_t"},
+		BlockContextIdTypeSampledImage:          {Id: typeSampledImage2d, Name: "sampled_image_2d_t"},
+		BlockContextIdPtrUniformSampledImage:    {Id: typePtrUniformSampledImage2d, Name: "ptr_uniform_sampled_image_2d_t"},
+		BlockContextIdPtrPcFloat:                {Id: typePtrPcFloat, Name: "ptr_pc_float_t"},
+		BlockContextIdPtrPcPsbUint:              {Id: typePtrPcPsbUint, Name: "ptr_pc_psb_uint_t"},
+		BlockContextIdPtrPcPsbUint64:            {Id: typePtrPcPsbUint64, Name: "ptr_pc_psb_uint64_t"},
+		BlockContextIdPtrPsbUint:                {Id: typePtrPsbUint, Name: "ptr_pc_psb_uint_t"},
+		BlockContextIdPtrPsbV2Uint:              {Id: typePtrPsbV2Uint, Name: "ptr_pc_psb_v2_uint_t"},
+		BlockContextIdPtrPsbV3Uint:              {Id: typePtrPsbV3Uint, Name: "ptr_pc_psb_v3_uint_t"},
+		BlockContextIdPtrPsbV4Uint:              {Id: typePtrPsbV4Uint, Name: "ptr_pc_psb_v4_uint_t"},
+		BlockContextIdPtrFnUint:                 {Id: typePtrFnUint, Name: "ptr_fn_uint_t"},
+		BlockContextIdPosOut:                    {Id: typePosOut, Name: "pos_out_t"},
+		BlockContextIdFragDepthOut:              {Id: typeFragDepthOut, Name: "frag_depth_out_t"},
+		BlockContextIdZeroVec4:                  {Id: typeZeroVec4, Name: "zero_vec4_t"},
+		BlockContextIdBindlessTextures:          {Id: typeBindlessTexturesVar, Name: "bindless_textures_var_t"},
+		BlockContextIdPcVar:                     {Id: typePcVar, Name: "pc_var_t"},
+		BlockContextIdGlsl:                      {Id: typeGLSL, Name: "glsl_t"},
+		BlockContextIdSubgroupLocalInvocationId: {Id: typeSubgroupLocalInvocationId, Name: "subgroup_local_invocation_id_t"},
+	}
+	for i, id := range idColorOuts {
+		ids[BlockContextIdColorOut0+BlockContextId(i)] = SpirvBlockContextUsedId{Id: id, Name: fmt.Sprintf("color_out_%d", i)}
+	}
+	for i, id := range idParamOuts {
+		ids[BlockContextIdParamOut0+BlockContextId(i)] = SpirvBlockContextUsedId{Id: id, Name: fmt.Sprintf("param_out_%d", i)}
+	}
+
 	// Pre-allocate SPIR-V labels ID for GCN CFG blocks.
 	labelIds := make([]uint32, len(shader.Cfg.Blocks))
 	for i := range shader.Cfg.Blocks {
 		labelIds[i] = b.AllocId()
+		b.EmitName(labelIds[i], fmt.Sprintf("bb_%d", i))
 	}
 
-	// Register GCN SGPRs and VGPRs.
-	idPtrFnUint := b.EmitTypePointer(SpvStorageFunction, idUint)
-	var gcnSgprIds [104]uint32
-	for i := range gcnSgprIds {
-		gcnSgprIds[i] = b.AllocId()
+	// Prepare block context with all GCN and our internal IDs.
+	blockContext := SpirvBlockContext{
+		Stage:          shader.Stage,
+		LabelIds:       labelIds,
+		Ids:            ids,
+		ConstIds:       constIds,
+		GcnSgprArrayId: idSgprArrayVar,
+		GcnVgprArrayId: idVgprArrayVar,
+		GcnSpecialIds:  gcnSpecialIds,
+		GcnConstIds:    gcnConstIds,
 	}
-	var gcnVgprIds [256]uint32
-	for i := range gcnVgprIds {
-		gcnVgprIds[i] = b.AllocId()
-	}
-
-	// GCN special registers.
-	var gcnSpecialIds [27]uint32
-	gcnSpecialIds[GcnSpecIdxFlatScrLo] = b.AllocId()
-	gcnSpecialIds[GcnSpecIdxFlatScrHi] = b.AllocId()
-	gcnSpecialIds[GcnSpecIdxVccLo] = b.AllocId()
-	gcnSpecialIds[GcnSpecIdxVccHi] = b.AllocId()
-	gcnSpecialIds[GcnSpecIdxTbaLo] = b.AllocId()
-	gcnSpecialIds[GcnSpecIdxTbaHi] = b.AllocId()
-	gcnSpecialIds[GcnSpecIdxTmaLo] = b.AllocId()
-	gcnSpecialIds[GcnSpecIdxTmaHi] = b.AllocId()
-	for i := range 12 {
-		gcnSpecialIds[GcnSpecIdxTtmp0+i] = b.AllocId()
-	}
-	gcnSpecialIds[GcnSpecIdxM0] = b.AllocId()
-	gcnSpecialIds[GcnSpecIdxExecLo] = b.AllocId()
-	gcnSpecialIds[GcnSpecIdxExecHi] = b.AllocId()
-	gcnSpecialIds[GcnSpecIdxVccz] = b.AllocId()
-	gcnSpecialIds[GcnSpecIdxExecz] = b.AllocId()
-	gcnSpecialIds[GcnSpecIdxScc] = b.AllocId()
-
-	// GCN inline constants.
-	var gcnConstIds [120]uint32
-	gcnConstIds[GcnConstIdx0] = b.EmitConstantUint(idUint, 0)
-	for i := uint32(GcnConstIdxInt1); i <= GcnConstIdxInt64; i++ {
-		gcnConstIds[i] = b.EmitConstantUint(idUint, i)
-	}
-	for i := uint32(GcnConstIdxIntNeg1); i <= GcnConstIdxIntNeg16; i++ {
-		val := uint32(int32(-(int(i) - GcnConstIdxInt64)))
-		gcnConstIds[i] = b.EmitConstantUint(idUint, val)
-	}
-	gcnConstIds[GcnConstIdxFloat05] = b.EmitConstantUint(idUint, math.Float32bits(0.5))
-	gcnConstIds[GcnConstIdxFloatNeg05] = b.EmitConstantUint(idUint, math.Float32bits(-0.5))
-	gcnConstIds[GcnConstIdxFloat10] = b.EmitConstantUint(idUint, math.Float32bits(1.0))
-	gcnConstIds[GcnConstIdxFloatNeg10] = b.EmitConstantUint(idUint, math.Float32bits(-1.0))
-	gcnConstIds[GcnConstIdxFloat20] = b.EmitConstantUint(idUint, math.Float32bits(2.0))
-	gcnConstIds[GcnConstIdxFloatNeg20] = b.EmitConstantUint(idUint, math.Float32bits(-2.0))
-	gcnConstIds[GcnConstIdxFloat40] = b.EmitConstantUint(idUint, math.Float32bits(4.0))
-	gcnConstIds[GcnConstIdxFloatNeg40] = b.EmitConstantUint(idUint, math.Float32bits(-4.0))
 
 	// Function body.
-	b.EmitFunction(idVoid, SpvFunctionControlNone, idFnType, idMain)
+	b.EmitFunction(typeVoid, SpvFunctionControlNone, idFnType, idMain)
 
 	// Emit reachable blocks in reverse post-order (entry block first).
 	rpoBlockIds := shader.Cfg.ReversePostOrder()
 	emittedBlockIds := make([]bool, len(shader.Cfg.Blocks))
 
-	// Prepare internal IDs.
-	ids := map[BlockContextId]uint32{
-		BlockContextIdFalse:                     idFalse,
-		BlockContextIdTrue:                      idTrue,
-		BlockContextIdTypeBool:                  idBool,
-		BlockContextIdTypeFloat:                 idFloat,
-		BlockContextIdTypeInt:                   idInt,
-		BlockContextIdTypeUint:                  idUint,
-		BlockContextIdTypeUint64:                idUint64,
-		BlockContextIdTypeInt64:                 idInt64,
-		BlockContextIdTypeV2Float:               idV2Float,
-		BlockContextIdTypeV4Float:               idV4Float,
-		BlockContextIdTypeV4Uint:                idV4Uint,
-		BlockContextIdTypeSampledImage:          idSampledImage2D,
-		BlockContextIdPtrUniformSampledImage:    idPtrUniformSampledImage2D,
-		BlockContextIdPtrPcFloat:                idPtrPcFloat,
-		BlockContextIdPtrPcPsbUint:              idPtrPcPsbUint,
-		BlockContextIdPtrPcPsbUint64:            idPtrPcPsbUint64,
-		BlockContextIdPtrPsbUint:                idPtrPsbUint,
-		BlockContextIdPtrFnUint:                 idPtrFnUint,
-		BlockContextIdPosOut:                    idPosOut,
-		BlockContextIdFragDepthOut:              idFragDepthOut,
-		BlockContextIdZeroVec4:                  idZeroVec4,
-		BlockContextIdBindlessTextures:          idBindlessTexturesVar,
-		BlockContextIdPcVar:                     idPCVar,
-		BlockContextIdGlsl:                      idGLSL,
-		BlockContextIdSubgroupLocalInvocationId: idSubgroupLocalInvocationId,
-	}
-	for i, id := range idColorOuts {
-		ids[BlockContextIdColorOut0+BlockContextId(i)] = id
-	}
-	for i, id := range idParamOuts {
-		ids[BlockContextIdParamOut0+BlockContextId(i)] = id
-	}
-
-	// Prepare block context with all GCN and our internal IDs.
-	blockContext := SpirvBlockContext{
-		Stage:    shader.Stage,
-		LabelIds: labelIds,
-		Ids:      ids,
-		ConstIds: map[BlockContextId]uint32{
-			ConstIdxUint0:        b.EmitConstantUint(idUint, 0),
-			ConstIdxUint1:        b.EmitConstantUint(idUint, 1),
-			ConstIdxUint2:        b.EmitConstantUint(idUint, 2),
-			ConstIdxUint3:        b.EmitConstantUint(idUint, 3),
-			ConstIdxUint4:        b.EmitConstantUint(idUint, 4),
-			ConstIdxUint5:        b.EmitConstantUint(idUint, 5),
-			ConstIdxUint6:        b.EmitConstantUint(idUint, 6),
-			ConstIdxUint7:        b.EmitConstantUint(idUint, 7),
-			ConstIdxUint32:       b.EmitConstantUint(idUint, 32),
-			ConstIdxUint63:       b.EmitConstantUint(idUint, 63),
-			ConstIdxUintFFFF:     b.EmitConstantUint(idUint, 0xFFFF),
-			ConstIdxUint11111111: b.EmitConstantUint(idUint, 0x11111111),
-			ConstIdxUintFFFFFFFF: b.EmitConstantUint(idUint, 0xFFFFFFFF),
-			ConstIdxFloat1:       b.EmitConstantFloat(idFloat, 1.0),
-			ConstIdxFloat0:       b.EmitConstantFloat(idFloat, 0.0),
-		},
-		GcnSgprIds:    gcnSgprIds,
-		GcnVgprIds:    gcnVgprIds,
-		GcnSpecialIds: gcnSpecialIds,
-		GcnConstIds:   gcnConstIds,
-	}
-
 	// Emit reachable blocks.
 	for _, blockId := range rpoBlockIds {
-		emitBlock(b, &shader.Cfg.Blocks[blockId], blockContext)
+		emitBlock(b, &shader.Cfg.Blocks[blockId], &blockContext)
 		emittedBlockIds[blockId] = true
 	}
 
@@ -293,6 +332,46 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 			b.EmitLabel(labelIds[i])
 			b.EmitUnreachable()
 		}
+	}
+
+	// Emit names for internal IDs.
+	for _, c := range blockContext.Ids {
+		if c.Id == 0 {
+			continue
+		}
+		b.EmitName(c.Id, c.Name)
+	}
+
+	// Emit deferred constants.
+	for _, c := range blockContext.GcnConstIds {
+		if !c.Used {
+			continue
+		}
+		b.EmitDeferredConstantUint(typeUint, c.Id, c.Value)
+		b.EmitName(c.Id, fmt.Sprintf("gcn_const_%s", c.Name))
+	}
+	for i, c := range blockContext.ConstIds {
+		if !c.Used {
+			continue
+		}
+		switch {
+		case i >= ConstIdxFloat0:
+			b.EmitDeferredConstantFloat(typeFloat, c.Id, math.Float32frombits(c.Value))
+		case i >= ConstIdx64Uint0:
+			b.EmitDeferredConstantUint64(typeUint64, c.Id, c.Value64)
+		default:
+			b.EmitDeferredConstantUint(typeUint, c.Id, c.Value)
+		}
+		b.EmitName(c.Id, fmt.Sprintf("const_%s", c.Name))
+	}
+
+	// Emit deferred local variables for used registers.
+	for i, c := range blockContext.GcnSpecialIds {
+		if i == GcnSpecIdxReserved || !c.Used {
+			continue // reserved.
+		}
+		b.EmitDeferredLocalVariable(typePtrFnUint, c.Id)
+		b.EmitName(c.Id, c.Name)
 	}
 
 	// Andddd we're done :)

@@ -26,6 +26,7 @@ func (t *GpuTranslator) UpdateConstRamBuffers(draws []LiverpoolDrawCall) {
 			vk.DestroyBuffer(t.handles.Device, buffer, nil)
 			vk.FreeMemory(t.handles.Device, t.constRamBufferMems[hash], nil)
 			delete(t.constRamBuffers, hash)
+			delete(t.constRamBuffersDebug, hash)
 			delete(t.constRamBufferMems, hash)
 		}
 	}
@@ -56,6 +57,7 @@ func (t *GpuTranslator) UpdateConstRamBuffers(draws []LiverpoolDrawCall) {
 		vk.UnmapMemory(t.handles.Device, mem)
 
 		t.constRamBuffers[hash] = buffer
+		t.constRamBuffersDebug[hash] = contents[:]
 		t.constRamBufferMems[hash] = mem
 	}
 }
@@ -76,6 +78,7 @@ func (t *GpuTranslator) UpdateUserDataBuffers(draws []LiverpoolDrawCall) {
 			vk.DestroyBuffer(t.handles.Device, buffer, nil)
 			vk.FreeMemory(t.handles.Device, t.userDataBufferMems[hash], nil)
 			delete(t.userDataBuffers, hash)
+			delete(t.userDataBuffersDebug, hash)
 			delete(t.userDataBufferMems, hash)
 		}
 	}
@@ -106,6 +109,7 @@ func (t *GpuTranslator) UpdateUserDataBuffers(draws []LiverpoolDrawCall) {
 		vk.UnmapMemory(t.handles.Device, mem)
 
 		t.userDataBuffers[hash] = buffer
+		t.userDataBuffersDebug[hash] = contents[:]
 		t.userDataBufferMems[hash] = mem
 	}
 }

@@ -6,7 +6,7 @@ import (
 	. "github.com/LamkasDev/sharkie/cmd/structs/gcn"
 )
 
-func emitEXP(b *SpvBuilder, instr *Instruction, ctx SpirvBlockContext) {
+func emitEXP(b *SpvBuilder, instr *Instruction, ctx *SpirvBlockContext) {
 	details := instr.Details.(*ExpDetails)
 	var comps [4]uint32
 	idFloat := ctx.GetId(BlockContextIdTypeFloat)

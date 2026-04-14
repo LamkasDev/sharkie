@@ -6,7 +6,7 @@ import (
 	. "github.com/LamkasDev/sharkie/cmd/structs/gcn"
 )
 
-func emitSMRD(b *SpvBuilder, instr *Instruction, ctx SpirvBlockContext) {
+func emitSMRD(b *SpvBuilder, instr *Instruction, ctx *SpirvBlockContext) {
 	details := instr.Details.(*SmrdDetails)
 	switch details.Op {
 	case SmrdOpLoadDword:
@@ -34,10 +34,8 @@ func emitSMRD(b *SpvBuilder, instr *Instruction, ctx SpirvBlockContext) {
 	}
 }
 
-func emitSMRDLoad(b *SpvBuilder, instr *Instruction, ctx SpirvBlockContext, count uint32) {
+func emitSMRDLoad(b *SpvBuilder, instr *Instruction, ctx *SpirvBlockContext, count uint32) {
 	details := instr.Details.(*SmrdDetails)
-
-	// Load constant RAM base address from push constant.
 	idPtrPsbUint := ctx.GetId(BlockContextIdPtrPsbUint)
 	ptrBase := ctx.LoadPushConstantValue(b, PushConstantConstRamAddress)
 

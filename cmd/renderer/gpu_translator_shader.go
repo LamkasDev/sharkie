@@ -35,8 +35,7 @@ func (t *GpuTranslator) DumpShaderOnce(shader *SpirvShader) error {
 	if err := os.WriteFile(textFilename, SpvWordsToBytes(shader.Code), 0777); err != nil {
 		return err
 	}
-	asmFilename := path.Join("temp", "shaders", fmt.Sprintf("shader_0x%X_%s.spvasm", shader.Address, shader.Stage))
-	cmd := exec.Command("spirv-dis", textFilename, "--no-indent", "--offsets", "--comment", "-o", asmFilename)
+	cmd := exec.Command("spirv-dis", textFilename)
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		return err

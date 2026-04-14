@@ -53,11 +53,13 @@ type GpuTranslator struct {
 	// Physical buffers for Constant RAM snapshots.
 	constRamBuffersMutex sync.Mutex
 	constRamBuffers      map[uint32]vk.Buffer
+	constRamBuffersDebug map[uint32][]uint32
 	constRamBufferMems   map[uint32]vk.DeviceMemory
 
 	// Physical buffers for User Data snapshots.
 	userDataBuffersMutex sync.Mutex
 	userDataBuffers      map[uint32]vk.Buffer
+	userDataBuffersDebug map[uint32][]uint32
 	userDataBufferMems   map[uint32]vk.DeviceMemory
 
 	// Command pool/buffer for this frame's GPU work.
@@ -79,9 +81,11 @@ func NewGpuTranslator(handles VulkanHandles, bknd backend.Backend[glfwvulkanback
 		pipelines:            map[GpuTranslatorPipelineKey]vk.Pipeline{},
 		constRamBuffersMutex: sync.Mutex{},
 		constRamBuffers:      map[uint32]vk.Buffer{},
+		constRamBuffersDebug: map[uint32][]uint32{},
 		constRamBufferMems:   map[uint32]vk.DeviceMemory{},
 		userDataBuffersMutex: sync.Mutex{},
 		userDataBuffers:      map[uint32]vk.Buffer{},
+		userDataBuffersDebug: map[uint32][]uint32{},
 		userDataBufferMems:   map[uint32]vk.DeviceMemory{},
 	}
 	structs.GlobalGpuAllocator = &structs.GpuAllocator{
@@ -89,7 +93,7 @@ func NewGpuTranslator(handles VulkanHandles, bknd backend.Backend[glfwvulkanback
 		GpuMemoryCurrent: 0xFE0000000,
 		GpuMemorySize:    structs.GpuMemoryDefaultSize,
 		Alloc: func(size uint64) (uintptr, error) {
-			_, mem, err := t.AllocExternalBuffer(vk.DeviceSize(size),
+			_, mem, err := t.AllocExternalBuffer(vk.DeviceSize(size+16),
 				vk.BufferUsageFlags(vk.BufferUsageShaderDeviceAddressBit|vk.BufferUsageStorageBufferBit|vk.BufferUsageVertexBufferBit|vk.BufferUsageIndexBufferBit),
 				vk.MemoryPropertyFlags(vk.MemoryPropertyHostVisibleBit|vk.MemoryPropertyHostCoherentBit))
 			if err != nil {

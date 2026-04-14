@@ -6,7 +6,7 @@ import (
 	. "github.com/LamkasDev/sharkie/cmd/structs/gcn"
 )
 
-func emitVOP2(b *SpvBuilder, instr *Instruction, ctx SpirvBlockContext) {
+func emitVOP2(b *SpvBuilder, instr *Instruction, ctx *SpirvBlockContext) {
 	details := instr.Details.(*VectorDetails)
 	switch details.Op {
 	case Vop2OpAddF32:
@@ -30,19 +30,19 @@ func emitVOP2(b *SpvBuilder, instr *Instruction, ctx SpirvBlockContext) {
 		resF := b.EmitFMul(ctx.GetId(BlockContextIdTypeFloat), val0, val1)
 		ctx.StoreRegisterPointer(b, details.Dst+OpVgpr0, b.EmitBitcast(ctx.GetId(BlockContextIdTypeUint), resF))
 	case Vop2OpMulLegacyF32:
-		idFloat := ctx.GetId(BlockContextIdTypeFloat)
-		idBool := ctx.GetId(BlockContextIdTypeBool)
+		typeFloat := ctx.GetId(BlockContextIdTypeFloat)
+		typeBool := ctx.GetId(BlockContextIdTypeBool)
 		idZeroF := ctx.GetConstId(ConstIdxFloat0)
 
 		val0 := ctx.GetOperandFloatValue(b, details.Src0, instr.Literal)
 		val1 := ctx.GetOperandFloatValue(b, details.Src1+OpVgpr0, 0)
 
-		isZero0 := b.EmitFOrdEqual(idBool, val0, idZeroF)
-		isZero1 := b.EmitFOrdEqual(idBool, val1, idZeroF)
-		anyZero := b.EmitLogicalOr(idBool, isZero0, isZero1)
+		isZero0 := b.EmitFOrdEqual(typeBool, val0, idZeroF)
+		isZero1 := b.EmitFOrdEqual(typeBool, val1, idZeroF)
+		anyZero := b.EmitLogicalOr(typeBool, isZero0, isZero1)
 
-		mulF := b.EmitFMul(idFloat, val0, val1)
-		resF := b.EmitSelect(idFloat, anyZero, idZeroF, mulF)
+		mulF := b.EmitFMul(typeFloat, val0, val1)
+		resF := b.EmitSelect(typeFloat, anyZero, idZeroF, mulF)
 		ctx.StoreRegisterPointer(b, details.Dst+OpVgpr0, b.EmitBitcast(ctx.GetId(BlockContextIdTypeUint), resF))
 	case Vop2OpMinF32:
 		val0 := ctx.GetOperandFloatValue(b, details.Src0, instr.Literal)

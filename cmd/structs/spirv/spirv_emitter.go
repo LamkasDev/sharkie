@@ -2,20 +2,25 @@ package spirv
 
 // SpvBuilder accumulates SPIR-V words so we can assemble them in the correct order.
 type SpvBuilder struct {
-	nextId    uint32
-	caps      []uint32 // OpCapability
-	exts      []uint32 // OpExtension / OpExtInstImport
-	memModel  []uint32 // OpMemoryModel
-	entryPts  []uint32 // OpEntryPoint
-	execModes []uint32 // OpExecutionMode
-	annots    []uint32 // OpDecorate / OpMemberDecorate
-	types     []uint32 // types, constants, global variables
-	code      []uint32 // function bodies
+	nextId            uint32
+	caps              []uint32 // OpCapability
+	exts              []uint32 // OpExtension / OpExtInstImport
+	memModel          []uint32 // OpMemoryModel
+	entryPts          []uint32 // OpEntryPoint
+	execModes         []uint32 // OpExecutionMode
+	debug             []uint32 // OpName / OpMemberName
+	annots            []uint32 // OpDecorate / OpMemberDecorate
+	types             []uint32 // types, constants, global variables
+	deferredConstants []uint32 // deferred constants
+	deferredLocalVars []uint32 // deferred local variables
+	code              []uint32 // function bodies
 }
 
 // NewSpvBuilder creates a new SpvBuilder.
 func NewSpvBuilder() *SpvBuilder {
-	return &SpvBuilder{nextId: 1}
+	return &SpvBuilder{
+		nextId: 1,
+	}
 }
 
 // AllocId returns the next available SPIR-V ID.
@@ -60,6 +65,25 @@ func (b *SpvBuilder) EmitEntryPoint(execModel, funcID uint32, name string, inter
 func (b *SpvBuilder) EmitExecutionMode(funcID, mode uint32, args ...uint32) {
 	operands := append([]uint32{funcID, mode}, args...)
 	b.instr(&b.execModes, SpvOpExecutionMode, operands...)
+}
+
+// EmitName emits OpName.
+func (b *SpvBuilder) EmitName(target uint32, name string) {
+	operands := append([]uint32{target}, spirvString(name)...)
+	b.instr(&b.debug, SpvOpName, operands...)
+}
+
+// EmitString emits OpString and returns the result ID.
+func (b *SpvBuilder) EmitString(s string) uint32 {
+	id := b.AllocId()
+	operands := append([]uint32{id}, spirvString(s)...)
+	b.instr(&b.code, SpvOpString, operands...)
+	return id
+}
+
+// EmitLine emits OpLine.
+func (b *SpvBuilder) EmitLine(fileID, line, column uint32) {
+	b.instr(&b.code, SpvOpLine, fileID, line, column)
 }
 
 // EmitDecorate decorates a target type (optional extra operands).
@@ -181,9 +205,30 @@ func (b *SpvBuilder) Assemble() []uint32 {
 	out = append(out, b.memModel...)
 	out = append(out, b.entryPts...)
 	out = append(out, b.execModes...)
+	out = append(out, b.debug...)
 	out = append(out, b.annots...)
 	out = append(out, b.types...)
-	out = append(out, b.code...)
+	out = append(out, b.deferredConstants...)
+
+	// Insert local variables after the first label in the code section.
+	code := b.code
+	for i := 0; i < len(code); {
+		wordCount := code[i] >> 16
+		opCode := code[i] & 0xFFFF
+		if opCode == SpvOpLabel {
+			// Found the first label, insert local variables right after it.
+			i += int(wordCount)
+			newCode := make([]uint32, 0, len(code)+len(b.deferredLocalVars))
+			newCode = append(newCode, code[:i]...)
+			newCode = append(newCode, b.deferredLocalVars...)
+			newCode = append(newCode, code[i:]...)
+			code = newCode
+			break
+		}
+		i += int(wordCount)
+	}
+
+	out = append(out, code...)
 
 	return out
 }

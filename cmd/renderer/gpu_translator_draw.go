@@ -101,6 +101,8 @@ func (t *GpuTranslator) recordDraw(commandBuffer vk.CommandBuffer, draw *Liverpo
 	t.constRamBuffersMutex.Unlock()
 	t.userDataBuffersMutex.Lock()
 	userDataBuffer := t.userDataBuffers[draw.UserDataHash]
+	userDataBufferDebug := t.userDataBuffersDebug[draw.UserDataHash]
+	_ = userDataBufferDebug
 	t.userDataBuffersMutex.Unlock()
 
 	// Push constants to shader.

@@ -6,7 +6,7 @@ import (
 	. "github.com/LamkasDev/sharkie/cmd/structs/gcn"
 )
 
-func emitSOPC(b *SpvBuilder, instr *Instruction, ctx SpirvBlockContext) {
+func emitSOPC(b *SpvBuilder, instr *Instruction, ctx *SpirvBlockContext) {
 	details := instr.Details.(*ScalarDetails)
 	switch details.Op {
 	case SopcOpCmpEqU32:
