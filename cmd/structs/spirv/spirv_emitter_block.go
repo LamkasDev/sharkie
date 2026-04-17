@@ -80,6 +80,8 @@ const (
 	BlockContextIdPcVar
 	BlockContextIdGlsl
 	BlockContextIdSubgroupLocalInvocationId
+	BlockContextIdVertexIndex
+	BlockContextIdInstanceIndex
 )
 
 const (
@@ -127,12 +129,19 @@ const (
 	ConstIdxUint5        = 5
 	ConstIdxUint6        = 6
 	ConstIdxUint7        = 7
+	ConstIdxUint8        = 8
+	ConstIdxUint12       = 12
+	ConstIdxUint15       = 15
 	ConstIdxUint16       = 16
+	ConstIdxUint19       = 19
+	ConstIdxUint21       = 21
+	ConstIdxUint23       = 23
 	ConstIdxUint30       = 30
 	ConstIdxUint31       = 31
 	ConstIdxUint32       = 32
 	ConstIdxUint33       = 33
 	ConstIdxUint62       = 62
+	ConstIdxUint63       = 63
 	ConstIdxUint127      = 127
 	ConstIdxUint7F       = ConstIdxUint127
 	ConstIdxUint256      = 256
@@ -272,6 +281,14 @@ func emitBlock(b *SpvBuilder, block *GcnShaderCfgBlock, ctx *SpirvBlockContext) 
 			ptr := b.EmitPtrAccessChain(idPtrPsbUint, ptrBase, ctx.GetConstId(BlockContextId(stageOffset+i)))
 			val := b.EmitLoad(ctx.GetId(BlockContextIdTypeUint), ptr, SpvMemoryAccessAligned, 4)
 			ctx.SetGcnSgprId(b, i, val)
+		}
+
+		// Load vertex index and instance index into v0 and v1.
+		if ctx.Stage == GcnShaderStageVertex {
+			v0 := b.EmitLoad(ctx.GetId(BlockContextIdTypeUint), ctx.GetId(BlockContextIdVertexIndex))
+			ctx.SetGcnVgprId(b, 0, v0)
+			v1 := b.EmitLoad(ctx.GetId(BlockContextIdTypeUint), ctx.GetId(BlockContextIdInstanceIndex))
+			ctx.SetGcnVgprId(b, 1, v1)
 		}
 	}
 

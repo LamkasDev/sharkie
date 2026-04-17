@@ -10,11 +10,13 @@ import (
 	"github.com/LamkasDev/cimgui-go-vulkan/backend"
 	glfwvulkanbackend "github.com/LamkasDev/cimgui-go-vulkan/backend/glfwvulkan-backend"
 	"github.com/LamkasDev/cimgui-go-vulkan/imgui"
+	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/LamkasDev/sharkie/cmd/structs/gcn"
 	. "github.com/LamkasDev/sharkie/cmd/structs/gpu"
 	. "github.com/LamkasDev/sharkie/cmd/structs/spirv"
 	vk "github.com/goki/vulkan"
+	"github.com/gookit/color"
 )
 
 type GpuTranslatorPipelineKey struct {
@@ -168,12 +170,16 @@ func (t *GpuTranslator) Destroy() {
 }
 
 // Translate translates a slice of DrawCalls into Vulkan commands and returns the command buffer.
-func (t *GpuTranslator) Translate(draws []LiverpoolDrawCall) *vk.CommandBuffer {
+func (t *GpuTranslator) Translate(frame uint64, draws []LiverpoolDrawCall) *vk.CommandBuffer {
 	if len(draws) == 0 {
 		return nil
 	}
 
 	// Update buffers holding const ram.
+	logger.Printf("[%s] updating buffers for %s draws.\n",
+		color.Blue.Sprintf("Frame %d", frame),
+		color.Blue.Sprint(len(draws)),
+	)
 	t.UpdateConstRamBuffers(draws)
 	t.UpdateUserDataBuffers(draws)
 
@@ -183,8 +189,12 @@ func (t *GpuTranslator) Translate(draws []LiverpoolDrawCall) *vk.CommandBuffer {
 		SType: vk.StructureTypeCommandBufferBeginInfo,
 		Flags: vk.CommandBufferUsageFlags(vk.CommandBufferUsageOneTimeSubmitBit),
 	})
+	logger.Printf("[%s] recording %s draws.\n",
+		color.Blue.Sprintf("Frame %d", frame),
+		color.Blue.Sprint(len(draws)),
+	)
 	for i := range draws {
-		t.recordDraw(commandBuffer, &draws[i])
+		t.recordDraw(frame, commandBuffer, &draws[i])
 	}
 	vk.EndCommandBuffer(commandBuffer)
 

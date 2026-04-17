@@ -48,7 +48,7 @@ func (l *Liverpool) handleSetRegsRaw(ringName string, offset uint32, payload []u
 
 func (l *Liverpool) handleSetRegs(ringName string, bank []uint32, bankName string, bankRegNames map[uint32]string, payload []uint32) {
 	if len(payload) < 2 {
-		logger.Printf("[%s] set regs payload too short.\n",
+		logger.Printf("[%s] failed set regs payload too short.\n",
 			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
 		)
 		return
@@ -74,7 +74,7 @@ func (l *Liverpool) handleSetRegs(ringName string, bank []uint32, bankName strin
 
 func (l *Liverpool) handleWaitRegMemory(ringName string, payload []uint32) {
 	if len(payload) < 6 {
-		logger.Printf("[%s] wait reg memory payload too short.\n",
+		logger.Printf("[%s] failed wait reg memory payload too short.\n",
 			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
 		)
 		return
@@ -85,7 +85,7 @@ func (l *Liverpool) handleWaitRegMemory(ringName string, payload []uint32) {
 	memorySpace := (payload[0] >> 4) & 0x1
 	if memorySpace == 0 {
 		// MMIO register poll, skip for now.
-		logger.Printf("[%s] wait reg memory on mmio register %s skipped.\n",
+		logger.Printf("[%s] failed wait reg memory on mmio register %s.\n",
 			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
 			color.Yellow.Sprintf("0x%X", payload[1]),
 		)

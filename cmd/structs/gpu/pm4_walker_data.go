@@ -20,7 +20,7 @@ func (l *Liverpool) handleWriteData(ringName string, payload []uint32) {
 	switch destSelection {
 	case 0, 1, 5:
 	default:
-		logger.Printf("[%s] write data on non-memory destination %s skipped.\n",
+		logger.Printf("[%s] failed write data on non-memory destination %s.\n",
 			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
 			color.Yellow.Sprintf("0x%X", destSelection),
 		)
@@ -32,7 +32,7 @@ func (l *Liverpool) handleWriteData(ringName string, payload []uint32) {
 	addressHigh := uint64(payload[2] & 0xFFFF)
 	address := uintptr(addressLow | (addressHigh << 32))
 	if address == 0 {
-		logger.Printf("[%s] write data invalid address.\n",
+		logger.Printf("[%s] failed write data invalid address.\n",
 			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
 		)
 		return
@@ -48,6 +48,50 @@ func (l *Liverpool) handleWriteData(ringName string, payload []uint32) {
 			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
 			color.Green.Sprintf("%d", len(data)),
 			color.Yellow.Sprintf("0x%X", address),
+		)
+	}
+}
+
+func (l *Liverpool) handleDmaData(ringName string, payload []uint32) {
+	if len(payload) < 6 {
+		logger.Printf("[%s] dma data payload too short.\n",
+			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
+		)
+		return
+	}
+
+	// Get address of source.
+	srcAddrLow := uint64(payload[1])
+	srcAddrHigh := uint64(payload[2])
+	srcAddr := uintptr(srcAddrLow | (srcAddrHigh << 32))
+
+	// Get address of destination.
+	dstAddrLow := uint64(payload[3])
+	dstAddrHigh := uint64(payload[4])
+	dstAddr := uintptr(dstAddrLow | (dstAddrHigh << 32))
+
+	// Validate.
+	count := payload[5] & 0x3FFFFF
+	if srcAddr == 0 || dstAddr == 0 {
+		logger.Printf("[%s] failed dma data invalid address.\n",
+			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
+		)
+		return
+	}
+
+	// Copy the data.
+	srcSlice := unsafe.Slice((*uint32)(unsafe.Pointer(srcAddr)), count)
+	dstSlice := unsafe.Slice((*uint32)(unsafe.Pointer(dstAddr)), count)
+	l.StateMutex.Lock()
+	copy(dstSlice, srcSlice)
+	l.StateMutex.Unlock()
+
+	if LogPM4Packets {
+		logger.Printf("[%s] copied %s bytes from %s to %s\n",
+			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
+			color.Green.Sprintf("%d", count*4),
+			color.Yellow.Sprintf("0x%X", srcAddr),
+			color.Yellow.Sprintf("0x%X", dstAddr),
 		)
 	}
 }
@@ -75,7 +119,7 @@ func (l *Liverpool) handleWriteConstRam(ringName string, payload []uint32) {
 	copy(l.DrawState.ConstRam[offset:], data)
 	l.StateMutex.Unlock()
 
-	if LogPM4Packets {
+	if true || LogPM4Packets {
 		logger.Printf("[%s] wrote %s bytes to const ram at %s.\n",
 			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
 			color.Green.Sprintf("%d", len(data)),

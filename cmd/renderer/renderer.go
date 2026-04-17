@@ -8,9 +8,11 @@ import (
 	"github.com/LamkasDev/cimgui-go-vulkan/backend"
 	glfwvulkanbackend "github.com/LamkasDev/cimgui-go-vulkan/backend/glfwvulkan-backend"
 	"github.com/LamkasDev/cimgui-go-vulkan/imgui"
+	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/LamkasDev/sharkie/cmd/structs/gpu"
 	. "github.com/LamkasDev/sharkie/cmd/structs/video"
 	vk "github.com/goki/vulkan"
+	"github.com/gookit/color"
 )
 
 type Renderer struct {
@@ -98,13 +100,16 @@ func (r *Renderer) ConsumeFrames(done chan struct{}) {
 	defer runtime.UnlockOSThread()
 	defer close(done)
 
-	for range r.FrameSource.Channel {
+	for frame := range r.FrameSource.Channel {
+		logger.Printf("[%s] retrieved from channel.\n",
+			color.Blue.Sprintf("Frame %d", frame.Number),
+		)
 		r.UpdateCounters()
 
 		gpu.GlobalLiverpool.Walk()
 		draws := gpu.GlobalLiverpool.FlushDrawCalls()
 		if len(draws) > 0 && r.GpuTranslator != nil {
-			commandBuffer := r.GpuTranslator.Translate(draws)
+			commandBuffer := r.GpuTranslator.Translate(frame.Number, draws)
 			if commandBuffer == nil {
 				continue
 			}

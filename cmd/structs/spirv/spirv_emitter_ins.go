@@ -148,24 +148,6 @@ func (ctx *SpirvBlockContext) LoadPushConstantValue(b *SpvBuilder, i uint32) uin
 	return b.EmitLoad(valType, ptr)
 }
 
-// GetResourceBaseAddress extracts the base address from T# dword 0 and 1.
-func (ctx *SpirvBlockContext) GetResourceBaseAddress(b *SpvBuilder, dw0, dw1 uint32) uint32 {
-	typeUint := ctx.GetId(BlockContextIdTypeUint)
-
-	baseLo := dw0
-	baseHi := b.EmitBitwiseAnd(typeUint, dw1, ctx.GetConstId(ConstIdxUintFFFF))
-	base := ctx.Pack64(b, baseLo, baseHi)
-	return base
-}
-
-func (ctx *SpirvBlockContext) GetResourceStride(b *SpvBuilder, dw1 uint32) uint32 {
-	typeUint := ctx.GetId(BlockContextIdTypeUint)
-
-	shifted := b.EmitShiftRightLogical(typeUint, dw1, ctx.GetConstId(ConstIdxUint16))
-	// Mask to 14 bits [13:0] to strip CACHE_SWIZZLE (bit 14) and SWIZZLE_EN (bit 15).
-	return b.EmitBitwiseAnd(typeUint, shifted, ctx.GetConstId(ConstIdxUint3FFF))
-}
-
 // emitInstruction emits the SPIR-V for a single instruction.
 func emitInstruction(b *SpvBuilder, instr *Instruction, ctx *SpirvBlockContext) {
 	b.EmitLine(b.EmitString(instr.String()), uint32(instr.DwordOffset), 0)

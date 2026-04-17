@@ -47,6 +47,7 @@ func emitSOP1(b *SpvBuilder, instr *Instruction, ctx *SpirvBlockContext) {
 		sccVal := b.EmitSelect(typeUint, isNonZero, idC1, idC0)
 		ctx.StoreRegisterPointer(b, OpScc, sccVal)
 	case Sop1OpFlbitI32I64:
+		// TODO: this
 		typeInt := ctx.GetId(BlockContextIdTypeInt)
 		typeUint := ctx.GetId(BlockContextIdTypeUint)
 		typeBool := ctx.GetId(BlockContextIdTypeBool)

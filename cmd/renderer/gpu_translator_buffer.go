@@ -6,8 +6,10 @@ import (
 	"unsafe"
 
 	as "github.com/LamkasDev/asche"
+	"github.com/LamkasDev/sharkie/cmd/logger"
 	. "github.com/LamkasDev/sharkie/cmd/structs/gpu"
 	vk "github.com/goki/vulkan"
+	"github.com/gookit/color"
 )
 
 func (t *GpuTranslator) UpdateConstRamBuffers(draws []LiverpoolDrawCall) {
@@ -21,7 +23,8 @@ func (t *GpuTranslator) UpdateConstRamBuffers(draws []LiverpoolDrawCall) {
 	}
 
 	// Delete buffers that are no longer active.
-	for hash, buffer := range t.constRamBuffers {
+	// TODO: we need to delete it only once it's out of use.
+	/* for hash, buffer := range t.constRamBuffers {
 		if !activeHashes[hash] {
 			vk.DestroyBuffer(t.handles.Device, buffer, nil)
 			vk.FreeMemory(t.handles.Device, t.constRamBufferMems[hash], nil)
@@ -29,7 +32,7 @@ func (t *GpuTranslator) UpdateConstRamBuffers(draws []LiverpoolDrawCall) {
 			delete(t.constRamBuffersDebug, hash)
 			delete(t.constRamBufferMems, hash)
 		}
-	}
+	} */
 
 	// Create buffers for new active hashes.
 	for hash := range activeHashes {
@@ -73,15 +76,20 @@ func (t *GpuTranslator) UpdateUserDataBuffers(draws []LiverpoolDrawCall) {
 	}
 
 	// Delete buffers that are no longer active.
-	for hash, buffer := range t.userDataBuffers {
-		if !activeHashes[hash] {
-			vk.DestroyBuffer(t.handles.Device, buffer, nil)
-			vk.FreeMemory(t.handles.Device, t.userDataBufferMems[hash], nil)
-			delete(t.userDataBuffers, hash)
-			delete(t.userDataBuffersDebug, hash)
-			delete(t.userDataBufferMems, hash)
+	// TODO: we need to delete it only once it's out of use.
+	/* for hash, buffer := range t.userDataBuffers {
+	if !activeHashes[hash] {
+		vk.DestroyBuffer(t.handles.Device, buffer, nil)
+		vk.FreeMemory(t.handles.Device, t.userDataBufferMems[hash], nil)
+		delete(t.userDataBuffers, hash)
+		delete(t.userDataBuffersDebug, hash)
+		delete(t.userDataBufferMems, hash)
+		/* logger.Printf("[%s] Deleted user data with hash %s.\n",
+			color.Blue.Sprint("GPU"),
+			color.Yellow.Sprintf("0x%X", hash),
+		) */ /*
 		}
-	}
+	} */
 
 	// Create buffers for new active hashes.
 	for hash := range activeHashes {
@@ -111,6 +119,11 @@ func (t *GpuTranslator) UpdateUserDataBuffers(draws []LiverpoolDrawCall) {
 		t.userDataBuffers[hash] = buffer
 		t.userDataBuffersDebug[hash] = contents[:]
 		t.userDataBufferMems[hash] = mem
+		logger.Printf("[%s] Created user data with hash %s (%x).\n",
+			color.Blue.Sprint("GPU"),
+			color.Yellow.Sprintf("0x%X", hash),
+			contents[:16],
+		)
 	}
 }
 

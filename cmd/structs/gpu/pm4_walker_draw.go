@@ -7,7 +7,7 @@ import (
 
 func (l *Liverpool) handleDrawIndexAuto(ringName string, payload []uint32) {
 	if len(payload) < 2 {
-		logger.Printf("[%s] draw index auto payload too short.\n",
+		logger.Printf("[%s] failed draw index auto payload too short.\n",
 			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
 		)
 		return
@@ -34,7 +34,7 @@ func (l *Liverpool) handleDrawIndexAuto(ringName string, payload []uint32) {
 
 func (l *Liverpool) handleDrawIndex2(ringName string, payload []uint32) {
 	if len(payload) < 5 {
-		logger.Printf("[%s] draw index 2 payload too short.\n",
+		logger.Printf("[%s] failed draw index 2 payload too short.\n",
 			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
 		)
 		return

@@ -67,6 +67,14 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	typeSubgroupLocalInvocationId := b.EmitVariable(typePtrInputUint, SpvStorageInput)
 	b.EmitDecorate(typeSubgroupLocalInvocationId, SpvDecorationBuiltIn, SpvBuiltInSubgroupLocalInvocationId)
 
+	typeVertexIndex := b.EmitVariable(typePtrInputUint, SpvStorageInput)
+	b.EmitName(typeVertexIndex, "vertex_index")
+	b.EmitDecorate(typeVertexIndex, SpvDecorationBuiltIn, SpvBuiltInVertexIndex)
+
+	typeInstanceIndex := b.EmitVariable(typePtrInputUint, SpvStorageInput)
+	b.EmitName(typeInstanceIndex, "instance_index")
+	b.EmitDecorate(typeInstanceIndex, SpvDecorationBuiltIn, SpvBuiltInInstanceIndex)
+
 	// Push constants.
 	// struct StubPushConstants {
 	// 	float Time;
@@ -129,7 +137,7 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 		b.EmitName(typePosOut, "pos_out")
 		b.EmitDecorate(typePosOut, SpvDecorationBuiltIn, SpvBuiltInPosition)
 
-		interfaceIds = append(interfaceIds, typePosOut)
+		interfaceIds = append(interfaceIds, typePosOut, typeVertexIndex, typeInstanceIndex)
 		for i := range idParamOuts {
 			idParamOuts[i] = b.EmitVariable(idPtrOutV4, SpvStorageOutput)
 			b.EmitDecorate(idParamOuts[i], SpvDecorationLocation, uint32(i))
@@ -286,6 +294,8 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 		BlockContextIdPcVar:                     {Id: typePcVar, Name: "pc_var_t"},
 		BlockContextIdGlsl:                      {Id: typeGLSL, Name: "glsl_t"},
 		BlockContextIdSubgroupLocalInvocationId: {Id: typeSubgroupLocalInvocationId, Name: "subgroup_local_invocation_id_t"},
+		BlockContextIdVertexIndex:               {Id: typeVertexIndex, Name: "vertex_index_t"},
+		BlockContextIdInstanceIndex:             {Id: typeInstanceIndex, Name: "instance_index_t"},
 	}
 	for i, id := range idColorOuts {
 		ids[BlockContextIdColorOut0+BlockContextId(i)] = SpirvBlockContextUsedId{Id: id, Name: fmt.Sprintf("color_out_%d", i)}

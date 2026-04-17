@@ -26,6 +26,7 @@ func (l *Liverpool) SetupPM4Handlers() {
 
 	l.PM4Handlers[PM4_IT_WRITE_DATA] = l.handleWriteData
 	l.PM4Handlers[PM4_WRITE_CONST_RAM] = l.handleWriteConstRam
+	l.PM4Handlers[PM4_IT_DMA_DATA] = l.handleDmaData
 
 	l.PM4Handlers[PM4_IT_DRAW_INDEX_AUTO] = l.handleDrawIndexAuto
 	l.PM4Handlers[PM4_IT_DRAW_INDEX_2] = l.handleDrawIndex2
@@ -149,7 +150,7 @@ func (l *Liverpool) handleNop(ringName string, payload []uint32) {}
 
 func (l *Liverpool) handleContextControl(ringName string, payload []uint32) {
 	if len(payload) < 2 {
-		logger.Printf("[%s] context control payload too short.\n",
+		logger.Printf("[%s] failed context control payload too short.\n",
 			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
 		)
 		return
@@ -184,7 +185,7 @@ func (l *Liverpool) handleClearState(ringName string, payload []uint32) {
 
 func (l *Liverpool) handleAcquireMem(ringName string, payload []uint32) {
 	if len(payload) < 6 {
-		logger.Printf("[%s] acquire mem payload too short.\n",
+		logger.Printf("[%s] failed acquire mem payload too short.\n",
 			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
 		)
 		return
@@ -204,7 +205,7 @@ func (l *Liverpool) handleAcquireMem(ringName string, payload []uint32) {
 
 func (l *Liverpool) handleNumInstances(ringName string, payload []uint32) {
 	if len(payload) < 1 {
-		logger.Printf("[%s] num instances payload too short.\n",
+		logger.Printf("[%s] failed num instances payload too short.\n",
 			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
 		)
 		return
@@ -220,7 +221,7 @@ func (l *Liverpool) handleNumInstances(ringName string, payload []uint32) {
 
 func (l *Liverpool) handleIndexType(ringName string, payload []uint32) {
 	if len(payload) < 1 {
-		logger.Printf("[%s] index type payload too short.\n",
+		logger.Printf("[%s] failed index type payload too short.\n",
 			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
 		)
 		return
@@ -238,7 +239,7 @@ func (l *Liverpool) handleIndexType(ringName string, payload []uint32) {
 
 func (l *Liverpool) handleIndexBufferSize(ringName string, payload []uint32) {
 	if len(payload) < 1 {
-		logger.Printf("[%s] index buffer size payload too short.\n",
+		logger.Printf("[%s] failed index buffer size payload too short.\n",
 			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
 		)
 		return
@@ -254,7 +255,7 @@ func (l *Liverpool) handleIndexBufferSize(ringName string, payload []uint32) {
 
 func (l *Liverpool) handleEventWriteEop(ringName string, payload []uint32) {
 	if len(payload) < 4 {
-		logger.Printf("[%s] event write eop payload too short.\n",
+		logger.Printf("[%s] failed event write eop payload too short.\n",
 			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
 		)
 		return
@@ -268,7 +269,7 @@ func (l *Liverpool) handleEventWriteEop(ringName string, payload []uint32) {
 
 func (l *Liverpool) handleEventWriteEos(ringName string, payload []uint32) {
 	if len(payload) < 4 {
-		logger.Printf("[%s] event write eos payload too short.\n",
+		logger.Printf("[%s] failed event write eos payload too short.\n",
 			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
 		)
 		return
@@ -282,7 +283,7 @@ func (l *Liverpool) handleEventWriteEopEos(ringName, kind string, addrLow, addrH
 	addressHigh := uint64(addrHighAndSel & 0xFFFF)
 	address := uintptr(addressLow | (addressHigh << 32))
 	if address == 0 {
-		logger.Printf("[%s] write %s data invalid address.\n",
+		logger.Printf("[%s] failed write %s data invalid address.\n",
 			color.Green.Sprintf("PM4-%s", ringName),
 			color.Blue.Sprint(kind),
 		)
@@ -335,7 +336,7 @@ func (l *Liverpool) handleEventWriteEopEos(ringName, kind string, addrLow, addrH
 
 func (l *Liverpool) handleWaitOnDeCounterDiff(ringName string, payload []uint32) {
 	if len(payload) < 1 {
-		logger.Printf("[%s] wait on de counter payload too short.\n",
+		logger.Printf("[%s] failed wait on de counter payload too short.\n",
 			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
 		)
 		return
@@ -346,7 +347,7 @@ func (l *Liverpool) handleWaitOnDeCounterDiff(ringName string, payload []uint32)
 
 func (l *Liverpool) handleDispatchDirect(ringName string, payload []uint32) {
 	if len(payload) < 3 {
-		logger.Printf("[%s] dispatch direct payload too short.\n",
+		logger.Printf("[%s] failed dispatch direct payload too short.\n",
 			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
 		)
 		return

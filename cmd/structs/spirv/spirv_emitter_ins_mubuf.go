@@ -11,41 +11,37 @@ func emitMUBUF(b *SpvBuilder, instr *Instruction, ctx *SpirvBlockContext) {
 	typeUint := ctx.GetId(BlockContextIdTypeUint)
 	typeUint64 := ctx.GetId(BlockContextIdTypeUint64)
 
-	// Resource descriptor (SRSRC) is 4 SGPRs.
-	sgprBase := details.Srsrc * 4
-	dw0 := ctx.LoadRegisterPointer(b, OpSgpr0+sgprBase)
-	dw1 := ctx.LoadRegisterPointer(b, OpSgpr0+sgprBase+1)
-	dw3 := ctx.LoadRegisterPointer(b, OpSgpr0+sgprBase+3)
+	// Resource descriptor (SRSRC).
+	res := ctx.LoadBufferResource(b, details.Srsrc)
 
-	// Base address and stride from resource.
-	base := ctx.GetResourceBaseAddress(b, dw0, dw1)
-	stride := ctx.GetResourceStride(b, dw1)
-	addTidEnableBool := ctx.TestMask(b, dw3, 1<<17)
+	// sgpr_offset (from instruction SOFFSET).
+	sgprOffset := ctx.GetOperandUintValue(b, details.Soffset, 0)
+
+	// base = const_base + sgpr_offset
+	base := b.EmitIAdd(typeUint64, res.BaseAddress, b.EmitUConvert(typeUint64, sgprOffset))
 
 	var addr uint32
 	if details.Addr64 {
-		// Address = base(T#) + vgprAddr[63:0] + instrOffset[11:0] + sOffset
+		// ADDR64 mode: address = base(T#) + vgprAddr[63:0] + instrOffset[11:0] + sOffset
+		// Base and size in resource is ignored, but base is still usually added?
+		// "If set, buffer address is 64-bits (base and size in resource is ignored)."
 		vgprAddrLo := ctx.LoadRegisterPointer(b, OpVgpr0+details.Vaddr)
 		vgprAddrHi := ctx.LoadRegisterPointer(b, OpVgpr0+details.Vaddr+1)
 		vgprAddr := ctx.Pack64(b, vgprAddrLo, vgprAddrHi)
 
 		instrOffset := b.EmitConstantUint(typeUint, details.Offset)
-		sOffset := ctx.GetOperandUintValue(b, details.Soffset, 0)
+		totalOffset := b.EmitIAdd(typeUint, instrOffset, sgprOffset)
 
-		addr = b.EmitIAdd(typeUint64, base, vgprAddr)
-		addr = b.EmitIAdd(typeUint64, addr, b.EmitUConvert(typeUint64, b.EmitIAdd(typeUint, instrOffset, sOffset)))
+		// Documentation says base and size in resource is ignored if ADDR64 is set.
+		// However, many implementations still add base if it's non-zero.
+		// For now let's follow the simple addition.
+		addr = b.EmitIAdd(typeUint64, vgprAddr, b.EmitUConvert(typeUint64, totalOffset))
 	} else {
-		// Address = base(T#) + baseOffset + iOffset + vOffset + stride * (vIndex + threadId)
-		baseOffset := ctx.GetOperandUintValue(b, details.Soffset, 0)
-		iOffset := b.EmitConstantUint(typeUint, details.Offset)
-
+		// Standard mode (linear or swizzled).
 		vIndex := ctx.GetConstId(ConstIdxUint0)
 		if details.Idxen {
 			vIndex = ctx.LoadRegisterPointer(b, OpVgpr0+details.Vaddr)
 		}
-
-		threadId := b.EmitLoad(typeUint, ctx.GetId(BlockContextIdSubgroupLocalInvocationId))
-		vIndexWithThreadId := b.EmitSelect(typeUint, addTidEnableBool, b.EmitIAdd(typeUint, vIndex, threadId), vIndex)
 
 		vOffset := ctx.GetConstId(ConstIdxUint0)
 		if details.Offen {
@@ -56,13 +52,23 @@ func emitMUBUF(b *SpvBuilder, instr *Instruction, ctx *SpirvBlockContext) {
 			vOffset = ctx.LoadRegisterPointer(b, OpVgpr0+vaddrOffset)
 		}
 
-		addr = b.EmitIAdd(typeUint64, base, b.EmitIAdd(typeUint64,
-			b.EmitUConvert(typeUint64, b.EmitIMul(typeUint, vIndexWithThreadId, stride)),
-			b.EmitUConvert(typeUint64, b.EmitIAdd(typeUint, vOffset, b.EmitIAdd(typeUint, baseOffset, iOffset)))))
+		// inst_offset
+		instOffset := b.EmitConstantUint(typeUint, details.Offset)
+
+		// offset = (inst_offen ? vgpr_offset : 0) + inst_offset
+		offset := b.EmitIAdd(typeUint, vOffset, instOffset)
+
+		// Calculate buffer_offset (handles linear/swizzled and TID).
+		bufferOffset := ctx.CalculateBufferOffset(b,
+			res.Stride, res.SwizzleEn, res.ElementSize, res.IndexStride, res.AddTidEnable,
+			vIndex, offset)
+
+		// Final address = base + bufferOffset
+		addr = b.EmitIAdd(typeUint64, base, b.EmitUConvert(typeUint64, bufferOffset))
 	}
 
 	switch details.Op {
-	case MubufOpLoadFormatX, MubufOpLoadDword:
+	case MubufOpLoadFormatX, MubufOpLoadDword, MubufOpLoadUbyte, MubufOpLoadSbyte, MubufOpLoadUshort, MubufOpLoadSshort:
 		emitMUBUFLoad(b, instr, ctx, addr, 1)
 	case MubufOpLoadFormatXy, MubufOpLoadDwordx2:
 		emitMUBUFLoad(b, instr, ctx, addr, 2)
@@ -75,16 +81,20 @@ func emitMUBUF(b *SpvBuilder, instr *Instruction, ctx *SpirvBlockContext) {
 	}
 }
 
-func emitMUBUFLoad(b *SpvBuilder, instr *Instruction, ctx *SpirvBlockContext, addr uint32, count uint32) {
+func emitMUBUFLoad(b *SpvBuilder, instr *Instruction, ctx *SpirvBlockContext, addr, count uint32) {
 	details := instr.Details.(*MubufDetails)
-	idUint := ctx.GetId(BlockContextIdTypeUint)
+	typeUint := ctx.GetId(BlockContextIdTypeUint)
+	typeBool := ctx.GetId(BlockContextIdTypeBool)
 	idPtrPsbUint := ctx.GetId(BlockContextIdPtrPsbUint)
 
+	inRange := b.EmitConstantTrue(typeBool)
 	ptr := b.EmitConvertUToPtr(idPtrPsbUint, addr)
 	for i := range count {
 		b.EmitLine(b.EmitString(fmt.Sprintf("load %d", i)), uint32(instr.DwordOffset), i)
 		elementPtr := b.EmitPtrAccessChain(idPtrPsbUint, ptr, ctx.GetConstId(BlockContextId(i)))
-		val := b.EmitLoad(idUint, elementPtr, SpvMemoryAccessAligned, 4)
+
+		// Load and handle out-of-range (return 0).
+		val := b.EmitLoadConditional(typeUint, elementPtr, inRange, ctx.GetConstId(ConstIdxUint0), SpvMemoryAccessAligned, 4)
 		ctx.StoreRegisterPointer(b, OpVgpr0+details.Vdata+i, val)
 	}
 }

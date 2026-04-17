@@ -49,6 +49,13 @@ func (b *SpvBuilder) EmitUDiv(resultType, op1, op2 uint32) uint32 {
 	return id
 }
 
+// EmitUMod emits OpUMod and returns the result ID.
+func (b *SpvBuilder) EmitUMod(resultType, op1, op2 uint32) uint32 {
+	id := b.AllocId()
+	b.instr(&b.code, SpvOpUMod, resultType, id, op1, op2)
+	return id
+}
+
 // EmitFDiv emits OpFDiv and returns the result ID.
 func (b *SpvBuilder) EmitFDiv(resultType, op1, op2 uint32) uint32 {
 	id := b.AllocId()
@@ -60,6 +67,20 @@ func (b *SpvBuilder) EmitFDiv(resultType, op1, op2 uint32) uint32 {
 func (b *SpvBuilder) EmitLogicalOr(resultType, op1, op2 uint32) uint32 {
 	id := b.AllocId()
 	b.instr(&b.code, SpvOpLogicalOr, resultType, id, op1, op2)
+	return id
+}
+
+// EmitLogicalAnd emits OpLogicalAnd and returns the result ID.
+func (b *SpvBuilder) EmitLogicalAnd(resultType, op1, op2 uint32) uint32 {
+	id := b.AllocId()
+	b.instr(&b.code, SpvOpLogicalAnd, resultType, id, op1, op2)
+	return id
+}
+
+// EmitLogicalNot emits OpLogicalNot and returns the result ID.
+func (b *SpvBuilder) EmitLogicalNot(resultType, operand uint32) uint32 {
+	id := b.AllocId()
+	b.instr(&b.code, SpvOpLogicalNot, resultType, id, operand)
 	return id
 }
 

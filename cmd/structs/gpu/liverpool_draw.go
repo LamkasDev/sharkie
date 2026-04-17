@@ -129,16 +129,11 @@ func (d *LiverpoolDrawCall) ScissorRect() (x, y, width, height int) {
 
 // NewDrawCall captures the current register & draw state into a LiverpoolDrawCall.
 func (l *Liverpool) NewDrawCall(vertexCount uint32, isIndexed bool) LiverpoolDrawCall {
-	instanceCount := l.DrawState.InstanceCount
-	if instanceCount == 0 {
-		instanceCount = 1
-	}
-
 	l.StateMutex.Lock()
 	drawCall := LiverpoolDrawCall{
 		PrimType:      l.Registers.UserConfig[GREG_MM_VGT_PRIMITIVE_TYPE__CI__VI],
 		VertexCount:   vertexCount,
-		InstanceCount: instanceCount,
+		InstanceCount: max(l.DrawState.InstanceCount, 1),
 		IsIndexed:     isIndexed,
 
 		IndexCount:       l.DrawState.IndexBufferSize,

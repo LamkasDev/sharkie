@@ -8,7 +8,8 @@ type SpvBuilder struct {
 	memModel          []uint32 // OpMemoryModel
 	entryPts          []uint32 // OpEntryPoint
 	execModes         []uint32 // OpExecutionMode
-	debug             []uint32 // OpName / OpMemberName
+	debugStrings      []uint32 // OpString / OpSource / ...
+	debugNames        []uint32 // OpName / OpMemberName
 	annots            []uint32 // OpDecorate / OpMemberDecorate
 	types             []uint32 // types, constants, global variables
 	deferredConstants []uint32 // deferred constants
@@ -70,14 +71,14 @@ func (b *SpvBuilder) EmitExecutionMode(funcID, mode uint32, args ...uint32) {
 // EmitName emits OpName.
 func (b *SpvBuilder) EmitName(target uint32, name string) {
 	operands := append([]uint32{target}, spirvString(name)...)
-	b.instr(&b.debug, SpvOpName, operands...)
+	b.instr(&b.debugNames, SpvOpName, operands...)
 }
 
 // EmitString emits OpString and returns the result ID.
 func (b *SpvBuilder) EmitString(s string) uint32 {
 	id := b.AllocId()
 	operands := append([]uint32{id}, spirvString(s)...)
-	b.instr(&b.code, SpvOpString, operands...)
+	b.instr(&b.debugStrings, SpvOpString, operands...)
 	return id
 }
 
@@ -148,6 +149,13 @@ func (b *SpvBuilder) EmitBitcast(resultType, operand uint32) uint32 {
 	return id
 }
 
+// EmitConvertUToF emits EmitConvertUToF and returns the result ID.
+func (b *SpvBuilder) EmitConvertUToF(resultType, operand uint32) uint32 {
+	id := b.AllocId()
+	b.instr(&b.code, SpvOpConvertUToF, resultType, id, operand)
+	return id
+}
+
 // EmitConvertUToPtr emits OpConvertUToPtr and returns the result ID.
 func (b *SpvBuilder) EmitConvertUToPtr(resultType, operand uint32) uint32 {
 	id := b.AllocId()
@@ -205,7 +213,8 @@ func (b *SpvBuilder) Assemble() []uint32 {
 	out = append(out, b.memModel...)
 	out = append(out, b.entryPts...)
 	out = append(out, b.execModes...)
-	out = append(out, b.debug...)
+	out = append(out, b.debugStrings...)
+	out = append(out, b.debugNames...)
 	out = append(out, b.annots...)
 	out = append(out, b.types...)
 	out = append(out, b.deferredConstants...)

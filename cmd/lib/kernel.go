@@ -264,9 +264,11 @@ func RegisterKernelStubs() {
 	elf.RegisterStub("libkernel", "__sys_socketex", libKernel___sys_socketex)
 	elf.RegisterStub("libkernel", "__sys_socketclose", libKernel___sys_socketclose)
 
-	elf.RegisterStub("Minecraft.Client.sprx", "sub_20280", sub_20280)
-	elf.RegisterStub("Minecraft.Client.sprx", "sub_7510F0", sub_7510F0)
-	elf.RegisterStub("Minecraft.Client.sprx", "sub_133DD0", sub_133DD0)
+	if logger.GameDebugMode {
+		elf.RegisterStub("Minecraft.Client.sprx", "sub_20280", sub_20280)
+		elf.RegisterStub("Minecraft.Client.sprx", "sub_7510F0", sub_7510F0)
+		elf.RegisterStub("Minecraft.Client.sprx", "sub_133DD0", sub_133DD0)
+	}
 }
 
 var cFormatRegex = regexp.MustCompile(`%([0-9#+\- ]*)l{0,2}([a-zA-Z%])`)

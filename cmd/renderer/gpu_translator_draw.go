@@ -5,9 +5,11 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/LamkasDev/sharkie/cmd/logger"
 	. "github.com/LamkasDev/sharkie/cmd/structs"
 	. "github.com/LamkasDev/sharkie/cmd/structs/gpu"
 	vk "github.com/goki/vulkan"
+	"github.com/gookit/color"
 )
 
 var startTime time.Time
@@ -25,7 +27,7 @@ type StubPushConstants struct {
 	OnionAddress    uint64
 }
 
-func (t *GpuTranslator) recordDraw(commandBuffer vk.CommandBuffer, draw *LiverpoolDrawCall) {
+func (t *GpuTranslator) recordDraw(frame uint64, commandBuffer vk.CommandBuffer, draw *LiverpoolDrawCall) {
 	rtAddress := draw.RtGpuAddress()
 	t.surfacesMutex.Lock()
 	surface, ok := t.surfaces[rtAddress]
@@ -120,12 +122,14 @@ func (t *GpuTranslator) recordDraw(commandBuffer vk.CommandBuffer, draw *Liverpo
 		unsafe.Pointer(&pushData),
 	)
 
-	// Draw a full-screen triangle; vertex count 3, instanced as needed.
-	instanceCount := draw.InstanceCount
-	if instanceCount == 0 {
-		instanceCount = 1
-	}
-	vk.CmdDraw(commandBuffer, 3, instanceCount, 0, 0)
+	logger.Printf("[%s] Drawing %s vertices (vertex=%s, fragment=%s, userData=%s).\n",
+		color.Blue.Sprintf("Frame %d", frame),
+		color.Green.Sprint(draw.VertexCount),
+		color.Yellow.Sprintf("0x%X", draw.VertexShader.Address),
+		color.Yellow.Sprintf("0x%X", draw.PixelShader.Address),
+		color.Yellow.Sprintf("0x%X", draw.UserDataHash),
+	)
+	vk.CmdDraw(commandBuffer, draw.VertexCount, draw.InstanceCount, 0, 0)
 
 	vk.CmdEndRenderPass(commandBuffer)
 }
