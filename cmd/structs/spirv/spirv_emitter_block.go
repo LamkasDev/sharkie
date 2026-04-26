@@ -82,6 +82,11 @@ const (
 	BlockContextIdSubgroupLocalInvocationId
 	BlockContextIdVertexIndex
 	BlockContextIdInstanceIndex
+	BlockContextIdTypeImageBuffer
+	BlockContextIdTexelBuffer0
+	BlockContextIdTexelBuffer1
+	BlockContextIdTexelBuffer2
+	BlockContextIdTexelBuffer3
 )
 
 const (
@@ -156,12 +161,7 @@ const (
 )
 
 const (
-	PushConstantTime            = 0
-	PushConstant_               = 1
-	PushConstantConstRamAddress = 2
-	PushConstantUserDataAddress = 3
-	PushConstantGarlicAddress   = 4
-	PushConstantOnionAddress    = 5
+	PushConstantUserDataAddress = 0
 )
 
 type SpirvBlockContextUsedId struct {
@@ -242,6 +242,10 @@ func (ctx *SpirvBlockContext) SetGcnVgprId(b *SpvBuilder, reg uint32, val uint32
 	b.EmitStore(ctx.GetGcnVgprPtr(b, reg), val)
 }
 
+func (ctx *SpirvBlockContext) GetTexelBufferVariable(binding uint32) uint32 {
+	return ctx.GetId(BlockContextIdTexelBuffer0 + BlockContextId(binding))
+}
+
 func (ctx *SpirvBlockContext) GetGcnSpecialId(reg uint32) uint32 {
 	id := ctx.GcnSpecialIds[reg]
 	if id.Id == 0 {
@@ -272,10 +276,12 @@ func emitBlock(b *SpvBuilder, block *GcnShaderCfgBlock, ctx *SpirvBlockContext) 
 	// Declare variables in entry block.
 	if block.DwordOffset == 0 {
 		// Load user data buffer address from the push constant.
+		b.EmitString("load user data buffer address")
 		idPtrPsbUint := ctx.GetId(BlockContextIdPtrPsbUint)
 		ptrBase := ctx.LoadPushConstantValue(b, PushConstantUserDataAddress)
 
 		// Load 16 user data registers into s0-s15.
+		b.EmitString("load user data registers")
 		stageOffset := gpu.GcnStageToUserDataOffset[ctx.Stage]
 		for i := range uint32(16) {
 			ptr := b.EmitPtrAccessChain(idPtrPsbUint, ptrBase, ctx.GetConstId(BlockContextId(stageOffset+i)))
@@ -285,11 +291,30 @@ func emitBlock(b *SpvBuilder, block *GcnShaderCfgBlock, ctx *SpirvBlockContext) 
 
 		// Load vertex index and instance index into v0 and v1.
 		if ctx.Stage == GcnShaderStageVertex {
+			b.EmitString("load vertex and instance index")
 			v0 := b.EmitLoad(ctx.GetId(BlockContextIdTypeUint), ctx.GetId(BlockContextIdVertexIndex))
 			ctx.SetGcnVgprId(b, 0, v0)
 			v1 := b.EmitLoad(ctx.GetId(BlockContextIdTypeUint), ctx.GetId(BlockContextIdInstanceIndex))
 			ctx.SetGcnVgprId(b, 1, v1)
 		}
+
+		// Initialize EXEC and VCC.
+		// EXEC is initialized to the subgroup's active mask.
+		b.EmitString("initialize exec and vcc")
+		typeV4Uint := ctx.GetId(BlockContextIdTypeV4Uint)
+		typeUint := ctx.GetId(BlockContextIdTypeUint)
+		idC3 := ctx.GetConstId(ConstIdxUint3) // Subgroup
+		ballot := b.EmitGroupNonUniformBallot(typeV4Uint, idC3, ctx.GetId(BlockContextIdTrue))
+		execLo := b.EmitCompositeExtract(typeUint, ballot, 0)
+		execHi := b.EmitCompositeExtract(typeUint, ballot, 1)
+		ctx.StoreRegisterPointer(b, OpExecLo, execLo)
+		ctx.StoreRegisterPointer(b, OpExecHi, execHi)
+
+		// VCC is initialized to 0.
+		b.EmitString("set vcc to 0")
+		idC0 := ctx.GetConstId(ConstIdxUint0)
+		ctx.StoreRegisterPointer(b, OpVccLo, idC0)
+		ctx.StoreRegisterPointer(b, OpVccHi, idC0)
 	}
 
 	// Reset condition ID.

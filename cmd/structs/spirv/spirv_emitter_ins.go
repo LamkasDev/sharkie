@@ -131,15 +131,9 @@ func (ctx *SpirvBlockContext) Pack64(b *SpvBuilder, lo, hi uint32) uint32 {
 func (ctx *SpirvBlockContext) LoadPushConstantValue(b *SpvBuilder, i uint32) uint32 {
 	var valType, ptrType uint32
 	switch i {
-	case PushConstantTime:
-		valType = ctx.GetId(BlockContextIdTypeFloat)
-		ptrType = ctx.GetId(BlockContextIdPtrPcFloat)
-	case PushConstantConstRamAddress, PushConstantUserDataAddress:
+	case PushConstantUserDataAddress:
 		valType = ctx.GetId(BlockContextIdPtrPsbUint)
 		ptrType = ctx.GetId(BlockContextIdPtrPcPsbUint)
-	case PushConstantGarlicAddress, PushConstantOnionAddress:
-		valType = ctx.GetId(BlockContextIdTypeUint64)
-		ptrType = ctx.GetId(BlockContextIdPtrPcPsbUint64)
 	default:
 		panic(fmt.Sprintf("unknown push constant index %d", i))
 	}

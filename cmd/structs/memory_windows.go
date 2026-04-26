@@ -30,26 +30,8 @@ func MemoryProtToWindowsProt(prot int32) uintptr {
 	}
 }
 
-func ReserveKernelMemory(addr uintptr, length uint64) (uintptr, error) {
-	allocatedAddr, _, err := sys_struct.VirtualAlloc.Call(
-		addr,
-		uintptr(length),
-		windows.MEM_RESERVE,
-		windows.PAGE_NOACCESS,
-	)
-	if allocatedAddr == 0 {
-		return 0, err
-	}
-
-	return allocatedAddr, nil
-}
-
 func AllocKernelMemory(addr uintptr, length uint64, prot, flags int32) (uintptr, error) {
-	allocationType := uintptr(windows.MEM_COMMIT)
-	isDirectMemory := MemoryIsDirect(addr)
-	if !isDirectMemory {
-		allocationType |= windows.MEM_RESERVE
-	}
+	allocationType := uintptr(windows.MEM_RESERVE | windows.MEM_COMMIT)
 	addr = sys_struct.GetNextAlignedAddress(addr, length)
 	allocatedAddr, _, err := sys_struct.VirtualAlloc.Call(
 		addr,

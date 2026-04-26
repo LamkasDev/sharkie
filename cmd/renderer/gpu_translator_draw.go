@@ -6,7 +6,6 @@ import (
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/logger"
-	. "github.com/LamkasDev/sharkie/cmd/structs"
 	. "github.com/LamkasDev/sharkie/cmd/structs/gpu"
 	vk "github.com/goki/vulkan"
 	"github.com/gookit/color"
@@ -19,12 +18,7 @@ func init() {
 }
 
 type StubPushConstants struct {
-	Time            float32
-	_               uint32 // Padding
-	ConstRamAddress uint64
 	UserDataAddress uint64
-	GarlicAddress   uint64
-	OnionAddress    uint64
 }
 
 func (t *GpuTranslator) recordDraw(frame uint64, commandBuffer vk.CommandBuffer, draw *LiverpoolDrawCall) {
@@ -98,22 +92,14 @@ func (t *GpuTranslator) recordDraw(frame uint64, commandBuffer vk.CommandBuffer,
 	t.setDynamicState(commandBuffer, draw, surface)
 
 	// Get buffer addresses.
-	t.constRamBuffersMutex.Lock()
-	constRamBuffer := t.constRamBuffers[draw.ConstRamHash]
-	t.constRamBuffersMutex.Unlock()
 	t.userDataBuffersMutex.Lock()
 	userDataBuffer := t.userDataBuffers[draw.UserDataHash]
 	userDataBufferDebug := t.userDataBuffersDebug[draw.UserDataHash]
-	_ = userDataBufferDebug
 	t.userDataBuffersMutex.Unlock()
 
 	// Push constants to shader.
 	pushData := StubPushConstants{
-		Time:            float32(time.Since(startTime).Seconds()),
-		ConstRamAddress: t.GetBufferAddress(constRamBuffer),
 		UserDataAddress: t.GetBufferAddress(userDataBuffer),
-		GarlicAddress:   uint64(GlobalGpuAllocator.GpuMemoryBase),
-		OnionAddress:    uint64(GlobalAllocator.DirectMemoryBase),
 	}
 	vk.CmdPushConstants(
 		commandBuffer, t.stubPipelineLayout,
@@ -121,6 +107,7 @@ func (t *GpuTranslator) recordDraw(frame uint64, commandBuffer vk.CommandBuffer,
 		0, uint32(unsafe.Sizeof(pushData)),
 		unsafe.Pointer(&pushData),
 	)
+	t.BindTexelBuffers(commandBuffer, draw, userDataBufferDebug)
 
 	logger.Printf("[%s] Drawing %s vertices (vertex=%s, fragment=%s, userData=%s).\n",
 		color.Blue.Sprintf("Frame %d", frame),

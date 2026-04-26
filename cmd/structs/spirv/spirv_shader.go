@@ -77,12 +77,7 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 
 	// Push constants.
 	// struct StubPushConstants {
-	// 	float Time;
-	// 	uint32 _;
-	// 	PhysicalStorageBuffer uint* ConstRamAddress;
 	// 	PhysicalStorageBuffer uint* UserDataAddress;
-	// 	uint64 GarlicAddress;
-	// 	uint64 OnionAddress;
 	// }
 
 	// Push constant types.
@@ -96,20 +91,13 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	b.EmitDecorate(typePtrPsbV4Uint, SpvDecorationArrayStride, 16)
 
 	// Push constant struct.
-	idUd := b.EmitTypeStruct(typeFloat, typeUint, typePtrPsbUint, typePtrPsbUint, typeUint64, typeUint64)
+	idUd := b.EmitTypeStruct(typePtrPsbUint)
 	idPtrPc := b.EmitTypePointer(SpvStoragePushConstant, idUd)
-	typePtrPcFloat := b.EmitTypePointer(SpvStoragePushConstant, typeFloat)
 	typePtrPcPsbUint := b.EmitTypePointer(SpvStoragePushConstant, typePtrPsbUint)
-	typePtrPcPsbUint64 := b.EmitTypePointer(SpvStoragePushConstant, typeUint64)
 
 	// Annotations for the push-constants.
 	b.EmitDecorate(idUd, SpvDecorationBlock)
 	b.EmitMemberDecorate(idUd, 0, SpvDecorationOffset, 0)
-	b.EmitMemberDecorate(idUd, 1, SpvDecorationOffset, 4)
-	b.EmitMemberDecorate(idUd, 2, SpvDecorationOffset, 8)
-	b.EmitMemberDecorate(idUd, 3, SpvDecorationOffset, 16)
-	b.EmitMemberDecorate(idUd, 4, SpvDecorationOffset, 24)
-	b.EmitMemberDecorate(idUd, 5, SpvDecorationOffset, 32)
 
 	// Global push-constant variable.
 	typePcVar := b.EmitVariable(idPtrPc, SpvStoragePushConstant)
@@ -121,6 +109,20 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	b.EmitName(typeBindlessTexturesVar, "bindless_textures")
 	b.EmitDecorate(typeBindlessTexturesVar, SpvDecorationDescriptorSet, 0)
 	b.EmitDecorate(typeBindlessTexturesVar, SpvDecorationBinding, 0)
+
+	// Texel buffers (Set 1, Binding 0..3).
+	var typeTexelBuffer uint32
+	var idTexelBufferVars [4]uint32
+	if shader.Stage == GcnShaderStageVertex {
+		typeTexelBuffer = b.EmitTypeImage(typeFloat, 5, 0, 0, 0, 1, 0) // Dim=5 (Buffer)
+		typePtrUniformTexelBuffer := b.EmitTypePointer(SpvStorageUniformConstant, typeTexelBuffer)
+		for i := range 4 {
+			idTexelBufferVars[i] = b.EmitVariable(typePtrUniformTexelBuffer, SpvStorageUniformConstant)
+			b.EmitName(idTexelBufferVars[i], fmt.Sprintf("texel_buffer_%d", i))
+			b.EmitDecorate(idTexelBufferVars[i], SpvDecorationDescriptorSet, 1)
+			b.EmitDecorate(idTexelBufferVars[i], SpvDecorationBinding, uint32(i))
+		}
+	}
 
 	// Stage-specific outputs.
 	idPtrOutF := b.EmitTypePointer(SpvStorageOutput, typeFloat)
@@ -279,9 +281,7 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 		BlockContextIdTypeV4Uint:                {Id: typeV4Uint, Name: "v4uint_t"},
 		BlockContextIdTypeSampledImage:          {Id: typeSampledImage2d, Name: "sampled_image_2d_t"},
 		BlockContextIdPtrUniformSampledImage:    {Id: typePtrUniformSampledImage2d, Name: "ptr_uniform_sampled_image_2d_t"},
-		BlockContextIdPtrPcFloat:                {Id: typePtrPcFloat, Name: "ptr_pc_float_t"},
 		BlockContextIdPtrPcPsbUint:              {Id: typePtrPcPsbUint, Name: "ptr_pc_psb_uint_t"},
-		BlockContextIdPtrPcPsbUint64:            {Id: typePtrPcPsbUint64, Name: "ptr_pc_psb_uint64_t"},
 		BlockContextIdPtrPsbUint:                {Id: typePtrPsbUint, Name: "ptr_pc_psb_uint_t"},
 		BlockContextIdPtrPsbV2Uint:              {Id: typePtrPsbV2Uint, Name: "ptr_pc_psb_v2_uint_t"},
 		BlockContextIdPtrPsbV3Uint:              {Id: typePtrPsbV3Uint, Name: "ptr_pc_psb_v3_uint_t"},
@@ -296,6 +296,10 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 		BlockContextIdSubgroupLocalInvocationId: {Id: typeSubgroupLocalInvocationId, Name: "subgroup_local_invocation_id_t"},
 		BlockContextIdVertexIndex:               {Id: typeVertexIndex, Name: "vertex_index_t"},
 		BlockContextIdInstanceIndex:             {Id: typeInstanceIndex, Name: "instance_index_t"},
+		BlockContextIdTypeImageBuffer:           {Id: typeTexelBuffer, Name: "image_buffer_t"},
+	}
+	for i, id := range idTexelBufferVars {
+		ids[BlockContextIdTexelBuffer0+BlockContextId(i)] = SpirvBlockContextUsedId{Id: id, Name: fmt.Sprintf("texel_buffer_%d", i)}
 	}
 	for i, id := range idColorOuts {
 		ids[BlockContextIdColorOut0+BlockContextId(i)] = SpirvBlockContextUsedId{Id: id, Name: fmt.Sprintf("color_out_%d", i)}

@@ -27,31 +27,7 @@ func MemoryFlagsToLinuxFlags(flags int32, addr uintptr) uintptr {
 	return uintptr(flags)
 }
 
-func ReserveKernelMemory(addr uintptr, length uint64) (uintptr, error) {
-	allocatedAddr, _, err := syscall.Syscall6(
-		syscall.SYS_MMAP,
-		addr,
-		uintptr(length),
-		uintptr(syscall.PROT_NONE),
-		MemoryFlagsToLinuxFlags(0, addr),
-		ERR_PTR,
-		0,
-	)
-	if err != 0 {
-		return 0, err
-	}
-
-	return allocatedAddr, nil
-}
-
 func AllocKernelMemory(addr uintptr, length uint64, prot, flags int32) (uintptr, error) {
-	isDirectMemory := MemoryIsDirect(addr)
-	if isDirectMemory {
-		if _, err := ProtectKernelMemory(addr, length, prot); err != nil {
-			return 0, err
-		}
-		return addr, nil
-	}
 	addr = sys_struct.GetNextAlignedAddress(addr, length)
 	allocatedAddr, _, err := syscall.Syscall6(
 		syscall.SYS_MMAP,

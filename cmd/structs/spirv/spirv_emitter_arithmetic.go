@@ -154,6 +154,13 @@ func (b *SpvBuilder) EmitUGreaterThan(resultType, op1, op2 uint32) uint32 {
 	return id
 }
 
+// EmitUGreaterThanEqual emits OpUGreaterThanEqual and returns the result ID.
+func (b *SpvBuilder) EmitUGreaterThanEqual(resultType, op1, op2 uint32) uint32 {
+	id := b.AllocId()
+	b.instr(&b.code, SpvOpUGreaterThanEqual, resultType, id, op1, op2)
+	return id
+}
+
 // EmitULessThan emits OpULessThan and returns the result ID.
 func (b *SpvBuilder) EmitULessThan(resultType, op1, op2 uint32) uint32 {
 	id := b.AllocId()

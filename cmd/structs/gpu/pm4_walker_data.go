@@ -119,7 +119,7 @@ func (l *Liverpool) handleWriteConstRam(ringName string, payload []uint32) {
 	copy(l.DrawState.ConstRam[offset:], data)
 	l.StateMutex.Unlock()
 
-	if true || LogPM4Packets {
+	if LogPM4Packets {
 		logger.Printf("[%s] wrote %s bytes to const ram at %s.\n",
 			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
 			color.Green.Sprintf("%d", len(data)),

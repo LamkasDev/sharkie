@@ -36,33 +36,49 @@ func emitSMRD(b *SpvBuilder, instr *Instruction, ctx *SpirvBlockContext) {
 
 func emitSMRDLoad(b *SpvBuilder, instr *Instruction, ctx *SpirvBlockContext, count uint32) {
 	details := instr.Details.(*SmrdDetails)
+	typeUint := ctx.GetId(BlockContextIdTypeUint)
+	typeUint64 := ctx.GetId(BlockContextIdTypeUint64)
 	idPtrPsbUint := ctx.GetId(BlockContextIdPtrPsbUint)
-	ptrBase := ctx.LoadPushConstantValue(b, PushConstantConstRamAddress)
 
-	// Calculate offset in dwords.
-	var offset uint32
+	// Load 64-bit base address from SGPRs.
+	// Base index is dword-based, so SBASE * 2.
+	lo, hi := ctx.GetOperand64Value(b, OpSgpr0+details.Base*2, 0)
+
+	// Base address is always 48 bits in GCN3 for SMRD.
+	hi = b.EmitBitwiseAnd(typeUint, hi, b.EmitConstantUint(typeUint, 0xFFFF))
+	base64 := ctx.Pack64(b, lo, hi)
+
+	// Calculate offset in bytes.
+	var byteOffset uint32
 	if details.ImmOff {
 		if instr.HasLiteral {
+			// TODO: use built-ins.
 			// 64-bit SMRD: offset is a 32-bit byte offset.
-			offset = b.EmitConstantUint(ctx.GetId(BlockContextIdTypeUint), instr.Literal/4)
+			byteOffset = b.EmitConstantUint(typeUint, instr.Literal)
 		} else {
-			// 32-bit SMRD: offset is an 8-bit dword offset.
-			offset = b.EmitConstantUint(ctx.GetId(BlockContextIdTypeUint), details.Offset)
+			// TODO: use built-ins.
+			// 32-bit SMRD: offset is an 8-bit unsigned dword offset.
+			byteOffset = b.EmitConstantUint(typeUint, details.Offset*4)
 		}
 	} else {
-		// Offset is an SGPR index containing a Dword offset.
-		offset = ctx.LoadRegisterPointer(b, OpSgpr0+details.Offset)
+		// Offset is an SGPR index containing a dword offset.
+		offsetVal := ctx.GetOperandUintValue(b, OpSgpr0+details.Offset, 0)
+		byteOffset = b.EmitIMul(typeUint, offsetVal, ctx.GetConstId(BlockContextId(ConstIdxUint4)))
 	}
 
+	// m_addr = (base + m_offset) & ~0x3
+	byteOffset64 := b.EmitUConvert(typeUint64, byteOffset)
+	addr64 := b.EmitIAdd(typeUint64, base64, byteOffset64)
+	mask64 := b.EmitConstantUint64(typeUint64, ^uint64(0x3))
+	addr64Aligned := b.EmitBitwiseAnd(typeUint64, addr64, mask64)
+
+	// Cast to pointer.
+	ptrBase := b.EmitBitcast(idPtrPsbUint, addr64Aligned)
+
 	for i := range count {
-		var idx uint32
-		if i == 0 {
-			idx = offset
-		} else {
-			idx = b.EmitIAdd(ctx.GetId(BlockContextIdTypeUint), offset, ctx.GetGcnConstId(i))
-		}
-		ptr := b.EmitPtrAccessChain(idPtrPsbUint, ptrBase, idx)
-		val := b.EmitLoad(ctx.GetId(BlockContextIdTypeUint), ptr, SpvMemoryAccessAligned, 4)
+		// Load each dword.
+		ptr := b.EmitPtrAccessChain(idPtrPsbUint, ptrBase, ctx.GetConstId(BlockContextId(ConstIdxUint0+i)))
+		val := b.EmitLoad(typeUint, ptr, SpvMemoryAccessAligned, 4)
 		ctx.StoreRegisterPointer(b, OpSgpr0+details.Dst+i, val)
 	}
 }

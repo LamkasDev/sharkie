@@ -55,7 +55,7 @@ func libKernel_sys_mname(addr uintptr, length uint64, namePtr Cstring) uintptr {
 // __int64 __fastcall sceKernelGetDirectMemorySize()
 func libKernel_sceKernelGetDirectMemorySize() uint64 {
 	// TODO: pthread_once
-	size := GlobalAllocator.DirectMemorySize
+	size := GlobalAllocator.Size
 
 	logger.Printf("%-132s %s returned %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),

@@ -78,6 +78,30 @@ func emitSOP1(b *SpvBuilder, instr *Instruction, ctx *SpirvBlockContext) {
 		// 3. Final result: Hi distance if found, else Lo distance if found, else -1.
 		res := b.EmitSelect(typeUint, isHiNotAllSame, resHi, b.EmitSelect(typeUint, isLoNotAllSame, resLo, idNeg1))
 		ctx.StoreRegisterPointer(b, details.Dst, res)
+	case Sop1OpAndSaveexecB64:
+		typeUint := ctx.GetId(BlockContextIdTypeUint)
+		typeBool := ctx.GetId(BlockContextIdTypeBool)
+		idC0 := ctx.GetConstId(ConstIdxUint0)
+		idC1 := ctx.GetConstId(ConstIdxUint1)
+
+		// Dst = EXEC
+		execLo, execHi := ctx.GetOperand64Value(b, OpExecLo, 0)
+		ctx.StoreRegisterPointer(b, details.Dst, execLo)
+		ctx.StoreRegisterPointer(b, details.Dst+1, execHi)
+
+		// EXEC = Src0 & EXEC
+		src0Lo, src0Hi := ctx.GetOperand64Value(b, details.Src0, instr.Literal)
+		newExecLo := b.EmitBitwiseAnd(typeUint, src0Lo, execLo)
+		newExecHi := b.EmitBitwiseAnd(typeUint, src0Hi, execHi)
+		ctx.StoreRegisterPointer(b, OpExecLo, newExecLo)
+		ctx.StoreRegisterPointer(b, OpExecHi, newExecHi)
+
+		// SCC = (EXEC != 0)
+		isNonZeroLo := b.EmitINotEqual(typeBool, newExecLo, idC0)
+		isNonZeroHi := b.EmitINotEqual(typeBool, newExecHi, idC0)
+		isNonZero := b.EmitLogicalOr(typeBool, isNonZeroLo, isNonZeroHi)
+		sccVal := b.EmitSelect(typeUint, isNonZero, idC1, idC0)
+		ctx.StoreRegisterPointer(b, OpScc, sccVal)
 	default:
 		panic(fmt.Sprintf("unknown sop1 op %s", Mnemotics[EncSOP1][details.Op]))
 	}

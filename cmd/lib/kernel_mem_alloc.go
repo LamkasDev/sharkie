@@ -4,6 +4,7 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	. "github.com/LamkasDev/sharkie/cmd/structs"
+	"github.com/goki/vulkan"
 	"github.com/gookit/color"
 )
 
@@ -33,13 +34,21 @@ func libKernel_sys_sceKernelAllocateDirectMemory(searchStart, searchEnd uintptr,
 		alignment = MemoryPageSize
 	}
 
-	// Get the direct memory address.
-	var directAddr uintptr
-	var vulkanHandle uintptr
+	// Get the allocator.
+	var allocator *Allocator
 	if memType == SCE_KERNEL_MTYPE_WC_GARLIC || memType == SCE_KERNEL_MTYPE_WB_GARLIC {
-		directAddr = GlobalGpuAllocator.GetNextAlignedGpuMemoryAddress(alignment, length)
+		allocator = GlobalGpuAllocator
+	} else {
+		allocator = GlobalAllocator
+	}
+
+	// Get the direct memory address.
+	directAddr := allocator.GetNextAlignedAddress(alignment, length)
+	var vulkanHandle uintptr
+	if allocator.Alloc != nil {
 		var err error
-		vulkanHandle, err = GlobalGpuAllocator.Alloc(length)
+		var vulkanBuffer vulkan.Buffer
+		vulkanBuffer, vulkanHandle, err = allocator.Alloc(length)
 		if err != nil {
 			logger.Printf("%-132s %s failed Vulkan allocation (%s).\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
@@ -49,14 +58,19 @@ func libKernel_sys_sceKernelAllocateDirectMemory(searchStart, searchEnd uintptr,
 			SetErrno(ENOMEM)
 			return ERR_PTR
 		}
-	} else {
-		directAddr = GlobalAllocator.GetNextAlignedDirectMemoryAddress(alignment, length)
+		allocator.Lock.Lock()
+		allocator.Ranges = append(allocator.Ranges, AllocatorMemoryRange{
+			Base:   directAddr,
+			Size:   length,
+			Buffer: vulkanBuffer,
+		})
+		allocator.Lock.Unlock()
 	}
 
 	// Allocate direct memory and perform alignment check.
 	var allocatedAddr uintptr
 	if vulkanHandle != 0 {
-		if err := GlobalGpuAllocator.Map(directAddr, length, vulkanHandle); err != nil {
+		if err := allocator.Map(directAddr, length, vulkanHandle); err != nil {
 			logger.Printf("%-132s %s failed Vulkan mapping (%s).\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("sceKernelAllocateDirectMemory"),

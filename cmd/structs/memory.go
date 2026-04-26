@@ -4,11 +4,9 @@ import (
 	"encoding/binary"
 	"fmt"
 	"sync"
-	"sync/atomic"
 	"unsafe"
 
-	"github.com/LamkasDev/sharkie/cmd/logger"
-	"github.com/gookit/color"
+	"github.com/goki/vulkan"
 	"github.com/langhuihui/gomem"
 )
 
@@ -16,7 +14,7 @@ import (
 var GlobalAllocator *Allocator
 
 // GlobalGpuAllocator should be used for GPU-memory allocations.
-var GlobalGpuAllocator *GpuAllocator
+var GlobalGpuAllocator *Allocator
 
 // GlobalGoAllocator should be used for implicit allocations (inside init stubs, etc.)
 var GlobalGoAllocator *GoAllocator
@@ -62,17 +60,19 @@ const (
 )
 
 type Allocator struct {
-	DirectMemoryBase    uintptr
-	DirectMemoryCurrent uintptr
-	DirectMemorySize    uint64
+	Base    uintptr
+	Current uintptr
+	Size    uint64
+	Alloc   func(size uint64) (vulkan.Buffer, uintptr, error)
+	Map     func(addr uintptr, length uint64, handle uintptr) error
+	Ranges  []AllocatorMemoryRange
+	Lock    sync.Mutex
 }
 
-type GpuAllocator struct {
-	GpuMemoryBase    uintptr
-	GpuMemoryCurrent uintptr
-	GpuMemorySize    uint64
-	Alloc            func(size uint64) (uintptr, error)
-	Map              func(addr uintptr, length uint64, handle uintptr) error
+type AllocatorMemoryRange struct {
+	Base   uintptr
+	Size   uint64
+	Buffer vulkan.Buffer
 }
 
 type GoAllocator struct {
@@ -82,28 +82,34 @@ type GoAllocator struct {
 }
 
 func SetupAllocator() {
-	GlobalAllocator = NewAllocator()
+	GlobalAllocator = NewAllocator(0x400000000, DirectMemoryDefaultSize)
+	GlobalGpuAllocator = NewAllocator(0xFE0000000, GpuMemoryDefaultSize)
 	GlobalGoAllocator = NewGoAllocator()
 }
 
 // NewAllocator creates a new instance of Allocator.
-func NewAllocator() *Allocator {
-	var err error
-	allocator := &Allocator{
-		DirectMemorySize: DirectMemoryDefaultSize,
+func NewAllocator(base uintptr, size uint64) *Allocator {
+	return &Allocator{
+		Base:    base,
+		Current: base,
+		Size:    size,
+		Ranges:  []AllocatorMemoryRange{},
+		Lock:    sync.Mutex{},
 	}
-	allocator.DirectMemoryBase, err = ReserveKernelMemory(0x400000000, allocator.DirectMemorySize)
-	if allocator.DirectMemoryBase == 0 {
-		panic(err)
-	}
-	allocator.DirectMemoryCurrent = allocator.DirectMemoryBase
-	logger.Printf(
-		"Reserved %s of direct memory (%s).\n",
-		color.Yellow.Sprintf("0x%X", allocator.DirectMemorySize),
-		color.Yellow.Sprintf("0x%X", allocator.DirectMemoryBase),
-	)
+}
 
-	return allocator
+func (allocator *Allocator) FindRange(addr uintptr) *AllocatorMemoryRange {
+	allocator.Lock.Lock()
+	defer allocator.Lock.Unlock()
+
+	for i := range allocator.Ranges {
+		r := &allocator.Ranges[i]
+		if addr >= r.Base && addr < r.Base+uintptr(r.Size) {
+			return r
+		}
+	}
+
+	return nil
 }
 
 // NewGoAllocator creates a new instance of GoAllocator.
@@ -196,28 +202,15 @@ func (allocator *GoAllocator) Realloc(ptr uintptr, newSize uintptr) uintptr {
 	return newAddress
 }
 
-func (gpuAllocator *GpuAllocator) GetNextAlignedGpuMemoryAddress(alignment, length uint64) uintptr {
+func (allocator *Allocator) GetNextAlignedAddress(alignment, length uint64) uintptr {
+	allocator.Lock.Lock()
+	defer allocator.Lock.Unlock()
+
 	alignedLength := (length + (alignment - 1)) &^ (alignment - 1)
-	addr := (atomic.LoadUintptr(&gpuAllocator.GpuMemoryCurrent) + uintptr(alignment-1)) &^ uintptr(alignment-1)
-	atomic.StoreUintptr(&gpuAllocator.GpuMemoryCurrent, addr+uintptr(alignedLength))
+	addr := (allocator.Current + uintptr(alignment-1)) &^ uintptr(alignment-1)
+	allocator.Current = addr + uintptr(alignedLength)
 
 	return addr
-}
-
-func (allocator *Allocator) GetNextAlignedDirectMemoryAddress(alignment, length uint64) uintptr {
-	alignedLength := (length + (alignment - 1)) &^ (alignment - 1)
-	addr := (atomic.LoadUintptr(&allocator.DirectMemoryCurrent) + uintptr(alignment-1)) &^ uintptr(alignment-1)
-	atomic.StoreUintptr(&allocator.DirectMemoryCurrent, addr+uintptr(alignedLength))
-
-	return addr
-}
-
-func MemoryIsDirect(addr uintptr) bool {
-	isDirectMemory := addr != 0 &&
-		addr >= GlobalAllocator.DirectMemoryBase &&
-		addr < GlobalAllocator.DirectMemoryBase+uintptr(GlobalAllocator.DirectMemorySize)
-
-	return isDirectMemory
 }
 
 func MemoryProtName(prot int32) string {

@@ -21,6 +21,10 @@ const (
 	Sop1OpFf1I32B64        = 0x14
 	Sop1OpFlbitI32B32      = 0x15
 	Sop1OpFlbitI32B64      = 0x16
+	Sop1OpFlbitI32         = 0x17
+	Sop1OpFlbitI32I64      = 0x18
+	Sop1OpSextI32I8        = 0x19
+	Sop1OpSextI32I16       = 0x1A
 	Sop1OpBitset0B32       = 0x1B
 	Sop1OpBitset0B64       = 0x1C
 	Sop1OpBitset1B32       = 0x1D
@@ -29,12 +33,13 @@ const (
 	Sop1OpSetpcB64         = 0x20
 	Sop1OpSwappcB64        = 0x21
 	Sop1OpRfeB64           = 0x22
-	Sop1OpFlbitI32         = 0x23
-	Sop1OpFlbitI32I64      = 0x24
-	Sop1OpAndSaveexecB64   = 0x27
-	Sop1OpOrSaveexecB64    = 0x28
-	Sop1OpSextI32I8        = 0x29
-	Sop1OpSextI32I16       = 0x2A
+	Sop1OpAndSaveexecB64   = 0x24
+	Sop1OpOrSaveexecB64    = 0x25
+	Sop1OpXorSaveexecB64   = 0x26
+	Sop1OpAndn2SaveexecB64 = 0x27
+	Sop1OpOrn2SaveexecB64  = 0x28
+	Sop1OpNandSaveexecB64  = 0x29
+	Sop1OpNorSaveexecB64   = 0x2A
 	Sop1OpXnorSaveexecB64  = 0x2B
 	Sop1OpQuadmaskB32      = 0x2C
 	Sop1OpQuadmaskB64      = 0x2D
@@ -44,11 +49,6 @@ const (
 	Sop1OpMovreldB64       = 0x31
 	Sop1OpCbranchJoin      = 0x32
 	Sop1OpAbsI32           = 0x34
-	Sop1OpXorSaveexecB64   = 0x38
-	Sop1OpAndn2SaveexecB64 = 0x39
-	Sop1OpOrn2SaveexecB64  = 0x40
-	Sop1OpNandSaveexecB64  = 0x41
-	Sop1OpNorSaveexecB64   = 0x42
 )
 
 func (instr *Instruction) DecodeSOP1() {

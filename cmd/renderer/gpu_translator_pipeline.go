@@ -7,7 +7,7 @@ import (
 
 func (t *GpuTranslator) createStubPipelineLayout() error {
 	// Create descriptor set layout for bindless textures.
-	var descriptorSetLayout vk.DescriptorSetLayout
+	var stubLayout vk.DescriptorSetLayout
 	result := vk.CreateDescriptorSetLayout(t.handles.Device, &vk.DescriptorSetLayoutCreateInfo{
 		SType: vk.StructureTypeDescriptorSetLayoutCreateInfo,
 		PBindings: []vk.DescriptorSetLayoutBinding{{
@@ -18,11 +18,33 @@ func (t *GpuTranslator) createStubPipelineLayout() error {
 			PImmutableSamplers: nil,
 		}},
 		BindingCount: 1,
-	}, nil, &descriptorSetLayout)
+	}, nil, &stubLayout)
 	if err := as.NewError(result); err != nil {
 		return err
 	}
-	t.stubDescriptorSetLayout = descriptorSetLayout
+	t.stubDescriptorSetLayout = stubLayout
+
+	// Create descriptor set layout for texel buffers.
+	var texelLayout vk.DescriptorSetLayout
+	texelBindings := make([]vk.DescriptorSetLayoutBinding, 4)
+	for i := range 4 {
+		texelBindings[i] = vk.DescriptorSetLayoutBinding{
+			Binding:            uint32(i),
+			DescriptorType:     vk.DescriptorTypeUniformTexelBuffer,
+			DescriptorCount:    1,
+			StageFlags:         vk.ShaderStageFlags(vk.ShaderStageVertexBit),
+			PImmutableSamplers: nil,
+		}
+	}
+	result = vk.CreateDescriptorSetLayout(t.handles.Device, &vk.DescriptorSetLayoutCreateInfo{
+		SType:        vk.StructureTypeDescriptorSetLayoutCreateInfo,
+		PBindings:    texelBindings,
+		BindingCount: 4,
+	}, nil, &texelLayout)
+	if err := as.NewError(result); err != nil {
+		return err
+	}
+	t.texelDescriptorSetLayout = texelLayout
 
 	var layout vk.PipelineLayout
 	result = vk.CreatePipelineLayout(t.handles.Device, &vk.PipelineLayoutCreateInfo{
@@ -33,8 +55,8 @@ func (t *GpuTranslator) createStubPipelineLayout() error {
 			Size:       40,
 		}},
 		PushConstantRangeCount: 1,
-		PSetLayouts:            []vk.DescriptorSetLayout{t.stubDescriptorSetLayout},
-		SetLayoutCount:         1,
+		PSetLayouts:            []vk.DescriptorSetLayout{t.stubDescriptorSetLayout, t.texelDescriptorSetLayout},
+		SetLayoutCount:         2,
 	}, nil, &layout)
 	if err := as.NewError(result); err != nil {
 		return err

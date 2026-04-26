@@ -34,11 +34,15 @@ type GpuTranslator struct {
 	surfacesMutex sync.Mutex
 	surfaces      map[uintptr]*GpuSurface
 
-	// Stub pipeline shared across all draws until real shaders are available.
-	stubDescriptorSetLayout vk.DescriptorSetLayout
-	stubPipelineLayout      vk.PipelineLayout
-	stubVertShader          vk.ShaderModule
-	stubFragShader          vk.ShaderModule
+	// Stub pipeline shared across all draws.
+	stubDescriptorSetLayout  vk.DescriptorSetLayout
+	texelDescriptorSetLayout vk.DescriptorSetLayout
+	stubPipelineLayout       vk.PipelineLayout
+
+	// Descriptor sets for texel buffer views.
+	descriptorPool          vk.DescriptorPool
+	texelDescriptorSets     []vk.DescriptorSet
+	texelDescriptorSetIndex uint32
 
 	// Recompiled SPIR-V shaders mirroring Liverpool.LoadedShaders.
 	shadersMutex sync.Mutex
@@ -51,12 +55,6 @@ type GpuTranslator struct {
 	// Per-draw compiled pipelines.
 	pipelinesMutex sync.Mutex
 	pipelines      map[GpuTranslatorPipelineKey]vk.Pipeline
-
-	// Physical buffers for Constant RAM snapshots.
-	constRamBuffersMutex sync.Mutex
-	constRamBuffers      map[uint32]vk.Buffer
-	constRamBuffersDebug map[uint32][]uint32
-	constRamBufferMems   map[uint32]vk.DeviceMemory
 
 	// Physical buffers for User Data snapshots.
 	userDataBuffersMutex sync.Mutex
@@ -81,42 +79,48 @@ func NewGpuTranslator(handles VulkanHandles, bknd backend.Backend[glfwvulkanback
 		shaderModules:        map[uintptr]vk.ShaderModule{},
 		pipelinesMutex:       sync.Mutex{},
 		pipelines:            map[GpuTranslatorPipelineKey]vk.Pipeline{},
-		constRamBuffersMutex: sync.Mutex{},
-		constRamBuffers:      map[uint32]vk.Buffer{},
-		constRamBuffersDebug: map[uint32][]uint32{},
-		constRamBufferMems:   map[uint32]vk.DeviceMemory{},
 		userDataBuffersMutex: sync.Mutex{},
 		userDataBuffers:      map[uint32]vk.Buffer{},
 		userDataBuffersDebug: map[uint32][]uint32{},
 		userDataBufferMems:   map[uint32]vk.DeviceMemory{},
 	}
-	structs.GlobalGpuAllocator = &structs.GpuAllocator{
-		GpuMemoryBase:    0xFE0000000,
-		GpuMemoryCurrent: 0xFE0000000,
-		GpuMemorySize:    structs.GpuMemoryDefaultSize,
-		Alloc: func(size uint64) (uintptr, error) {
-			_, mem, err := t.AllocExternalBuffer(vk.DeviceSize(size+16),
-				vk.BufferUsageFlags(vk.BufferUsageShaderDeviceAddressBit|vk.BufferUsageStorageBufferBit|vk.BufferUsageVertexBufferBit|vk.BufferUsageIndexBufferBit),
-				vk.MemoryPropertyFlags(vk.MemoryPropertyHostVisibleBit|vk.MemoryPropertyHostCoherentBit))
-			if err != nil {
-				return 0, err
-			}
-			if runtime.GOOS == "windows" {
-				return GetMemoryWin32Handle(t.handles.Instance, t.handles.Device, mem), nil
-			}
+	structs.GlobalGpuAllocator.Alloc = func(size uint64) (vk.Buffer, uintptr, error) {
+		buffer, mem, err := t.AllocExternalBuffer(vk.DeviceSize(size),
+			vk.BufferUsageFlags(vk.BufferUsageShaderDeviceAddressBit|vk.BufferUsageStorageBufferBit|vk.BufferUsageVertexBufferBit|vk.BufferUsageIndexBufferBit),
+			vk.MemoryPropertyFlags(vk.MemoryPropertyHostVisibleBit|vk.MemoryPropertyHostCoherentBit))
+		if err != nil {
+			return vk.NullBuffer, 0, err
+		}
+		if runtime.GOOS == "windows" {
+			return vk.NullBuffer, GetMemoryWin32Handle(t.handles.Instance, t.handles.Device, mem), nil
+		}
 
-			return uintptr(GetMemoryFd(t.handles.Instance, t.handles.Device, mem)), nil
-		},
-		Map: structs.MapVulkanMemory,
+		return buffer, uintptr(GetMemoryFd(t.handles.Instance, t.handles.Device, mem)), nil
 	}
+	structs.GlobalGpuAllocator.Map = structs.MapVulkanMemory
+	structs.GlobalAllocator.Alloc = func(size uint64) (vk.Buffer, uintptr, error) {
+		buffer, mem, err := t.AllocExternalBuffer(vk.DeviceSize(size),
+			vk.BufferUsageFlags(vk.BufferUsageShaderDeviceAddressBit|vk.BufferUsageStorageBufferBit|vk.BufferUsageVertexBufferBit|vk.BufferUsageIndexBufferBit),
+			vk.MemoryPropertyFlags(vk.MemoryPropertyHostVisibleBit|vk.MemoryPropertyHostCoherentBit|vk.MemoryPropertyHostCachedBit))
+		if err != nil {
+			return vk.NullBuffer, 0, err
+		}
+		if runtime.GOOS == "windows" {
+			return vk.NullBuffer, GetMemoryWin32Handle(t.handles.Instance, t.handles.Device, mem), nil
+		}
+
+		return buffer, uintptr(GetMemoryFd(t.handles.Instance, t.handles.Device, mem)), nil
+	}
+	structs.GlobalAllocator.Map = structs.MapVulkanMemory
+
 	if err := t.createCommandPool(); err != nil {
 		return nil, fmt.Errorf("GpuTranslator: command pool: %w", err)
 	}
-	if err := t.loadStubShaders(); err != nil {
-		return nil, fmt.Errorf("GpuTranslator: stub shaders: %w", err)
-	}
 	if err := t.createStubPipelineLayout(); err != nil {
 		return nil, fmt.Errorf("GpuTranslator: pipeline layout: %w", err)
+	}
+	if err := t.createDescriptorPool(); err != nil {
+		return nil, fmt.Errorf("GpuTranslator: descriptor pool: %w", err)
 	}
 
 	return t, nil
@@ -125,6 +129,9 @@ func NewGpuTranslator(handles VulkanHandles, bknd backend.Backend[glfwvulkanback
 // Destroy frees all Vulkan resources.
 func (t *GpuTranslator) Destroy() {
 	vk.DeviceWaitIdle(t.handles.Device)
+	if t.descriptorPool != vk.NullDescriptorPool {
+		vk.DestroyDescriptorPool(t.handles.Device, t.descriptorPool, nil)
+	}
 	t.surfacesMutex.Lock()
 	for _, s := range t.surfaces {
 		s.Destroy(t.handles.Device)
@@ -135,12 +142,6 @@ func (t *GpuTranslator) Destroy() {
 		vk.DestroyPipeline(t.handles.Device, p, nil)
 	}
 	t.pipelinesMutex.Unlock()
-	t.constRamBuffersMutex.Lock()
-	for h, b := range t.constRamBuffers {
-		vk.DestroyBuffer(t.handles.Device, b, nil)
-		vk.FreeMemory(t.handles.Device, t.constRamBufferMems[h], nil)
-	}
-	t.constRamBuffersMutex.Unlock()
 	t.userDataBuffersMutex.Lock()
 	for h, b := range t.userDataBuffers {
 		vk.DestroyBuffer(t.handles.Device, b, nil)
@@ -155,14 +156,11 @@ func (t *GpuTranslator) Destroy() {
 	if t.stubPipelineLayout != vk.NullPipelineLayout {
 		vk.DestroyPipelineLayout(t.handles.Device, t.stubPipelineLayout, nil)
 	}
+	if t.texelDescriptorSetLayout != vk.NullDescriptorSetLayout {
+		vk.DestroyDescriptorSetLayout(t.handles.Device, t.texelDescriptorSetLayout, nil)
+	}
 	if t.stubDescriptorSetLayout != vk.NullDescriptorSetLayout {
 		vk.DestroyDescriptorSetLayout(t.handles.Device, t.stubDescriptorSetLayout, nil)
-	}
-	if t.stubVertShader != vk.NullShaderModule {
-		vk.DestroyShaderModule(t.handles.Device, t.stubVertShader, nil)
-	}
-	if t.stubFragShader != vk.NullShaderModule {
-		vk.DestroyShaderModule(t.handles.Device, t.stubFragShader, nil)
 	}
 	if t.pool != vk.NullCommandPool {
 		vk.DestroyCommandPool(t.handles.Device, t.pool, nil)
@@ -175,12 +173,14 @@ func (t *GpuTranslator) Translate(frame uint64, draws []LiverpoolDrawCall) *vk.C
 		return nil
 	}
 
-	// Update buffers holding const ram.
+	// Reset per-frame state.
+	t.texelDescriptorSetIndex = 0
+
+	// Update buffers holding user data.
 	logger.Printf("[%s] updating buffers for %s draws.\n",
 		color.Blue.Sprintf("Frame %d", frame),
 		color.Blue.Sprint(len(draws)),
 	)
-	t.UpdateConstRamBuffers(draws)
 	t.UpdateUserDataBuffers(draws)
 
 	// Begin recording.

@@ -41,12 +41,12 @@ func main() {
 	asm.SetupCooperativeGC()
 	asm.AllocTlsSlots()
 	emu.SetupSignalHandler()
+	structs.SetupAllocator()
 	if err := app.SetupApplication(); err != nil {
 		panic(err)
 	}
 
 	// Setup guest stuff.
-	structs.SetupAllocator()
 	lib.SetupMspaceAllocator()
 	structs.SetupSemaphores()
 	structs.SetupEventFlags()

@@ -7,26 +7,7 @@ import (
 	"path"
 
 	. "github.com/LamkasDev/sharkie/cmd/structs/spirv"
-	vk "github.com/goki/vulkan"
 )
-
-func (t *GpuTranslator) loadStubShaders() error {
-	var err error
-	var vertModule vk.ShaderModule
-	vertModule, err = loadShaderModule(t.handles.Device, "data/shaders/stub_vert.spv")
-	if err != nil {
-		return fmt.Errorf("stub_vert.spv: %w", err)
-	}
-	t.stubVertShader = vertModule
-	var fragModule vk.ShaderModule
-	fragModule, err = loadShaderModule(t.handles.Device, "data/shaders/stub_frag.spv")
-	if err != nil {
-		return fmt.Errorf("stub_frag.spv: %w", err)
-	}
-	t.stubFragShader = fragModule
-
-	return nil
-}
 
 // DumpShaderOnce prints shader byte-code to a file.
 func (t *GpuTranslator) DumpShaderOnce(shader *SpirvShader) error {

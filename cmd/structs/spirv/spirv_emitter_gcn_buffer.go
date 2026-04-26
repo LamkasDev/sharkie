@@ -1,6 +1,82 @@
 package spirv
 
-import . "github.com/LamkasDev/sharkie/cmd/structs/gcn"
+import (
+	"github.com/LamkasDev/sharkie/cmd/logger"
+	. "github.com/LamkasDev/sharkie/cmd/structs/gcn"
+	"github.com/gookit/color"
+	"go101.org/nstd"
+)
+
+type BufferDescriptor struct {
+	BaseAddress   uintptr // 48 bits
+	Stride        uint16  // 14 bits
+	SwizzleCache  bool    // 1 bit
+	SwizzleEnable bool    // 1 bit
+	Records       uint32  // 32 bits
+	DstSelX       uint8   // 3 bits
+	DstSelY       uint8   // 3 bits
+	DstSelZ       uint8   // 3 bits
+	DstSelW       uint8   // 3 bits
+	NumFormat     uint8   // 3 bits
+	DataFormat    uint8   // 4 bits
+	ElementSize   uint8   // 2 bits (decoded as 2, 4, 8, 16)
+	IndexStride   uint8   // 2 bits (decoded as 8, 16, 32, 64)
+	AddTidEnable  bool
+	Atc           bool
+	HashEnable    bool
+	Heap          bool
+	MType         uint8 // 3 bits
+	Type          uint8 // 2 bits
+}
+
+func NewBufferDescriptor(dw0, dw1, dw2, dw3 uint32) BufferDescriptor {
+	d := BufferDescriptor{}
+
+	// DW0 & DW1: Base Address (48 bits) + Stride (14) + Flags
+	d.BaseAddress = uintptr(dw0) | (uintptr(dw1&0xFFFF) << 32)
+	d.Stride = uint16((dw1 >> 16) & 0x3FFF)
+	d.SwizzleCache = (dw1 >> 30 & 1) == 1
+	d.SwizzleEnable = (dw1 >> 31 & 1) == 1
+
+	// DW2: Num_records (32 bits)
+	d.Records = dw2
+
+	// DW3: Formatting and Flags
+	d.DstSelX = uint8(dw3 & 0x7)
+	d.DstSelY = uint8((dw3 >> 3) & 0x7)
+	d.DstSelZ = uint8((dw3 >> 6) & 0x7)
+	d.DstSelW = uint8((dw3 >> 9) & 0x7)
+	d.NumFormat = uint8((dw3 >> 12) & 0x7)
+	d.DataFormat = uint8((dw3 >> 15) & 0xF)
+
+	// Element Size mapping: 0=2, 1=4, 2=8, 3=16
+	d.ElementSize = 2 << ((dw3 >> 19) & 0x3)
+	// Index Stride mapping: 0=8, 1=16, 2=32, 3=64
+	d.IndexStride = 8 << ((dw3 >> 21) & 0x3)
+
+	d.AddTidEnable = (dw3 >> 23 & 1) == 1
+	d.Atc = (dw3 >> 24 & 1) == 1
+	d.HashEnable = (dw3 >> 25 & 1) == 1
+	d.Heap = (dw3 >> 26 & 1) == 1
+	d.MType = uint8((dw3 >> 27) & 0x7)
+	d.Type = uint8((dw3 >> 30) & 0x3)
+
+	return d
+}
+
+func (d BufferDescriptor) Print() {
+	logger.Printf("base=%s, stride=%s, records=%s, swizzle=%s, dst=%s, formats=%s, addressing=%s, flags=%s, memory=%s\n",
+		color.Yellow.Sprintf("0x%X", d.BaseAddress),
+		color.Green.Sprint(d.Stride),
+		color.Green.Sprint(d.Records),
+		color.Green.Sprintf("(en=%d cache=%d)", nstd.Btoi(d.SwizzleEnable), nstd.Btoi(d.SwizzleCache)),
+		color.Green.Sprintf("(%d %d %d %d)", d.DstSelX, d.DstSelY, d.DstSelZ, d.DstSelW),
+		color.Green.Sprintf("(num=%d data=%d)", d.NumFormat, d.DataFormat),
+		color.Green.Sprintf("(elemSize=%d indexStride=%d)", d.ElementSize, d.IndexStride),
+		color.Green.Sprintf("(addTid=%d atc=%d hash=%d heap=%d)", nstd.Btoi(d.AddTidEnable), nstd.Btoi(d.Atc), nstd.Btoi(d.HashEnable), nstd.Btoi(d.Heap)),
+		color.Green.Sprintf("(mtype=%d type=%d)", d.MType, d.Type),
+	)
+}
 
 type BufferResource struct {
 	BaseAddress  uint32
@@ -10,6 +86,7 @@ type BufferResource struct {
 	ElementSize  uint32
 	IndexStride  uint32
 	AddTidEnable uint32
+	Dw3          uint32
 }
 
 // GetResourceBaseAddress extracts the base address from T# dword 0 and 1.
@@ -73,6 +150,7 @@ func (ctx *SpirvBlockContext) LoadBufferResource(b *SpvBuilder, srsrc uint32) Bu
 		ElementSize:  ctx.GetResourceElementSize(b, dw3),
 		IndexStride:  ctx.GetResourceIndexStride(b, dw3),
 		AddTidEnable: ctx.GetResourceAddTidEnable(b, dw3),
+		Dw3:          dw3,
 	}
 }
 

@@ -78,7 +78,7 @@ func (b *SpvBuilder) EmitName(target uint32, name string) {
 func (b *SpvBuilder) EmitString(s string) uint32 {
 	id := b.AllocId()
 	operands := append([]uint32{id}, spirvString(s)...)
-	b.instr(&b.debugStrings, SpvOpString, operands...)
+	b.instr(&b.code, SpvOpString, operands...)
 	return id
 }
 
@@ -174,6 +174,14 @@ func (b *SpvBuilder) EmitIsNan(resultType, operand uint32) uint32 {
 func (b *SpvBuilder) EmitGroupNonUniformBallot(resultType, scope, predicate uint32) uint32 {
 	id := b.AllocId()
 	b.instr(&b.code, SpvOpGroupNonUniformBallot, resultType, id, scope, predicate)
+	return id
+}
+
+// EmitImageFetch emits OpImageFetch and returns the result ID.
+func (b *SpvBuilder) EmitImageFetch(resultType, image, coordinate uint32, imageOperands ...uint32) uint32 {
+	id := b.AllocId()
+	ops := append([]uint32{resultType, id, image, coordinate}, imageOperands...)
+	b.instr(&b.code, SpvOpImageFetch, ops...)
 	return id
 }
 
