@@ -18,6 +18,8 @@ const (
 	BlockContextIdTypeUint
 	BlockContextIdTypeUint64
 	BlockContextIdTypeInt64
+	BlockContextIdTypeVoid
+	BlockContextIdDebugPrintf
 	BlockContextIdTypeV2Float
 	BlockContextIdTypeV4Float
 	BlockContextIdTypeV2Uint
@@ -28,6 +30,8 @@ const (
 	BlockContextIdPtrPcFloat
 	BlockContextIdPtrPcPsbUint
 	BlockContextIdPtrPcPsbUint64
+	BlockContextIdPtrPcUint
+	BlockContextIdPtrPcUint64
 	BlockContextIdPtrPsbUint
 	BlockContextIdPtrPsbV2Uint
 	BlockContextIdPtrPsbV3Uint
@@ -155,13 +159,28 @@ const (
 	ConstIdxUint11111111 = 259
 	ConstIdxUintFFFFFFFF = 260
 	ConstIdx64Uint0      = 261
-	ConstIdx64Uint32     = 262
-	ConstIdxFloat0       = 263
-	ConstIdxFloat1       = 264
+	ConstIdx64Uint1      = 262
+	ConstIdx64Uint32     = 263
+	ConstIdxFloat0       = 264
+	ConstIdxFloat1       = 265
 )
 
 const (
-	PushConstantUserDataAddress = 0
+	PushConstantUserDataAddress            = 0
+	PushConstantOnionMemoryBaseAddress     = 1
+	PushConstantGarlicMemoryBaseAddress    = 2
+	PushConstantTexelBuffer0FormatSize     = 3
+	PushConstantTexelBuffer1FormatSize     = 4
+	PushConstantTexelBuffer2FormatSize     = 5
+	PushConstantTexelBuffer3FormatSize     = 6
+	PushConstantTexelBuffer0FormatStride   = 7
+	PushConstantTexelBuffer1FormatStride   = 8
+	PushConstantTexelBuffer2FormatStride   = 9
+	PushConstantTexelBuffer3FormatStride   = 10
+	PushConstantTexelBuffer0FormatElements = 11
+	PushConstantTexelBuffer1FormatElements = 12
+	PushConstantTexelBuffer2FormatElements = 13
+	PushConstantTexelBuffer3FormatElements = 14
 )
 
 type SpirvBlockContextUsedId struct {
@@ -275,6 +294,9 @@ func emitBlock(b *SpvBuilder, block *GcnShaderCfgBlock, ctx *SpirvBlockContext) 
 
 	// Declare variables in entry block.
 	if block.DwordOffset == 0 {
+		typeUint := ctx.GetId(BlockContextIdTypeUint)
+		idC0 := ctx.GetConstId(ConstIdxUint0)
+
 		// Load user data buffer address from the push constant.
 		b.EmitString("load user data buffer address")
 		idPtrPsbUint := ctx.GetId(BlockContextIdPtrPsbUint)
@@ -302,7 +324,6 @@ func emitBlock(b *SpvBuilder, block *GcnShaderCfgBlock, ctx *SpirvBlockContext) 
 		// EXEC is initialized to the subgroup's active mask.
 		b.EmitString("initialize exec and vcc")
 		typeV4Uint := ctx.GetId(BlockContextIdTypeV4Uint)
-		typeUint := ctx.GetId(BlockContextIdTypeUint)
 		idC3 := ctx.GetConstId(ConstIdxUint3) // Subgroup
 		ballot := b.EmitGroupNonUniformBallot(typeV4Uint, idC3, ctx.GetId(BlockContextIdTrue))
 		execLo := b.EmitCompositeExtract(typeUint, ballot, 0)
@@ -312,7 +333,6 @@ func emitBlock(b *SpvBuilder, block *GcnShaderCfgBlock, ctx *SpirvBlockContext) 
 
 		// VCC is initialized to 0.
 		b.EmitString("set vcc to 0")
-		idC0 := ctx.GetConstId(ConstIdxUint0)
 		ctx.StoreRegisterPointer(b, OpVccLo, idC0)
 		ctx.StoreRegisterPointer(b, OpVccHi, idC0)
 	}
@@ -336,8 +356,48 @@ func emitBlock(b *SpvBuilder, block *GcnShaderCfgBlock, ctx *SpirvBlockContext) 
 			b.EmitUnreachable()
 		}
 	case TermEndpgm, TermExpDone:
+		if ctx.Stage == GcnShaderStageVertex {
+			formatId := b.EmitString("Vertex %d: pos=(%f, %f, %f, %f) color=(%f, %f, %f, %f)\n")
+			typeV4Float := ctx.GetId(BlockContextIdTypeV4Float)
+			typeFloat := ctx.GetId(BlockContextIdTypeFloat)
+			posId := b.EmitLoad(typeV4Float, ctx.GetId(BlockContextIdPosOut))
+			colorId := b.EmitLoad(typeV4Float, ctx.GetId(BlockContextIdParamOut0))
+			vertexIndexId := b.EmitLoad(ctx.GetId(BlockContextIdTypeUint), ctx.GetId(BlockContextIdVertexIndex))
+
+			px := b.EmitCompositeExtract(typeFloat, posId, 0)
+			py := b.EmitCompositeExtract(typeFloat, posId, 1)
+			pz := b.EmitCompositeExtract(typeFloat, posId, 2)
+			pw := b.EmitCompositeExtract(typeFloat, posId, 3)
+
+			cx := b.EmitCompositeExtract(typeFloat, colorId, 0)
+			cy := b.EmitCompositeExtract(typeFloat, colorId, 1)
+			cz := b.EmitCompositeExtract(typeFloat, colorId, 2)
+			cw := b.EmitCompositeExtract(typeFloat, colorId, 3)
+
+			b.EmitExtInst(ctx.GetId(BlockContextIdTypeVoid), ctx.GetId(BlockContextIdDebugPrintf), 1,
+				formatId, vertexIndexId, px, py, pz, pw, cx, cy, cz, cw)
+		}
+		// ctx.EmitDebugPrintRegisters(b)
 		b.EmitReturn()
 	default:
 		b.EmitReturn()
 	}
+}
+
+func (ctx *SpirvBlockContext) EmitDebugPrintRegisters(b *SpvBuilder) {
+	formatId := b.EmitString("Vertex %d: SGPRs: %08x %08x %08x %08x %08x %08x %08x %08x %08x %08x %08x %08x %08x %08x %08x %08x\n" +
+		"VGPRs: %08x %08x %08x %08x %08x %08x %08x %08x %08x %08x %08x %08x %08x %08x %08x %08x\n")
+	vertexIndexId := b.EmitLoad(ctx.GetId(BlockContextIdTypeUint), ctx.GetId(BlockContextIdVertexIndex))
+
+	args := make([]uint32, 0, 33)
+	args = append(args, formatId, vertexIndexId)
+
+	for i := uint32(0); i < 16; i++ {
+		args = append(args, ctx.GetGcnSgprId(b, i))
+	}
+	for i := uint32(0); i < 16; i++ {
+		args = append(args, ctx.GetGcnVgprId(b, i))
+	}
+
+	b.EmitExtInst(ctx.GetId(BlockContextIdTypeVoid), ctx.GetId(BlockContextIdDebugPrintf), 1, args...)
 }

@@ -55,7 +55,7 @@ func (t *GpuTranslator) UpdateUserDataBuffers(draws []LiverpoolDrawCall) {
 		// Allocate and upload.
 		size := vk.DeviceSize(len(contents) * 4)
 		buffer, mem, err := t.allocBuffer(size,
-			vk.BufferUsageFlags(vk.BufferUsageShaderDeviceAddressBit|vk.BufferUsageUniformBufferBit),
+			vk.BufferUsageFlags(vk.BufferUsageShaderDeviceAddressBit|vk.BufferUsageUniformBufferBit|vk.BufferUsageUniformTexelBufferBit),
 			vk.MemoryPropertyFlags(vk.MemoryPropertyHostVisibleBit|vk.MemoryPropertyHostCoherentBit))
 		if err != nil {
 			panic(fmt.Errorf("allocUserDataBuffer: %w", err))
@@ -76,9 +76,10 @@ func (t *GpuTranslator) UpdateUserDataBuffers(draws []LiverpoolDrawCall) {
 	}
 }
 
-func (t *GpuTranslator) BindTexelBuffers(commandBuffer vk.CommandBuffer, draw *LiverpoolDrawCall, userData []uint32) {
+func (t *GpuTranslator) BindTexelBuffers(commandBuffer vk.CommandBuffer, draw *LiverpoolDrawCall, userData []uint32) ([4]uint32, [4]uint32) {
 	var bufferViews [4]vk.BufferView
 	var viewCount uint32
+	var formatSizes, formatStrides [4]uint32
 	for i := range 4 {
 		sgprBase := i * 4
 		descriptor := NewBufferDescriptor(
@@ -94,30 +95,44 @@ func (t *GpuTranslator) BindTexelBuffers(commandBuffer vk.CommandBuffer, draw *L
 		// Route to the correct buffer based on address range.
 		var targetBuffer vk.Buffer
 		var relativeOffset uintptr
-		if r := GlobalGpuAllocator.FindRange(descriptor.BaseAddress); r != nil {
-			targetBuffer = r.Buffer
-			relativeOffset = descriptor.BaseAddress - r.Base
-		} else if r = GlobalAllocator.FindRange(descriptor.BaseAddress); r != nil {
-			targetBuffer = r.Buffer
-			relativeOffset = descriptor.BaseAddress - r.Base
+		if descriptor.BaseAddress >= GlobalGpuAllocator.Base && descriptor.BaseAddress < GlobalGpuAllocator.Base+uintptr(GlobalGpuAllocator.Size) {
+			targetBuffer = GlobalGpuAllocator.Buffer
+			relativeOffset = descriptor.BaseAddress - GlobalGpuAllocator.Base
+		} else if descriptor.BaseAddress >= GlobalAllocator.Base && descriptor.BaseAddress < GlobalAllocator.Base+uintptr(GlobalAllocator.Size) {
+			targetBuffer = GlobalAllocator.Buffer
+			relativeOffset = descriptor.BaseAddress - GlobalAllocator.Base
 		} else {
 			logger.Printf("Warning: Base address 0x%X is out of known memory bounds", descriptor.BaseAddress)
 			continue
 		}
 
+		// A resource set to all zeros acts as an unbound texture or buffer (return 0,0,0,0). Buffer Size (in bytes) =
+		// (stride==0) ? num_elements : stride * num_elements.
+		var rangeBytes uint32
+		if descriptor.Stride == 0 {
+			rangeBytes = descriptor.Records
+		} else {
+			rangeBytes = descriptor.Records * uint32(descriptor.Stride)
+		}
+
 		// Create the BufferView scoped exactly to the draw call's needs.
+		format, formatSize := translateGcnFormat(descriptor.DataFormat, descriptor.NumFormat)
+		formatStride := uint32(descriptor.Stride)
+		if formatStride == 0 {
+			formatStride = formatSize
+		}
+
 		viewInfo := vk.BufferViewCreateInfo{
 			SType:  vk.StructureTypeBufferViewCreateInfo,
 			Buffer: targetBuffer,
-			Format: translateGcnFormat(descriptor.DataFormat, descriptor.NumFormat),
+			Format: format,
 			Offset: vk.DeviceSize(relativeOffset),
-			Range:  vk.DeviceSize(descriptor.Records * uint32(descriptor.Stride)),
+			Range:  vk.DeviceSize(rangeBytes),
 		}
 
 		var view vk.BufferView
 		vk.CreateBufferView(t.handles.Device, &viewInfo, nil, &view)
 
-		// Print some buffer contents for debugging.
 		if descriptor.Records > 0 {
 			count := descriptor.Records * (uint32(descriptor.Stride) / 4)
 			if count > 64 {
@@ -129,16 +144,18 @@ func (t *GpuTranslator) BindTexelBuffers(commandBuffer vk.CommandBuffer, draw *L
 		}
 
 		bufferViews[i] = view
+		formatSizes[i] = formatSize
+		formatStrides[i] = formatStride
 		viewCount++
 	}
 	if viewCount == 0 {
-		return
+		return formatSizes, formatStrides
 	}
 
 	// Use next pre-allocated descriptor set.
 	if t.texelDescriptorSetIndex >= uint32(len(t.texelDescriptorSets)) {
 		logger.Printf("Warning: out of pre-allocated descriptor sets (%d) ", t.texelDescriptorSetIndex)
-		return
+		return formatSizes, formatStrides
 	}
 	descriptorSet := t.texelDescriptorSets[t.texelDescriptorSetIndex]
 	t.texelDescriptorSetIndex++
@@ -162,153 +179,155 @@ func (t *GpuTranslator) BindTexelBuffers(commandBuffer vk.CommandBuffer, draw *L
 
 	// Bind descriptor set.
 	vk.CmdBindDescriptorSets(commandBuffer, vk.PipelineBindPointGraphics, t.stubPipelineLayout, 1, 1, []vk.DescriptorSet{descriptorSet}, 0, nil)
+
+	return formatSizes, formatStrides
 }
 
-// Map GCN DataFormat and NumFormat to Vulkan VkFormat.
-func translateGcnFormat(dataFormat, numFormat uint8) vk.Format {
+// Map GCN DataFormat and NumFormat to Vulkan VkFormat and byte size.
+func translateGcnFormat(dataFormat, numFormat uint8) (vk.Format, uint32) {
 	switch dataFormat {
-	case 1: // 8
+	case 1: // 8-bit (1 byte)
 		switch numFormat {
 		case 0:
-			return vk.FormatR8Unorm
+			return vk.FormatR8Unorm, 1
 		case 1:
-			return vk.FormatR8Snorm
+			return vk.FormatR8Snorm, 1
 		case 2:
-			return vk.FormatR8Uscaled
+			return vk.FormatR8Uscaled, 1
 		case 3:
-			return vk.FormatR8Sscaled
+			return vk.FormatR8Sscaled, 1
 		case 4:
-			return vk.FormatR8Uint
+			return vk.FormatR8Uint, 1
 		case 5:
-			return vk.FormatR8Sint
+			return vk.FormatR8Sint, 1
 		}
-	case 2: // 16
+	case 2: // 16-bit (2 bytes)
 		switch numFormat {
 		case 0:
-			return vk.FormatR16Unorm
+			return vk.FormatR16Unorm, 2
 		case 1:
-			return vk.FormatR16Snorm
+			return vk.FormatR16Snorm, 2
 		case 2:
-			return vk.FormatR16Uscaled
+			return vk.FormatR16Uscaled, 2
 		case 3:
-			return vk.FormatR16Sscaled
+			return vk.FormatR16Sscaled, 2
 		case 4:
-			return vk.FormatR16Uint
+			return vk.FormatR16Uint, 2
 		case 5:
-			return vk.FormatR16Sint
+			return vk.FormatR16Sint, 2
 		case 7:
-			return vk.FormatR16Sfloat
+			return vk.FormatR16Sfloat, 2
 		}
-	case 3: // 8_8
+	case 3: // 8_8 (2 bytes)
 		switch numFormat {
 		case 0:
-			return vk.FormatR8g8Unorm
+			return vk.FormatR8g8Unorm, 2
 		case 1:
-			return vk.FormatR8g8Snorm
+			return vk.FormatR8g8Snorm, 2
 		case 2:
-			return vk.FormatR8g8Uscaled
+			return vk.FormatR8g8Uscaled, 2
 		case 3:
-			return vk.FormatR8g8Sscaled
+			return vk.FormatR8g8Sscaled, 2
 		case 4:
-			return vk.FormatR8g8Uint
+			return vk.FormatR8g8Uint, 2
 		case 5:
-			return vk.FormatR8g8Sint
+			return vk.FormatR8g8Sint, 2
 		}
-	case 4: // 32
+	case 4: // 32-bit (4 bytes)
 		switch numFormat {
 		case 4:
-			return vk.FormatR32Uint
+			return vk.FormatR32Uint, 4
 		case 5:
-			return vk.FormatR32Sint
+			return vk.FormatR32Sint, 4
 		case 7:
-			return vk.FormatR32Sfloat
+			return vk.FormatR32Sfloat, 4
 		}
-	case 5: // 16_16
+	case 5: // 16_16 (4 bytes)
 		switch numFormat {
 		case 0:
-			return vk.FormatR16g16Unorm
+			return vk.FormatR16g16Unorm, 4
 		case 1:
-			return vk.FormatR16g16Snorm
+			return vk.FormatR16g16Snorm, 4
 		case 2:
-			return vk.FormatR16g16Uscaled
+			return vk.FormatR16g16Uscaled, 4
 		case 3:
-			return vk.FormatR16g16Sscaled
+			return vk.FormatR16g16Sscaled, 4
 		case 4:
-			return vk.FormatR16g16Uint
+			return vk.FormatR16g16Uint, 4
 		case 5:
-			return vk.FormatR16g16Sint
+			return vk.FormatR16g16Sint, 4
 		case 7:
-			return vk.FormatR16g16Sfloat
+			return vk.FormatR16g16Sfloat, 4
 		}
-	case 6: // 10_11_11
+	case 6: // 10_11_11 (4 bytes)
 		if numFormat == 7 {
-			return vk.FormatB10g11r11UfloatPack32
+			return vk.FormatB10g11r11UfloatPack32, 4
 		}
-	case 8: // 10_10_10_2
+	case 8: // 10_10_10_2 (4 bytes)
 		switch numFormat {
 		case 0:
-			return vk.FormatA2b10g10r10UnormPack32
+			return vk.FormatA2b10g10r10UnormPack32, 4
 		case 4:
-			return vk.FormatA2b10g10r10UintPack32
+			return vk.FormatA2b10g10r10UintPack32, 4
 		}
-	case 10: // 8_8_8_8
+	case 10: // 8_8_8_8 (4 bytes)
 		switch numFormat {
 		case 0:
-			return vk.FormatR8g8b8a8Unorm
+			return vk.FormatR8g8b8a8Unorm, 4
 		case 1:
-			return vk.FormatR8g8b8a8Snorm
+			return vk.FormatR8g8b8a8Snorm, 4
 		case 2:
-			return vk.FormatR8g8b8a8Uscaled
+			return vk.FormatR8g8b8a8Uscaled, 4
 		case 3:
-			return vk.FormatR8g8b8a8Sscaled
+			return vk.FormatR8g8b8a8Sscaled, 4
 		case 4:
-			return vk.FormatR8g8b8a8Uint
+			return vk.FormatR8g8b8a8Uint, 4
 		case 5:
-			return vk.FormatR8g8b8a8Sint
+			return vk.FormatR8g8b8a8Sint, 4
 		}
-	case 11: // 32_32
+	case 11: // 32_32 (8 bytes)
 		switch numFormat {
 		case 4:
-			return vk.FormatR32g32Uint
+			return vk.FormatR32g32Uint, 8
 		case 5:
-			return vk.FormatR32g32Sint
+			return vk.FormatR32g32Sint, 8
 		case 7:
-			return vk.FormatR32g32Sfloat
+			return vk.FormatR32g32Sfloat, 8
 		}
-	case 12: // 16_16_16_16
+	case 12: // 16_16_16_16 (8 bytes)
 		switch numFormat {
 		case 0:
-			return vk.FormatR16g16b16a16Unorm
+			return vk.FormatR16g16b16a16Unorm, 8
 		case 1:
-			return vk.FormatR16g16b16a16Snorm
+			return vk.FormatR16g16b16a16Snorm, 8
 		case 2:
-			return vk.FormatR16g16b16a16Uscaled
+			return vk.FormatR16g16b16a16Uscaled, 8
 		case 3:
-			return vk.FormatR16g16b16a16Sscaled
+			return vk.FormatR16g16b16a16Sscaled, 8
 		case 4:
-			return vk.FormatR16g16b16a16Uint
+			return vk.FormatR16g16b16a16Uint, 8
 		case 5:
-			return vk.FormatR16g16b16a16Sint
+			return vk.FormatR16g16b16a16Sint, 8
 		case 7:
-			return vk.FormatR16g16b16a16Sfloat
+			return vk.FormatR16g16b16a16Sfloat, 8
 		}
-	case 13: // 32_32_32
+	case 13: // 32_32_32 (12 bytes)
 		switch numFormat {
 		case 4:
-			return vk.FormatR32g32b32Uint
+			return vk.FormatR32g32b32Uint, 12
 		case 5:
-			return vk.FormatR32g32b32Sint
+			return vk.FormatR32g32b32Sint, 12
 		case 7:
-			return vk.FormatR32g32b32Sfloat
+			return vk.FormatR32g32b32Sfloat, 12
 		}
-	case 14: // 32_32_32_32
+	case 14: // 32_32_32_32 (16 bytes)
 		switch numFormat {
 		case 4:
-			return vk.FormatR32g32b32a32Uint
+			return vk.FormatR32g32b32a32Uint, 16
 		case 5:
-			return vk.FormatR32g32b32a32Sint
+			return vk.FormatR32g32b32a32Sint, 16
 		case 7:
-			return vk.FormatR32g32b32a32Sfloat
+			return vk.FormatR32g32b32a32Sfloat, 16
 		}
 	}
 

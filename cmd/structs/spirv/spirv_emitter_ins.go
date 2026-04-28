@@ -134,12 +134,83 @@ func (ctx *SpirvBlockContext) LoadPushConstantValue(b *SpvBuilder, i uint32) uin
 	case PushConstantUserDataAddress:
 		valType = ctx.GetId(BlockContextIdPtrPsbUint)
 		ptrType = ctx.GetId(BlockContextIdPtrPcPsbUint)
+	case PushConstantOnionMemoryBaseAddress, PushConstantGarlicMemoryBaseAddress:
+		valType = ctx.GetId(BlockContextIdTypeUint64)
+		ptrType = ctx.GetId(BlockContextIdPtrPcUint64)
+	case PushConstantTexelBuffer0FormatSize, PushConstantTexelBuffer1FormatSize, PushConstantTexelBuffer2FormatSize, PushConstantTexelBuffer3FormatSize,
+		PushConstantTexelBuffer0FormatStride, PushConstantTexelBuffer1FormatStride, PushConstantTexelBuffer2FormatStride, PushConstantTexelBuffer3FormatStride:
+		valType = ctx.GetId(BlockContextIdTypeUint)
+		ptrType = ctx.GetId(BlockContextIdPtrPcUint)
 	default:
 		panic(fmt.Sprintf("unknown push constant index %d", i))
 	}
 
 	ptr := b.EmitAccessChain(ptrType, ctx.GetId(BlockContextIdPcVar), b.EmitConstantUint(ctx.GetId(BlockContextIdTypeUint), i))
 	return b.EmitLoad(valType, ptr)
+}
+
+// TranslateAddress translates a PS4 address into a memory buffer address.
+func (ctx *SpirvBlockContext) TranslateAddress(b *SpvBuilder, ps4Addr uint32) uint32 {
+	typeBool := ctx.GetId(BlockContextIdTypeBool)
+	typeUint64 := ctx.GetId(BlockContextIdTypeUint64)
+
+	// Garlic address is >= 0xFE0000000.
+	garlicThreshold := b.EmitConstantUint64(typeUint64, 0xFE0000000)
+	isGarlic := b.EmitUGreaterThanEqual(typeBool, ps4Addr, garlicThreshold)
+
+	// Translation labels.
+	garlicLabel := b.AllocId()
+	onionLabel := b.AllocId()
+	mergeLabel := b.AllocId()
+
+	b.EmitSelectionMerge(mergeLabel, SpvSelectionControlNone)
+	b.EmitBranchConditional(isGarlic, garlicLabel, onionLabel)
+
+	// Garlic translation.
+	b.EmitLabel(garlicLabel)
+	garlicBase := ctx.LoadPushConstantValue(b, PushConstantGarlicMemoryBaseAddress)
+	garlicOffset := b.EmitISub(typeUint64, ps4Addr, garlicThreshold)
+	translatedGarlic := b.EmitIAdd(typeUint64, garlicBase, garlicOffset)
+	b.EmitBranch(mergeLabel)
+
+	// Onion translation.
+	b.EmitLabel(onionLabel)
+	onionBase := ctx.LoadPushConstantValue(b, PushConstantOnionMemoryBaseAddress)
+	onionThreshold := b.EmitConstantUint64(typeUint64, 0x400000000)
+	onionOffset := b.EmitISub(typeUint64, ps4Addr, onionThreshold)
+	translatedOnion := b.EmitIAdd(typeUint64, onionBase, onionOffset)
+	b.EmitBranch(mergeLabel)
+
+	// Merge.
+	b.EmitLabel(mergeLabel)
+	return b.EmitPhi(typeUint64, translatedGarlic, garlicLabel, translatedOnion, onionLabel)
+}
+
+func (ctx *SpirvBlockContext) StoreRegisterPointerMasked(b *SpvBuilder, reg uint32, newValue uint32) {
+	typeUint := ctx.GetId(BlockContextIdTypeUint)
+	typeUint64 := ctx.GetId(BlockContextIdTypeUint64)
+	typeBool := ctx.GetId(BlockContextIdTypeBool)
+
+	// Get current EXEC mask.
+	execLo, execHi := ctx.GetOperand64Value(b, OpExecLo, 0)
+	exec64 := ctx.Pack64(b, execLo, execHi)
+
+	// Get the current thread's bit (bitMask = 1 << SubgroupLocalInvocationId).
+	subgroupId := b.EmitLoad(typeUint, ctx.GetId(BlockContextIdSubgroupLocalInvocationId))
+	subgroupId64 := b.EmitUConvert(typeUint64, subgroupId)
+	subgroupMask := b.EmitShiftLeftLogical(typeUint64, ctx.GetConstId(ConstIdx64Uint1), subgroupId64)
+
+	// Check if this thread is active (exec64 & bitMask != 0).
+	masked := b.EmitBitwiseAnd(typeUint64, exec64, subgroupMask)
+	isActive := b.EmitINotEqual(typeBool, masked, ctx.GetConstId(ConstIdx64Uint0))
+
+	// Load old value from the register.
+	oldValue := ctx.LoadRegisterPointer(b, reg)
+
+	// If active, take newValue. If inactive, keep oldValue.
+	finalValue := b.EmitSelect(typeUint, isActive, newValue, oldValue)
+
+	ctx.StoreRegisterPointer(b, reg, finalValue)
 }
 
 // emitInstruction emits the SPIR-V for a single instruction.

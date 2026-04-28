@@ -15,6 +15,7 @@ const (
 	SpvCapAddresses                      = uint32(4)
 	SpvCapInt64                          = uint32(11)
 	SpvCapSampled1D                      = uint32(43)
+	SpvCapSampledBuffer                  = uint32(46)
 	SpvCapImageQuery                     = uint32(50)
 	SpvCapGroupNonUniformBallot          = uint32(64)
 	SpvCapSubgroupBallotKHR              = uint32(4423)

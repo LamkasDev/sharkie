@@ -6,6 +6,7 @@ import (
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/logger"
+	. "github.com/LamkasDev/sharkie/cmd/structs"
 	. "github.com/LamkasDev/sharkie/cmd/structs/gpu"
 	vk "github.com/goki/vulkan"
 	"github.com/gookit/color"
@@ -18,7 +19,24 @@ func init() {
 }
 
 type StubPushConstants struct {
-	UserDataAddress uint64
+	UserDataAddress         uint64
+	OnionMemoryBaseAddress  uint64
+	GarlicMemoryBaseAddress uint64
+
+	TexelBuffer0FormatSize uint32
+	TexelBuffer1FormatSize uint32
+	TexelBuffer2FormatSize uint32
+	TexelBuffer3FormatSize uint32
+
+	TexelBuffer0FormatStride uint32
+	TexelBuffer1FormatStride uint32
+	TexelBuffer2FormatStride uint32
+	TexelBuffer3FormatStride uint32
+
+	TexelBuffer0FormatComponents uint32
+	TexelBuffer1FormatComponents uint32
+	TexelBuffer2FormatComponents uint32
+	TexelBuffer3FormatComponents uint32
 }
 
 func (t *GpuTranslator) recordDraw(frame uint64, commandBuffer vk.CommandBuffer, draw *LiverpoolDrawCall) {
@@ -97,9 +115,22 @@ func (t *GpuTranslator) recordDraw(frame uint64, commandBuffer vk.CommandBuffer,
 	userDataBufferDebug := t.userDataBuffersDebug[draw.UserDataHash]
 	t.userDataBuffersMutex.Unlock()
 
+	// Bind texel buffers.
+	formatSizes, formatStrides := t.BindTexelBuffers(commandBuffer, draw, userDataBufferDebug)
+
 	// Push constants to shader.
 	pushData := StubPushConstants{
-		UserDataAddress: t.GetBufferAddress(userDataBuffer),
+		UserDataAddress:          t.GetBufferAddress(userDataBuffer),
+		OnionMemoryBaseAddress:   GlobalAllocator.DeviceAddress,
+		GarlicMemoryBaseAddress:  GlobalGpuAllocator.DeviceAddress,
+		TexelBuffer0FormatSize:   formatSizes[0],
+		TexelBuffer1FormatSize:   formatSizes[1],
+		TexelBuffer2FormatSize:   formatSizes[2],
+		TexelBuffer3FormatSize:   formatSizes[3],
+		TexelBuffer0FormatStride: formatStrides[0],
+		TexelBuffer1FormatStride: formatStrides[1],
+		TexelBuffer2FormatStride: formatStrides[2],
+		TexelBuffer3FormatStride: formatStrides[3],
 	}
 	vk.CmdPushConstants(
 		commandBuffer, t.stubPipelineLayout,
@@ -107,7 +138,6 @@ func (t *GpuTranslator) recordDraw(frame uint64, commandBuffer vk.CommandBuffer,
 		0, uint32(unsafe.Sizeof(pushData)),
 		unsafe.Pointer(&pushData),
 	)
-	t.BindTexelBuffers(commandBuffer, draw, userDataBufferDebug)
 
 	logger.Printf("[%s] Drawing %s vertices (vertex=%s, fragment=%s, userData=%s).\n",
 		color.Blue.Sprintf("Frame %d", frame),

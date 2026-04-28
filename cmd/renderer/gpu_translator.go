@@ -84,42 +84,42 @@ func NewGpuTranslator(handles VulkanHandles, bknd backend.Backend[glfwvulkanback
 		userDataBuffersDebug: map[uint32][]uint32{},
 		userDataBufferMems:   map[uint32]vk.DeviceMemory{},
 	}
-	structs.GlobalGpuAllocator.Alloc = func(size uint64) (vk.Buffer, uintptr, error) {
-		buffer, mem, err := t.AllocExternalBuffer(vk.DeviceSize(size),
-			vk.BufferUsageFlags(vk.BufferUsageShaderDeviceAddressBit|vk.BufferUsageStorageBufferBit|vk.BufferUsageVertexBufferBit|vk.BufferUsageIndexBufferBit),
-			vk.MemoryPropertyFlags(vk.MemoryPropertyHostVisibleBit|vk.MemoryPropertyHostCoherentBit))
-		if err != nil {
-			return vk.NullBuffer, 0, err
-		}
-		if runtime.GOOS == "windows" {
-			return vk.NullBuffer, GetMemoryWin32Handle(t.handles.Instance, t.handles.Device, mem), nil
-		}
 
-		return buffer, uintptr(GetMemoryFd(t.handles.Instance, t.handles.Device, mem)), nil
+	// Allocate memory buffers.
+	onionBuffer, onionMemory, err := t.AllocExternalBuffer(vk.DeviceSize(structs.GlobalAllocator.Size),
+		vk.BufferUsageFlags(vk.BufferUsageShaderDeviceAddressBit|vk.BufferUsageStorageBufferBit|vk.BufferUsageVertexBufferBit|vk.BufferUsageIndexBufferBit|vk.BufferUsageUniformTexelBufferBit),
+		vk.MemoryPropertyFlags(vk.MemoryPropertyHostVisibleBit|vk.MemoryPropertyHostCoherentBit|vk.MemoryPropertyHostCachedBit))
+	if err != nil {
+		return nil, fmt.Errorf("GpuTranslator: onion buffer: %w", err)
 	}
-	structs.GlobalGpuAllocator.Map = structs.MapVulkanMemory
-	structs.GlobalAllocator.Alloc = func(size uint64) (vk.Buffer, uintptr, error) {
-		buffer, mem, err := t.AllocExternalBuffer(vk.DeviceSize(size),
-			vk.BufferUsageFlags(vk.BufferUsageShaderDeviceAddressBit|vk.BufferUsageStorageBufferBit|vk.BufferUsageVertexBufferBit|vk.BufferUsageIndexBufferBit),
-			vk.MemoryPropertyFlags(vk.MemoryPropertyHostVisibleBit|vk.MemoryPropertyHostCoherentBit|vk.MemoryPropertyHostCachedBit))
-		if err != nil {
-			return vk.NullBuffer, 0, err
-		}
-		if runtime.GOOS == "windows" {
-			return vk.NullBuffer, GetMemoryWin32Handle(t.handles.Instance, t.handles.Device, mem), nil
-		}
+	structs.GlobalAllocator.Buffer = onionBuffer
+	structs.GlobalAllocator.DeviceAddress = t.GetBufferAddress(onionBuffer)
 
-		return buffer, uintptr(GetMemoryFd(t.handles.Instance, t.handles.Device, mem)), nil
+	garlicBuffer, garlicMemory, err := t.AllocExternalBuffer(vk.DeviceSize(structs.GlobalGpuAllocator.Size),
+		vk.BufferUsageFlags(vk.BufferUsageShaderDeviceAddressBit|vk.BufferUsageStorageBufferBit|vk.BufferUsageVertexBufferBit|vk.BufferUsageIndexBufferBit|vk.BufferUsageUniformTexelBufferBit),
+		vk.MemoryPropertyFlags(vk.MemoryPropertyHostVisibleBit|vk.MemoryPropertyHostCoherentBit))
+	if err != nil {
+		return nil, fmt.Errorf("GpuTranslator: garlic buffer: %w", err)
 	}
-	structs.GlobalAllocator.Map = structs.MapVulkanMemory
+	structs.GlobalGpuAllocator.Buffer = garlicBuffer
+	structs.GlobalGpuAllocator.DeviceAddress = t.GetBufferAddress(garlicBuffer)
 
-	if err := t.createCommandPool(); err != nil {
+	// Map memory buffers.
+	if runtime.GOOS == "windows" {
+		structs.MapVulkanMemory(structs.GlobalAllocator.Base, structs.GlobalAllocator.Size, GetMemoryWin32Handle(t.handles.Instance, t.handles.Device, onionMemory))
+		structs.MapVulkanMemory(structs.GlobalGpuAllocator.Base, structs.GlobalGpuAllocator.Size, GetMemoryWin32Handle(t.handles.Instance, t.handles.Device, garlicMemory))
+	} else {
+		structs.MapVulkanMemory(structs.GlobalAllocator.Base, structs.GlobalAllocator.Size, uintptr(GetMemoryFd(t.handles.Instance, t.handles.Device, onionMemory)))
+		structs.MapVulkanMemory(structs.GlobalGpuAllocator.Base, structs.GlobalGpuAllocator.Size, uintptr(GetMemoryFd(t.handles.Instance, t.handles.Device, garlicMemory)))
+	}
+
+	if err = t.createCommandPool(); err != nil {
 		return nil, fmt.Errorf("GpuTranslator: command pool: %w", err)
 	}
-	if err := t.createStubPipelineLayout(); err != nil {
+	if err = t.createStubPipelineLayout(); err != nil {
 		return nil, fmt.Errorf("GpuTranslator: pipeline layout: %w", err)
 	}
-	if err := t.createDescriptorPool(); err != nil {
+	if err = t.createDescriptorPool(); err != nil {
 		return nil, fmt.Errorf("GpuTranslator: descriptor pool: %w", err)
 	}
 

@@ -4,7 +4,6 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	. "github.com/LamkasDev/sharkie/cmd/structs"
-	"github.com/goki/vulkan"
 	"github.com/gookit/color"
 )
 
@@ -42,47 +41,8 @@ func libKernel_sys_sceKernelAllocateDirectMemory(searchStart, searchEnd uintptr,
 		allocator = GlobalAllocator
 	}
 
-	// Get the direct memory address.
-	directAddr := allocator.GetNextAlignedAddress(alignment, length)
-	var vulkanHandle uintptr
-	if allocator.Alloc != nil {
-		var err error
-		var vulkanBuffer vulkan.Buffer
-		vulkanBuffer, vulkanHandle, err = allocator.Alloc(length)
-		if err != nil {
-			logger.Printf("%-132s %s failed Vulkan allocation (%s).\n",
-				emu.GlobalModuleManager.GetCallSiteText(),
-				color.Magenta.Sprint("sceKernelAllocateDirectMemory"),
-				err.Error(),
-			)
-			SetErrno(ENOMEM)
-			return ERR_PTR
-		}
-		allocator.Lock.Lock()
-		allocator.Ranges = append(allocator.Ranges, AllocatorMemoryRange{
-			Base:   directAddr,
-			Size:   length,
-			Buffer: vulkanBuffer,
-		})
-		allocator.Lock.Unlock()
-	}
-
-	// Allocate direct memory and perform alignment check.
-	var allocatedAddr uintptr
-	if vulkanHandle != 0 {
-		if err := allocator.Map(directAddr, length, vulkanHandle); err != nil {
-			logger.Printf("%-132s %s failed Vulkan mapping (%s).\n",
-				emu.GlobalModuleManager.GetCallSiteText(),
-				color.Magenta.Sprint("sceKernelAllocateDirectMemory"),
-				err.Error(),
-			)
-			SetErrno(ENOMEM)
-			return ERR_PTR
-		}
-		allocatedAddr = directAddr
-	} else {
-		allocatedAddr = libKernel_mmap(directAddr, length, PROT_READ|PROT_WRITE, MAP_ANON|MAP_PRIVATE|MAP_FIXED, ERR_PTRI, 0)
-	}
+	// Get the next memory address from an already allocated buffer.
+	allocatedAddr := allocator.GetNextAlignedAddress(alignment, length)
 	if allocatedAddr == ERR_PTR {
 		return ERR_PTR
 	}

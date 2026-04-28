@@ -78,7 +78,7 @@ func (b *SpvBuilder) EmitName(target uint32, name string) {
 func (b *SpvBuilder) EmitString(s string) uint32 {
 	id := b.AllocId()
 	operands := append([]uint32{id}, spirvString(s)...)
-	b.instr(&b.code, SpvOpString, operands...)
+	b.instr(&b.debugStrings, SpvOpString, operands...)
 	return id
 }
 

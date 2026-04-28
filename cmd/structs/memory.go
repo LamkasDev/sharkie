@@ -60,19 +60,12 @@ const (
 )
 
 type Allocator struct {
-	Base    uintptr
-	Current uintptr
-	Size    uint64
-	Alloc   func(size uint64) (vulkan.Buffer, uintptr, error)
-	Map     func(addr uintptr, length uint64, handle uintptr) error
-	Ranges  []AllocatorMemoryRange
-	Lock    sync.Mutex
-}
-
-type AllocatorMemoryRange struct {
-	Base   uintptr
-	Size   uint64
-	Buffer vulkan.Buffer
+	Base          uintptr
+	Current       uintptr
+	Size          uint64
+	Buffer        vulkan.Buffer
+	DeviceAddress uint64
+	Lock          sync.Mutex
 }
 
 type GoAllocator struct {
@@ -93,23 +86,8 @@ func NewAllocator(base uintptr, size uint64) *Allocator {
 		Base:    base,
 		Current: base,
 		Size:    size,
-		Ranges:  []AllocatorMemoryRange{},
 		Lock:    sync.Mutex{},
 	}
-}
-
-func (allocator *Allocator) FindRange(addr uintptr) *AllocatorMemoryRange {
-	allocator.Lock.Lock()
-	defer allocator.Lock.Unlock()
-
-	for i := range allocator.Ranges {
-		r := &allocator.Ranges[i]
-		if addr >= r.Base && addr < r.Base+uintptr(r.Size) {
-			return r
-		}
-	}
-
-	return nil
 }
 
 // NewGoAllocator creates a new instance of GoAllocator.

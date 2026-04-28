@@ -72,8 +72,9 @@ func emitSMRDLoad(b *SpvBuilder, instr *Instruction, ctx *SpirvBlockContext, cou
 	mask64 := b.EmitConstantUint64(typeUint64, ^uint64(0x3))
 	addr64Aligned := b.EmitBitwiseAnd(typeUint64, addr64, mask64)
 
-	// Cast to pointer.
-	ptrBase := b.EmitBitcast(idPtrPsbUint, addr64Aligned)
+	// Translate and cast to pointer.
+	translatedAddr64 := ctx.TranslateAddress(b, addr64Aligned)
+	ptrBase := b.EmitBitcast(idPtrPsbUint, translatedAddr64)
 
 	for i := range count {
 		// Load each dword.

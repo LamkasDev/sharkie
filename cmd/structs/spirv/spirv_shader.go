@@ -25,6 +25,7 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	b.EmitCapability(SpvCapAddresses)
 	b.EmitCapability(SpvCapInt64)
 	b.EmitCapability(SpvCapSampled1D)
+	b.EmitCapability(SpvCapSampledBuffer)
 	b.EmitCapability(SpvCapImageQuery)
 	b.EmitCapability(SpvCapGroupNonUniformBallot)
 	b.EmitCapability(SpvCapSubgroupBallotKHR)
@@ -33,7 +34,9 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	b.EmitExtension("SPV_KHR_physical_storage_buffer")
 	b.EmitExtension("SPV_KHR_shader_ballot")
 	b.EmitExtension("SPV_EXT_descriptor_indexing")
+	b.EmitExtension("SPV_KHR_non_semantic_info")
 	typeGLSL := b.EmitExtInstImport("GLSL.std.450")
+	typeDebugPrintf := b.EmitExtInstImport("NonSemantic.DebugPrintf")
 	b.EmitMemoryModel(SpvAddrModelPhysicalStorageBuffer64, SpvMemModelGLSL450)
 
 	// Common types.
@@ -75,11 +78,6 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	b.EmitName(typeInstanceIndex, "instance_index")
 	b.EmitDecorate(typeInstanceIndex, SpvDecorationBuiltIn, SpvBuiltInInstanceIndex)
 
-	// Push constants.
-	// struct StubPushConstants {
-	// 	PhysicalStorageBuffer uint* UserDataAddress;
-	// }
-
 	// Push constant types.
 	typePtrPsbUint := b.EmitTypePointer(SpvStoragePhysicalStorageBuffer, typeUint)
 	typePtrPsbV2Uint := b.EmitTypePointer(SpvStoragePhysicalStorageBuffer, typeV2Uint)
@@ -91,18 +89,48 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	b.EmitDecorate(typePtrPsbV4Uint, SpvDecorationArrayStride, 16)
 
 	// Push constant struct.
-	idUd := b.EmitTypeStruct(typePtrPsbUint)
-	idPtrPc := b.EmitTypePointer(SpvStoragePushConstant, idUd)
+	// struct StubPushConstants {
+	// 	PhysicalStorageBuffer uint* UserDataAddress;
+	//  uint64_t OnionMemoryBaseAddress;
+	//  uint64_t GarlicMemoryBaseAddress;
+	//  uint_t TexelBuffer0FormatSize;
+	//  uint_t TexelBuffer1FormatSize;
+	//  uint_t TexelBuffer2FormatSize;
+	//  uint_t TexelBuffer3FormatSize;
+	//  uint_t TexelBuffer0FormatStride;
+	//  uint_t TexelBuffer1FormatStride;
+	//  uint_t TexelBuffer2FormatStride;
+	//  uint_t TexelBuffer3FormatStride;
+	// }
+	typePc := b.EmitTypeStruct(typePtrPsbUint, typeUint64, typeUint64,
+		typeUint, typeUint, typeUint, typeUint,
+		typeUint, typeUint, typeUint, typeUint,
+	)
 	typePtrPcPsbUint := b.EmitTypePointer(SpvStoragePushConstant, typePtrPsbUint)
+	typePtrPcUint64 := b.EmitTypePointer(SpvStoragePushConstant, typeUint64)
+	typePtrPcUint := b.EmitTypePointer(SpvStoragePushConstant, typeUint)
 
 	// Annotations for the push-constants.
-	b.EmitDecorate(idUd, SpvDecorationBlock)
-	b.EmitMemberDecorate(idUd, 0, SpvDecorationOffset, 0)
+	b.EmitDecorate(typePc, SpvDecorationBlock)
+	b.EmitMemberDecorate(typePc, 0, SpvDecorationOffset, 0)
+	b.EmitMemberDecorate(typePc, 1, SpvDecorationOffset, 8)
+	b.EmitMemberDecorate(typePc, 2, SpvDecorationOffset, 16)
+
+	b.EmitMemberDecorate(typePc, 3, SpvDecorationOffset, 24)
+	b.EmitMemberDecorate(typePc, 4, SpvDecorationOffset, 28)
+	b.EmitMemberDecorate(typePc, 5, SpvDecorationOffset, 32)
+	b.EmitMemberDecorate(typePc, 6, SpvDecorationOffset, 36)
+
+	b.EmitMemberDecorate(typePc, 7, SpvDecorationOffset, 40)
+	b.EmitMemberDecorate(typePc, 8, SpvDecorationOffset, 44)
+	b.EmitMemberDecorate(typePc, 9, SpvDecorationOffset, 48)
+	b.EmitMemberDecorate(typePc, 10, SpvDecorationOffset, 52)
 
 	// Global push-constant variable.
-	typePcVar := b.EmitVariable(idPtrPc, SpvStoragePushConstant)
-	b.EmitName(typePcVar, "push_constants")
-	b.EmitDecorate(typePcVar, SpvDecorationAliasedPointer)
+	typePtrPc := b.EmitTypePointer(SpvStoragePushConstant, typePc)
+	pcVar := b.EmitVariable(typePtrPc, SpvStoragePushConstant)
+	b.EmitName(pcVar, "push_constants")
+	b.EmitDecorate(pcVar, SpvDecorationAliasedPointer)
 
 	// Bindless textures.
 	typeBindlessTexturesVar := b.EmitVariable(typePtrUniformBindlessArray2d, SpvStorageUniformConstant)
@@ -260,21 +288,25 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	constIds[ConstIdxUint11111111] = SpirvBlockContextUsedId{Id: b.AllocId(), Value: 0x11111111, Name: "0x11111111"}
 	constIds[ConstIdxUintFFFFFFFF] = SpirvBlockContextUsedId{Id: b.AllocId(), Value: 0xFFFFFFFF, Name: "0xFFFFFFFF"}
 	constIds[ConstIdx64Uint0] = SpirvBlockContextUsedId{Id: b.AllocId(), Value64: 0, Name: "64_0"}
+	constIds[ConstIdx64Uint1] = SpirvBlockContextUsedId{Id: b.AllocId(), Value64: 1, Name: "64_1"}
 	constIds[ConstIdx64Uint32] = SpirvBlockContextUsedId{Id: b.AllocId(), Value64: 32, Name: "64_32"}
 	constIds[ConstIdxFloat1] = SpirvBlockContextUsedId{Id: b.AllocId(), Value: math.Float32bits(1.0), Name: "1.0"}
 	constIds[ConstIdxFloat0] = SpirvBlockContextUsedId{Id: b.AllocId(), Value: math.Float32bits(0.0), Name: "0.0"}
 
 	// Prepare internal IDs.
 	ids := map[BlockContextId]SpirvBlockContextUsedId{
-		BlockContextIdFalse:                     {Id: idFalse, Name: "false"},
-		BlockContextIdTrue:                      {Id: idTrue, Name: "true"},
-		BlockContextIdTypeBool:                  {Id: typeBool, Name: "bool_t"},
-		BlockContextIdTypeFloat:                 {Id: typeFloat, Name: "float_t"},
-		BlockContextIdTypeInt:                   {Id: typeInt, Name: "int_t"},
-		BlockContextIdTypeUint:                  {Id: typeUint, Name: "uint_t"},
-		BlockContextIdTypeUint64:                {Id: typeUint64, Name: "uint64_t"},
-		BlockContextIdTypeInt64:                 {Id: typeInt64, Name: "int64_t"},
-		BlockContextIdTypeV2Float:               {Id: typeV2Float, Name: "v2float_t"},
+		BlockContextIdFalse:       {Id: idFalse, Name: "false"},
+		BlockContextIdTrue:        {Id: idTrue, Name: "true"},
+		BlockContextIdTypeBool:    {Id: typeBool, Name: "bool_t"},
+		BlockContextIdTypeFloat:   {Id: typeFloat, Name: "float_t"},
+		BlockContextIdTypeInt:     {Id: typeInt, Name: "int_t"},
+		BlockContextIdTypeUint:    {Id: typeUint, Name: "uint_t"},
+		BlockContextIdTypeUint64:  {Id: typeUint64, Name: "uint64_t"},
+		BlockContextIdTypeInt64:   {Id: typeInt64, Name: "int64_t"},
+		BlockContextIdTypeVoid:    {Id: typeVoid, Name: "void_t"},
+		BlockContextIdDebugPrintf: {Id: typeDebugPrintf, Name: "debug_printf_t"},
+		BlockContextIdTypeV2Float: {Id: typeV2Float, Name: "v2float_t"},
+
 		BlockContextIdTypeV4Float:               {Id: typeV4Float, Name: "v4float_t"},
 		BlockContextIdTypeV2Uint:                {Id: typeV2Uint, Name: "v2uint_t"},
 		BlockContextIdTypeV3Uint:                {Id: typeV3Uint, Name: "v3uint_t"},
@@ -282,6 +314,8 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 		BlockContextIdTypeSampledImage:          {Id: typeSampledImage2d, Name: "sampled_image_2d_t"},
 		BlockContextIdPtrUniformSampledImage:    {Id: typePtrUniformSampledImage2d, Name: "ptr_uniform_sampled_image_2d_t"},
 		BlockContextIdPtrPcPsbUint:              {Id: typePtrPcPsbUint, Name: "ptr_pc_psb_uint_t"},
+		BlockContextIdPtrPcUint:                 {Id: typePtrPcUint, Name: "ptr_pc_uint_t"},
+		BlockContextIdPtrPcUint64:               {Id: typePtrPcUint64, Name: "ptr_pc_uint64_t"},
 		BlockContextIdPtrPsbUint:                {Id: typePtrPsbUint, Name: "ptr_pc_psb_uint_t"},
 		BlockContextIdPtrPsbV2Uint:              {Id: typePtrPsbV2Uint, Name: "ptr_pc_psb_v2_uint_t"},
 		BlockContextIdPtrPsbV3Uint:              {Id: typePtrPsbV3Uint, Name: "ptr_pc_psb_v3_uint_t"},
@@ -291,7 +325,7 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 		BlockContextIdFragDepthOut:              {Id: typeFragDepthOut, Name: "frag_depth_out_t"},
 		BlockContextIdZeroVec4:                  {Id: typeZeroVec4, Name: "zero_vec4_t"},
 		BlockContextIdBindlessTextures:          {Id: typeBindlessTexturesVar, Name: "bindless_textures_var_t"},
-		BlockContextIdPcVar:                     {Id: typePcVar, Name: "pc_var_t"},
+		BlockContextIdPcVar:                     {Id: pcVar, Name: "pc_var_t"},
 		BlockContextIdGlsl:                      {Id: typeGLSL, Name: "glsl_t"},
 		BlockContextIdSubgroupLocalInvocationId: {Id: typeSubgroupLocalInvocationId, Name: "subgroup_local_invocation_id_t"},
 		BlockContextIdVertexIndex:               {Id: typeVertexIndex, Name: "vertex_index_t"},

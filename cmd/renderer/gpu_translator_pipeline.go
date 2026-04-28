@@ -1,6 +1,8 @@
 package renderer
 
 import (
+	"unsafe"
+
 	as "github.com/LamkasDev/asche"
 	vk "github.com/goki/vulkan"
 )
@@ -52,7 +54,7 @@ func (t *GpuTranslator) createStubPipelineLayout() error {
 		PPushConstantRanges: []vk.PushConstantRange{{
 			StageFlags: vk.ShaderStageFlags(vk.ShaderStageVertexBit | vk.ShaderStageFragmentBit),
 			Offset:     0,
-			Size:       40,
+			Size:       uint32(unsafe.Sizeof(StubPushConstants{})),
 		}},
 		PushConstantRangeCount: 1,
 		PSetLayouts:            []vk.DescriptorSetLayout{t.stubDescriptorSetLayout, t.texelDescriptorSetLayout},
@@ -105,8 +107,14 @@ func (t *GpuTranslator) createPipelineFromModules(vsModule, fsModule vk.ShaderMo
 		ScissorCount:  1,
 	}
 
+	depthClipExt := vk.PipelineRasterizationDepthClipStateCreateInfo{
+		SType:           vk.StructureTypePipelineRasterizationDepthClipStateCreateInfo,
+		DepthClipEnable: vk.False,
+	}
+
 	raster := vk.PipelineRasterizationStateCreateInfo{
 		SType:       vk.StructureTypePipelineRasterizationStateCreateInfo,
+		PNext:       unsafe.Pointer(&depthClipExt),
 		PolygonMode: vk.PolygonModeFill,
 		CullMode:    vk.CullModeFlags(vk.CullModeNone),
 		FrontFace:   vk.FrontFaceCounterClockwise,
