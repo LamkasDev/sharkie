@@ -1,10 +1,10 @@
 package gcn
 
 import (
-	"fmt"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/logger"
+	"github.com/LamkasDev/sharkie/cmd/structs/gcn/spec"
 	"github.com/gookit/color"
 )
 
@@ -74,7 +74,7 @@ func NewGcnShader(stage GcnShaderStage, address uintptr) (*GcnShader, error) {
 	shader.DwordLength = uint64(len(dwords))
 
 	// Disassemble the instructions.
-	var instructions []Instruction
+	var instructions []spec.Instruction
 	i := 0
 	for i < len(dwords) {
 		enc, length := NewEncoding(dwords[i]), GetEncodingDwordLen(dwords[i])
@@ -90,7 +90,7 @@ func NewGcnShader(stage GcnShaderStage, address uintptr) (*GcnShader, error) {
 		i += instr.DwordLen
 
 		// S_ENDPGM (SOPP op=1) terminates the shader.
-		if instr.Encoding == EncSOPP && instr.Details.(*ScalarDetails).Op == 1 {
+		if instr.Encoding == spec.EncSOPP && instr.Details.(*spec.ScalarDetails).Op == 1 {
 			break
 		}
 	}
@@ -102,16 +102,4 @@ func NewGcnShader(stage GcnShaderStage, address uintptr) (*GcnShader, error) {
 	}
 
 	return shader, nil
-}
-
-func (instr *Instruction) String() string {
-	if instr.Encoding == EncUnknown {
-		return fmt.Sprintf("%-6s  0x%08X                                   ; UNKNOWN", "?", instr.Dwords[0])
-	}
-	rawHex := fmt.Sprintf("0x%08X", instr.Dwords[0])
-	if instr.DwordLen == 2 {
-		rawHex += fmt.Sprintf(" 0x%08X", instr.Dwords[1])
-	}
-
-	return fmt.Sprintf("%-6s  %-22s  %-24s  %s", instr.Encoding, rawHex, instr.GetMnemotic(), instr.GetFieldsString())
 }

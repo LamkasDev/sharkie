@@ -2,6 +2,8 @@ package gcn
 
 import (
 	"slices"
+
+	"github.com/LamkasDev/sharkie/cmd/structs/gcn/spec"
 )
 
 // GcnShaderCfg is the Control Flow Graph of a shader.
@@ -10,7 +12,7 @@ type GcnShaderCfg struct {
 	BlocksByOffset map[uintptr]int
 }
 
-func NewGcnShaderCfg(instructions []Instruction) (GcnShaderCfg, error) {
+func NewGcnShaderCfg(instructions []spec.Instruction) (GcnShaderCfg, error) {
 	// Find leading block offsets.
 	leaders := map[uintptr]bool{instructions[0].DwordOffset: true}
 	for i := range instructions {
@@ -18,7 +20,7 @@ func NewGcnShaderCfg(instructions []Instruction) (GcnShaderCfg, error) {
 		if !instr.IsBranchTerminator() {
 			continue
 		}
-		if instr.Details.(*ScalarDetails).Op == SoppOpEndpgm {
+		if instr.Details.(*spec.ScalarDetails).Op == spec.SoppOpEndpgm {
 			continue
 		}
 
@@ -31,7 +33,7 @@ func NewGcnShaderCfg(instructions []Instruction) (GcnShaderCfg, error) {
 	// Treat EXP(done) as a block boundary (terminates PS before ENDPGM).
 	for i := range instructions {
 		instr := &instructions[i]
-		if instr.Encoding == EncEXP && instr.Details.(*ExpDetails).Done {
+		if instr.Encoding == spec.EncEXP && instr.Details.(*spec.ExpDetails).Done {
 			nextOffset := instr.DwordOffset + uintptr(instr.DwordLen)
 			leaders[nextOffset] = true
 		}
@@ -112,19 +114,19 @@ func NewGcnShaderCfg(instructions []Instruction) (GcnShaderCfg, error) {
 }
 
 // ClassifyTerminator returns Term, BranchCond and Successors for a block.
-func (cfg *GcnShaderCfg) ClassifyTerminator(term *Instruction) (TermKind, BranchCond, []int) {
+func (cfg *GcnShaderCfg) ClassifyTerminator(term *spec.Instruction) (TermKind, BranchCond, []int) {
 	// S_ENDPGM. No successors.
-	if term.Encoding == EncSOPP && term.Details.(*ScalarDetails).Op == SoppOpEndpgm {
+	if term.Encoding == spec.EncSOPP && term.Details.(*spec.ScalarDetails).Op == spec.SoppOpEndpgm {
 		return TermEndpgm, CondNone, nil
 	}
 
 	// EXP with done=true followed by S_ENDPGM. No successors.
-	if term.Encoding == EncEXP && term.Details.(*ExpDetails).Done {
+	if term.Encoding == spec.EncEXP && term.Details.(*spec.ExpDetails).Done {
 		return TermExpDone, CondNone, nil
 	}
 
 	// S_BRANCH (unconditional). One successor.
-	if term.Encoding == EncSOPP && term.Details.(*ScalarDetails).Op == SoppOpBranch {
+	if term.Encoding == spec.EncSOPP && term.Details.(*spec.ScalarDetails).Op == spec.SoppOpBranch {
 		targetId, ok := cfg.BlocksByOffset[term.BranchTargetDwordOffset()]
 		if !ok {
 			return TermBranch, CondNone, nil
@@ -146,7 +148,7 @@ func (cfg *GcnShaderCfg) ClassifyTerminator(term *Instruction) (TermKind, Branch
 			successors = append(successors, targetId)
 		}
 
-		return TermCBranch, NewBranchCond(term.Details.(*ScalarDetails).Op), successors
+		return TermCBranch, NewBranchCond(term.Details.(*spec.ScalarDetails).Op), successors
 	}
 
 	// Block ends because the next block starts (no explicit branch). One successor.

@@ -1,11 +1,39 @@
 package renderer
 
 import (
+	"fmt"
 	"unsafe"
 
 	as "github.com/LamkasDev/asche"
 	vk "github.com/goki/vulkan"
 )
+
+type GpuTranslatorPipelineKey struct {
+	VertexShaderAddress uintptr
+	PixelShaderAddress  uintptr
+	SurfaceAddress      uintptr
+}
+
+func (t *GpuTranslator) GetPipeline(key GpuTranslatorPipelineKey, vsModule, psModule vk.ShaderModule, renderPass vk.RenderPass, width, height uint32) (vk.Pipeline, error) {
+	// Get already created pipeline.
+	t.pipelinesMutex.Lock()
+	pipeline, ok := t.pipelines[key]
+	t.pipelinesMutex.Unlock()
+	if ok {
+		return pipeline, nil
+	}
+
+	// Create the pipeline.
+	pipeline, err := t.createPipelineFromModules(vsModule, psModule, renderPass, width, height)
+	if err != nil {
+		return vk.NullPipeline, fmt.Errorf("createCompiledPipeline 0x%X: %w", key.PixelShaderAddress, err)
+	}
+	t.pipelinesMutex.Lock()
+	t.pipelines[key] = pipeline
+	t.pipelinesMutex.Unlock()
+
+	return pipeline, nil
+}
 
 func (t *GpuTranslator) createStubPipelineLayout() error {
 	// Create descriptor set layout for bindless textures.

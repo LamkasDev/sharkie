@@ -1,0 +1,224 @@
+package spirv
+
+import (
+	"fmt"
+
+	"github.com/LamkasDev/sharkie/cmd/spirv/spec"
+	gcnSpec "github.com/LamkasDev/sharkie/cmd/structs/gcn/spec"
+)
+
+type InstructionEmitFunc func(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
+
+var InstructionEmitMap = map[gcnSpec.Encoding]InstructionEmitFunc{
+	gcnSpec.EncSOP2:  emitSOP2,
+	gcnSpec.EncSOP1:  emitSOP1,
+	gcnSpec.EncSOPC:  emitSOPC,
+	gcnSpec.EncSOPP:  emitSOPP,
+	gcnSpec.EncVOP2:  emitVOP2,
+	gcnSpec.EncVOP1:  emitVOP1,
+	gcnSpec.EncVOPC:  emitVOPC,
+	gcnSpec.EncVOP3:  emitVOP3,
+	gcnSpec.EncSMRD:  emitSMRD,
+	gcnSpec.EncMUBUF: emitMUBUF,
+	gcnSpec.EncMIMG:  emitMIMG,
+	gcnSpec.EncEXP:   emitEXP,
+}
+
+// GetRegisterPointer returns the result ID of the pointer to the given register.
+func (ctx *SpirvBlockContext) GetRegisterPointer(b *SpvBuilder, op uint32) SpirvId {
+	switch {
+	case op >= gcnSpec.OpSgpr0 && op <= gcnSpec.OpSgpr103:
+		return ctx.GetGcnSgprPtr(b, op)
+	case op >= gcnSpec.OpFlatScratchLo && op <= gcnSpec.OpExecHi:
+		return ctx.GetGcnSpecialId(SpirvId(op - gcnSpec.OpFlatScratchLo))
+	case op >= gcnSpec.OpVccz && op <= gcnSpec.OpScc:
+		return ctx.GetGcnSpecialId(SpirvId(op-gcnSpec.OpVccz) + GcnSpecIdVccz)
+	case op >= gcnSpec.OpVgpr0 && op <= gcnSpec.OpVgpr255:
+		return ctx.GetGcnVgprPtr(b, op-gcnSpec.OpVgpr0)
+	}
+
+	panic(fmt.Sprintf("unknown op %d", op))
+}
+
+// LoadRegisterPointer loads the value from the given register pointer.
+func (ctx *SpirvBlockContext) LoadRegisterPointer(b *SpvBuilder, op uint32) SpirvId {
+	return b.EmitLoad(ctx.GetId(BlockContextIdTypeUint), ctx.GetRegisterPointer(b, op))
+}
+
+// StoreRegisterPointer stores the given value into the given register pointer.
+func (ctx *SpirvBlockContext) StoreRegisterPointer(b *SpvBuilder, op uint32, value SpirvId) {
+	b.EmitStore(ctx.GetRegisterPointer(b, op), value)
+}
+
+func (ctx *SpirvBlockContext) StoreRegisterPointerMasked(b *SpvBuilder, reg uint32, newValue SpirvId) {
+	typeUint := ctx.GetId(BlockContextIdTypeUint)
+	typeUint64 := ctx.GetId(BlockContextIdTypeUint64)
+	typeBool := ctx.GetId(BlockContextIdTypeBool)
+
+	// Get current EXEC mask.
+	execLo, execHi := ctx.GetOperand64Value(b, gcnSpec.OpExecLo, 0)
+	exec64 := ctx.Pack64(b, execLo, execHi)
+
+	// Get the current thread's bit (bitMask = 1 << SubgroupLocalInvocationId).
+	subgroupId := b.EmitLoad(typeUint, ctx.GetId(BlockContextIdSubgroupLocalInvocationId))
+	subgroupId64 := b.EmitUConvert(typeUint64, subgroupId)
+	subgroupMask := b.EmitShiftLeftLogical(typeUint64, ctx.GetConstId(ConstId64Uint1), subgroupId64)
+
+	// Check if this thread is active (exec64 & bitMask != 0).
+	masked := b.EmitBitwiseAnd(typeUint64, exec64, subgroupMask)
+	isActive := b.EmitINotEqual(typeBool, masked, ctx.GetConstId(ConstId64Uint0))
+
+	// Load old value from the register.
+	oldValue := ctx.LoadRegisterPointer(b, reg)
+
+	// If active, take newValue. If inactive, keep oldValue.
+	finalValue := b.EmitSelect(typeUint, isActive, newValue, oldValue)
+
+	ctx.StoreRegisterPointer(b, reg, finalValue)
+}
+
+// GetOperandValue returns the result ID of the value of the given operand.
+func (ctx *SpirvBlockContext) GetOperandValue(b *SpvBuilder, op uint32, literal uint32) SpirvId {
+	typeUint := ctx.GetId(BlockContextIdTypeUint)
+	switch {
+	case op >= gcnSpec.OpSgpr0 && op <= gcnSpec.OpSgpr103:
+		return ctx.GetGcnSgprId(b, op)
+	case op >= gcnSpec.OpFlatScratchLo && op <= gcnSpec.OpExecHi:
+		return b.EmitLoad(typeUint, ctx.GetGcnSpecialId(SpirvId(op-gcnSpec.OpFlatScratchLo)))
+	case op >= gcnSpec.OpInt0 && op <= gcnSpec.OpFloatNeg40:
+		return ctx.GetGcnConstId(SpirvId(op - gcnSpec.OpInt0))
+	case op >= gcnSpec.OpVccz && op <= gcnSpec.OpScc:
+		return b.EmitLoad(typeUint, ctx.GetGcnSpecialId(SpirvId(op-gcnSpec.OpVccz)+GcnSpecIdVccz))
+	case op == gcnSpec.OpLiteral:
+		return b.EmitConstantUint(typeUint, literal)
+	case op >= gcnSpec.OpVgpr0 && op <= gcnSpec.OpVgpr255:
+		return ctx.GetGcnVgprId(b, op-gcnSpec.OpVgpr0)
+	}
+
+	panic(fmt.Sprintf("unknown op %d", op))
+}
+
+// GetOperand64Value returns the result IDs of the low and high parts of the value of the given 64-bit operand.
+func (ctx *SpirvBlockContext) GetOperand64Value(b *SpvBuilder, op uint32, literal uint32) (SpirvId, SpirvId) {
+	typeUint := ctx.GetId(BlockContextIdTypeUint)
+	switch {
+	case op >= gcnSpec.OpSgpr0 && op <= gcnSpec.OpSgpr103:
+		return ctx.GetGcnSgprId(b, op), ctx.GetGcnSgprId(b, op+1)
+	case op >= gcnSpec.OpFlatScratchLo && op <= gcnSpec.OpExecHi:
+		return b.EmitLoad(typeUint, ctx.GetGcnSpecialId(SpirvId(op-gcnSpec.OpFlatScratchLo))), b.EmitLoad(typeUint, ctx.GetGcnSpecialId(SpirvId(op+1-gcnSpec.OpFlatScratchLo)))
+	case op >= gcnSpec.OpVgpr0 && op <= gcnSpec.OpVgpr255:
+		return ctx.GetGcnVgprId(b, op-gcnSpec.OpVgpr0), ctx.GetGcnVgprId(b, op-gcnSpec.OpVgpr0+1)
+	case op >= gcnSpec.OpInt0 && op <= gcnSpec.OpPosInt64:
+		return ctx.GetGcnConstId(SpirvId(op - gcnSpec.OpInt0)), ctx.GetConstId(ConstIdUint0)
+	case op >= gcnSpec.OpNegInt1 && op <= gcnSpec.OpNegInt16:
+		return ctx.GetGcnConstId(SpirvId(op - gcnSpec.OpInt0)), ctx.GetConstId(ConstIdUintFFFFFFFF)
+	case op >= gcnSpec.OpFloat05 && op <= gcnSpec.OpFloatNeg40:
+		return ctx.GetGcnConstId(SpirvId(op - gcnSpec.OpInt0)), ctx.GetConstId(ConstIdUint0)
+	case op >= gcnSpec.OpVccz && op <= gcnSpec.OpScc:
+		return b.EmitLoad(typeUint, ctx.GetGcnSpecialId(SpirvId(op-gcnSpec.OpVccz)+GcnSpecIdVccz)), ctx.GetConstId(ConstIdUint0)
+	case op == gcnSpec.OpLiteral:
+		return b.EmitConstantUint(typeUint, literal), ctx.GetConstId(ConstIdUint0)
+	}
+
+	panic(fmt.Sprintf("unknown 64-bit op %d", op))
+}
+
+// GetOperandUintValue returns the result ID of the value of the given operand as a uint.
+func (ctx *SpirvBlockContext) GetOperandUintValue(b *SpvBuilder, op uint32, literal uint32) SpirvId {
+	return ctx.GetOperandValue(b, op, literal)
+}
+
+// GetOperandIntValue returns the result ID of the value of the given operand as an int.
+func (ctx *SpirvBlockContext) GetOperandIntValue(b *SpvBuilder, op uint32, literal uint32) SpirvId {
+	return b.EmitBitcast(ctx.GetId(BlockContextIdTypeInt), ctx.GetOperandValue(b, op, literal))
+}
+
+// GetOperandFloatValue returns the result ID of the value of the given operand as a float.
+func (ctx *SpirvBlockContext) GetOperandFloatValue(b *SpvBuilder, op uint32, literal uint32) SpirvId {
+	return b.EmitBitcast(ctx.GetId(BlockContextIdTypeFloat), ctx.GetOperandValue(b, op, literal))
+}
+
+// TestMask returns a boolean result ID of (val & mask) != 0.
+func (ctx *SpirvBlockContext) TestMask(b *SpvBuilder, value SpirvId, mask uint32) SpirvId {
+	maskId := b.EmitConstantUint(ctx.GetId(BlockContextIdTypeUint), mask)
+	andId := b.EmitBitwiseAnd(ctx.GetId(BlockContextIdTypeUint), value, maskId)
+	return b.EmitINotEqual(ctx.GetId(BlockContextIdTypeBool), andId, ctx.GetConstId(ConstIdUint0))
+}
+
+// Pack64 combines two 32-bit values into one 64-bit value.
+func (ctx *SpirvBlockContext) Pack64(b *SpvBuilder, lo, hi SpirvId) SpirvId {
+	typeUint64 := ctx.GetId(BlockContextIdTypeUint64)
+
+	lo64 := b.EmitUConvert(typeUint64, lo)
+	hi64 := b.EmitUConvert(typeUint64, hi)
+	hiShifted := b.EmitShiftLeftLogical(typeUint64, hi64, ctx.GetConstId(ConstId64Uint32))
+	return b.EmitBitwiseOr(typeUint64, lo64, hiShifted)
+}
+
+// LoadPushConstantValue loads a value from the push constant at the given index.
+func (ctx *SpirvBlockContext) LoadPushConstantValue(b *SpvBuilder, i uint32) SpirvId {
+	var valType, ptrType SpirvId
+	switch i {
+	case PushConstantUserDataAddress:
+		valType = ctx.GetId(BlockContextIdPtrPsbUint)
+		ptrType = ctx.GetId(BlockContextIdPtrPcPsbUint)
+	case PushConstantOnionMemoryBaseAddress, PushConstantGarlicMemoryBaseAddress:
+		valType = ctx.GetId(BlockContextIdTypeUint64)
+		ptrType = ctx.GetId(BlockContextIdPtrPcUint64)
+	case PushConstantTexelBuffer0FormatSize, PushConstantTexelBuffer1FormatSize, PushConstantTexelBuffer2FormatSize, PushConstantTexelBuffer3FormatSize,
+		PushConstantTexelBuffer0FormatStride, PushConstantTexelBuffer1FormatStride, PushConstantTexelBuffer2FormatStride, PushConstantTexelBuffer3FormatStride:
+		valType = ctx.GetId(BlockContextIdTypeUint)
+		ptrType = ctx.GetId(BlockContextIdPtrPcUint)
+	default:
+		panic(fmt.Sprintf("unknown push constant index %d", i))
+	}
+
+	ptr := b.EmitAccessChain(ptrType, ctx.GetId(BlockContextIdPcVar), b.EmitConstantUint(ctx.GetId(BlockContextIdTypeUint), i))
+	return b.EmitLoad(valType, ptr)
+}
+
+// TranslateAddress translates a PS4 address into a memory buffer address.
+func (ctx *SpirvBlockContext) TranslateAddress(b *SpvBuilder, address SpirvId) SpirvId {
+	typeBool := ctx.GetId(BlockContextIdTypeBool)
+	typeUint64 := ctx.GetId(BlockContextIdTypeUint64)
+
+	// Garlic address is >= 0xFE0000000.
+	garlicThreshold := b.EmitConstantUint64(typeUint64, 0xFE0000000)
+	isGarlic := b.EmitUGreaterThanEqual(typeBool, address, garlicThreshold)
+
+	// Translation labels.
+	garlicLabel := b.AllocId()
+	onionLabel := b.AllocId()
+	mergeLabel := b.AllocId()
+	b.EmitSelectionMerge(mergeLabel, spec.SpvSelectionControlNone)
+	b.EmitBranchConditional(isGarlic, garlicLabel, onionLabel)
+
+	// Garlic translation.
+	b.EmitLabel(garlicLabel)
+	garlicBase := ctx.LoadPushConstantValue(b, PushConstantGarlicMemoryBaseAddress)
+	garlicOffset := b.EmitISub(typeUint64, address, garlicThreshold)
+	translatedGarlic := b.EmitIAdd(typeUint64, garlicBase, garlicOffset)
+	b.EmitBranch(mergeLabel)
+
+	// Onion translation.
+	b.EmitLabel(onionLabel)
+	onionBase := ctx.LoadPushConstantValue(b, PushConstantOnionMemoryBaseAddress)
+	onionThreshold := b.EmitConstantUint64(typeUint64, 0x400000000)
+	onionOffset := b.EmitISub(typeUint64, address, onionThreshold)
+	translatedOnion := b.EmitIAdd(typeUint64, onionBase, onionOffset)
+	b.EmitBranch(mergeLabel)
+
+	// Merge.
+	b.EmitLabel(mergeLabel)
+	return b.EmitPhi(typeUint64, translatedGarlic, garlicLabel, translatedOnion, onionLabel)
+}
+
+// emitInstruction emits the SPIR-V for a single instruction.
+func emitInstruction(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext) {
+	b.EmitLine(b.EmitString(instr.String()), uint32(instr.DwordOffset), 0)
+	emitFunc, ok := InstructionEmitMap[instr.Encoding]
+	if !ok {
+		panic(fmt.Errorf("unknown encoding %s", instr.Encoding))
+	}
+	emitFunc(b, instr, ctx)
+}

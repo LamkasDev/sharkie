@@ -1,133 +1,73 @@
 package gcn
 
-type Encoding uint8
+import "github.com/LamkasDev/sharkie/cmd/structs/gcn/spec"
 
-const (
-	EncUnknown Encoding = iota
-
-	// [Scalar ALU Operations] 5.1 SALU Instruction Formats.
-	EncSOP2 // Scalar ALU, 2 sources
-	EncSOPK // Scalar ALU with inline 16-bit constant
-	EncSOP1 // Scalar ALU, 1 source
-	EncSOPC // Scalar ALU compare
-	EncSOPP // Scalar ALU program flow
-
-	// [Vector ALU Operations] 6.1 Microcode Encodings.
-	EncVOP2   // Vector ALU, 2 sources
-	EncVOP1   // Vector ALU, 1 source
-	EncVOPC   // Vector ALU compare
-	EncVINTRP // Vector ALU interpolate
-	EncVOP3   // Vector ALU 3-source (classic or scalar destination)
-
-	// [Scalar Memory Operations] 7.1 Microcode Encoding
-	EncSMRD // Scalar Memory read
-
-	// [Vector Memory Operations] 8.1 Vector Memory Buffer Instructions.
-	EncMTBUF // Memory Typed Buffer
-	EncMUBUF // Memory Untyped Buffer
-
-	// [Vector Memory Operations] 8.2 Vector Memory (VM) Image Instructions.
-	EncMIMG // Memory Image
-
-	// [Flat Memory Instructions] 9.1 Flat Memory Instructions.
-
-	// [Data Share Operations] 10.3 LDS Access.
-	EncDS // Global / Local Data Share
-
-	// [Exporting Pixel Color and Vertex Shader Parameters] 11.1 Microcode Encoding.
-	EncEXP // Export
-)
-
-var EncodingNames = map[Encoding]string{
-	EncUnknown: "UNKNOWN",
-	EncSOP2:    "SOP2",
-	EncSOPK:    "SOPK",
-	EncSOP1:    "SOP1",
-	EncSOPC:    "SOPC",
-	EncSOPP:    "SOPP",
-	EncVOP2:    "VOP2",
-	EncVOP1:    "VOP1",
-	EncVOPC:    "VOPC",
-	EncVINTRP:  "VINTRP",
-	EncVOP3:    "VOP3",
-	EncSMRD:    "SMRD",
-	EncMTBUF:   "MTBUF",
-	EncMUBUF:   "MUBUF",
-	EncMIMG:    "MIMG",
-	EncDS:      "DS",
-	EncEXP:     "EXP",
-}
-
-func (e Encoding) String() string {
-	return EncodingNames[e]
-}
-
-func NewEncoding(dw uint32) Encoding {
+func NewEncoding(dw uint32) spec.Encoding {
 	top9 := (dw >> 23) & 0b111111111
 	switch top9 {
 	case 0b101111101:
-		return EncSOP1
+		return spec.EncSOP1
 	case 0b101111110:
-		return EncSOPC
+		return spec.EncSOPC
 	case 0b101111111:
-		return EncSOPP
+		return spec.EncSOPP
 	}
 
 	top5 := dw >> 27
 	if top5 == 0b11000 || top5 == 0b11001 {
-		return EncSMRD
+		return spec.EncSMRD
 	}
 
 	top6 := (dw >> 26) & 0b111111
 	switch top6 {
 	case 0b110100:
-		return EncVOP3
+		return spec.EncVOP3
 	case 0b110110:
-		return EncDS
+		return spec.EncDS
 	case 0b111110:
-		return EncEXP
+		return spec.EncEXP
 	case 0b111000:
-		return EncMUBUF
+		return spec.EncMUBUF
 	case 0b111010:
-		return EncMTBUF
+		return spec.EncMTBUF
 	case 0b111100:
-		return EncMIMG
+		return spec.EncMIMG
 	}
 
 	top7 := (dw >> 25) & 0b1111111
 	switch top7 {
 	case 0b0111111:
-		return EncVOP1
+		return spec.EncVOP1
 	case 0b0111110:
-		return EncVOPC
+		return spec.EncVOPC
 	}
 
 	if (dw >> 28) == 0b1011 {
-		return EncSOPK
+		return spec.EncSOPK
 	}
 	if (dw >> 30) == 0b10 {
-		return EncSOP2
+		return spec.EncSOP2
 	}
 	if (dw >> 31) == 0b0 {
-		return EncVOP2
+		return spec.EncVOP2
 	}
 
-	return EncUnknown
+	return spec.EncUnknown
 }
 
 func GetEncodingDwordLen(dw uint32) int {
 	switch NewEncoding(dw) {
-	case EncVOP3, EncEXP, EncDS, EncMUBUF, EncMTBUF, EncMIMG:
+	case spec.EncVOP3, spec.EncEXP, spec.EncDS, spec.EncMUBUF, spec.EncMTBUF, spec.EncMIMG:
 		return 2
-	case EncVOP1, EncVOPC, EncVOP2:
+	case spec.EncVOP1, spec.EncVOPC, spec.EncVOP2:
 		if dw&0x1FF == 0xFF { // SRC0 == 0xFF
 			return 2
 		}
-	case EncSOP1:
+	case spec.EncSOP1:
 		if dw&0xFF == 0xFF { // SSRC0 == 0xFF
 			return 2
 		}
-	case EncSOPC, EncSOP2:
+	case spec.EncSOPC, spec.EncSOP2:
 		if dw&0xFF == 0xFF || (dw>>8)&0xFF == 0xFF { // SSRC0/SSRC1 == 0xFF
 			return 2
 		}

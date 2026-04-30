@@ -1,5 +1,7 @@
 package gcn
 
+import "github.com/LamkasDev/sharkie/cmd/structs/gcn/spec"
+
 // TermKind classifies how a block exits.
 type TermKind uint8
 
@@ -36,7 +38,7 @@ func (t TermKind) String() string {
 type GcnShaderCfgBlock struct {
 	Id           int
 	DwordOffset  uintptr
-	Instructions []Instruction
+	Instructions []spec.Instruction
 
 	Term         TermKind
 	BranchCond   BranchCond
@@ -48,6 +50,6 @@ type GcnShaderCfgBlock struct {
 	ContinueBlockId int
 }
 
-func (b *GcnShaderCfgBlock) Terminator() *Instruction {
+func (b *GcnShaderCfgBlock) Terminator() *spec.Instruction {
 	return &b.Instructions[len(b.Instructions)-1]
 }

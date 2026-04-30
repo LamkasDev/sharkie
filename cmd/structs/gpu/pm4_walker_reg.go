@@ -3,6 +3,7 @@ package gpu
 import (
 	"runtime"
 	"slices"
+	"strings"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/logger"
@@ -59,6 +60,14 @@ func (l *Liverpool) handleSetRegs(ringName string, bank []uint32, bankName strin
 		bankIndex := int(offset) + index
 		if bankIndex < len(bank) {
 			bank[bankIndex] = value
+			if bankName == "shader" && strings.Contains(bankRegNames[uint32(bankIndex)], "COMPUTE") {
+				logger.Printf("[%s] set %s/%s to %s.\n",
+					color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
+					color.Blue.Sprint(bankName),
+					color.Blue.Sprint(bankRegNames[uint32(bankIndex)]),
+					color.Green.Sprintf("0x%X", value),
+				)
+			}
 			if LogPM4Packets {
 				logger.Printf("[%s] set %s/%s to %s.\n",
 					color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),

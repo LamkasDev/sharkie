@@ -164,6 +164,10 @@ func (app *Application) VulkanSurface(instance vk.Instance) (surface vk.Surface)
 	return vk.SurfaceFromPointer(surfPtr)
 }
 
+func (app *Application) VulkanAPIVersion() vk.Version {
+	return vk.Version(vk.MakeVersion(1, 2, 0))
+}
+
 func (app *Application) VulkanLayers() []string {
 	validationLayers := []string{}
 	if app.Config.DebugMode {
@@ -180,6 +184,8 @@ func (app *Application) VulkanDeviceExtensions() []string {
 		"VK_KHR_swapchain",
 		"VK_KHR_buffer_device_address",
 		"VK_KHR_external_memory",
+		"VK_KHR_shader_non_semantic_info",
+		"VK_EXT_depth_clip_enable",
 	}
 	// TODO: use runtime.GOOS
 	extensions = append(extensions, "VK_KHR_external_memory_fd")

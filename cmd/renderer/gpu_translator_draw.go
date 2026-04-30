@@ -32,11 +32,6 @@ type StubPushConstants struct {
 	TexelBuffer1FormatStride uint32
 	TexelBuffer2FormatStride uint32
 	TexelBuffer3FormatStride uint32
-
-	TexelBuffer0FormatComponents uint32
-	TexelBuffer1FormatComponents uint32
-	TexelBuffer2FormatComponents uint32
-	TexelBuffer3FormatComponents uint32
 }
 
 func (t *GpuTranslator) recordDraw(frame uint64, commandBuffer vk.CommandBuffer, draw *LiverpoolDrawCall) {
@@ -117,6 +112,9 @@ func (t *GpuTranslator) recordDraw(frame uint64, commandBuffer vk.CommandBuffer,
 
 	// Bind texel buffers.
 	formatSizes, formatStrides := t.BindTexelBuffers(commandBuffer, draw, userDataBufferDebug)
+
+	// Bind image samplers.
+	// TODO:
 
 	// Push constants to shader.
 	pushData := StubPushConstants{

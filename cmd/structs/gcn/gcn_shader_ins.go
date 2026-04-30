@@ -1,58 +1,30 @@
 package gcn
 
-import "fmt"
+import (
+	"fmt"
 
-type InstructionDecodeFunc func(instr *Instruction)
+	"github.com/LamkasDev/sharkie/cmd/structs/gcn/spec"
+)
 
-var InstructionDecodeMap = map[Encoding]InstructionDecodeFunc{
-	EncSOP2:  (*Instruction).DecodeSOP2,
-	EncSOP1:  (*Instruction).DecodeSOP1,
-	EncSOPC:  (*Instruction).DecodeSOPC,
-	EncSOPP:  (*Instruction).DecodeSOPP,
-	EncVOP2:  (*Instruction).DecodeVOP2,
-	EncVOP1:  (*Instruction).DecodeVOP1,
-	EncVOPC:  (*Instruction).DecodeVOPC,
-	EncVOP3:  (*Instruction).DecodeVOP3,
-	EncSMRD:  (*Instruction).DecodeSMRD,
-	EncMUBUF: (*Instruction).DecodeMUBUF,
-	EncMIMG:  (*Instruction).DecodeMIMG,
-	EncEXP:   (*Instruction).DecodeEXP,
+type InstructionDecodeFunc func(instr *spec.Instruction)
+
+var InstructionDecodeMap = map[spec.Encoding]InstructionDecodeFunc{
+	spec.EncSOP2:  (*spec.Instruction).DecodeSOP2,
+	spec.EncSOP1:  (*spec.Instruction).DecodeSOP1,
+	spec.EncSOPC:  (*spec.Instruction).DecodeSOPC,
+	spec.EncSOPP:  (*spec.Instruction).DecodeSOPP,
+	spec.EncVOP2:  (*spec.Instruction).DecodeVOP2,
+	spec.EncVOP1:  (*spec.Instruction).DecodeVOP1,
+	spec.EncVOPC:  (*spec.Instruction).DecodeVOPC,
+	spec.EncVOP3:  (*spec.Instruction).DecodeVOP3,
+	spec.EncSMRD:  (*spec.Instruction).DecodeSMRD,
+	spec.EncMUBUF: (*spec.Instruction).DecodeMUBUF,
+	spec.EncMIMG:  (*spec.Instruction).DecodeMIMG,
+	spec.EncEXP:   (*spec.Instruction).DecodeEXP,
 }
 
-// Following based on this doc:
-// https://docs.amd.com/v/u/en-US/sea-islands-instruction-set-architecture_0
-type Instruction struct {
-	Encoding    Encoding
-	DwordOffset uintptr
-	Dwords      [2]uint32
-	DwordLen    int
-
-	// Follows some instructions when SRC0/SSRC0 == 0xFF.
-	HasLiteral bool
-	Literal    uint32
-
-	Details any
-}
-
-// Scalar instructions.
-type ScalarDetails struct {
-	Op    uint32
-	Dst   uint32
-	Src0  uint32
-	Src1  uint32
-	Imm16 int16
-}
-
-// Vector instructions.
-type VectorDetails struct {
-	Op   uint32
-	Dst  uint32
-	Src0 uint32
-	Src1 uint32
-}
-
-func NewInstruction(dwordOffset uintptr, enc Encoding, dwords []uint32) (Instruction, error) {
-	instr := Instruction{
+func NewInstruction(dwordOffset uintptr, enc spec.Encoding, dwords []uint32) (spec.Instruction, error) {
+	instr := spec.Instruction{
 		Encoding:    enc,
 		DwordOffset: dwordOffset,
 		DwordLen:    len(dwords),

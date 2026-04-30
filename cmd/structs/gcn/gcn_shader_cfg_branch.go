@@ -1,5 +1,7 @@
 package gcn
 
+import "github.com/LamkasDev/sharkie/cmd/structs/gcn/spec"
+
 // BranchCond names the GCN condition register that controls a conditional branch.
 type BranchCond uint8
 
@@ -24,12 +26,12 @@ var BranchCondNames = map[BranchCond]string{
 }
 
 var BranchCondMap = map[uint32]BranchCond{
-	SoppOpCbranchScc0:   CondScc0,
-	SoppOpCbranchScc1:   CondScc1,
-	SoppOpCbranchVccz:   CondVccz,
-	SoppOpCbranchVccnz:  CondVccnz,
-	SoppOpCbranchExecz:  CondExecz,
-	SoppOpCbranchExecnz: CondExecnz,
+	spec.SoppOpCbranchScc0:   CondScc0,
+	spec.SoppOpCbranchScc1:   CondScc1,
+	spec.SoppOpCbranchVccz:   CondVccz,
+	spec.SoppOpCbranchVccnz:  CondVccnz,
+	spec.SoppOpCbranchExecz:  CondExecz,
+	spec.SoppOpCbranchExecnz: CondExecnz,
 }
 
 func (c BranchCond) String() string {

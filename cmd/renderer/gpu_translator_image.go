@@ -2,48 +2,83 @@ package renderer
 
 import (
 	"fmt"
-	"unsafe"
+	"hash/fnv"
 
-	as "github.com/LamkasDev/asche"
+	"github.com/LamkasDev/sharkie/cmd/spirv"
 	vk "github.com/goki/vulkan"
 )
 
-func (t *GpuTranslator) createDescriptorPool() error {
-	var pool vk.DescriptorPool
-	result := vk.CreateDescriptorPool(t.handles.Device, &vk.DescriptorPoolCreateInfo{
-		SType: vk.StructureTypeDescriptorPoolCreateInfo,
-		PPoolSizes: []vk.DescriptorPoolSize{
-			{
-				Type:            vk.DescriptorTypeUniformTexelBuffer,
-				DescriptorCount: 2048,
-			},
-		},
-		PoolSizeCount: 1,
-		MaxSets:       1024,
-		Flags:         vk.DescriptorPoolCreateFlags(vk.DescriptorPoolCreateFreeDescriptorSetBit),
-	}, nil, &pool)
-	if err := as.NewError(result); err != nil {
-		return fmt.Errorf("GpuTranslator: descriptor pool: %w", err)
+func (t *GpuTranslator) GetImageView(d spirv.ImageDescriptor) vk.ImageView {
+	// Check if it's a render target surface.
+	t.surfacesMutex.Lock()
+	if s, ok := t.surfaces[d.BaseAddress]; ok {
+		t.surfacesMutex.Unlock()
+		return s.imageView
 	}
-	t.descriptorPool = pool
+	t.surfacesMutex.Unlock()
 
-	// Allocate descriptor sets.
-	t.texelDescriptorSets = make([]vk.DescriptorSet, 1024)
-	layouts := make([]vk.DescriptorSetLayout, 1024)
-	for i := range 1024 {
-		layouts[i] = t.texelDescriptorSetLayout
-	}
-	result = vk.AllocateDescriptorSets(t.handles.Device, &vk.DescriptorSetAllocateInfo{
-		SType:              vk.StructureTypeDescriptorSetAllocateInfo,
-		DescriptorPool:     t.descriptorPool,
-		DescriptorSetCount: 1024,
-		PSetLayouts:        layouts,
-	}, unsafe.SliceData(t.texelDescriptorSets))
-	if err := as.NewError(result); err != nil {
-		return fmt.Errorf("GpuTranslator: allocate descriptor sets: %w", err)
+	// Get already created image view.
+	t.imagesMutex.Lock()
+	defer t.imagesMutex.Unlock()
+	if view, ok := t.imageViews[d.BaseAddress]; ok {
+		return view
 	}
 
-	return nil
+	// Create the image view.
+	format, _ := TranslateGcnFormat(d.DataFormat, d.NumFormat)
+	if format == vk.FormatUndefined {
+		return vk.NullImageView
+	}
+
+	var image vk.Image
+	vk.CreateImage(t.handles.Device, &vk.ImageCreateInfo{
+		SType:       vk.StructureTypeImageCreateInfo,
+		ImageType:   vk.ImageType2d,
+		Format:      format,
+		Extent:      vk.Extent3D{Width: d.Width, Height: d.Height, Depth: 1},
+		MipLevels:   1,
+		ArrayLayers: 1,
+		Samples:     vk.SampleCount1Bit,
+		Tiling:      vk.ImageTilingLinear, // Use linear for direct guest memory mapping?
+		Usage:       vk.ImageUsageFlags(vk.ImageUsageSampledBit),
+	}, nil, &image)
+
+	// Since we can't easily map a VkImage to a VkBuffer address in standard Vulkan,
+	// for now we'll just return Null until we implement a proper texture uploader.
+	// But let's at least keep the image handle if we were to create one.
+	// t.images[d.BaseAddress] = image
+
+	return vk.NullImageView
+}
+
+func (t *GpuTranslator) GetSampler(d spirv.SamplerDescriptor) vk.Sampler {
+	h := fnv.New64a()
+	h.Write([]byte(fmt.Sprintf("%v", d)))
+	hash := h.Sum64()
+
+	// Get already created sampler.
+	t.samplersMutex.Lock()
+	defer t.samplersMutex.Unlock()
+	if s, ok := t.samplers[hash]; ok {
+		return s
+	}
+
+	// Create the sampler.
+	var sampler vk.Sampler
+	vk.CreateSampler(t.handles.Device, &vk.SamplerCreateInfo{
+		SType:        vk.StructureTypeSamplerCreateInfo,
+		MagFilter:    translateFilter(d.MagFilter),
+		MinFilter:    translateFilter(d.MinFilter),
+		MipmapMode:   translateMipmapMode(d.MipFilter),
+		AddressModeU: translateClampMode(d.ClampX),
+		AddressModeV: translateClampMode(d.ClampY),
+		AddressModeW: translateClampMode(d.ClampZ),
+		MinLod:       0,
+		MaxLod:       15,
+	}, nil, &sampler)
+	t.samplers[hash] = sampler
+
+	return sampler
 }
 
 func (t *GpuTranslator) imageBarrier(commandBuffer vk.CommandBuffer, image vk.Image,
@@ -62,11 +97,14 @@ func (t *GpuTranslator) imageBarrier(commandBuffer vk.CommandBuffer, image vk.Im
 			DstQueueFamilyIndex: vk.QueueFamilyIgnored,
 			Image:               image,
 			SubresourceRange: vk.ImageSubresourceRange{
-				AspectMask: vk.ImageAspectFlags(vk.ImageAspectColorBit),
-				LevelCount: 1,
-				LayerCount: 1,
+				AspectMask:     vk.ImageAspectFlags(vk.ImageAspectColorBit),
+				BaseMipLevel:   0,
+				LevelCount:     vk.RemainingMipLevels,
+				BaseArrayLayer: 0,
+				LayerCount:     vk.RemainingArrayLayers,
 			},
 			SrcAccessMask: srcAccess,
 			DstAccessMask: dstAccess,
-		}})
+		}},
+	)
 }
