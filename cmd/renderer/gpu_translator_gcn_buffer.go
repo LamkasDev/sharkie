@@ -91,17 +91,9 @@ func (t *GpuTranslator) BindTexelBuffers(commandBuffer vk.CommandBuffer, draw *L
 		}
 
 		// Route to the correct buffer based on address range.
-		var targetBuffer vk.Buffer
-		var relativeOffset uintptr
-		if descriptor.BaseAddress >= GlobalGpuAllocator.Base && descriptor.BaseAddress < GlobalGpuAllocator.Base+uintptr(GlobalGpuAllocator.Size) {
-			targetBuffer = GlobalGpuAllocator.Buffer
-			relativeOffset = descriptor.BaseAddress - GlobalGpuAllocator.Base
-		} else if descriptor.BaseAddress >= GlobalAllocator.Base && descriptor.BaseAddress < GlobalAllocator.Base+uintptr(GlobalAllocator.Size) {
-			targetBuffer = GlobalAllocator.Buffer
-			relativeOffset = descriptor.BaseAddress - GlobalAllocator.Base
-		} else {
-			logger.Printf("Warning: Base address 0x%X is out of known memory bounds", descriptor.BaseAddress)
-			continue
+		targetBuffer, relativeOffset, err := t.GetBufferFromAddress(descriptor.BaseAddress)
+		if err != nil {
+			panic(err)
 		}
 
 		// A resource set to all zeros acts as an unbound texture or buffer (return 0,0,0,0). Buffer Size (in bytes) =
@@ -138,7 +130,10 @@ func (t *GpuTranslator) BindTexelBuffers(commandBuffer vk.CommandBuffer, draw *L
 			}
 			data := unsafe.Slice((*uint32)(unsafe.Pointer(descriptor.BaseAddress)), count)
 			logger.Printf("[%s] Buffer %d (format=%d,%d records=%d stride=%d base=%x) content: %x\n",
-				color.Blue.Sprint("GPU"), i, descriptor.DataFormat, descriptor.NumFormat, descriptor.Records, descriptor.Stride, descriptor.BaseAddress, data)
+				color.Blue.Sprint("GPU"), i,
+				descriptor.DataFormat, descriptor.NumFormat, descriptor.Records, descriptor.Stride, descriptor.BaseAddress,
+				data,
+			)
 		}
 
 		bufferViews[i] = view
@@ -179,4 +174,14 @@ func (t *GpuTranslator) BindTexelBuffers(commandBuffer vk.CommandBuffer, draw *L
 	vk.CmdBindDescriptorSets(commandBuffer, vk.PipelineBindPointGraphics, t.stubPipelineLayout, 1, 1, []vk.DescriptorSet{descriptorSet}, 0, nil)
 
 	return formatSizes, formatStrides
+}
+
+func (t *GpuTranslator) GetBufferFromAddress(address uintptr) (vk.Buffer, uintptr, error) {
+	if address >= GlobalGpuAllocator.Base && address < GlobalGpuAllocator.Base+uintptr(GlobalGpuAllocator.Size) {
+		return GlobalGpuAllocator.Buffer, address - GlobalGpuAllocator.Base, nil
+	} else if address >= GlobalAllocator.Base && address < GlobalAllocator.Base+uintptr(GlobalAllocator.Size) {
+		return GlobalAllocator.Buffer, address - GlobalAllocator.Base, nil
+	}
+
+	return vk.NullBuffer, 0, fmt.Errorf("address 0x%X is out of known memory bounds", address)
 }

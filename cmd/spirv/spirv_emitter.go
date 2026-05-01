@@ -82,7 +82,7 @@ func (b *SpvBuilder) EmitName(target SpirvId, name string) {
 func (b *SpvBuilder) EmitString(s string) SpirvId {
 	id := b.AllocId()
 	operands := append([]uint32{uint32(id)}, spirvString(s)...)
-	b.instr(&b.code, spec.SpvOpString, operands...)
+	b.instr(&b.debugStrings, spec.SpvOpString, operands...)
 	return id
 }
 
@@ -195,6 +195,13 @@ func (b *SpvBuilder) EmitImageFetch(resultType, image, coordinate SpirvId, image
 		operands = append(operands, uint32(op))
 	}
 	b.instr(&b.code, spec.SpvOpImageFetch, operands...)
+	return id
+}
+
+// EmitAtomicIAdd emits OpAtomicIAdd and returns the result ID.
+func (b *SpvBuilder) EmitAtomicIAdd(resultType, pointer, scope, semantics, value SpirvId) SpirvId {
+	id := b.AllocId()
+	b.instr(&b.code, spec.SpvOpAtomicIAdd, uint32(resultType), uint32(id), uint32(pointer), uint32(scope), uint32(semantics), uint32(value))
 	return id
 }
 

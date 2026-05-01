@@ -10,6 +10,7 @@ import (
 	. "github.com/LamkasDev/sharkie/cmd/structs/gpu"
 	vk "github.com/goki/vulkan"
 	"github.com/gookit/color"
+	"go101.org/nstd"
 )
 
 var startTime time.Time
@@ -68,6 +69,7 @@ func (t *GpuTranslator) recordDraw(frame uint64, commandBuffer vk.CommandBuffer,
 
 	// Get pipeline for defined shader modules.
 	key := GpuTranslatorPipelineKey{
+		Topology:            t.translateTopology(draw.PrimType),
 		VertexShaderAddress: draw.VertexShader.Address,
 		PixelShaderAddress:  draw.PixelShader.Address,
 		SurfaceAddress:      rtAddress,
@@ -104,6 +106,12 @@ func (t *GpuTranslator) recordDraw(frame uint64, commandBuffer vk.CommandBuffer,
 	vk.CmdBindPipeline(commandBuffer, vk.PipelineBindPointGraphics, pipeline)
 	t.setDynamicState(commandBuffer, draw, surface)
 
+	// Bind discovery descriptor set.
+	vk.CmdBindDescriptorSets(commandBuffer, vk.PipelineBindPointGraphics, t.stubPipelineLayout, 2, 1, []vk.DescriptorSet{t.discoveryDescriptorSet}, 0, nil)
+
+	// Bind bindless descriptor set.
+	vk.CmdBindDescriptorSets(commandBuffer, vk.PipelineBindPointGraphics, t.stubPipelineLayout, 0, 1, []vk.DescriptorSet{t.bindlessDescriptorSet}, 0, nil)
+
 	// Get buffer addresses.
 	t.userDataBuffersMutex.Lock()
 	userDataBuffer := t.userDataBuffers[draw.UserDataHash]
@@ -137,14 +145,34 @@ func (t *GpuTranslator) recordDraw(frame uint64, commandBuffer vk.CommandBuffer,
 		unsafe.Pointer(&pushData),
 	)
 
-	logger.Printf("[%s] Drawing %s vertices (vertex=%s, fragment=%s, userData=%s).\n",
+	logger.Printf("[%s] Drawing %s vertices (vertex=%s, fragment=%s, userData=%s, topology=%s, indexed=%s).\n",
 		color.Blue.Sprintf("Frame %d", frame),
 		color.Green.Sprint(draw.VertexCount),
 		color.Yellow.Sprintf("0x%X", draw.VertexShader.Address),
 		color.Yellow.Sprintf("0x%X", draw.PixelShader.Address),
 		color.Yellow.Sprintf("0x%X", draw.UserDataHash),
+		color.Green.Sprint(draw.PrimType),
+		color.Green.Sprint(nstd.Btoi(draw.IsIndexed)),
 	)
-	vk.CmdDraw(commandBuffer, draw.VertexCount, draw.InstanceCount, 0, 0)
+	if draw.IsIndexed {
+		targetBuffer, relativeOffset, err := t.GetBufferFromAddress(draw.IndexBaseAddress)
+		if err != nil {
+			panic(err)
+		}
+
+		if targetBuffer != vk.NullBuffer {
+			indexType := vk.IndexTypeUint16
+			if draw.IndexType == 1 {
+				indexType = vk.IndexTypeUint32
+			}
+			vk.CmdBindIndexBuffer(commandBuffer, targetBuffer, vk.DeviceSize(relativeOffset), indexType)
+			vk.CmdDrawIndexed(commandBuffer, draw.IndexCount, draw.InstanceCount, 0, int32(draw.BaseVertexOffset), 0)
+		} else {
+			vk.CmdDraw(commandBuffer, draw.VertexCount, draw.InstanceCount, 0, 0)
+		}
+	} else {
+		vk.CmdDraw(commandBuffer, draw.VertexCount, draw.InstanceCount, 0, 0)
+	}
 
 	vk.CmdEndRenderPass(commandBuffer)
 }
@@ -181,4 +209,25 @@ func (t *GpuTranslator) setDynamicState(commandBuffer vk.CommandBuffer, draw *Li
 		Offset: vk.Offset2D{X: int32(scissorX), Y: int32(scissorY)},
 		Extent: vk.Extent2D{Width: uint32(scissorW), Height: uint32(scissorH)},
 	}})
+}
+
+func (t *GpuTranslator) translateTopology(primType uint32) vk.PrimitiveTopology {
+	switch primType {
+	case 1:
+		return vk.PrimitiveTopologyPointList
+	case 2:
+		return vk.PrimitiveTopologyLineList
+	case 3:
+		return vk.PrimitiveTopologyLineStrip
+	case 4:
+		return vk.PrimitiveTopologyTriangleList
+	case 5:
+		return vk.PrimitiveTopologyTriangleStrip
+	case 6:
+		return vk.PrimitiveTopologyTriangleFan
+	case 17: // RECTLIST
+		return vk.PrimitiveTopologyTriangleList
+	default:
+		return vk.PrimitiveTopologyTriangleList
+	}
 }

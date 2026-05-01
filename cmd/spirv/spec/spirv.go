@@ -78,6 +78,7 @@ const (
 	SpvStorageOutput                = uint32(3)
 	SpvStorageFunction              = uint32(7)
 	SpvStoragePushConstant          = uint32(9)
+	SpvStorageStorageBuffer         = uint32(12)
 	SpvStoragePhysicalStorageBuffer = uint32(5349)
 )
 
@@ -113,6 +114,12 @@ const (
 	SpvMemoryAccessVolatile    = uint32(1)
 	SpvMemoryAccessAligned     = uint32(2)
 	SpvMemoryAccessNontemporal = uint32(4)
+)
+
+// SPIR-V image operand masks.
+const (
+	SpvImageOperandsNone    = uint32(0)
+	SpvImageOperandsLodMask = uint32(2)
 )
 
 // SPIR-V Opcodes.
@@ -163,6 +170,7 @@ const (
 	SpvOpImageFetch             = uint32(95)
 	SpvOpSampledImage           = uint32(86)
 	SpvOpImageSampleImplicitLod = uint32(87)
+	SpvOpImageSampleExplicitLod = uint32(88)
 	SpvOpUConvert               = uint32(113)
 	SpvOpConvertUToF            = uint32(111)
 	SpvOpConvertUToPtr          = uint32(120)
@@ -199,6 +207,7 @@ const (
 	SpvOpBitFieldSExtract       = uint32(202)
 	SpvOpBitFieldUExtract       = uint32(203)
 	SpvOpMemoryBarrier          = uint32(225)
+	SpvOpAtomicIAdd             = uint32(234)
 	SpvOpPhi                    = uint32(245)
 	SpvOpLoopMerge              = uint32(246)
 	SpvOpSelectionMerge         = uint32(247)

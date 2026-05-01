@@ -13,12 +13,14 @@ type SpirvShaderContext struct {
 }
 
 type SpirvShader struct {
-	Stage   GcnShaderStage
-	Address uintptr
-	Code    []uint32
+	Stage     GcnShaderStage
+	Address   uintptr
+	Code      []uint32
+	Resources []SpirvShaderResource
 }
 
 func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, error) {
+	resources := AnalyzeResources(shader)
 	b := NewSpvBuilder()
 
 	// Capabilities.
@@ -143,6 +145,33 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	b.EmitName(typeBindlessTexturesVar, "bindless_textures")
 	b.EmitDecorate(typeBindlessTexturesVar, spec.SpvDecorationDescriptorSet, 0)
 	b.EmitDecorate(typeBindlessTexturesVar, spec.SpvDecorationBinding, 0)
+
+	// Global descriptor map (Set 2, Binding 0).
+	typePtrStorageUint := b.EmitTypePointer(spec.SpvStorageStorageBuffer, typeUint)
+	typeDescriptorMapArray := b.EmitTypeRuntimeArray(typeUint)
+	b.EmitDecorate(typeDescriptorMapArray, spec.SpvDecorationArrayStride, 4)
+	typeDescriptorMap := b.EmitTypeStruct(typeDescriptorMapArray)
+	b.EmitDecorate(typeDescriptorMap, spec.SpvDecorationBlock)
+	b.EmitMemberDecorate(typeDescriptorMap, 0, spec.SpvDecorationOffset, 0)
+	typePtrStorageDescriptorMap := b.EmitTypePointer(spec.SpvStorageStorageBuffer, typeDescriptorMap)
+	idDescriptorMapVar := b.EmitVariable(typePtrStorageDescriptorMap, spec.SpvStorageStorageBuffer)
+	b.EmitName(idDescriptorMapVar, "global_descriptor_map")
+	b.EmitDecorate(idDescriptorMapVar, spec.SpvDecorationDescriptorSet, 2)
+	b.EmitDecorate(idDescriptorMapVar, spec.SpvDecorationBinding, 0)
+
+	// Missing resource buffer (Set 2, Binding 1).
+	typeMissingDescriptor := b.EmitTypeArray(typeUint, b.EmitConstantUint(typeUint, 12))
+	typeMissingDescriptorsArray := b.EmitTypeRuntimeArray(typeMissingDescriptor)
+	b.EmitDecorate(typeMissingDescriptorsArray, spec.SpvDecorationArrayStride, 48)
+	typeMissingResourceBuffer := b.EmitTypeStruct(typeUint, typeMissingDescriptorsArray)
+	b.EmitDecorate(typeMissingResourceBuffer, spec.SpvDecorationBlock)
+	b.EmitMemberDecorate(typeMissingResourceBuffer, 0, spec.SpvDecorationOffset, 0)
+	b.EmitMemberDecorate(typeMissingResourceBuffer, 1, spec.SpvDecorationOffset, 4)
+	typePtrStorageMissingResourceBuffer := b.EmitTypePointer(spec.SpvStorageStorageBuffer, typeMissingResourceBuffer)
+	idMissingResourceBufferVar := b.EmitVariable(typePtrStorageMissingResourceBuffer, spec.SpvStorageStorageBuffer)
+	b.EmitName(idMissingResourceBufferVar, "missing_resource_buffer")
+	b.EmitDecorate(idMissingResourceBufferVar, spec.SpvDecorationDescriptorSet, 2)
+	b.EmitDecorate(idMissingResourceBufferVar, spec.SpvDecorationBinding, 1)
 
 	// Texel buffers (Set 1, Binding 0..3).
 	var typeTexelBuffer SpirvId
@@ -326,6 +355,7 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 		BlockContextIdPtrPsbV2Uint:              {Id: typePtrPsbV2Uint, Name: "ptr_pc_psb_v2_uint_t"},
 		BlockContextIdPtrPsbV3Uint:              {Id: typePtrPsbV3Uint, Name: "ptr_pc_psb_v3_uint_t"},
 		BlockContextIdPtrPsbV4Uint:              {Id: typePtrPsbV4Uint, Name: "ptr_pc_psb_v4_uint_t"},
+		BlockContextIdPtrStorageUint:            {Id: typePtrStorageUint, Name: "ptr_storage_uint_t"},
 		BlockContextIdPtrFnUint:                 {Id: typePtrFnUint, Name: "ptr_fn_uint_t"},
 		BlockContextIdPosOut:                    {Id: typePosOut, Name: "pos_out_t"},
 		BlockContextIdFragDepthOut:              {Id: typeFragDepthOut, Name: "frag_depth_out_t"},
@@ -338,6 +368,8 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 		BlockContextIdInstanceIndex:             {Id: typeInstanceIndex, Name: "instance_index_t"},
 		BlockContextIdFragCoord:                 {Id: typeFragCoord, Name: "frag_coord_t"},
 		BlockContextIdTypeImageBuffer:           {Id: typeTexelBuffer, Name: "image_buffer_t"},
+		BlockContextIdGlobalDescriptorMap:       {Id: idDescriptorMapVar, Name: "global_descriptor_map_t"},
+		BlockContextIdMissingResourceBuffer:     {Id: idMissingResourceBufferVar, Name: "missing_resource_buffer_t"},
 	}
 	for i, id := range idTexelBufferVars {
 		ids[BlockContextIdTexelBuffer0+SpirvId(i)] = SpirvUsedId{Id: id, Name: fmt.Sprintf("texel_buffer_%d", i)}
@@ -359,6 +391,7 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	// Prepare block context with all GCN and our internal IDs.
 	blockContext := SpirvBlockContext{
 		Stage:          shader.Stage,
+		Address:        shader.Address,
 		LabelIds:       labelIds,
 		Ids:            ids,
 		ConstIds:       constIds,
@@ -366,6 +399,7 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 		GcnVgprArrayId: idVgprArrayVar,
 		GcnSpecialIds:  gcnSpecialIds,
 		GcnConstIds:    gcnConstIds,
+		Resources:      resources,
 	}
 
 	// Function body.
@@ -433,8 +467,9 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	b.EmitFunctionEnd()
 
 	return &SpirvShader{
-		Address: shader.Address,
-		Stage:   shader.Stage,
-		Code:    b.Assemble(),
+		Address:   shader.Address,
+		Stage:     shader.Stage,
+		Code:      b.Assemble(),
+		Resources: resources,
 	}, nil
 }

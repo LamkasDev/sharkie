@@ -29,7 +29,7 @@ type LiverpoolDrawCall struct {
 	// Indexed draw parameters.
 	IndexCount       uint32
 	IndexType        uint32
-	IndexBase        uintptr
+	IndexBaseAddress uintptr
 	BaseVertexOffset uint32
 
 	// Render target.
@@ -138,7 +138,7 @@ func (l *Liverpool) NewDrawCall(vertexCount uint32, isIndexed bool) LiverpoolDra
 
 		IndexCount:       l.DrawState.IndexBufferSize,
 		IndexType:        l.DrawState.IndexType,
-		IndexBase:        l.DrawState.IndexBase,
+		IndexBaseAddress: l.DrawState.IndexBase,
 		BaseVertexOffset: l.DrawState.BaseVertexOffset,
 
 		RtBase:   l.Registers.Context[GREG_MM_CB_COLOR0_BASE],

@@ -25,14 +25,25 @@ type GpuTranslator struct {
 	surfaces      map[uintptr]*GpuSurface
 
 	// Stub pipeline shared across all draws.
-	stubDescriptorSetLayout  vk.DescriptorSetLayout
-	texelDescriptorSetLayout vk.DescriptorSetLayout
-	stubPipelineLayout       vk.PipelineLayout
+	stubDescriptorSetLayout      vk.DescriptorSetLayout
+	texelDescriptorSetLayout     vk.DescriptorSetLayout
+	discoveryDescriptorSetLayout vk.DescriptorSetLayout
+	stubPipelineLayout           vk.PipelineLayout
 
-	// Descriptor sets for texel buffer views.
+	// Descriptor sets.
 	descriptorPool          vk.DescriptorPool
 	texelDescriptorSets     []vk.DescriptorSet
 	texelDescriptorSetIndex uint32
+	discoveryDescriptorSet  vk.DescriptorSet
+	bindlessDescriptorSet   vk.DescriptorSet
+
+	// Discovery buffers.
+	discoveryMapBuffer    vk.Buffer
+	discoveryMapMem       vk.DeviceMemory
+	discoveryReportBuffer vk.Buffer
+	discoveryReportMem    vk.DeviceMemory
+	discoveryMap          map[[12]uint32]uint32
+	discoveryNextIndex    uint32
 
 	// Recompiled SPIR-V shaders mirroring Liverpool.LoadedShaders.
 	shadersMutex sync.Mutex
@@ -87,6 +98,8 @@ func NewGpuTranslator(handles VulkanHandles, bknd backend.Backend[glfwvulkanback
 		userDataBuffers:      map[uint32]vk.Buffer{},
 		userDataBuffersDebug: map[uint32][]uint32{},
 		userDataBufferMems:   map[uint32]vk.DeviceMemory{},
+		discoveryMap:         map[[12]uint32]uint32{},
+		discoveryNextIndex:   1, // 0 is reserved for dummy/missing.
 	}
 
 	// Allocate memory buffers.
@@ -138,6 +151,11 @@ func NewGpuTranslator(handles VulkanHandles, bknd backend.Backend[glfwvulkanback
 	if err = t.createDescriptorPool(); err != nil {
 		return nil, fmt.Errorf("GpuTranslator: descriptor pool: %w", err)
 	}
+	if err = t.createDiscoveryBuffers(); err != nil {
+		return nil, fmt.Errorf("GpuTranslator: discovery buffers: %w", err)
+	}
+	t.updateDiscoveryDescriptorSet()
+	t.createDummyTexture()
 
 	return t, nil
 }
@@ -164,6 +182,14 @@ func (t *GpuTranslator) Destroy() {
 		vk.FreeMemory(t.handles.Device, t.userDataBufferMems[h], nil)
 	}
 	t.userDataBuffersMutex.Unlock()
+	if t.discoveryMapBuffer != vk.NullBuffer {
+		vk.DestroyBuffer(t.handles.Device, t.discoveryMapBuffer, nil)
+		vk.FreeMemory(t.handles.Device, t.discoveryMapMem, nil)
+	}
+	if t.discoveryReportBuffer != vk.NullBuffer {
+		vk.DestroyBuffer(t.handles.Device, t.discoveryReportBuffer, nil)
+		vk.FreeMemory(t.handles.Device, t.discoveryReportMem, nil)
+	}
 	t.shaderModulesMutex.Lock()
 	for _, m := range t.shaderModules {
 		vk.DestroyShaderModule(t.handles.Device, m, nil)
@@ -174,6 +200,9 @@ func (t *GpuTranslator) Destroy() {
 	}
 	if t.texelDescriptorSetLayout != vk.NullDescriptorSetLayout {
 		vk.DestroyDescriptorSetLayout(t.handles.Device, t.texelDescriptorSetLayout, nil)
+	}
+	if t.discoveryDescriptorSetLayout != vk.NullDescriptorSetLayout {
+		vk.DestroyDescriptorSetLayout(t.handles.Device, t.discoveryDescriptorSetLayout, nil)
 	}
 	if t.stubDescriptorSetLayout != vk.NullDescriptorSetLayout {
 		vk.DestroyDescriptorSetLayout(t.handles.Device, t.stubDescriptorSetLayout, nil)
@@ -191,6 +220,7 @@ func (t *GpuTranslator) Translate(frame uint64, draws []LiverpoolDrawCall) *vk.C
 
 	// Reset per-frame state.
 	t.texelDescriptorSetIndex = 0
+	t.FulfillResources(frame)
 
 	// Update buffers holding user data.
 	logger.Printf("[%s] updating buffers for %s draws.\n",

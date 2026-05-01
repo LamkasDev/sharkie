@@ -9,6 +9,7 @@ import (
 )
 
 type GpuTranslatorPipelineKey struct {
+	Topology            vk.PrimitiveTopology
 	VertexShaderAddress uintptr
 	PixelShaderAddress  uintptr
 	SurfaceAddress      uintptr
@@ -24,7 +25,7 @@ func (t *GpuTranslator) GetPipeline(key GpuTranslatorPipelineKey, vsModule, psMo
 	}
 
 	// Create the pipeline.
-	pipeline, err := t.createPipelineFromModules(vsModule, psModule, renderPass, width, height)
+	pipeline, err := t.createPipelineFromModules(key.Topology, vsModule, psModule, renderPass, width, height)
 	if err != nil {
 		return vk.NullPipeline, fmt.Errorf("createCompiledPipeline 0x%X: %w", key.PixelShaderAddress, err)
 	}
@@ -76,6 +77,34 @@ func (t *GpuTranslator) createStubPipelineLayout() error {
 	}
 	t.texelDescriptorSetLayout = texelLayout
 
+	// Create descriptor set layout for discovery (Set 2).
+	var discoveryLayout vk.DescriptorSetLayout
+	discoveryBindings := []vk.DescriptorSetLayoutBinding{
+		{
+			Binding:            0,
+			DescriptorType:     vk.DescriptorTypeStorageBuffer,
+			DescriptorCount:    1,
+			StageFlags:         vk.ShaderStageFlags(vk.ShaderStageAllGraphics | vk.ShaderStageComputeBit),
+			PImmutableSamplers: nil,
+		},
+		{
+			Binding:            1,
+			DescriptorType:     vk.DescriptorTypeStorageBuffer,
+			DescriptorCount:    1,
+			StageFlags:         vk.ShaderStageFlags(vk.ShaderStageAllGraphics | vk.ShaderStageComputeBit),
+			PImmutableSamplers: nil,
+		},
+	}
+	result = vk.CreateDescriptorSetLayout(t.handles.Device, &vk.DescriptorSetLayoutCreateInfo{
+		SType:        vk.StructureTypeDescriptorSetLayoutCreateInfo,
+		PBindings:    discoveryBindings,
+		BindingCount: uint32(len(discoveryBindings)),
+	}, nil, &discoveryLayout)
+	if err := as.NewError(result); err != nil {
+		return err
+	}
+	t.discoveryDescriptorSetLayout = discoveryLayout
+
 	var layout vk.PipelineLayout
 	result = vk.CreatePipelineLayout(t.handles.Device, &vk.PipelineLayoutCreateInfo{
 		SType: vk.StructureTypePipelineLayoutCreateInfo,
@@ -85,8 +114,12 @@ func (t *GpuTranslator) createStubPipelineLayout() error {
 			Size:       uint32(unsafe.Sizeof(StubPushConstants{})),
 		}},
 		PushConstantRangeCount: 1,
-		PSetLayouts:            []vk.DescriptorSetLayout{t.stubDescriptorSetLayout, t.texelDescriptorSetLayout},
-		SetLayoutCount:         2,
+		PSetLayouts: []vk.DescriptorSetLayout{
+			t.stubDescriptorSetLayout,
+			t.texelDescriptorSetLayout,
+			t.discoveryDescriptorSetLayout,
+		},
+		SetLayoutCount: 3,
 	}, nil, &layout)
 	if err := as.NewError(result); err != nil {
 		return err
@@ -96,7 +129,7 @@ func (t *GpuTranslator) createStubPipelineLayout() error {
 	return nil
 }
 
-func (t *GpuTranslator) createPipelineFromModules(vsModule, fsModule vk.ShaderModule, renderPass vk.RenderPass, width, height uint32) (vk.Pipeline, error) {
+func (t *GpuTranslator) createPipelineFromModules(topology vk.PrimitiveTopology, vsModule, fsModule vk.ShaderModule, renderPass vk.RenderPass, width, height uint32) (vk.Pipeline, error) {
 	stages := []vk.PipelineShaderStageCreateInfo{
 		{
 			SType:  vk.StructureTypePipelineShaderStageCreateInfo,
@@ -118,7 +151,7 @@ func (t *GpuTranslator) createPipelineFromModules(vsModule, fsModule vk.ShaderMo
 	}
 	inputAssembly := vk.PipelineInputAssemblyStateCreateInfo{
 		SType:    vk.StructureTypePipelineInputAssemblyStateCreateInfo,
-		Topology: vk.PrimitiveTopologyTriangleList,
+		Topology: topology,
 	}
 
 	// Viewport and scissor are dynamic so they match each DrawCall without rebuilding the pipeline.

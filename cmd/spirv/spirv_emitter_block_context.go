@@ -43,6 +43,7 @@ const (
 	BlockContextIdPtrPsbV2Uint
 	BlockContextIdPtrPsbV3Uint
 	BlockContextIdPtrPsbV4Uint
+	BlockContextIdPtrStorageUint
 	BlockContextIdPtrFnUint
 	BlockContextIdPosOut
 	BlockContextIdFragDepthOut
@@ -99,6 +100,8 @@ const (
 	BlockContextIdTexelBuffer1
 	BlockContextIdTexelBuffer2
 	BlockContextIdTexelBuffer3
+	BlockContextIdGlobalDescriptorMap
+	BlockContextIdMissingResourceBuffer
 )
 
 const (
@@ -185,6 +188,7 @@ const (
 
 type SpirvBlockContext struct {
 	Stage    GcnShaderStage
+	Address  uintptr
 	LabelIds []SpirvId
 	Ids      map[SpirvId]SpirvUsedId
 	ConstIds map[SpirvId]SpirvUsedId
@@ -194,6 +198,7 @@ type SpirvBlockContext struct {
 	GcnSpecialIds  [27]SpirvUsedId
 	GcnConstIds    [120]SpirvUsedId
 	GcnConditionId SpirvId
+	Resources      []SpirvShaderResource
 }
 
 func (ctx *SpirvBlockContext) GetLabelId(i int) SpirvId {

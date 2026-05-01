@@ -80,4 +80,15 @@ func emitMUBUF(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext
 		// Store results back into VGPRs.
 		ctx.StoreRegisterPointerMasked(b, gcnSpec.OpVgpr0+details.Vdata+i, b.EmitBitcast(typeUint, compFloat))
 	}
+
+	/* formatId := b.EmitString(fmt.Sprintf("Mubuf 0x%X %%d: pos=(%%f, %%f, %%f, %%f)\n", instr.DwordOffset))
+	vertexIndexId := b.EmitLoad(ctx.GetId(BlockContextIdTypeUint), ctx.GetId(BlockContextIdVertexIndex))
+
+	px := b.EmitCompositeExtract(typeFloat, fetchedVec4, 0)
+	py := b.EmitCompositeExtract(typeFloat, fetchedVec4, 1)
+	pz := b.EmitCompositeExtract(typeFloat, fetchedVec4, 2)
+	pw := b.EmitCompositeExtract(typeFloat, fetchedVec4, 3)
+
+	b.EmitExtInst(ctx.GetId(BlockContextIdTypeVoid), ctx.GetId(BlockContextIdDebugPrintf), 1,
+		formatId, vertexIndexId, px, py, pz, pw) */
 }

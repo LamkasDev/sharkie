@@ -98,3 +98,24 @@ func (t *GpuTranslator) allocBuffer(size vk.DeviceSize, usage vk.BufferUsageFlag
 
 	return buffer, mem, nil
 }
+
+func (t *GpuTranslator) createDiscoveryBuffers() error {
+	// 64k entries in GlobalDescriptorMap (each uint32)
+	var err error
+	t.discoveryMapBuffer, t.discoveryMapMem, err = t.allocBuffer(65536*4,
+		vk.BufferUsageFlags(vk.BufferUsageStorageBufferBit|vk.BufferUsageTransferDstBit),
+		vk.MemoryPropertyFlags(vk.MemoryPropertyHostVisibleBit|vk.MemoryPropertyHostCoherentBit))
+	if err != nil {
+		return err
+	}
+
+	// MissingResourceBuffer: count (uint32) + 1024 * 12 * uint32
+	t.discoveryReportBuffer, t.discoveryReportMem, err = t.allocBuffer(4+1024*48,
+		vk.BufferUsageFlags(vk.BufferUsageStorageBufferBit|vk.BufferUsageTransferSrcBit|vk.BufferUsageTransferDstBit),
+		vk.MemoryPropertyFlags(vk.MemoryPropertyHostVisibleBit|vk.MemoryPropertyHostCoherentBit))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

@@ -1092,7 +1092,7 @@ func (instr *Instruction) GetFieldsString() string {
 		)
 	case EncMTBUF:
 	case EncMUBUF:
-		fmt.Fprintf(&b, "offset=%d offen=%d idxen=%d glc=%d addr64=%d lds=%d vaddr=v%d vdata=v%d srsrc=%d slc=%d tfe=%d soffset=%s",
+		fmt.Fprintf(&b, "offset=%d offen=%d idxen=%d glc=%d addr64=%d lds=%d vaddr=v%d vdata=v%d srsrc=s%d-%d slc=%d tfe=%d soffset=%s",
 			instr.Details.(*MubufDetails).Offset,
 			nstd.Btoi(instr.Details.(*MubufDetails).Offen),
 			nstd.Btoi(instr.Details.(*MubufDetails).Idxen),
@@ -1101,15 +1101,22 @@ func (instr *Instruction) GetFieldsString() string {
 			nstd.Btoi(instr.Details.(*MubufDetails).Lds),
 			instr.Details.(*MubufDetails).Vaddr,
 			instr.Details.(*MubufDetails).Vdata,
-			instr.Details.(*MubufDetails).Srsrc,
+			instr.Details.(*MubufDetails).Srsrc*4,
+			instr.Details.(*MubufDetails).Srsrc*4+3,
 			nstd.Btoi(instr.Details.(*MubufDetails).Slc),
 			nstd.Btoi(instr.Details.(*MubufDetails).Tfe),
 			OperandToString(instr.Details.(*MubufDetails).Soffset),
 		)
 	case EncMIMG:
-		fmt.Fprintf(&b, "ssamp=s%d srsrc=s%d vdata=v%d vaddr=v%d slc=%d lwe=%d tfe=%d r128=%d da=%d glc=%d unrm=%d dmask=%d",
-			instr.Details.(*MimgDetails).Ssamp,
+		rsrcLength := uint32(4)
+		if instr.Details.(*MimgDetails).R128 {
+			rsrcLength = 2
+		}
+		fmt.Fprintf(&b, "ssamp=s%d-%d srsrc=s%d-%d vdata=v%d vaddr=v%d slc=%d lwe=%d tfe=%d r128=%d da=%d glc=%d unrm=%d dmask=%d",
+			instr.Details.(*MimgDetails).Ssamp*4,
+			instr.Details.(*MimgDetails).Ssamp*4+1,
 			instr.Details.(*MimgDetails).Srsrc*4,
+			instr.Details.(*MimgDetails).Srsrc*4+rsrcLength-1,
 			instr.Details.(*MimgDetails).Vdata,
 			instr.Details.(*MimgDetails).Vaddr,
 			nstd.Btoi(instr.Details.(*MimgDetails).Slc),

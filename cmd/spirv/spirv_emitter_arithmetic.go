@@ -191,6 +191,13 @@ func (b *SpvBuilder) EmitImageSampleImplicitLod(resultType, sampledImage, coordi
 	return id
 }
 
+// EmitImageSampleExplicitLod emits OpImageSampleExplicitLod and returns the result ID.
+func (b *SpvBuilder) EmitImageSampleExplicitLod(resultType, sampledImage, coordinate SpirvId, lod SpirvId) SpirvId {
+	id := b.AllocId()
+	b.instr(&b.code, spec.SpvOpImageSampleExplicitLod, uint32(resultType), uint32(id), uint32(sampledImage), uint32(coordinate), uint32(spec.SpvImageOperandsLodMask), uint32(lod))
+	return id
+}
+
 // EmitFOrdEqual emits OpFOrdEqual and returns the result ID.
 func (b *SpvBuilder) EmitFOrdEqual(resultType, op1, op2 SpirvId) SpirvId {
 	id := b.AllocId()

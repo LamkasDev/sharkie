@@ -1,6 +1,8 @@
 package spirv
 
 import (
+	"fmt"
+
 	"github.com/LamkasDev/sharkie/cmd/spirv/spec"
 	. "github.com/LamkasDev/sharkie/cmd/structs/gcn"
 	gcnSpec "github.com/LamkasDev/sharkie/cmd/structs/gcn/spec"
@@ -73,6 +75,10 @@ func emitBlock(b *SpvBuilder, block *GcnShaderCfgBlock, ctx *SpirvBlockContext) 
 		b.EmitString("set vcc to 0")
 		ctx.StoreRegisterPointer(b, gcnSpec.OpVccLo, idC0)
 		ctx.StoreRegisterPointer(b, gcnSpec.OpVccHi, idC0)
+
+		if ctx.Address == 0xFE6DC9A00 {
+			b.EmitExtInst(ctx.GetId(BlockContextIdTypeVoid), ctx.GetId(BlockContextIdDebugPrintf), 1, b.EmitString("not yet.\n"))
+		}
 	}
 
 	// Reset condition ID.
@@ -94,7 +100,11 @@ func emitBlock(b *SpvBuilder, block *GcnShaderCfgBlock, ctx *SpirvBlockContext) 
 			b.EmitUnreachable()
 		}
 	case TermEndpgm, TermExpDone:
-		if ctx.Stage == GcnShaderStageVertex {
+		switch ctx.Stage {
+		case GcnShaderStageVertex:
+			if true {
+				break
+			}
 			formatId := b.EmitString("Vertex %d: pos=(%f, %f, %f, %f)\n")
 			typeV4Float := ctx.GetId(BlockContextIdTypeV4Float)
 			typeFloat := ctx.GetId(BlockContextIdTypeFloat)
@@ -108,12 +118,14 @@ func emitBlock(b *SpvBuilder, block *GcnShaderCfgBlock, ctx *SpirvBlockContext) 
 
 			b.EmitExtInst(ctx.GetId(BlockContextIdTypeVoid), ctx.GetId(BlockContextIdDebugPrintf), 1,
 				formatId, vertexIndexId, px, py, pz, pw)
-		} else if ctx.Stage == GcnShaderStageFragment {
-			formatId := b.EmitString("Vertex %d: color=(%f, %f, %f, %f)\n")
+		case GcnShaderStageFragment:
+			if ctx.Address != 0xFE6DC9A00 {
+				break
+			}
+			formatId := b.EmitString(fmt.Sprintf("Fragment 0x%X: color=(%%f, %%f, %%f, %%f)\n", ctx.Address))
 			typeV4Float := ctx.GetId(BlockContextIdTypeV4Float)
 			typeFloat := ctx.GetId(BlockContextIdTypeFloat)
 			colorId := b.EmitLoad(typeV4Float, ctx.GetId(BlockContextIdColorOut0))
-			vertexIndexId := b.EmitLoad(ctx.GetId(BlockContextIdTypeUint), ctx.GetId(BlockContextIdVertexIndex))
 
 			cx := b.EmitCompositeExtract(typeFloat, colorId, 0)
 			cy := b.EmitCompositeExtract(typeFloat, colorId, 1)
@@ -121,7 +133,7 @@ func emitBlock(b *SpvBuilder, block *GcnShaderCfgBlock, ctx *SpirvBlockContext) 
 			cw := b.EmitCompositeExtract(typeFloat, colorId, 3)
 
 			b.EmitExtInst(ctx.GetId(BlockContextIdTypeVoid), ctx.GetId(BlockContextIdDebugPrintf), 1,
-				formatId, vertexIndexId, cx, cy, cz, cw)
+				formatId, cx, cy, cz, cw)
 		}
 		// ctx.EmitDebugPrintRegisters(b)
 		b.EmitReturn()
