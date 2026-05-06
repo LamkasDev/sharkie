@@ -33,9 +33,18 @@ typedef struct {
 
 typedef void* (*vgo_vkGetInstanceProcAddr)(VkInstance instance, const char* pName);
 
+typedef void (*vgo_vkSetDeviceMemoryPriorityEXT)(VkDevice device, void* memory, float priority);
 typedef VkDeviceAddress (*vgo_vkGetBufferDeviceAddress)(VkDevice device, const VkBufferDeviceAddressInfo* pInfo);
 typedef int (*vgo_vkGetMemoryFdKHR)(VkDevice device, const VkMemoryGetFdInfoKHR* pGetFdInfo, int* pFd);
 typedef int (*vgo_vkGetMemoryWin32HandleKHR)(VkDevice device, const VkMemoryGetWin32HandleInfoKHR* pGetWin32HandleInfo, void** pHandle);
+
+void callVkSetDeviceMemoryPriorityEXT(void* address, VkInstance instance, VkDevice device, void* memory, float priority) {
+    vgo_vkGetInstanceProcAddr getProc = (vgo_vkGetInstanceProcAddr)address;
+    vgo_vkSetDeviceMemoryPriorityEXT fn = (vgo_vkSetDeviceMemoryPriorityEXT)getProc(instance, "vkSetDeviceMemoryPriorityEXT");
+    if (!fn) { return; }
+
+    fn(device, memory, priority);
+}
 
 VkDeviceAddress callVkGetBufferDeviceAddress(void* address, VkInstance instance, VkDevice device, const VkBufferDeviceAddressInfo* info) {
     vgo_vkGetInstanceProcAddr getProc = (vgo_vkGetInstanceProcAddr)address;
@@ -85,6 +94,16 @@ func GetBufferDeviceAddress(instance vk.Instance, device vk.Device, buffer vk.Bu
 	)
 
 	return uint64(addr)
+}
+
+func SetDeviceMemoryPriority(instance vk.Instance, device vk.Device, memory vk.DeviceMemory, priority float32) {
+	C.callVkSetDeviceMemoryPriorityEXT(
+		unsafe.Pointer(glfw.GetVulkanGetInstanceProcAddress()),
+		(C.VkInstance)(unsafe.Pointer(instance)),
+		(C.VkDevice)(unsafe.Pointer(device)),
+		unsafe.Pointer(memory),
+		(C.float)(priority),
+	)
 }
 
 func GetMemoryFd(instance vk.Instance, device vk.Device, memory vk.DeviceMemory) int {

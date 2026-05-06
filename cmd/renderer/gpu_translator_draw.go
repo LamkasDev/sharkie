@@ -125,6 +125,11 @@ func (t *GpuTranslator) recordDraw(frame uint64, commandBuffer vk.CommandBuffer,
 	// TODO:
 
 	// Push constants to shader.
+	for i := range formatSizes {
+		if formatSizes[i] == 0 {
+			formatSizes[i] = 1
+		}
+	}
 	pushData := StubPushConstants{
 		UserDataAddress:          t.GetBufferAddress(userDataBuffer),
 		OnionMemoryBaseAddress:   GlobalAllocator.DeviceAddress,
@@ -158,6 +163,20 @@ func (t *GpuTranslator) recordDraw(frame uint64, commandBuffer vk.CommandBuffer,
 		targetBuffer, relativeOffset, err := t.GetBufferFromAddress(draw.IndexBaseAddress)
 		if err != nil {
 			panic(err)
+		}
+
+		if draw.IndexBaseAddress != 0 && draw.IndexCount > 0 && draw.IndexCount < 10000 {
+			if draw.IndexType == 1 {
+				data := unsafe.Slice((*uint32)(unsafe.Pointer(draw.IndexBaseAddress)), draw.IndexCount)
+				logger.Printf("[%s] Index buffer content: %x\n",
+					color.Blue.Sprint("GPU"), data,
+				)
+			} else {
+				data := unsafe.Slice((*uint16)(unsafe.Pointer(draw.IndexBaseAddress)), draw.IndexCount)
+				logger.Printf("[%s] Index buffer content: %x\n",
+					color.Blue.Sprint("GPU"), data,
+				)
+			}
 		}
 
 		if targetBuffer != vk.NullBuffer {

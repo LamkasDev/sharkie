@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"runtime"
 	"runtime/pprof"
 	"time"
+	"unsafe"
 
 	as "github.com/LamkasDev/asche"
 	"github.com/LamkasDev/cimgui-go-vulkan/imgui"
@@ -182,16 +184,30 @@ func (app *Application) VulkanLayers() []string {
 func (app *Application) VulkanDeviceExtensions() []string {
 	extensions := []string{
 		"VK_KHR_swapchain",
-		"VK_KHR_buffer_device_address",
-		"VK_KHR_external_memory",
 		"VK_KHR_shader_non_semantic_info",
-		"VK_EXT_depth_clip_enable",
+		"VK_EXT_pageable_device_local_memory",
+		"VK_EXT_memory_priority",
 	}
-	// TODO: use runtime.GOOS
-	extensions = append(extensions, "VK_KHR_external_memory_fd")
-	extensions = append(extensions, "VK_KHR_external_memory_win32")
+	if runtime.GOOS == "linux" {
+		extensions = append(extensions, "VK_KHR_external_memory_fd")
+		extensions = append(extensions, "VK_EXT_external_memory_dma_buf")
+	}
+	if runtime.GOOS == "windows" {
+		extensions = append(extensions, "VK_KHR_external_memory_win32")
+	}
 
 	return extensions
+}
+
+func (app *Application) VulkanDeviceCreateNext() unsafe.Pointer {
+	return unsafe.Pointer(&vk.PhysicalDeviceBufferDeviceAddressFeatures{
+		SType: vk.StructureTypePhysicalDeviceBufferDeviceAddressFeatures,
+		PNext: unsafe.Pointer(&as.VkPhysicalDevicePageableDeviceLocalMemoryFeaturesEXT{
+			SType:                     as.StructureTypePhysicalDevicePageableDeviceLocalMemoryFeaturesExt,
+			PageableDeviceLocalMemory: uint32(vk.True),
+		}),
+		BufferDeviceAddress: vk.True,
+	})
 }
 
 func (app *Application) VulkanInstanceExtensions() []string {

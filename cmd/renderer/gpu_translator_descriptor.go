@@ -15,19 +15,19 @@ func (t *GpuTranslator) createDescriptorPool() error {
 		PPoolSizes: []vk.DescriptorPoolSize{
 			{
 				Type:            vk.DescriptorTypeUniformTexelBuffer,
-				DescriptorCount: 2048,
+				DescriptorCount: 8192,
 			},
 			{
 				Type:            vk.DescriptorTypeCombinedImageSampler,
-				DescriptorCount: 2048,
+				DescriptorCount: 8192,
 			},
 			{
 				Type:            vk.DescriptorTypeStorageBuffer,
-				DescriptorCount: 16,
+				DescriptorCount: 256,
 			},
 		},
 		PoolSizeCount: 3,
-		MaxSets:       2048,
+		MaxSets:       8192,
 		Flags:         vk.DescriptorPoolCreateFlags(vk.DescriptorPoolCreateFreeDescriptorSetBit),
 	}, nil, &pool)
 	if err := as.NewError(result); err != nil {

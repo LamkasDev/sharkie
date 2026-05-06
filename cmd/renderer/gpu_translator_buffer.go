@@ -1,5 +1,6 @@
 package renderer
 
+import "C"
 import (
 	"fmt"
 	"runtime"
@@ -49,10 +50,22 @@ func (t *GpuTranslator) allocExternalBuffer(size vk.DeviceSize, usage vk.BufferU
 	memReqs.Deref()
 
 	var mem vk.DeviceMemory
+	allocateFlags := vk.MemoryAllocateFlagsInfo{
+		SType: vk.StructureTypeMemoryAllocateFlagsInfo,
+	}
+	if usage&vk.BufferUsageFlags(vk.BufferUsageShaderDeviceAddressBit) != 0 {
+		allocateFlags.Flags = vk.MemoryAllocateFlags(vk.MemoryAllocateDeviceAddressBit)
+	}
+	priorityInfo := as.VkMemoryPriorityAllocateInfoEXT{
+		SType:    as.StructureTypeMemoryPriorityAllocateInfoExt,
+		PNext:    unsafe.Pointer(&allocateFlags),
+		Priority: 1.0,
+	}
 	result = vk.AllocateMemory(t.handles.Device, &vk.MemoryAllocateInfo{
 		SType: vk.StructureTypeMemoryAllocateInfo,
 		PNext: unsafe.Pointer(&vk.ExportMemoryAllocateInfo{
 			SType:       vk.StructureTypeExportMemoryAllocateInfo,
+			PNext:       unsafe.Pointer(&priorityInfo),
 			HandleTypes: vk.ExternalMemoryHandleTypeFlags(handleType),
 		}),
 		AllocationSize:  memReqs.Size,
@@ -64,6 +77,7 @@ func (t *GpuTranslator) allocExternalBuffer(size vk.DeviceSize, usage vk.BufferU
 	}
 
 	vk.BindBufferMemory(t.handles.Device, buffer, mem, 0)
+	SetDeviceMemoryPriority(t.handles.Instance, t.handles.Device, mem, 1.0)
 
 	return buffer, mem, nil
 }
@@ -84,8 +98,20 @@ func (t *GpuTranslator) allocBuffer(size vk.DeviceSize, usage vk.BufferUsageFlag
 	memReqs.Deref()
 
 	var mem vk.DeviceMemory
+	allocateFlags := vk.MemoryAllocateFlagsInfo{
+		SType: vk.StructureTypeMemoryAllocateFlagsInfo,
+	}
+	if usage&vk.BufferUsageFlags(vk.BufferUsageShaderDeviceAddressBit) != 0 {
+		allocateFlags.Flags = vk.MemoryAllocateFlags(vk.MemoryAllocateDeviceAddressBit)
+	}
+	priorityInfo := as.VkMemoryPriorityAllocateInfoEXT{
+		SType:    as.StructureTypeMemoryPriorityAllocateInfoExt,
+		PNext:    unsafe.Pointer(&allocateFlags),
+		Priority: 1.0,
+	}
 	result = vk.AllocateMemory(t.handles.Device, &vk.MemoryAllocateInfo{
 		SType:           vk.StructureTypeMemoryAllocateInfo,
+		PNext:           unsafe.Pointer(&priorityInfo),
 		AllocationSize:  memReqs.Size,
 		MemoryTypeIndex: t.handles.FindMemoryType(memReqs.MemoryTypeBits, vk.MemoryPropertyFlagBits(props)),
 	}, nil, &mem)
@@ -95,6 +121,7 @@ func (t *GpuTranslator) allocBuffer(size vk.DeviceSize, usage vk.BufferUsageFlag
 	}
 
 	vk.BindBufferMemory(t.handles.Device, buffer, mem, 0)
+	SetDeviceMemoryPriority(t.handles.Instance, t.handles.Device, mem, 1.0)
 
 	return buffer, mem, nil
 }

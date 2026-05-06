@@ -50,9 +50,10 @@ func (l *Liverpool) handleDrawIndex2(ringName string, payload []uint32) {
 	l.StateMutex.Unlock()
 
 	if LogPM4Packets {
-		logger.Printf("[%s] draw index 2 (index_count=%s, index_base=%s, prim=%s, rt=%s, vs=%s, ps=%s).\n",
+		logger.Printf("[%s] draw index 2 (index_count=%s, max_size=%s, index_base=%s, prim=%s, rt=%s, vs=%s, ps=%s).\n",
 			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
 			color.Green.Sprintf("%d", count),
+			color.Green.Sprintf("%d", l.DrawState.IndexBufferSize),
 			color.Yellow.Sprintf("0x%X", drawCall.IndexBaseAddress),
 			color.Green.Sprintf("%d", drawCall.PrimType),
 			color.Yellow.Sprintf("0x%X", drawCall.RtGpuAddress()),

@@ -44,7 +44,7 @@ func (t *GpuTranslator) createStubPipelineLayout() error {
 		PBindings: []vk.DescriptorSetLayoutBinding{{
 			Binding:            0,
 			DescriptorType:     vk.DescriptorTypeCombinedImageSampler,
-			DescriptorCount:    1024,
+			DescriptorCount:    128,
 			StageFlags:         vk.ShaderStageFlags(vk.ShaderStageAllGraphics),
 			PImmutableSamplers: nil,
 		}},
@@ -150,8 +150,9 @@ func (t *GpuTranslator) createPipelineFromModules(topology vk.PrimitiveTopology,
 		SType: vk.StructureTypePipelineVertexInputStateCreateInfo,
 	}
 	inputAssembly := vk.PipelineInputAssemblyStateCreateInfo{
-		SType:    vk.StructureTypePipelineInputAssemblyStateCreateInfo,
-		Topology: topology,
+		SType:                  vk.StructureTypePipelineInputAssemblyStateCreateInfo,
+		Topology:               topology,
+		PrimitiveRestartEnable: vk.True,
 	}
 
 	// Viewport and scissor are dynamic so they match each DrawCall without rebuilding the pipeline.
@@ -168,14 +169,8 @@ func (t *GpuTranslator) createPipelineFromModules(topology vk.PrimitiveTopology,
 		ScissorCount:  1,
 	}
 
-	depthClipExt := vk.PipelineRasterizationDepthClipStateCreateInfo{
-		SType:           vk.StructureTypePipelineRasterizationDepthClipStateCreateInfo,
-		DepthClipEnable: vk.False,
-	}
-
 	raster := vk.PipelineRasterizationStateCreateInfo{
 		SType:       vk.StructureTypePipelineRasterizationStateCreateInfo,
-		PNext:       unsafe.Pointer(&depthClipExt),
 		PolygonMode: vk.PolygonModeFill,
 		CullMode:    vk.CullModeFlags(vk.CullModeNone),
 		FrontFace:   vk.FrontFaceCounterClockwise,

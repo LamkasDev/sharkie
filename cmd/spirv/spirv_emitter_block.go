@@ -102,7 +102,7 @@ func emitBlock(b *SpvBuilder, block *GcnShaderCfgBlock, ctx *SpirvBlockContext) 
 	case TermEndpgm, TermExpDone:
 		switch ctx.Stage {
 		case GcnShaderStageVertex:
-			if true {
+			if false {
 				break
 			}
 			formatId := b.EmitString("Vertex %d: pos=(%f, %f, %f, %f)\n")
