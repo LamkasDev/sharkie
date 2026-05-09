@@ -7,21 +7,6 @@ import (
 	. "github.com/LamkasDev/sharkie/cmd/structs/gcn"
 )
 
-type ConstRamSnapshots map[uint32]LiverpoolConstRam
-
-var GlobalConstRamSnapshots = ConstRamSnapshots{}
-
-func (l *Liverpool) SnapshotConstRam() uint32 {
-	constRam := l.DrawState.ConstRam
-	constRamBytes := unsafe.Slice((*byte)(unsafe.Pointer(&constRam[0])), LiverpoolConstRamSize*4)
-	hash := adler32.Checksum(constRamBytes)
-	if _, ok := GlobalConstRamSnapshots[hash]; !ok {
-		GlobalConstRamSnapshots[hash] = constRam
-	}
-
-	return hash
-}
-
 type UserDataSnapshots map[uint32]UserData
 
 var GlobalUserDataSnapshots = UserDataSnapshots{}

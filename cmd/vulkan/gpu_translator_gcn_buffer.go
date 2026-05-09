@@ -1,9 +1,10 @@
-package renderer
+package vulkan
 
 import (
 	"fmt"
 	"unsafe"
 
+	as "github.com/LamkasDev/asche"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/LamkasDev/sharkie/cmd/spirv"
 	. "github.com/LamkasDev/sharkie/cmd/structs"
@@ -52,7 +53,7 @@ func (t *GpuTranslator) UpdateUserDataBuffers(draws []LiverpoolDrawCall) {
 
 		// Allocate and upload.
 		size := vk.DeviceSize(len(contents) * 4)
-		buffer, mem, err := t.allocBuffer(size,
+		buffer, mem, err := t.AllocBuffer(size,
 			vk.BufferUsageFlags(vk.BufferUsageShaderDeviceAddressBit|vk.BufferUsageUniformBufferBit|vk.BufferUsageUniformTexelBufferBit),
 			vk.MemoryPropertyFlags(vk.MemoryPropertyHostVisibleBit|vk.MemoryPropertyHostCoherentBit))
 		if err != nil {
@@ -66,10 +67,11 @@ func (t *GpuTranslator) UpdateUserDataBuffers(draws []LiverpoolDrawCall) {
 		t.userDataBuffers[hash] = buffer
 		t.userDataBuffersDebug[hash] = contents[:]
 		t.userDataBufferMems[hash] = mem
-		logger.Printf("[%s] Created user data with hash %s (%x).\n",
+		logger.Printf("[%s] Created user data with hash %s (vtx=%x, frag=%x).\n",
 			color.Blue.Sprint("GPU"),
 			color.Yellow.Sprintf("0x%X", hash),
-			contents[:16],
+			contents[UserDataOffsetVertex:UserDataOffsetHull],
+			contents[UserDataOffsetFragment:UserDataOffsetCompute],
 		)
 	}
 }
@@ -112,16 +114,42 @@ func (t *GpuTranslator) BindTexelBuffers(commandBuffer vk.CommandBuffer, draw *L
 			formatStride = formatSize
 		}
 
+		// Check if format supports texel buffers.
+		var props vk.FormatProperties
+		vk.GetPhysicalDeviceFormatProperties(t.handles.PhysicalDevice, format, &props)
+		props.Deref()
+		if (props.BufferFeatures & vk.FormatFeatureFlags(vk.FormatFeatureUniformTexelBufferBit)) == 0 {
+			// logger.Printf("  warning: format %d does not support uniform texel buffers, skipping.\n", format)
+			formatSizes[i] = formatSize
+			formatStrides[i] = formatStride
+			continue
+		}
+
+		// Align offset to 16 bytes (common minTexelBufferOffsetAlignment).
+		// TODO: query this from physical device limits.
+		alignedOffset := relativeOffset & ^uintptr(15)
+		padding := uint32(relativeOffset - alignedOffset)
+		alignedRange := rangeBytes + padding
+
+		// Align range to format size.
+		if formatSize > 0 {
+			alignedRange = (alignedRange / formatSize) * formatSize
+		}
+
 		viewInfo := vk.BufferViewCreateInfo{
 			SType:  vk.StructureTypeBufferViewCreateInfo,
 			Buffer: targetBuffer,
 			Format: format,
-			Offset: vk.DeviceSize(relativeOffset),
-			Range:  vk.DeviceSize(rangeBytes),
+			Offset: vk.DeviceSize(alignedOffset),
+			Range:  vk.DeviceSize(alignedRange),
 		}
 
 		var view vk.BufferView
-		vk.CreateBufferView(t.handles.Device, &viewInfo, nil, &view)
+		result := vk.CreateBufferView(t.handles.Device, &viewInfo, nil, &view)
+		if err := as.NewError(result); err != nil {
+			// logger.Printf("  failed to create buffer view: %v (format=%d offset=0x%X range=0x%X)\n", err, format, alignedOffset, rangeBytes)
+			view = vk.NullBufferView
+		}
 
 		if descriptor.Records > 0 {
 			count := descriptor.Records * (uint32(descriptor.Stride) / 4)

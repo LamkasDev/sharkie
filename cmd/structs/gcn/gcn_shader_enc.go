@@ -14,12 +14,14 @@ func NewEncoding(dw uint32) spec.Encoding {
 	}
 
 	top5 := dw >> 27
-	if top5 == 0b11000 || top5 == 0b11001 {
+	if top5 == 0b11000 {
 		return spec.EncSMRD
 	}
 
 	top6 := (dw >> 26) & 0b111111
 	switch top6 {
+	case 0b110010:
+		return spec.EncVINTRP
 	case 0b110100:
 		return spec.EncVOP3
 	case 0b110110:
@@ -67,7 +69,7 @@ func GetEncodingDwordLen(dw uint32) int {
 		if dw&0xFF == 0xFF { // SSRC0 == 0xFF
 			return 2
 		}
-	case spec.EncSOPC, spec.EncSOP2:
+	case spec.EncSOPC, spec.EncSOP2, spec.EncVINTRP:
 		if dw&0xFF == 0xFF || (dw>>8)&0xFF == 0xFF { // SSRC0/SSRC1 == 0xFF
 			return 2
 		}

@@ -5,6 +5,7 @@ import (
 	"math"
 
 	"github.com/LamkasDev/sharkie/cmd/spirv/spec"
+	. "github.com/LamkasDev/sharkie/cmd/structs"
 	. "github.com/LamkasDev/sharkie/cmd/structs/gcn"
 )
 
@@ -25,15 +26,19 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 
 	// Capabilities.
 	b.EmitCapability(spec.SpvCapShader)
-	b.EmitCapability(spec.SpvCapAddresses)
 	b.EmitCapability(spec.SpvCapInt64)
 	b.EmitCapability(spec.SpvCapSampled1D)
 	b.EmitCapability(spec.SpvCapSampledBuffer)
 	b.EmitCapability(spec.SpvCapImageQuery)
+	if shader.Stage == GcnShaderStageFragment {
+		b.EmitCapability(spec.SpvCapInterpolationFunction)
+	}
 	b.EmitCapability(spec.SpvCapGroupNonUniformBallot)
 	b.EmitCapability(spec.SpvCapSubgroupBallotKHR)
 	b.EmitCapability(spec.SpvCapRuntimeDescriptorArray)
 	b.EmitCapability(spec.SpvCapPhysicalStorageBufferAddresses)
+	b.EmitCapability(spec.SpvCapShaderNonUniform)
+	b.EmitCapability(spec.SpvCapSampledImageArrayNonUniformIndexing)
 	b.EmitExtension("SPV_KHR_physical_storage_buffer")
 	b.EmitExtension("SPV_KHR_shader_ballot")
 	b.EmitExtension("SPV_EXT_descriptor_indexing")
@@ -72,14 +77,23 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	typePtrInputUint := b.EmitTypePointer(spec.SpvStorageInput, typeUint)
 	typeSubgroupLocalInvocationId := b.EmitVariable(typePtrInputUint, spec.SpvStorageInput)
 	b.EmitDecorate(typeSubgroupLocalInvocationId, spec.SpvDecorationBuiltIn, spec.SpvBuiltInSubgroupLocalInvocationId)
+	if shader.Stage == GcnShaderStageFragment {
+		b.EmitDecorate(typeSubgroupLocalInvocationId, spec.SpvDecorationFlat)
+	}
 
 	typeVertexIndex := b.EmitVariable(typePtrInputUint, spec.SpvStorageInput)
 	b.EmitName(typeVertexIndex, "vertex_index")
 	b.EmitDecorate(typeVertexIndex, spec.SpvDecorationBuiltIn, spec.SpvBuiltInVertexIndex)
+	if shader.Stage == GcnShaderStageFragment {
+		b.EmitDecorate(typeVertexIndex, spec.SpvDecorationFlat)
+	}
 
 	typeInstanceIndex := b.EmitVariable(typePtrInputUint, spec.SpvStorageInput)
 	b.EmitName(typeInstanceIndex, "instance_index")
 	b.EmitDecorate(typeInstanceIndex, spec.SpvDecorationBuiltIn, spec.SpvBuiltInInstanceIndex)
+	if shader.Stage == GcnShaderStageFragment {
+		b.EmitDecorate(typeInstanceIndex, spec.SpvDecorationFlat)
+	}
 
 	typePtrInputV4F := b.EmitTypePointer(spec.SpvStorageInput, typeV4Float)
 	typeFragCoord := b.EmitVariable(typePtrInputV4F, spec.SpvStorageInput)
@@ -109,10 +123,13 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	//  uint_t TexelBuffer1FormatStride;
 	//  uint_t TexelBuffer2FormatStride;
 	//  uint_t TexelBuffer3FormatStride;
+	//  uint_t VertexUserSgprCount;
+	//  uint_t PixelUserSgprCount;
 	// }
 	typePc := b.EmitTypeStruct(typePtrPsbUint, typeUint64, typeUint64,
 		typeUint, typeUint, typeUint, typeUint,
 		typeUint, typeUint, typeUint, typeUint,
+		typeUint, typeUint,
 	)
 	typePtrPcPsbUint := b.EmitTypePointer(spec.SpvStoragePushConstant, typePtrPsbUint)
 	typePtrPcUint64 := b.EmitTypePointer(spec.SpvStoragePushConstant, typeUint64)
@@ -133,6 +150,8 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	b.EmitMemberDecorate(typePc, 8, spec.SpvDecorationOffset, 44)
 	b.EmitMemberDecorate(typePc, 9, spec.SpvDecorationOffset, 48)
 	b.EmitMemberDecorate(typePc, 10, spec.SpvDecorationOffset, 52)
+	b.EmitMemberDecorate(typePc, 11, spec.SpvDecorationOffset, 56)
+	b.EmitMemberDecorate(typePc, 12, spec.SpvDecorationOffset, 60)
 
 	// Global push-constant variable.
 	typePtrPc := b.EmitTypePointer(spec.SpvStoragePushConstant, typePc)
@@ -158,20 +177,31 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	b.EmitName(idDescriptorMapVar, "global_descriptor_map")
 	b.EmitDecorate(idDescriptorMapVar, spec.SpvDecorationDescriptorSet, 2)
 	b.EmitDecorate(idDescriptorMapVar, spec.SpvDecorationBinding, 0)
+	b.EmitDecorate(idDescriptorMapVar, spec.SpvDecorationCoherent)
+	b.EmitDecorate(idDescriptorMapVar, spec.SpvDecorationVolatile)
 
 	// Missing resource buffer (Set 2, Binding 1).
-	typeMissingDescriptor := b.EmitTypeArray(typeUint, b.EmitConstantUint(typeUint, 12))
+	typeMissingDescriptor := b.EmitTypeStruct(
+		typeUint, typeUint, typeUint, typeUint,
+		typeUint, typeUint, typeUint, typeUint,
+		typeUint, typeUint, typeUint, typeUint,
+	)
+	for i := range uint32(12) {
+		b.EmitMemberDecorate(typeMissingDescriptor, i, spec.SpvDecorationOffset, i*4)
+	}
 	typeMissingDescriptorsArray := b.EmitTypeRuntimeArray(typeMissingDescriptor)
 	b.EmitDecorate(typeMissingDescriptorsArray, spec.SpvDecorationArrayStride, 48)
 	typeMissingResourceBuffer := b.EmitTypeStruct(typeUint, typeMissingDescriptorsArray)
 	b.EmitDecorate(typeMissingResourceBuffer, spec.SpvDecorationBlock)
 	b.EmitMemberDecorate(typeMissingResourceBuffer, 0, spec.SpvDecorationOffset, 0)
-	b.EmitMemberDecorate(typeMissingResourceBuffer, 1, spec.SpvDecorationOffset, 4)
+	b.EmitMemberDecorate(typeMissingResourceBuffer, 1, spec.SpvDecorationOffset, 16)
 	typePtrStorageMissingResourceBuffer := b.EmitTypePointer(spec.SpvStorageStorageBuffer, typeMissingResourceBuffer)
 	idMissingResourceBufferVar := b.EmitVariable(typePtrStorageMissingResourceBuffer, spec.SpvStorageStorageBuffer)
 	b.EmitName(idMissingResourceBufferVar, "missing_resource_buffer")
 	b.EmitDecorate(idMissingResourceBufferVar, spec.SpvDecorationDescriptorSet, 2)
 	b.EmitDecorate(idMissingResourceBufferVar, spec.SpvDecorationBinding, 1)
+	b.EmitDecorate(idMissingResourceBufferVar, spec.SpvDecorationCoherent)
+	b.EmitDecorate(idMissingResourceBufferVar, spec.SpvDecorationVolatile)
 
 	// Texel buffers (Set 1, Binding 0..3).
 	var typeTexelBuffer SpirvId
@@ -194,7 +224,8 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	interfaceIds := []SpirvId{typeSubgroupLocalInvocationId, typeVertexIndex, typeInstanceIndex}
 	var typePosOut, typeFragDepthOut SpirvId
 	var idColorOuts [8]SpirvId
-	var idParamOuts [32]SpirvId
+	var idParamOuts [16]SpirvId
+	var idParamIns [16]SpirvId
 	var typeZeroVec4 SpirvId
 	switch shader.Stage {
 	case GcnShaderStageVertex:
@@ -213,6 +244,12 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 			idColorOuts[i] = b.EmitVariable(idPtrOutV4, spec.SpvStorageOutput)
 			b.EmitDecorate(idColorOuts[i], spec.SpvDecorationLocation, uint32(i))
 			interfaceIds = append(interfaceIds, idColorOuts[i])
+		}
+		for i := range idParamIns {
+			idParamIns[i] = b.EmitVariable(b.EmitTypePointer(spec.SpvStorageInput, typeV4Float), spec.SpvStorageInput)
+			b.EmitName(idParamIns[i], fmt.Sprintf("param_in_%d", i))
+			b.EmitDecorate(idParamIns[i], spec.SpvDecorationLocation, uint32(i))
+			interfaceIds = append(interfaceIds, idParamIns[i])
 		}
 
 		typeFragDepthOut = b.EmitVariable(idPtrOutF, spec.SpvStorageOutput)
@@ -283,31 +320,32 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 
 	// GCN inline constants.
 	var gcnConstIds [120]SpirvUsedId
-	for i, id := range gcnConstIds {
+	for i := range gcnConstIds {
+		constId := SpirvId(i)
 		usedId := SpirvUsedId{Id: b.AllocId()}
 		switch {
-		case id.Id == GcnConstId0:
+		case constId == GcnConstId0:
 			usedId.Value, usedId.Name = 0, "0"
-		case id.Id >= GcnConstIdInt1 && id.Id <= GcnConstIdInt64:
+		case constId >= GcnConstIdInt1 && constId <= GcnConstIdInt64:
 			usedId.Value, usedId.Name = uint32(i), fmt.Sprint(i)
-		case id.Id >= GcnConstIdIntNeg1 && id.Id <= GcnConstIdIntNeg16:
+		case constId >= GcnConstIdIntNeg1 && constId <= GcnConstIdIntNeg16:
 			v := int32(-(i - int(GcnConstIdInt64)))
 			usedId.Value, usedId.Name = uint32(v), fmt.Sprint(v)
-		case id.Id == GcnConstIdFloat05:
+		case constId == GcnConstIdFloat05:
 			usedId.Value, usedId.Name = math.Float32bits(0.5), "0.5"
-		case id.Id == GcnConstIdFloatNeg05:
+		case constId == GcnConstIdFloatNeg05:
 			usedId.Value, usedId.Name = math.Float32bits(-0.5), "-0.5"
-		case id.Id == GcnConstIdFloat10:
+		case constId == GcnConstIdFloat10:
 			usedId.Value, usedId.Name = math.Float32bits(1.0), "1.0"
-		case id.Id == GcnConstIdFloatNeg10:
+		case constId == GcnConstIdFloatNeg10:
 			usedId.Value, usedId.Name = math.Float32bits(-1.0), "-1.0"
-		case id.Id == GcnConstIdFloat20:
+		case constId == GcnConstIdFloat20:
 			usedId.Value, usedId.Name = math.Float32bits(2.0), "2.0"
-		case id.Id == GcnConstIdFloatNeg20:
+		case constId == GcnConstIdFloatNeg20:
 			usedId.Value, usedId.Name = math.Float32bits(-2.0), "-2.0"
-		case id.Id == GcnConstIdFloat40:
+		case constId == GcnConstIdFloat40:
 			usedId.Value, usedId.Name = math.Float32bits(4.0), "4.0"
-		case id.Id == GcnConstIdFloatNeg40:
+		case constId == GcnConstIdFloatNeg40:
 			usedId.Value, usedId.Name = math.Float32bits(-4.0), "-4.0"
 		}
 		gcnConstIds[i] = usedId
@@ -315,7 +353,7 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 
 	// Internal inline constants.
 	constIds := map[SpirvId]SpirvUsedId{}
-	for i := range SpirvId(256) {
+	for i := range SpirvId(257) {
 		constIds[i] = SpirvUsedId{Id: b.AllocId(), Value: uint32(i), Name: fmt.Sprint(i)}
 	}
 	constIds[ConstIdUint3FFF] = SpirvUsedId{Id: b.AllocId(), Value: 0x3FFF, Name: "0x3FFF"}
@@ -325,8 +363,12 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	constIds[ConstId64Uint0] = SpirvUsedId{Id: b.AllocId(), Value64: 0, Name: "64_0"}
 	constIds[ConstId64Uint1] = SpirvUsedId{Id: b.AllocId(), Value64: 1, Name: "64_1"}
 	constIds[ConstId64Uint32] = SpirvUsedId{Id: b.AllocId(), Value64: 32, Name: "64_32"}
-	constIds[ConstIdFloat1] = SpirvUsedId{Id: b.AllocId(), Value: math.Float32bits(1.0), Name: "1.0"}
+	constIds[ConstId64UintNot3] = SpirvUsedId{Id: b.AllocId(), Value64: ^uint64(0x3), Name: "64_not_3"}
+	constIds[ConstId64UintOnionBaseAddress] = SpirvUsedId{Id: b.AllocId(), Value64: uint64(GlobalAllocator.Base), Name: "onion_base"}
+	constIds[ConstId64UintGarlicBaseAddress] = SpirvUsedId{Id: b.AllocId(), Value64: uint64(GlobalGpuAllocator.Base), Name: "garlic_base"}
 	constIds[ConstIdFloat0] = SpirvUsedId{Id: b.AllocId(), Value: math.Float32bits(0.0), Name: "0.0"}
+	constIds[ConstIdFloat1] = SpirvUsedId{Id: b.AllocId(), Value: math.Float32bits(1.0), Name: "1.0"}
+	constIds[ConstIdFloat05] = SpirvUsedId{Id: b.AllocId(), Value: math.Float32bits(0.5), Name: "0.5"}
 
 	// Prepare internal IDs.
 	ids := map[SpirvId]SpirvUsedId{
@@ -379,6 +421,9 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	}
 	for i, id := range idParamOuts {
 		ids[BlockContextIdParamOut0+SpirvId(i)] = SpirvUsedId{Id: id, Name: fmt.Sprintf("param_out_%d", i)}
+	}
+	for i, id := range idParamIns {
+		ids[BlockContextIdParamIn0+SpirvId(i)] = SpirvUsedId{Id: id, Name: fmt.Sprintf("param_in_%d", i)}
 	}
 
 	// Pre-allocate SPIR-V labels ID for GCN CFG blocks.

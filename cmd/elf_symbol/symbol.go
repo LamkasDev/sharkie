@@ -1,4 +1,4 @@
-package symbol
+package elf_symbol
 
 import (
 	"bufio"
@@ -11,7 +11,7 @@ const nidEncoding = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456
 
 var symbolMap = make(map[string]string)
 
-// LoadSymbolMap loads the symbol map from the given CSV file (ex. aerolib.csv).
+// LoadSymbolMap loads the elf_symbol map from the given CSV file (ex. aerolib.csv).
 func LoadSymbolMap(path string) {
 	file, err := os.Open(path)
 	if err != nil {
@@ -31,7 +31,7 @@ func LoadSymbolMap(path string) {
 	}
 }
 
-// MangledToReadable returns the readable name for a mangled symbol.
+// MangledToReadable returns the readable name for a mangled elf_symbol.
 // If not found, returns the mangled name.
 func MangledToReadable(mangled string) string {
 	// Strip suffix starting with # (e.g. kxXCvcat1cM#r#q -> kxXCvcat1cM)

@@ -8,7 +8,6 @@ import (
 
 	"github.com/LamkasDev/sharkie/cmd/asm"
 	"github.com/LamkasDev/sharkie/cmd/logger"
-	. "github.com/LamkasDev/sharkie/cmd/structs/gcn"
 	"github.com/gookit/color"
 )
 
@@ -353,22 +352,19 @@ func (l *Liverpool) handleDispatchDirect(ringName string, payload []uint32) {
 		return
 	}
 
+	// Record dispatch.
+	dimX, dimY, dimZ := payload[0], payload[1], payload[2]
+	computeDispatch := l.NewComputeDispatch(dimX, dimY, dimZ)
 	l.StateMutex.Lock()
-	computeShPgmLo := l.Registers.Shader[GREG_MM_COMPUTE_PGM_LO]
-	computeShPgmHi := l.Registers.Shader[GREG_MM_COMPUTE_PGM_HI]
-	csAddress := (uintptr(computeShPgmLo) | uintptr(computeShPgmHi)<<32) << 8
+	l.PendingComputeDispatches = append(l.PendingComputeDispatches, computeDispatch)
 	l.StateMutex.Unlock()
 
-	// Force it to load.
-	l.GetShader(GcnShaderStageCompute, csAddress)
-
 	if LogPM4Packets {
-		logger.Printf("[%s] dispatch direct (payload[0]=%s, payload[1]=%s, payload[2]=%s, payload[3]=%s).\n",
+		logger.Printf("[%s] dispatch direct (dimX=%s, dimY=%s, dimZ=%s).\n",
 			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
-			color.Yellow.Sprintf("0x%X", payload[0]),
-			color.Yellow.Sprintf("0x%X", payload[1]),
-			color.Yellow.Sprintf("0x%X", payload[2]),
-			color.Yellow.Sprintf("0x%X", payload[3]),
+			color.Yellow.Sprintf("0x%X", dimX),
+			color.Yellow.Sprintf("0x%X", dimY),
+			color.Yellow.Sprintf("0x%X", dimZ),
 		)
 	}
 }

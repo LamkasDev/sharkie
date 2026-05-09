@@ -1,91 +1,12 @@
-package renderer
+package vulkan
 
 import (
 	"fmt"
+	"unsafe"
 
 	as "github.com/LamkasDev/asche"
-	"github.com/LamkasDev/cimgui-go-vulkan/imgui"
 	vk "github.com/goki/vulkan"
 )
-
-// GpuSurface is a Vulkan-side render target that corresponds to a single
-// GPU-address-identified framebuffer surface registered by the game.
-type GpuSurface struct {
-	GPUAddress uintptr
-	Width      uint32
-	Height     uint32
-	Format     vk.Format
-	TextureId  imgui.TextureRef
-
-	// Vulkan objects.
-	image       vk.Image
-	imageMem    vk.DeviceMemory
-	imageView   vk.ImageView
-	sampler     vk.Sampler
-	framebuffer vk.Framebuffer
-	renderPass  vk.RenderPass
-
-	// firstUse tracks whether the image has been transitioned from UNDEFINED.
-	firstUse bool
-}
-
-// Destroy frees all Vulkan resources owned by this surface.
-func (s *GpuSurface) Destroy(dev vk.Device) {
-	if s.framebuffer != vk.NullFramebuffer {
-		vk.DestroyFramebuffer(dev, s.framebuffer, nil)
-	}
-	if s.renderPass != vk.NullRenderPass {
-		vk.DestroyRenderPass(dev, s.renderPass, nil)
-	}
-	if s.imageView != vk.NullImageView {
-		vk.DestroyImageView(dev, s.imageView, nil)
-	}
-	if s.image != vk.NullImage {
-		vk.DestroyImage(dev, s.image, nil)
-	}
-	if s.imageMem != vk.NullDeviceMemory {
-		vk.FreeMemory(dev, s.imageMem, nil)
-	}
-}
-
-func (t *GpuTranslator) GetSurface(address uintptr, width, height uint32) (imgui.TextureRef, error) {
-	// Check if it already exists.
-	t.surfacesMutex.Lock()
-	surface, ok := t.surfaces[address]
-	t.surfacesMutex.Unlock()
-	if ok {
-		return surface.TextureId, nil
-	}
-
-	// Create the surface.
-	surface = &GpuSurface{
-		GPUAddress: address,
-		Width:      width,
-		Height:     height,
-		Format:     vk.FormatR8g8b8a8Unorm,
-		firstUse:   true,
-	}
-	if err := t.allocSurface(surface); err != nil {
-		return imgui.TextureRef{}, fmt.Errorf("RegisterSurface 0x%X: %w", address, err)
-	}
-	surface.TextureId = t.backend.CreateVulkanTexture(surface.sampler, surface.imageView, vk.ImageLayoutShaderReadOnlyOptimal)
-	t.surfacesMutex.Lock()
-	t.surfaces[address] = surface
-	t.surfacesMutex.Unlock()
-
-	return surface.TextureId, nil
-}
-
-// GetSurfaceImageView returns the VkImageView for a registered surface so the renderer can display it as a texture.
-// Returns vk.NullImageView if unknown.
-func (t *GpuTranslator) GetSurfaceImageView(gpuAddress uintptr) vk.ImageView {
-	t.surfacesMutex.Lock()
-	defer t.surfacesMutex.Unlock()
-	if s, ok := t.surfaces[gpuAddress]; ok {
-		return s.imageView
-	}
-	return vk.NullImageView
-}
 
 func (t *GpuTranslator) allocSurface(s *GpuSurface) error {
 	// Create the render-target image.
@@ -115,6 +36,7 @@ func (t *GpuTranslator) allocSurface(s *GpuSurface) error {
 	var imageMem vk.DeviceMemory
 	result = vk.AllocateMemory(t.handles.Device, &vk.MemoryAllocateInfo{
 		SType:           vk.StructureTypeMemoryAllocateInfo,
+		PNext:           unsafe.Pointer(new(NewPriorityInfo(0, 1))),
 		AllocationSize:  memReqs.Size,
 		MemoryTypeIndex: t.handles.FindMemoryType(memReqs.MemoryTypeBits, vk.MemoryPropertyDeviceLocalBit),
 	}, nil, &imageMem)
@@ -166,7 +88,7 @@ func (t *GpuTranslator) allocSurface(s *GpuSurface) error {
 			StoreOp:        vk.AttachmentStoreOpStore,
 			StencilLoadOp:  vk.AttachmentLoadOpDontCare,
 			StencilStoreOp: vk.AttachmentStoreOpDontCare,
-			InitialLayout:  vk.ImageLayoutColorAttachmentOptimal,
+			InitialLayout:  vk.ImageLayoutUndefined,
 			FinalLayout:    vk.ImageLayoutShaderReadOnlyOptimal,
 		}},
 		SubpassCount: 1,
@@ -183,6 +105,35 @@ func (t *GpuTranslator) allocSurface(s *GpuSurface) error {
 		return fmt.Errorf("vkCreateRenderPass: %w", err)
 	}
 	s.renderPass = renderPass
+
+	var renderPassNoClear vk.RenderPass
+	result = vk.CreateRenderPass(t.handles.Device, &vk.RenderPassCreateInfo{
+		SType:           vk.StructureTypeRenderPassCreateInfo,
+		AttachmentCount: 1,
+		PAttachments: []vk.AttachmentDescription{{
+			Format:         s.Format,
+			Samples:        vk.SampleCount1Bit,
+			LoadOp:         vk.AttachmentLoadOpLoad,
+			StoreOp:        vk.AttachmentStoreOpStore,
+			StencilLoadOp:  vk.AttachmentLoadOpDontCare,
+			StencilStoreOp: vk.AttachmentStoreOpDontCare,
+			InitialLayout:  vk.ImageLayoutShaderReadOnlyOptimal,
+			FinalLayout:    vk.ImageLayoutShaderReadOnlyOptimal,
+		}},
+		SubpassCount: 1,
+		PSubpasses: []vk.SubpassDescription{{
+			PipelineBindPoint:    vk.PipelineBindPointGraphics,
+			ColorAttachmentCount: 1,
+			PColorAttachments: []vk.AttachmentReference{{
+				Attachment: 0,
+				Layout:     vk.ImageLayoutColorAttachmentOptimal,
+			}},
+		}},
+	}, nil, &renderPassNoClear)
+	if err := as.NewError(result); err != nil {
+		return fmt.Errorf("vkCreateRenderPass: %w", err)
+	}
+	s.renderPassNoClear = renderPassNoClear
 
 	var framebuffer vk.Framebuffer
 	result = vk.CreateFramebuffer(t.handles.Device, &vk.FramebufferCreateInfo{

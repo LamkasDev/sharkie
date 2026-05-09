@@ -10,21 +10,19 @@ import (
 )
 
 const (
-	PushConstantUserDataAddress            = 0
-	PushConstantOnionMemoryBaseAddress     = 1
-	PushConstantGarlicMemoryBaseAddress    = 2
-	PushConstantTexelBuffer0FormatSize     = 3
-	PushConstantTexelBuffer1FormatSize     = 4
-	PushConstantTexelBuffer2FormatSize     = 5
-	PushConstantTexelBuffer3FormatSize     = 6
-	PushConstantTexelBuffer0FormatStride   = 7
-	PushConstantTexelBuffer1FormatStride   = 8
-	PushConstantTexelBuffer2FormatStride   = 9
-	PushConstantTexelBuffer3FormatStride   = 10
-	PushConstantTexelBuffer0FormatElements = 11
-	PushConstantTexelBuffer1FormatElements = 12
-	PushConstantTexelBuffer2FormatElements = 13
-	PushConstantTexelBuffer3FormatElements = 14
+	PushConstantUserDataAddress          = 0
+	PushConstantOnionMemoryBaseAddress   = 1
+	PushConstantGarlicMemoryBaseAddress  = 2
+	PushConstantTexelBuffer0FormatSize   = 3
+	PushConstantTexelBuffer1FormatSize   = 4
+	PushConstantTexelBuffer2FormatSize   = 5
+	PushConstantTexelBuffer3FormatSize   = 6
+	PushConstantTexelBuffer0FormatStride = 7
+	PushConstantTexelBuffer1FormatStride = 8
+	PushConstantTexelBuffer2FormatStride = 9
+	PushConstantTexelBuffer3FormatStride = 10
+	PushConstantVertexUserSgprCount      = 11
+	PushConstantPixelUserSgprCount       = 12
 )
 
 // emitBlock emits the SPIR-V for a single block.
@@ -60,6 +58,18 @@ func emitBlock(b *SpvBuilder, block *GcnShaderCfgBlock, ctx *SpirvBlockContext) 
 			ctx.SetGcnVgprId(b, 1, v1)
 		}
 
+		// Initialize barycentrics for fragment shader.
+		if ctx.Stage == GcnShaderStageFragment {
+			b.EmitString("initialize barycentrics")
+			idHalfF := ctx.GetConstId(ConstIdFloat05)
+			idOneF := ctx.GetConstId(ConstIdFloat1)
+			idHalfU := b.EmitBitcast(ctx.GetId(BlockContextIdTypeUint), idHalfF)
+			idOneU := b.EmitBitcast(ctx.GetId(BlockContextIdTypeUint), idOneF)
+			ctx.SetGcnVgprId(b, 0, idHalfU)
+			ctx.SetGcnVgprId(b, 1, idHalfU)
+			ctx.SetGcnVgprId(b, 2, idOneU)
+		}
+
 		// Initialize EXEC and VCC.
 		// EXEC is initialized to the subgroup's active mask.
 		b.EmitString("initialize exec and vcc")
@@ -75,10 +85,6 @@ func emitBlock(b *SpvBuilder, block *GcnShaderCfgBlock, ctx *SpirvBlockContext) 
 		b.EmitString("set vcc to 0")
 		ctx.StoreRegisterPointer(b, gcnSpec.OpVccLo, idC0)
 		ctx.StoreRegisterPointer(b, gcnSpec.OpVccHi, idC0)
-
-		if ctx.Address == 0xFE6DC9A00 {
-			b.EmitExtInst(ctx.GetId(BlockContextIdTypeVoid), ctx.GetId(BlockContextIdDebugPrintf), 1, b.EmitString("not yet.\n"))
-		}
 	}
 
 	// Reset condition ID.
@@ -119,7 +125,7 @@ func emitBlock(b *SpvBuilder, block *GcnShaderCfgBlock, ctx *SpirvBlockContext) 
 			b.EmitExtInst(ctx.GetId(BlockContextIdTypeVoid), ctx.GetId(BlockContextIdDebugPrintf), 1,
 				formatId, vertexIndexId, px, py, pz, pw)
 		case GcnShaderStageFragment:
-			if ctx.Address != 0xFE6DC9A00 {
+			if false {
 				break
 			}
 			formatId := b.EmitString(fmt.Sprintf("Fragment 0x%X: color=(%%f, %%f, %%f, %%f)\n", ctx.Address))

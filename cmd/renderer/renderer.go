@@ -11,14 +11,15 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/LamkasDev/sharkie/cmd/structs/gpu"
 	. "github.com/LamkasDev/sharkie/cmd/structs/video"
+	"github.com/LamkasDev/sharkie/cmd/vulkan"
 	vk "github.com/goki/vulkan"
 	"github.com/gookit/color"
 )
 
 type Renderer struct {
-	Handles       VulkanHandles
+	Handles       vulkan.VulkanHandles
 	Backend       backend.Backend[glfwvulkanbackend.GLFWWindowFlags]
-	GpuTranslator *GpuTranslator
+	GpuTranslator *vulkan.GpuTranslator
 	FrameSource   *FrameSource
 	Overlay       *ImguiOverlay
 
@@ -33,7 +34,7 @@ type Renderer struct {
 
 func NewRenderer(context as.Context, dimensions *as.SwapchainDimensions) *Renderer {
 	r := &Renderer{
-		Handles:               NewVulkanHandles(context),
+		Handles:               vulkan.NewVulkanHandles(context),
 		SwapchainDimensions:   dimensions,
 		FrameSource:           NewFrameSource(),
 		PendingCommandBuffers: make(chan vk.CommandBuffer),
@@ -43,7 +44,7 @@ func NewRenderer(context as.Context, dimensions *as.SwapchainDimensions) *Render
 	if r.Backend, err = backend.CreateBackend(glfwvulkanbackend.NewGLFWBackend()); err != nil {
 		panic(err)
 	}
-	if r.GpuTranslator, err = NewGpuTranslator(r.Handles, r.Backend); err != nil {
+	if r.GpuTranslator, err = vulkan.NewGpuTranslator(r.Handles, r.Backend); err != nil {
 		panic(err)
 	}
 
@@ -108,8 +109,9 @@ func (r *Renderer) ConsumeFrames(done chan struct{}) {
 
 		gpu.GlobalLiverpool.Walk()
 		draws := gpu.GlobalLiverpool.FlushDrawCalls()
-		if len(draws) > 0 && r.GpuTranslator != nil {
-			commandBuffer := r.GpuTranslator.Translate(frame.Number, draws)
+		dispatches := gpu.GlobalLiverpool.FlushComputeDispatches()
+		if r.GpuTranslator != nil {
+			commandBuffer := r.GpuTranslator.Translate(frame.Number, draws, dispatches)
 			if commandBuffer == nil {
 				continue
 			}

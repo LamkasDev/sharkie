@@ -16,8 +16,8 @@ const (
 type ElfRelocation struct {
 	Offset uintptr // Offset at which the relocation should be applied
 	Type   uint32  // Type of relocation
-	Symbol uint32  // Index of the symbol to which the relocation refers
-	Addend uintptr // Value to be added to the symbol's address
+	Symbol uint32  // Index of the elf_symbol to which the relocation refers
+	Addend uintptr // Value to be added to the elf_symbol's address
 }
 
 // ElfRelocationTable holds a list of ElfRelocation entries.
@@ -43,7 +43,7 @@ func NewRelocationTable(data []byte, tableOffset, tableSize, tableEnt uint64) *E
 		rOffset := uintptr(binary.LittleEndian.Uint64(data[relOffset:]))
 		rInfo := binary.LittleEndian.Uint64(data[relOffset+8:])
 		rType := uint32(rInfo & 0xFFFFFFFF) // Lower 32 bits for type
-		rSym := uint32(rInfo >> 32)         // Upper 32 bits for symbol index
+		rSym := uint32(rInfo >> 32)         // Upper 32 bits for elf_symbol index
 		rAddend := uintptr(binary.LittleEndian.Uint64(data[relOffset+16:]))
 
 		table.Relocations = append(table.Relocations, ElfRelocation{

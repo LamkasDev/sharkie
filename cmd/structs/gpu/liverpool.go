@@ -18,10 +18,11 @@ type Liverpool struct {
 	GraphicsRing *LiverpoolCommandRing
 	ComputeRing  *LiverpoolCommandRing
 
-	StateMutex       sync.Mutex
-	Registers        LiverpoolRegisters
-	DrawState        LiverpoolDrawState
-	PendingDrawCalls []LiverpoolDrawCall
+	StateMutex               sync.Mutex
+	Registers                LiverpoolRegisters
+	DrawState                LiverpoolDrawState
+	PendingDrawCalls         []LiverpoolDrawCall
+	PendingComputeDispatches []LiverpoolComputeDispatch
 
 	ShadersMutex  sync.Mutex
 	LoadedShaders map[uintptr]*GcnShader
@@ -39,7 +40,9 @@ func NewLiverpool() *Liverpool {
 		GraphicsRing: &LiverpoolCommandRing{},
 		ComputeRing:  &LiverpoolCommandRing{},
 
-		StateMutex: sync.Mutex{},
+		StateMutex:               sync.Mutex{},
+		PendingDrawCalls:         []LiverpoolDrawCall{},
+		PendingComputeDispatches: []LiverpoolComputeDispatch{},
 
 		LoadedShaders: map[uintptr]*GcnShader{},
 		ShadersMutex:  sync.Mutex{},
@@ -88,6 +91,15 @@ func (l *Liverpool) FlushDrawCalls() []LiverpoolDrawCall {
 	l.StateMutex.Unlock()
 
 	return drawCalls
+}
+
+func (l *Liverpool) FlushComputeDispatches() []LiverpoolComputeDispatch {
+	l.StateMutex.Lock()
+	computeDispatches := l.PendingComputeDispatches
+	l.PendingComputeDispatches = l.PendingComputeDispatches[:0]
+	l.StateMutex.Unlock()
+
+	return computeDispatches
 }
 
 func (l *Liverpool) Flip(gpuAddress uintptr, flipArg uint64) {

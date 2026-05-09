@@ -1,4 +1,4 @@
-package renderer
+package vulkan
 
 import (
 	"fmt"
@@ -28,7 +28,7 @@ func (t *GpuTranslator) createDescriptorPool() error {
 		},
 		PoolSizeCount: 3,
 		MaxSets:       8192,
-		Flags:         vk.DescriptorPoolCreateFlags(vk.DescriptorPoolCreateFreeDescriptorSetBit),
+		Flags:         vk.DescriptorPoolCreateFlags(vk.DescriptorPoolCreateFreeDescriptorSetBit | vk.DescriptorPoolCreateUpdateAfterBindBit),
 	}, nil, &pool)
 	if err := as.NewError(result); err != nil {
 		return fmt.Errorf("create descriptor pool: %w", err)
@@ -101,7 +101,7 @@ func (t *GpuTranslator) updateDiscoveryDescriptorSet() {
 			DescriptorCount: 1,
 			DescriptorType:  vk.DescriptorTypeStorageBuffer,
 			PBufferInfo: []vk.DescriptorBufferInfo{{
-				Buffer: t.discoveryReportBuffer,
+				Buffer: t.missingResourceBuffer,
 				Offset: 0,
 				Range:  vk.DeviceSize(vk.WholeSize),
 			}},

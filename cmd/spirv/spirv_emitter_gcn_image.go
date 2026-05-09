@@ -14,7 +14,7 @@ func NewImageDescriptor(dwords []uint32) ImageDescriptor {
 	d := ImageDescriptor{}
 
 	// DW0 & DW1: Base Address (40 bits) + Min Lod (12 bits)
-	d.BaseAddress = uintptr(dwords[0]) | (uintptr(dwords[1]&0xFF) << 32)
+	d.BaseAddress = (uintptr(dwords[0]) | (uintptr(dwords[1]&0xFF) << 32)) << 8
 	d.MinLod = uint16((dwords[1] >> 8) & 0xFFF)
 
 	// DW1: Data Format (6 bits) + Num Format (4 bits)

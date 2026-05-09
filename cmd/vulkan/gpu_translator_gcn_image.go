@@ -1,83 +1,8 @@
-package renderer
+package vulkan
 
 import (
-	"unsafe"
-
-	"github.com/LamkasDev/sharkie/cmd/logger"
-	"github.com/LamkasDev/sharkie/cmd/spirv"
 	vk "github.com/goki/vulkan"
 )
-
-func (t *GpuTranslator) BindImageSamplers(commandBuffer vk.CommandBuffer, userData []uint32, stageOffset uint32) {
-	// The texture table pointer is in s[2:3]
-	textureTablePtr := uintptr(userData[stageOffset+2]) | (uintptr(userData[stageOffset+3]) << 32)
-	if textureTablePtr == 0 {
-		return
-	}
-
-	logger.Printf("[GPU] Texture Table Ptr: 0x%X\n", textureTablePtr)
-
-	// The table contains 32-bit indices.
-	// We'll iterate through the first 16 entries and bind any that are non-zero.
-	var writes []vk.WriteDescriptorSet
-	var imageInfos []vk.DescriptorImageInfo
-
-	for i := range uint32(16) {
-		// Load index from table.
-		indexPtr := (*uint32)(unsafe.Pointer(textureTablePtr + uintptr(i*4)))
-		index := *indexPtr
-		if index == 0 {
-			continue
-		}
-
-		logger.Printf("[GPU] Texture Index %d: 0x%X\n", i, index)
-
-		// The index points to a 256-bit image descriptor followed by a 128-bit sampler descriptor?
-		// Or maybe the descriptors are in a separate global table?
-		// For now, let's assume the descriptors are in memory at some fixed location.
-		// PS4 games often use a global table at a fixed address.
-		// Let's assume the index is into a global table of (ImageDesc[8], SamplerDesc[4]).
-		globalTableBase := uintptr(0x200000000)         // Placeholder
-		descAddr := globalTableBase + uintptr(index)*48 // 32 + 16 bytes
-
-		imageDwords := unsafe.Slice((*uint32)(unsafe.Pointer(descAddr)), 8)
-		samplerDwords := unsafe.Slice((*uint32)(unsafe.Pointer(descAddr+32)), 4)
-
-		imageDesc := spirv.NewImageDescriptor(imageDwords)
-		samplerDesc := spirv.NewSamplerDescriptor(samplerDwords)
-
-		// Create/Get Vulkan resources.
-		view := t.GetImageView(imageDesc)
-		sampler := t.GetSampler(samplerDesc)
-
-		if view != vk.NullImageView && sampler != vk.NullSampler {
-			imageInfos = append(imageInfos, vk.DescriptorImageInfo{
-				Sampler:     sampler,
-				ImageView:   view,
-				ImageLayout: vk.ImageLayoutShaderReadOnlyOptimal,
-			})
-
-			writes = append(writes, vk.WriteDescriptorSet{
-				SType:           vk.StructureTypeWriteDescriptorSet,
-				DstSet:          t.texelDescriptorSets[0], // Using the first set for now
-				DstBinding:      0,
-				DstArrayElement: uint32(i),
-				DescriptorCount: 1,
-				DescriptorType:  vk.DescriptorTypeCombinedImageSampler,
-				PImageInfo:      []vk.DescriptorImageInfo{imageInfos[len(imageInfos)-1]},
-			})
-		}
-	}
-
-	if len(writes) > 0 {
-		// For bindless textures, we typically use a single global descriptor set.
-		// However, for simplicity here, we'll just bind the first one we allocated.
-		// In a real implementation, we would have a dedicated set for bindless textures.
-		descriptorSet := t.texelDescriptorSets[0]
-		vk.UpdateDescriptorSets(t.handles.Device, uint32(len(writes)), writes, 0, nil)
-		vk.CmdBindDescriptorSets(commandBuffer, vk.PipelineBindPointGraphics, t.stubPipelineLayout, 0, 1, []vk.DescriptorSet{descriptorSet}, 0, nil)
-	}
-}
 
 func translateClampMode(mode uint8) vk.SamplerAddressMode {
 	switch mode {

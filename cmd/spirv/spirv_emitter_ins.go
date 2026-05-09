@@ -10,18 +10,19 @@ import (
 type InstructionEmitFunc func(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 
 var InstructionEmitMap = map[gcnSpec.Encoding]InstructionEmitFunc{
-	gcnSpec.EncSOP2:  emitSOP2,
-	gcnSpec.EncSOP1:  emitSOP1,
-	gcnSpec.EncSOPC:  emitSOPC,
-	gcnSpec.EncSOPP:  emitSOPP,
-	gcnSpec.EncVOP2:  emitVOP2,
-	gcnSpec.EncVOP1:  emitVOP1,
-	gcnSpec.EncVOPC:  emitVOPC,
-	gcnSpec.EncVOP3:  emitVOP3,
-	gcnSpec.EncSMRD:  emitSMRD,
-	gcnSpec.EncMUBUF: emitMUBUF,
-	gcnSpec.EncMIMG:  emitMIMG,
-	gcnSpec.EncEXP:   emitEXP,
+	gcnSpec.EncSOP2:   emitSOP2,
+	gcnSpec.EncSOP1:   emitSOP1,
+	gcnSpec.EncSOPC:   emitSOPC,
+	gcnSpec.EncSOPP:   emitSOPP,
+	gcnSpec.EncVOP2:   emitVOP2,
+	gcnSpec.EncVOP1:   emitVOP1,
+	gcnSpec.EncVOPC:   emitVOPC,
+	gcnSpec.EncVOP3:   emitVOP3,
+	gcnSpec.EncVINTRP: emitVINTRP,
+	gcnSpec.EncSMRD:   emitSMRD,
+	gcnSpec.EncMUBUF:  emitMUBUF,
+	gcnSpec.EncMIMG:   emitMIMG,
+	gcnSpec.EncEXP:    emitEXP,
 }
 
 // GetRegisterPointer returns the result ID of the pointer to the given register.
@@ -166,7 +167,8 @@ func (ctx *SpirvBlockContext) LoadPushConstantValue(b *SpvBuilder, i uint32) Spi
 		valType = ctx.GetId(BlockContextIdTypeUint64)
 		ptrType = ctx.GetId(BlockContextIdPtrPcUint64)
 	case PushConstantTexelBuffer0FormatSize, PushConstantTexelBuffer1FormatSize, PushConstantTexelBuffer2FormatSize, PushConstantTexelBuffer3FormatSize,
-		PushConstantTexelBuffer0FormatStride, PushConstantTexelBuffer1FormatStride, PushConstantTexelBuffer2FormatStride, PushConstantTexelBuffer3FormatStride:
+		PushConstantTexelBuffer0FormatStride, PushConstantTexelBuffer1FormatStride, PushConstantTexelBuffer2FormatStride, PushConstantTexelBuffer3FormatStride,
+		PushConstantVertexUserSgprCount, PushConstantPixelUserSgprCount:
 		valType = ctx.GetId(BlockContextIdTypeUint)
 		ptrType = ctx.GetId(BlockContextIdPtrPcUint)
 	default:
@@ -181,10 +183,11 @@ func (ctx *SpirvBlockContext) LoadPushConstantValue(b *SpvBuilder, i uint32) Spi
 func (ctx *SpirvBlockContext) TranslateAddress(b *SpvBuilder, address SpirvId) SpirvId {
 	typeBool := ctx.GetId(BlockContextIdTypeBool)
 	typeUint64 := ctx.GetId(BlockContextIdTypeUint64)
+	onionCpuBase := ctx.GetConstId(ConstId64UintOnionBaseAddress)
+	garlicCpuBase := ctx.GetConstId(ConstId64UintGarlicBaseAddress)
 
 	// Garlic address is >= 0xFE0000000.
-	garlicThreshold := b.EmitConstantUint64(typeUint64, 0xFE0000000)
-	isGarlic := b.EmitUGreaterThanEqual(typeBool, address, garlicThreshold)
+	isGarlic := b.EmitUGreaterThanEqual(typeBool, address, garlicCpuBase)
 
 	// Translation labels.
 	garlicLabel := b.AllocId()
@@ -195,17 +198,16 @@ func (ctx *SpirvBlockContext) TranslateAddress(b *SpvBuilder, address SpirvId) S
 
 	// Garlic translation.
 	b.EmitLabel(garlicLabel)
-	garlicBase := ctx.LoadPushConstantValue(b, PushConstantGarlicMemoryBaseAddress)
-	garlicOffset := b.EmitISub(typeUint64, address, garlicThreshold)
-	translatedGarlic := b.EmitIAdd(typeUint64, garlicBase, garlicOffset)
+	garlicGpuBase := ctx.LoadPushConstantValue(b, PushConstantGarlicMemoryBaseAddress)
+	garlicGpuOffset := b.EmitISub(typeUint64, address, garlicCpuBase)
+	translatedGarlic := b.EmitIAdd(typeUint64, garlicGpuBase, garlicGpuOffset)
 	b.EmitBranch(mergeLabel)
 
 	// Onion translation.
 	b.EmitLabel(onionLabel)
-	onionBase := ctx.LoadPushConstantValue(b, PushConstantOnionMemoryBaseAddress)
-	onionThreshold := b.EmitConstantUint64(typeUint64, 0x400000000)
-	onionOffset := b.EmitISub(typeUint64, address, onionThreshold)
-	translatedOnion := b.EmitIAdd(typeUint64, onionBase, onionOffset)
+	onionGpuBase := ctx.LoadPushConstantValue(b, PushConstantOnionMemoryBaseAddress)
+	onionGpuOffset := b.EmitISub(typeUint64, address, onionCpuBase)
+	translatedOnion := b.EmitIAdd(typeUint64, onionGpuBase, onionGpuOffset)
 	b.EmitBranch(mergeLabel)
 
 	// Merge.

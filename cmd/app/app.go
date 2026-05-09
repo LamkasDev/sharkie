@@ -1,3 +1,4 @@
+// Package app handles GLFW, Vulkan and application setup.
 package app
 
 import (
@@ -187,6 +188,7 @@ func (app *Application) VulkanDeviceExtensions() []string {
 		"VK_KHR_shader_non_semantic_info",
 		"VK_EXT_pageable_device_local_memory",
 		"VK_EXT_memory_priority",
+		"VK_EXT_shader_subgroup_ballot",
 	}
 	if runtime.GOOS == "linux" {
 		extensions = append(extensions, "VK_KHR_external_memory_fd")
@@ -200,14 +202,35 @@ func (app *Application) VulkanDeviceExtensions() []string {
 }
 
 func (app *Application) VulkanDeviceCreateNext() unsafe.Pointer {
-	return unsafe.Pointer(&vk.PhysicalDeviceBufferDeviceAddressFeatures{
-		SType: vk.StructureTypePhysicalDeviceBufferDeviceAddressFeatures,
-		PNext: unsafe.Pointer(&as.VkPhysicalDevicePageableDeviceLocalMemoryFeaturesEXT{
-			SType:                     as.StructureTypePhysicalDevicePageableDeviceLocalMemoryFeaturesExt,
-			PageableDeviceLocalMemory: uint32(vk.True),
-		}),
-		BufferDeviceAddress: vk.True,
-	})
+	vulkan12Features := &vk.PhysicalDeviceVulkan12Features{
+		SType:                           vk.StructureTypePhysicalDeviceVulkan12Features,
+		RuntimeDescriptorArray:          vk.True,
+		DescriptorBindingPartiallyBound: vk.True,
+		DescriptorBindingSampledImageUpdateAfterBind:       vk.True,
+		ShaderSampledImageArrayNonUniformIndexing:          vk.True,
+		ScalarBlockLayout:                                  vk.True,
+		BufferDeviceAddress:                                vk.True,
+		DescriptorBindingUniformTexelBufferUpdateAfterBind: vk.True,
+	}
+	features2 := &vk.PhysicalDeviceFeatures2{
+		SType: vk.StructureTypePhysicalDeviceFeatures2,
+		PNext: unsafe.Pointer(vulkan12Features),
+		Features: vk.PhysicalDeviceFeatures{
+			ShaderInt64:              vk.True,
+			SampleRateShading:        vk.True,
+			IndependentBlend:         vk.True,
+			GeometryShader:           vk.True,
+			TessellationShader:       vk.True,
+			FragmentStoresAndAtomics: vk.True,
+		},
+	}
+	pageableDeviceLocalMemoryFeatures := &as.VkPhysicalDevicePageableDeviceLocalMemoryFeaturesEXT{
+		SType:                     as.StructureTypePhysicalDevicePageableDeviceLocalMemoryFeaturesExt,
+		PNext:                     unsafe.Pointer(features2),
+		PageableDeviceLocalMemory: uint32(vk.True),
+	}
+
+	return unsafe.Pointer(pageableDeviceLocalMemoryFeatures)
 }
 
 func (app *Application) VulkanInstanceExtensions() []string {

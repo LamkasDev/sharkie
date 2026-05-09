@@ -3,6 +3,7 @@ package spirv
 import (
 	"fmt"
 
+	"github.com/LamkasDev/sharkie/cmd/spirv/spec"
 	. "github.com/LamkasDev/sharkie/cmd/structs/gcn"
 )
 
@@ -71,22 +72,22 @@ const (
 	BlockContextIdParamOut13
 	BlockContextIdParamOut14
 	BlockContextIdParamOut15
-	BlockContextIdParamOut16
-	BlockContextIdParamOut17
-	BlockContextIdParamOut18
-	BlockContextIdParamOut19
-	BlockContextIdParamOut20
-	BlockContextIdParamOut21
-	BlockContextIdParamOut22
-	BlockContextIdParamOut23
-	BlockContextIdParamOut24
-	BlockContextIdParamOut25
-	BlockContextIdParamOut26
-	BlockContextIdParamOut27
-	BlockContextIdParamOut28
-	BlockContextIdParamOut29
-	BlockContextIdParamOut30
-	BlockContextIdParamOut31
+	BlockContextIdParamIn0
+	BlockContextIdParamIn1
+	BlockContextIdParamIn2
+	BlockContextIdParamIn3
+	BlockContextIdParamIn4
+	BlockContextIdParamIn5
+	BlockContextIdParamIn6
+	BlockContextIdParamIn7
+	BlockContextIdParamIn8
+	BlockContextIdParamIn9
+	BlockContextIdParamIn10
+	BlockContextIdParamIn11
+	BlockContextIdParamIn12
+	BlockContextIdParamIn13
+	BlockContextIdParamIn14
+	BlockContextIdParamIn15
 	BlockContextIdZeroVec4
 	BlockContextIdBindlessTextures
 	BlockContextIdPcVar
@@ -105,39 +106,43 @@ const (
 )
 
 const (
-	ConstIdUint0        = SpirvId(0)
-	ConstIdUint1        = SpirvId(1)
-	ConstIdUint2        = SpirvId(2)
-	ConstIdUint3        = SpirvId(3)
-	ConstIdUint4        = SpirvId(4)
-	ConstIdUint5        = SpirvId(5)
-	ConstIdUint6        = SpirvId(6)
-	ConstIdUint7        = SpirvId(7)
-	ConstIdUint8        = SpirvId(8)
-	ConstIdUint12       = SpirvId(12)
-	ConstIdUint15       = SpirvId(15)
-	ConstIdUint16       = SpirvId(16)
-	ConstIdUint19       = SpirvId(19)
-	ConstIdUint21       = SpirvId(21)
-	ConstIdUint23       = SpirvId(23)
-	ConstIdUint30       = SpirvId(30)
-	ConstIdUint31       = SpirvId(31)
-	ConstIdUint32       = SpirvId(32)
-	ConstIdUint33       = SpirvId(33)
-	ConstIdUint62       = SpirvId(62)
-	ConstIdUint63       = SpirvId(63)
-	ConstIdUint127      = SpirvId(127)
-	ConstIdUint7F       = ConstIdUint127
-	ConstIdUint256      = SpirvId(256)
-	ConstIdUint3FFF     = SpirvId(257)
-	ConstIdUintFFFF     = SpirvId(258)
-	ConstIdUint11111111 = SpirvId(259)
-	ConstIdUintFFFFFFFF = SpirvId(260)
-	ConstId64Uint0      = SpirvId(261)
-	ConstId64Uint1      = SpirvId(262)
-	ConstId64Uint32     = SpirvId(263)
-	ConstIdFloat0       = SpirvId(264)
-	ConstIdFloat1       = SpirvId(265)
+	ConstIdUint0                   = SpirvId(0)
+	ConstIdUint1                   = SpirvId(1)
+	ConstIdUint2                   = SpirvId(2)
+	ConstIdUint3                   = SpirvId(3)
+	ConstIdUint4                   = SpirvId(4)
+	ConstIdUint5                   = SpirvId(5)
+	ConstIdUint6                   = SpirvId(6)
+	ConstIdUint7                   = SpirvId(7)
+	ConstIdUint8                   = SpirvId(8)
+	ConstIdUint12                  = SpirvId(12)
+	ConstIdUint15                  = SpirvId(15)
+	ConstIdUint16                  = SpirvId(16)
+	ConstIdUint19                  = SpirvId(19)
+	ConstIdUint21                  = SpirvId(21)
+	ConstIdUint23                  = SpirvId(23)
+	ConstIdUint30                  = SpirvId(30)
+	ConstIdUint31                  = SpirvId(31)
+	ConstIdUint32                  = SpirvId(32)
+	ConstIdUint33                  = SpirvId(33)
+	ConstIdUint62                  = SpirvId(62)
+	ConstIdUint63                  = SpirvId(63)
+	ConstIdUint127                 = SpirvId(127)
+	ConstIdUint7F                  = ConstIdUint127
+	ConstIdUint256                 = SpirvId(256)
+	ConstIdUint3FFF                = SpirvId(257)
+	ConstIdUintFFFF                = SpirvId(258)
+	ConstIdUint11111111            = SpirvId(259)
+	ConstIdUintFFFFFFFF            = SpirvId(260)
+	ConstId64Uint0                 = SpirvId(261)
+	ConstId64Uint1                 = SpirvId(262)
+	ConstId64Uint32                = SpirvId(263)
+	ConstId64UintNot3              = SpirvId(264)
+	ConstId64UintOnionBaseAddress  = SpirvId(265)
+	ConstId64UintGarlicBaseAddress = SpirvId(266)
+	ConstIdFloat0                  = SpirvId(267)
+	ConstIdFloat1                  = SpirvId(268)
+	ConstIdFloat05                 = SpirvId(269)
 )
 
 const (
@@ -299,4 +304,26 @@ func (ctx *SpirvBlockContext) EmitDebugPrintRegisters(b *SpvBuilder) {
 	}
 
 	b.EmitExtInst(ctx.GetId(BlockContextIdTypeVoid), ctx.GetId(BlockContextIdDebugPrintf), 1, args...)
+}
+
+// EmitDebugPrintfLane emits a debug printf only for a specific subgroup lane.
+func (ctx *SpirvBlockContext) EmitDebugPrintfLane(b *SpvBuilder, lane uint32, format string, args ...SpirvId) {
+	typeUint := ctx.GetId(BlockContextIdTypeUint)
+	typeBool := ctx.GetId(BlockContextIdTypeBool)
+	idLane := b.EmitLoad(typeUint, ctx.GetId(BlockContextIdSubgroupLocalInvocationId))
+	isLane := b.EmitIEqual(typeBool, idLane, ctx.GetConstId(ConstIdUint0+SpirvId(lane)))
+
+	thenLabel := b.AllocId()
+	mergeLabel := b.AllocId()
+	b.EmitSelectionMerge(mergeLabel, spec.SpvSelectionControlNone)
+	b.EmitBranchConditional(isLane, thenLabel, mergeLabel)
+
+	b.EmitLabel(thenLabel)
+	ins := make([]SpirvId, 0, len(args)+1)
+	ins = append(ins, b.EmitString(format))
+	ins = append(ins, args...)
+	b.EmitExtInst(ctx.GetId(BlockContextIdTypeVoid), ctx.GetId(BlockContextIdDebugPrintf), 1, ins...)
+	b.EmitBranch(mergeLabel)
+
+	b.EmitLabel(mergeLabel)
 }

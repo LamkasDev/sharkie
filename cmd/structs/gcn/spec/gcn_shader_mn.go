@@ -985,6 +985,7 @@ func (instr *Instruction) GetMnemotic() string {
 			b = Mnemotics[instr.Encoding][instr.Details.(*Vop3Details).Op]
 		}
 	case EncVINTRP:
+		b = Mnemotics[instr.Encoding][instr.Details.(*VintrpDetails).Op]
 	case EncSMRD:
 		b = Mnemotics[instr.Encoding][instr.Details.(*SmrdDetails).Op]
 	case EncMTBUF, EncMUBUF:
@@ -1071,6 +1072,12 @@ func (instr *Instruction) GetFieldsString() string {
 			fmt.Fprintf(&b, " lit=0x%08X", instr.Literal)
 		}
 	case EncVINTRP:
+		fmt.Fprintf(&b, "vdst=v%d attr=%d chan=%d vsrc=v%d",
+			instr.Details.(*VintrpDetails).Vdst,
+			instr.Details.(*VintrpDetails).Attr,
+			instr.Details.(*VintrpDetails).Chan,
+			instr.Details.(*VintrpDetails).Vsrc,
+		)
 	case EncVOP3:
 		fmt.Fprintf(&b, "neg=%d omod=%d src2=%s src1=%s src0=%s clamp=%d abs=%d sdst=s%d vdst=v%d",
 			instr.Details.(*Vop3Details).Neg,
@@ -1086,7 +1093,7 @@ func (instr *Instruction) GetFieldsString() string {
 	case EncSMRD:
 		fmt.Fprintf(&b, "sdst=s%d sbase=s%d imm=%d offset=%d",
 			instr.Details.(*SmrdDetails).Dst,
-			instr.Details.(*SmrdDetails).Base*2,
+			instr.Details.(*SmrdDetails).Base,
 			nstd.Btoi(instr.Details.(*SmrdDetails).ImmOff),
 			instr.Details.(*SmrdDetails).Offset,
 		)

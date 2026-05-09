@@ -78,7 +78,6 @@ type LiverpoolDrawCall struct {
 	PixelShader    *GcnShader
 
 	// Snapshots of register states.
-	ConstRamHash uint32
 	UserDataHash uint32
 }
 
@@ -125,6 +124,11 @@ func (d *LiverpoolDrawCall) ScissorRect() (x, y, width, height int) {
 	y1 := int((d.ScissorBr >> 16) & 0x7FFF)
 
 	return x, y, x1 - x, y1 - y
+}
+
+// USER_SGPR in SPI_SHADER_PGM_RSRC2_* is encoded in bits [5:1].
+func DecodeUserSgprCount(rsrc2 uint32) uint32 {
+	return (rsrc2 >> 1) & 0x1F
 }
 
 // NewDrawCall captures the current register & draw state into a LiverpoolDrawCall.
@@ -184,7 +188,6 @@ func (l *Liverpool) NewDrawCall(vertexCount uint32, isIndexed bool) LiverpoolDra
 		PixelShRsrc1:    l.Registers.Shader[GREG_MM_SPI_SHADER_PGM_RSRC1_PS],
 		PixelShRsrc2:    l.Registers.Shader[GREG_MM_SPI_SHADER_PGM_RSRC2_PS],
 
-		ConstRamHash: l.SnapshotConstRam(),
 		UserDataHash: l.SnapshotUserData(),
 	}
 	l.StateMutex.Unlock()

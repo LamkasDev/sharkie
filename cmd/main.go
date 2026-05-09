@@ -6,6 +6,7 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/app"
 	"github.com/LamkasDev/sharkie/cmd/asm"
 	"github.com/LamkasDev/sharkie/cmd/elf"
+	"github.com/LamkasDev/sharkie/cmd/elf_symbol"
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	"github.com/LamkasDev/sharkie/cmd/lib"
 	"github.com/LamkasDev/sharkie/cmd/logger"
@@ -18,7 +19,6 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/structs/ipmi"
 	"github.com/LamkasDev/sharkie/cmd/structs/output"
 	"github.com/LamkasDev/sharkie/cmd/structs/rng"
-	"github.com/LamkasDev/sharkie/cmd/symbol"
 	"github.com/gookit/color"
 )
 
@@ -62,7 +62,7 @@ func main() {
 	gpu.GlobalLiverpool.OnRegisterDisplaySurface = app.GlobalApplication.Renderer.RegisterFramebuffer
 
 	// Register function stubs.
-	symbol.LoadSymbolMap("data/aerolib.csv")
+	elf_symbol.LoadSymbolMap("data/aerolib.csv")
 	lib.RegisterStubs()
 
 	// Run main executable.

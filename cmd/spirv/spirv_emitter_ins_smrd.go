@@ -11,43 +11,62 @@ func emitSMRD(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 	details := instr.Details.(*gcnSpec.SmrdDetails)
 	switch details.Op {
 	case gcnSpec.SmrdOpLoadDword:
-		emitSMRDLoad(b, instr, ctx, 1)
+		emitSMRDLoadScalar(b, instr, ctx, 1)
 	case gcnSpec.SmrdOpLoadDwordx2:
-		emitSMRDLoad(b, instr, ctx, 2)
+		emitSMRDLoadScalar(b, instr, ctx, 2)
 	case gcnSpec.SmrdOpLoadDwordx4:
-		emitSMRDLoad(b, instr, ctx, 4)
+		emitSMRDLoadScalar(b, instr, ctx, 4)
 	case gcnSpec.SmrdOpLoadDwordx8:
-		emitSMRDLoad(b, instr, ctx, 8)
+		emitSMRDLoadScalar(b, instr, ctx, 8)
 	case gcnSpec.SmrdOpLoadDwordx16:
-		emitSMRDLoad(b, instr, ctx, 16)
+		emitSMRDLoadScalar(b, instr, ctx, 16)
 	case gcnSpec.SmrdOpBufferLoadDword:
-		emitSMRDLoad(b, instr, ctx, 1)
+		emitSMRDLoadBuffer(b, instr, ctx, 1)
 	case gcnSpec.SmrdOpBufferLoadDwordx2:
-		emitSMRDLoad(b, instr, ctx, 2)
+		emitSMRDLoadBuffer(b, instr, ctx, 2)
 	case gcnSpec.SmrdOpBufferLoadDwordx4:
-		emitSMRDLoad(b, instr, ctx, 4)
+		emitSMRDLoadBuffer(b, instr, ctx, 4)
 	case gcnSpec.SmrdOpBufferLoadDwordx8:
-		emitSMRDLoad(b, instr, ctx, 8)
+		emitSMRDLoadBuffer(b, instr, ctx, 8)
 	case gcnSpec.SmrdOpBufferLoadDwordx16:
-		emitSMRDLoad(b, instr, ctx, 16)
+		emitSMRDLoadBuffer(b, instr, ctx, 16)
 	default:
 		panic(fmt.Sprintf("unknown smrd op %s", gcnSpec.Mnemotics[gcnSpec.EncSMRD][details.Op]))
 	}
 }
 
-func emitSMRDLoad(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext, count uint32) {
+func emitSMRDLoadScalar(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext, count uint32) {
+	details := instr.Details.(*gcnSpec.SmrdDetails)
+
+	// S_LOAD_* uses a 64-bit byte base address from SGPR[SBASE*2].
+	base := details.Base * 2
+	lo, hi := ctx.GetOperand64Value(b, gcnSpec.OpSgpr0+base, 0)
+	base64 := ctx.Pack64(b, lo, hi)
+
+	emitSMRDLoadFromBase(b, instr, ctx, count, base64)
+}
+
+func emitSMRDLoadBuffer(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext, count uint32) {
+	details := instr.Details.(*gcnSpec.SmrdDetails)
+	typeUint := ctx.GetId(BlockContextIdTypeUint)
+	idFFFF := ctx.GetConstId(ConstIdUintFFFF)
+
+	// S_BUFFER_LOAD_* uses a 4-SGPR buffer resource constant.
+	// Base address is {SGPR[SBASE*2+1][15:0], SGPR[SBASE*2]}.
+	lo := ctx.GetOperandUintValue(b, gcnSpec.OpSgpr0+details.Base*2, 0)
+	hi := ctx.GetOperandUintValue(b, gcnSpec.OpSgpr0+details.Base*2+1, 0)
+	hi = b.EmitBitwiseAnd(typeUint, hi, idFFFF)
+	base64 := ctx.Pack64(b, lo, hi)
+
+	emitSMRDLoadFromBase(b, instr, ctx, count, base64)
+}
+
+func emitSMRDLoadFromBase(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext, count uint32, base64 SpirvId) {
 	details := instr.Details.(*gcnSpec.SmrdDetails)
 	typeUint := ctx.GetId(BlockContextIdTypeUint)
 	typeUint64 := ctx.GetId(BlockContextIdTypeUint64)
 	idPtrPsbUint := ctx.GetId(BlockContextIdPtrPsbUint)
-
-	// Load 64-bit base address from SGPRs.
-	// Base index is dword-based, so SBASE * 2.
-	lo, hi := ctx.GetOperand64Value(b, gcnSpec.OpSgpr0+details.Base*2, 0)
-
-	// Base address is always 48 bits in GCN3 for SMRD.
-	hi = b.EmitBitwiseAnd(typeUint, hi, b.EmitConstantUint(typeUint, 0xFFFF))
-	base64 := ctx.Pack64(b, lo, hi)
+	idNot3 := ctx.GetConstId(ConstId64UintNot3)
 
 	// Calculate offset in bytes.
 	var byteOffset SpirvId
@@ -62,16 +81,15 @@ func emitSMRDLoad(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockCont
 			byteOffset = b.EmitConstantUint(typeUint, details.Offset*4)
 		}
 	} else {
-		// Offset is an SGPR index containing a dword offset.
+		// Offset is an SGPR index containing an unsigned byte offset.
 		offsetVal := ctx.GetOperandUintValue(b, gcnSpec.OpSgpr0+details.Offset, 0)
-		byteOffset = b.EmitIMul(typeUint, offsetVal, ctx.GetConstId(ConstIdUint4))
+		byteOffset = offsetVal
 	}
 
 	// m_addr = (base + m_offset) & ~0x3
 	byteOffset64 := b.EmitUConvert(typeUint64, byteOffset)
 	addr64 := b.EmitIAdd(typeUint64, base64, byteOffset64)
-	mask64 := b.EmitConstantUint64(typeUint64, ^uint64(0x3))
-	addr64Aligned := b.EmitBitwiseAnd(typeUint64, addr64, mask64)
+	addr64Aligned := b.EmitBitwiseAnd(typeUint64, addr64, idNot3)
 
 	// Translate and cast to pointer.
 	translatedAddr64 := ctx.TranslateAddress(b, addr64Aligned)

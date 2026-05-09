@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/LamkasDev/sharkie/cmd/spirv/spec"
-	"github.com/LamkasDev/sharkie/cmd/structs/gcn"
 	gcnSpec "github.com/LamkasDev/sharkie/cmd/structs/gcn/spec"
 )
 
@@ -60,48 +59,9 @@ func emitEXP(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext) 
 	}
 
 	// Store to target.
+	idZeroF := ctx.GetConstId(ConstIdFloat0)
+	idOneF := ctx.GetConstId(ConstIdFloat1)
 	switch {
-	case details.Target <= 7 || details.Target >= 32 && details.Target <= 63:
-		// Stub color based on built-ins for a cool gradient.
-		typeUint := ctx.GetId(BlockContextIdTypeUint)
-		idF255 := b.EmitConstantFloat(typeFloat, 255.0)
-		idC255Uint := b.EmitConstantUint(typeUint, 255)
-
-		if ctx.Stage == gcn.GcnShaderStageFragment {
-			// Fragment shader: Use screen coordinates for spatial variation.
-			fragCoord := b.EmitLoad(typeV4Float, ctx.GetId(BlockContextIdFragCoord))
-			fx := b.EmitCompositeExtract(typeFloat, fragCoord, 0)
-			fy := b.EmitCompositeExtract(typeFloat, fragCoord, 1)
-
-			// r = fract(fx / 256.0), g = fract(fy / 256.0), b = fract((fx+fy) / 512.0)
-			idF256 := b.EmitConstantFloat(typeFloat, 256.0)
-			idF512 := b.EmitConstantFloat(typeFloat, 512.0)
-			idGlsl := ctx.GetId(BlockContextIdGlsl)
-
-			comps[0] = b.EmitExtInst(typeFloat, idGlsl, spec.SpvGlslOpFract, b.EmitFDiv(typeFloat, fx, idF256))
-			comps[1] = b.EmitExtInst(typeFloat, idGlsl, spec.SpvGlslOpFract, b.EmitFDiv(typeFloat, fy, idF256))
-			comps[2] = b.EmitExtInst(typeFloat, idGlsl, spec.SpvGlslOpFract, b.EmitFDiv(typeFloat, b.EmitFAdd(typeFloat, fx, fy), idF512))
-		} else {
-			// Vertex shader: Use vertex index and lane ID with prime multipliers.
-			vertexIndexId := b.EmitLoad(typeUint, ctx.GetId(BlockContextIdVertexIndex))
-			laneId := b.EmitLoad(typeUint, ctx.GetId(BlockContextIdSubgroupLocalInvocationId))
-
-			// r = (vIdx * 17 + lane * 3) % 255
-			rSum := b.EmitIAdd(typeUint, b.EmitIMul(typeUint, vertexIndexId, b.EmitConstantUint(typeUint, 17)), b.EmitIMul(typeUint, laneId, b.EmitConstantUint(typeUint, 3)))
-			comps[0] = b.EmitFDiv(typeFloat, b.EmitConvertUToF(typeFloat, b.EmitUMod(typeUint, rSum, idC255Uint)), idF255)
-
-			// g = (vIdx * 7 + lane * 11) % 255
-			gSum := b.EmitIAdd(typeUint, b.EmitIMul(typeUint, vertexIndexId, b.EmitConstantUint(typeUint, 7)), b.EmitIMul(typeUint, laneId, b.EmitConstantUint(typeUint, 11)))
-			comps[1] = b.EmitFDiv(typeFloat, b.EmitConvertUToF(typeFloat, b.EmitUMod(typeUint, gSum, idC255Uint)), idF255)
-
-			// b = (vIdx * 3 + lane * 31) % 255
-			bSum := b.EmitIAdd(typeUint, b.EmitIMul(typeUint, vertexIndexId, b.EmitConstantUint(typeUint, 3)), b.EmitIMul(typeUint, laneId, b.EmitConstantUint(typeUint, 31)))
-			comps[2] = b.EmitFDiv(typeFloat, b.EmitConvertUToF(typeFloat, b.EmitUMod(typeUint, bSum, idC255Uint)), idF255)
-		}
-
-		comps[3] = ctx.GetConstId(ConstIdFloat1)
-		vec := b.EmitCompositeConstruct(typeV4Float, comps[0], comps[1], comps[2], comps[3])
-		b.EmitStore(outId, vec)
 	case details.Target == 8:
 		// Depth is a single float.
 		if details.En&1 != 0 {
@@ -109,15 +69,18 @@ func emitEXP(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext) 
 		}
 	default:
 		// Other targets are vec4.
-		idZeroF := ctx.GetConstId(ConstIdFloat0)
 		for i := range comps {
 			if comps[i] == 0 {
-				comps[i] = idZeroF
+				if details.Target <= 7 && i == 3 { // MRT alpha
+					comps[i] = idOneF
+				} else {
+					comps[i] = idZeroF
+				}
 			} else if details.Target >= 12 && details.Target <= 15 { // Position 0..3
 				isNaN := b.EmitFUnordNotEqual(typeBool, comps[i], comps[i])
 				defaultValue := idZeroF
 				if i == 3 {
-					defaultValue = ctx.GetConstId(ConstIdFloat1)
+					defaultValue = idOneF
 				}
 				comps[i] = b.EmitSelect(typeFloat, isNaN, defaultValue, comps[i])
 			}

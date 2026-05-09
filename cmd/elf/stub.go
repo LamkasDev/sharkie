@@ -15,20 +15,20 @@ import (
 	"github.com/gookit/color"
 )
 
-// GetSymbolAddressFunc defines the signature for a function that retrieves a symbol's address.
+// GetSymbolAddressFunc defines the signature for a function that retrieves a elf_symbol's address.
 type GetSymbolAddressFunc func(s *ElfSymbol) (uintptr, bool)
 
-// GetDefiningModuleFunc defines the signature for a function that retrieves a symbol's defining module.
+// GetDefiningModuleFunc defines the signature for a function that retrieves a elf_symbol's defining module.
 type GetDefiningModuleFunc func(s *ElfSymbol) *Elf
 
-// GetSymbolAddress is a global function to retrieve a symbol's address.
+// GetSymbolAddress is a global function to retrieve a elf_symbol's address.
 var GetSymbolAddress GetSymbolAddressFunc
 
-// GetDefiningModule is a global function to retrieve a symbol's defining module.
+// GetDefiningModule is a global function to retrieve a elf_symbol's defining module.
 var GetDefiningModule GetDefiningModuleFunc
 
 // RegisterStub registers a new stub for a Go function, creating an assembly trampoline.
-// It associates the stub with a library and symbol name.
+// It associates the stub with a library and elf_symbol name.
 func RegisterStub(libraryName, symbolName string, goFn any) *asm.StubInfo {
 	goFunc := reflect.ValueOf(goFn)
 	stub := &asm.StubInfo{
@@ -52,7 +52,7 @@ func RegisterStub(libraryName, symbolName string, goFn any) *asm.StubInfo {
 }
 
 // RegisterAssemblyStub registers a new stub for an assembly function.
-// It associates the stub with a library and symbol name.
+// It associates the stub with a library and elf_symbol name.
 func RegisterAssemblyStub(libraryName, symbolName string, functionAddress uintptr) *asm.StubInfo {
 	stub := &asm.StubInfo{
 		LibraryName: libraryName,
@@ -73,7 +73,7 @@ func RegisterAssemblyStub(libraryName, symbolName string, functionAddress uintpt
 }
 
 // RegisterVariableStub registers a new stub for a global variable.
-// It allocates memory for the variable and associates it with a library and symbol name.
+// It allocates memory for the variable and associates it with a library and elf_symbol name.
 func RegisterVariableStub(libraryName, symbolName string, size uintptr) *asm.StubInfo {
 	addr := GlobalGoAllocator.Malloc(size)
 	hashIndex := GetSymbolHashIndex(libraryName, symbolName)

@@ -41,7 +41,7 @@ func (l *Linker) Link(e *elf.Elf) error {
 		logger.Print(color.Gray.Sprintf("Dynamic section size is 0, skipping relocations..."))
 	}
 
-	// HACK: we need to stub these symbol, but they're private.
+	// HACK: we need to stub these elf_symbol, but they're private.
 	if e.Name == "libkernel.sprx" {
 		e.SymbolTable.RegisterSymbol(&elf.ElfSymbol{
 			HashIndex:    elf.GetSymbolHashIndex("libkernel", "sub_1590"),
@@ -138,10 +138,10 @@ func (l *Linker) Link(e *elf.Elf) error {
 
 			copy(e.Memory[symbol.Address:], patch)
 			/* logger.Printf(
-				"Replaced stubbed symbol %s inside %s at %s.\n",
-				color.Blue.Sprintf("%s:%s", symbol.LibraryName, symbol.ReadableName),
+				"Replaced stubbed elf_symbol %s inside %s at %s.\n",
+				color.Blue.Sprintf("%s:%s", elf_symbol.LibraryName, elf_symbol.ReadableName),
 				color.Blue.Sprintf(e.Name),
-				color.Yellow.Sprintf("0x%X", symbol.Address),
+				color.Yellow.Sprintf("0x%X", elf_symbol.Address),
 			) */
 		}
 	}

@@ -2,13 +2,14 @@ package renderer
 
 import (
 	"fmt"
+	"image"
+	"os"
 	"path"
 	"sync/atomic"
 
 	"github.com/LamkasDev/cimgui-go-vulkan/backend"
 	glfwvulkanbackend "github.com/LamkasDev/cimgui-go-vulkan/backend/glfwvulkan-backend"
 	"github.com/LamkasDev/cimgui-go-vulkan/imgui"
-	"github.com/LamkasDev/sharkie/cmd/goutils"
 	"github.com/LamkasDev/sharkie/cmd/structs/gc"
 	"github.com/LamkasDev/sharkie/cmd/structs/gpu"
 	atomicc "go.uber.org/atomic"
@@ -48,7 +49,7 @@ func NewImguiOverlay(bknd backend.Backend[glfwvulkanbackend.GLFWWindowFlags]) *I
 	overlay.Font.SetLegacySize(15)
 	io.SetFontDefault(overlay.Font)
 
-	iconImage, err := goutils.LoadImage(path.Join("winres", "icon.png"))
+	iconImage, err := LoadImage(path.Join("winres", "icon.png"))
 	if err != nil {
 		panic(err)
 	}
@@ -56,6 +57,21 @@ func NewImguiOverlay(bknd backend.Backend[glfwvulkanbackend.GLFWWindowFlags]) *I
 	overlay.IconTexture = bknd.CreateTextureRgba(iconRGBA, iconRGBA.Bounds().Dx(), iconRGBA.Bounds().Dy())
 
 	return overlay
+}
+
+func LoadImage(path string) (image.Image, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	img, _, err := image.Decode(file)
+	if err != nil {
+		return nil, err
+	}
+
+	return img, nil
 }
 
 func (overlay *ImguiOverlay) Destroy(bknd backend.Backend[glfwvulkanbackend.GLFWWindowFlags]) {

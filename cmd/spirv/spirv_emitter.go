@@ -198,10 +198,36 @@ func (b *SpvBuilder) EmitImageFetch(resultType, image, coordinate SpirvId, image
 	return id
 }
 
+// EmitAtomicLoad emits OpAtomicLoad and returns the result ID.
+func (b *SpvBuilder) EmitAtomicLoad(resultType, pointer, scope, semantics SpirvId) SpirvId {
+	id := b.AllocId()
+	b.instr(&b.code, spec.SpvOpAtomicLoad, uint32(resultType), uint32(id), uint32(pointer), uint32(scope), uint32(semantics))
+	return id
+}
+
+// EmitAtomicStore emits OpAtomicStore.
+func (b *SpvBuilder) EmitAtomicStore(pointer, scope, semantics, value SpirvId) {
+	b.instr(&b.code, spec.SpvOpAtomicStore, uint32(pointer), uint32(scope), uint32(semantics), uint32(value))
+}
+
+// EmitAtomicExchange emits OpAtomicExchange and returns the result ID.
+func (b *SpvBuilder) EmitAtomicExchange(resultType, pointer, scope, semantics, value SpirvId) SpirvId {
+	id := b.AllocId()
+	b.instr(&b.code, spec.SpvOpAtomicExchange, uint32(resultType), uint32(id), uint32(pointer), uint32(scope), uint32(semantics), uint32(value))
+	return id
+}
+
 // EmitAtomicIAdd emits OpAtomicIAdd and returns the result ID.
 func (b *SpvBuilder) EmitAtomicIAdd(resultType, pointer, scope, semantics, value SpirvId) SpirvId {
 	id := b.AllocId()
 	b.instr(&b.code, spec.SpvOpAtomicIAdd, uint32(resultType), uint32(id), uint32(pointer), uint32(scope), uint32(semantics), uint32(value))
+	return id
+}
+
+// EmitAtomicCompareExchange emits OpAtomicCompareExchange and returns the result ID.
+func (b *SpvBuilder) EmitAtomicCompareExchange(resultType, pointer, scope, semanticsEqual, semanticsUnequal, value, comparator SpirvId) SpirvId {
+	id := b.AllocId()
+	b.instr(&b.code, spec.SpvOpAtomicCompareExchange, uint32(resultType), uint32(id), uint32(pointer), uint32(scope), uint32(semanticsEqual), uint32(semanticsUnequal), uint32(value), uint32(comparator))
 	return id
 }
 

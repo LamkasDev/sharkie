@@ -1,4 +1,4 @@
-package renderer
+package vulkan
 
 import (
 	"math"
@@ -33,6 +33,9 @@ type StubPushConstants struct {
 	TexelBuffer1FormatStride uint32
 	TexelBuffer2FormatStride uint32
 	TexelBuffer3FormatStride uint32
+
+	VertexUserSgprCount uint32
+	PixelUserSgprCount  uint32
 }
 
 func (t *GpuTranslator) recordDraw(frame uint64, commandBuffer vk.CommandBuffer, draw *LiverpoolDrawCall) {
@@ -79,30 +82,31 @@ func (t *GpuTranslator) recordDraw(frame uint64, commandBuffer vk.CommandBuffer,
 		return
 	}
 
-	// Transition image layout on first use.
-	if !surface.firstUse {
-		t.imageBarrier(commandBuffer, surface.image,
-			vk.ImageLayoutShaderReadOnlyOptimal, vk.ImageLayoutColorAttachmentOptimal,
-			vk.AccessFlags(vk.AccessShaderReadBit), vk.AccessFlags(vk.AccessColorAttachmentWriteBit),
-			vk.PipelineStageFlags(vk.PipelineStageFragmentShaderBit),
-			vk.PipelineStageFlags(vk.PipelineStageColorAttachmentOutputBit),
-		)
+	// Select render pass and clear on first use in frame.
+	var renderPass vk.RenderPass
+	var clearValueCount uint32
+	var clearValues []vk.ClearValue
+	if surface.frameUsed < frame {
+		renderPass = surface.renderPass
+		clearValueCount = 1
+		clearColor := vk.ClearValue{}
+		clearColor.SetColor([]float32{0.8, 0.8, 0.8, 1.0})
+		clearValues = []vk.ClearValue{clearColor}
+		surface.frameUsed = frame
 	} else {
-		surface.firstUse = false
+		renderPass = surface.renderPassNoClear
+		clearValueCount = 0
 	}
-
-	// Derive clear color from the stub.
-	clearColor := vk.ClearValue{}
-	clearColor.SetColor([]float32{0.8, 0.8, 0.8, 1.0})
 	vk.CmdBeginRenderPass(commandBuffer, &vk.RenderPassBeginInfo{
 		SType:           vk.StructureTypeRenderPassBeginInfo,
-		RenderPass:      surface.renderPass,
+		RenderPass:      renderPass,
 		Framebuffer:     surface.framebuffer,
 		RenderArea:      vk.Rect2D{Extent: vk.Extent2D{Width: surface.Width, Height: surface.Height}},
-		ClearValueCount: 1,
-		PClearValues:    []vk.ClearValue{clearColor},
+		ClearValueCount: clearValueCount,
+		PClearValues:    clearValues,
 	}, vk.SubpassContentsInline)
 
+	// Bind pipeline and setup scissor/viewport.
 	vk.CmdBindPipeline(commandBuffer, vk.PipelineBindPointGraphics, pipeline)
 	t.setDynamicState(commandBuffer, draw, surface)
 
@@ -121,15 +125,7 @@ func (t *GpuTranslator) recordDraw(frame uint64, commandBuffer vk.CommandBuffer,
 	// Bind texel buffers.
 	formatSizes, formatStrides := t.BindTexelBuffers(commandBuffer, draw, userDataBufferDebug)
 
-	// Bind image samplers.
-	// TODO:
-
 	// Push constants to shader.
-	for i := range formatSizes {
-		if formatSizes[i] == 0 {
-			formatSizes[i] = 1
-		}
-	}
 	pushData := StubPushConstants{
 		UserDataAddress:          t.GetBufferAddress(userDataBuffer),
 		OnionMemoryBaseAddress:   GlobalAllocator.DeviceAddress,
@@ -142,6 +138,8 @@ func (t *GpuTranslator) recordDraw(frame uint64, commandBuffer vk.CommandBuffer,
 		TexelBuffer1FormatStride: formatStrides[1],
 		TexelBuffer2FormatStride: formatStrides[2],
 		TexelBuffer3FormatStride: formatStrides[3],
+		VertexUserSgprCount:      DecodeUserSgprCount(draw.VertexShRsrc2),
+		PixelUserSgprCount:       DecodeUserSgprCount(draw.PixelShRsrc2),
 	}
 	vk.CmdPushConstants(
 		commandBuffer, t.stubPipelineLayout,
@@ -163,20 +161,6 @@ func (t *GpuTranslator) recordDraw(frame uint64, commandBuffer vk.CommandBuffer,
 		targetBuffer, relativeOffset, err := t.GetBufferFromAddress(draw.IndexBaseAddress)
 		if err != nil {
 			panic(err)
-		}
-
-		if draw.IndexBaseAddress != 0 && draw.IndexCount > 0 && draw.IndexCount < 10000 {
-			if draw.IndexType == 1 {
-				data := unsafe.Slice((*uint32)(unsafe.Pointer(draw.IndexBaseAddress)), draw.IndexCount)
-				logger.Printf("[%s] Index buffer content: %x\n",
-					color.Blue.Sprint("GPU"), data,
-				)
-			} else {
-				data := unsafe.Slice((*uint16)(unsafe.Pointer(draw.IndexBaseAddress)), draw.IndexCount)
-				logger.Printf("[%s] Index buffer content: %x\n",
-					color.Blue.Sprint("GPU"), data,
-				)
-			}
 		}
 
 		if targetBuffer != vk.NullBuffer {
