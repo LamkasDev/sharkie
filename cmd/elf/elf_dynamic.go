@@ -15,14 +15,14 @@ const (
 	DT_NEEDED   = 1 // Name of a needed library
 	DT_PLTRELSZ = 2 // Size of PLT relocation entries
 	DT_STRTAB   = 5 // Address of the string table
-	DT_SYMTAB   = 6 // Address of the elf_symbol table
+	DT_SYMTAB   = 6 // Address of the symbol table
 
 	DT_RELA    = 7 // Address of the Rela relocation table
 	DT_RELASZ  = 8 // Size of the Rela relocation table
 	DT_RELAENT = 9 // Size of a single Rela relocation entry
 
 	DT_STRSZ  = 10 // Size of the string table
-	DT_SYMENT = 11 // Size of a single elf_symbol table entry
+	DT_SYMENT = 11 // Size of a single symbol table entry
 	DT_INIT   = 12 // Address of the initialization function
 	DT_DEBUG  = 21 // Address of debugging information
 
@@ -55,8 +55,8 @@ const (
 	DT_SCE_RELAENT       = 0x61000033 // SCE-specific Rela relocation entry size
 	DT_SCE_STRTAB        = 0x61000035 // SCE-specific string table
 	DT_SCE_STRSZ         = 0x61000037 // SCE-specific string table size
-	DT_SCE_SYMTAB        = 0x61000039 // SCE-specific elf_symbol table
-	DT_SCE_SYMENT        = 0x6100003B // SCE-specific elf_symbol entry size
+	DT_SCE_SYMTAB        = 0x61000039 // SCE-specific symbol table
+	DT_SCE_SYMENT        = 0x6100003B // SCE-specific symbol entry size
 	DT_SCE_HASHSZ        = 0x6100003D // SCE-specific hash table size
 )
 

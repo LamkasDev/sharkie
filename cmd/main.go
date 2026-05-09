@@ -62,7 +62,7 @@ func main() {
 	gpu.GlobalLiverpool.OnRegisterDisplaySurface = app.GlobalApplication.Renderer.RegisterFramebuffer
 
 	// Register function stubs.
-	elf_symbol.LoadSymbolMap("data/aerolib.csv")
+	symbol.LoadSymbolMap("data/aerolib.csv")
 	lib.RegisterStubs()
 
 	// Run main executable.

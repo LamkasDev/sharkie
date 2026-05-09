@@ -7,11 +7,11 @@ import (
 	"github.com/gookit/color"
 )
 
-// GetSymbolAddress returns the elf_symbol address for given elf_symbol.
+// GetSymbolAddress returns the symbol address for given symbol.
 func GetSymbolAddress(s *elf.ElfSymbol) (uintptr, bool) {
 	if stub, ok := asm.Stubs[s.HashIndex]; ok {
 		/* logger.Printf(
-			"Found stubbed elf_symbol %s at %s.\n",
+			"Found stubbed symbol %s at %s.\n",
 			color.Blue.Sprint(fullName),
 			color.Yellow.Sprintf("0x%X", stub.Address),
 		) */
@@ -42,12 +42,12 @@ func GetSymbolAddress(s *elf.ElfSymbol) (uintptr, bool) {
 			return address, true
 		}
 	}
-	// logger.Printf("Failed search for elf_symbol %s.\n", color.Red.Sprint(fullName))
+	// logger.Printf("Failed search for symbol %s.\n", color.Red.Sprint(fullName))
 
 	return 0, false
 }
 
-// GetDefiningModule returns the module that actually defines given elf_symbol.
+// GetDefiningModule returns the module that actually defines given symbol.
 func GetDefiningModule(s *elf.ElfSymbol) *elf.Elf {
 	GlobalModuleManager.ModulesLock.RLock()
 	defer GlobalModuleManager.ModulesLock.RUnlock()
@@ -72,7 +72,7 @@ func GetDefiningModule(s *elf.ElfSymbol) *elf.Elf {
 	return nil
 }
 
-// TryGetSymbolAddress tries returning the elf_symbol address for given elf_symbol from passed module.
+// TryGetSymbolAddress tries returning the symbol address for given symbol from passed module.
 func TryGetSymbolAddress(s *elf.ElfSymbol, module *elf.Elf) (uintptr, bool) {
 	if module.DynamicInfo == nil {
 		return 0, false
@@ -92,7 +92,7 @@ func TryGetSymbolAddress(s *elf.ElfSymbol, module *elf.Elf) (uintptr, bool) {
 					continue
 				}
 				logger.Print(color.Gray.Sprintf(
-					"  Resolving elf_symbol %s:%s for %s:%s in module %s at 0x%X.\n",
+					"  Resolving symbol %s:%s for %s:%s in module %s at 0x%X.\n",
 					symbol.LibraryName,
 					symbol.ReadableName,
 					s.LibraryName,
@@ -103,10 +103,10 @@ func TryGetSymbolAddress(s *elf.ElfSymbol, module *elf.Elf) (uintptr, bool) {
 			}
 
 			/* logger.Printf(
-				"Found elf_symbol %s in module %s at %s.\n",
-				color.Blue.Sprintf("%s:%s", elf_symbol.LibraryName, elf_symbol.ReadableName),
+				"Found symbol %s in module %s at %s.\n",
+				color.Blue.Sprintf("%s:%s", symbol.LibraryName, symbol.ReadableName),
 				color.Blue.Sprint(module.Name),
-				color.Yellow.Sprintf("0x%X", module.BaseAddress+uintptr(elf_symbol.Address)),
+				color.Yellow.Sprintf("0x%X", module.BaseAddress+uintptr(symbol.Address)),
 			) */
 			return module.BaseAddress + symbol.Address, true
 		}
