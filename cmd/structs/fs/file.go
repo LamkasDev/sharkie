@@ -25,6 +25,7 @@ type SharkieFile struct {
 	Path       string
 	Descriptor FileDescriptor
 	File       PosixFile
+	IsDevice   bool
 }
 
 func GetUsablePath(path string) string {

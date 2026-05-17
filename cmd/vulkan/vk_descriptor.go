@@ -5,6 +5,7 @@ import (
 	"unsafe"
 
 	as "github.com/LamkasDev/asche"
+	spirvStructs "github.com/LamkasDev/sharkie/cmd/spirv/structs"
 	vk "github.com/goki/vulkan"
 )
 
@@ -22,11 +23,15 @@ func (t *GpuTranslator) createDescriptorPool() error {
 				DescriptorCount: 8192,
 			},
 			{
+				Type:            vk.DescriptorTypeStorageImage,
+				DescriptorCount: 8192,
+			},
+			{
 				Type:            vk.DescriptorTypeStorageBuffer,
 				DescriptorCount: 256,
 			},
 		},
-		PoolSizeCount: 3,
+		PoolSizeCount: 4,
 		MaxSets:       8192,
 		Flags:         vk.DescriptorPoolCreateFlags(vk.DescriptorPoolCreateFreeDescriptorSetBit | vk.DescriptorPoolCreateUpdateAfterBindBit),
 	}, nil, &pool)
@@ -70,7 +75,7 @@ func (t *GpuTranslator) createDescriptorPool() error {
 		SType:              vk.StructureTypeDescriptorSetAllocateInfo,
 		DescriptorPool:     t.descriptorPool,
 		DescriptorSetCount: 1,
-		PSetLayouts:        []vk.DescriptorSetLayout{t.stubDescriptorSetLayout},
+		PSetLayouts:        []vk.DescriptorSetLayout{t.bindlessDescriptorSetLayout},
 	}, &bindlessSet)
 	if err := as.NewError(result); err != nil {
 		return fmt.Errorf("allocate bindless descriptor set: %w", err)
@@ -85,7 +90,7 @@ func (t *GpuTranslator) updateDiscoveryDescriptorSet() {
 		{
 			SType:           vk.StructureTypeWriteDescriptorSet,
 			DstSet:          t.discoveryDescriptorSet,
-			DstBinding:      0,
+			DstBinding:      spirvStructs.DiscoveryBindingMap,
 			DescriptorCount: 1,
 			DescriptorType:  vk.DescriptorTypeStorageBuffer,
 			PBufferInfo: []vk.DescriptorBufferInfo{{
@@ -97,7 +102,7 @@ func (t *GpuTranslator) updateDiscoveryDescriptorSet() {
 		{
 			SType:           vk.StructureTypeWriteDescriptorSet,
 			DstSet:          t.discoveryDescriptorSet,
-			DstBinding:      1,
+			DstBinding:      spirvStructs.DiscoveryBindingMissingResource,
 			DescriptorCount: 1,
 			DescriptorType:  vk.DescriptorTypeStorageBuffer,
 			PBufferInfo: []vk.DescriptorBufferInfo{{

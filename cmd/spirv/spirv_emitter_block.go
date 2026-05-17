@@ -3,26 +3,11 @@ package spirv
 import (
 	"fmt"
 
+	. "github.com/LamkasDev/sharkie/cmd/spirv/common"
 	"github.com/LamkasDev/sharkie/cmd/spirv/spec"
 	. "github.com/LamkasDev/sharkie/cmd/structs/gcn"
 	gcnSpec "github.com/LamkasDev/sharkie/cmd/structs/gcn/spec"
 	"github.com/LamkasDev/sharkie/cmd/structs/gpu"
-)
-
-const (
-	PushConstantUserDataAddress          = 0
-	PushConstantOnionMemoryBaseAddress   = 1
-	PushConstantGarlicMemoryBaseAddress  = 2
-	PushConstantTexelBuffer0FormatSize   = 3
-	PushConstantTexelBuffer1FormatSize   = 4
-	PushConstantTexelBuffer2FormatSize   = 5
-	PushConstantTexelBuffer3FormatSize   = 6
-	PushConstantTexelBuffer0FormatStride = 7
-	PushConstantTexelBuffer1FormatStride = 8
-	PushConstantTexelBuffer2FormatStride = 9
-	PushConstantTexelBuffer3FormatStride = 10
-	PushConstantVertexUserSgprCount      = 11
-	PushConstantPixelUserSgprCount       = 12
 )
 
 // emitBlock emits the SPIR-V for a single block.
@@ -70,6 +55,51 @@ func emitBlock(b *SpvBuilder, block *GcnShaderCfgBlock, ctx *SpirvBlockContext) 
 			ctx.SetGcnVgprId(b, 2, idOneU)
 		}
 
+		// Initialize thread IDs for compute shader.
+		if ctx.Stage == GcnShaderStageCompute {
+			typePtrFnUint := ctx.GetId(BlockContextIdPtrFnUint)
+			b.EmitString("initialize compute thread ids")
+
+			// Built-in workgroup ID.
+			workgroupVec := b.EmitLoad(ctx.GetId(BlockContextIdTypeV3Uint), ctx.GetId(BlockContextIdWorkgroupId))
+
+			// Loaded user data registers.
+			userSgprCount := ctx.LoadPushConstantValue(b, PushConstantUserSgprCount)
+			// rsrc2 := ctx.LoadPushConstantValue(b, PushConstantShaderRsrc2)
+			sgprIdx := userSgprCount
+
+			// TGID.X (bit 7)
+			// condX := b.EmitBitwiseAnd(typeUint, b.EmitShiftRightLogical(typeUint, rsrc2, ctx.GetConstId(ConstIdUint7)), ctx.GetConstId(ConstIdUint1))
+			ptrX := b.EmitAccessChain(typePtrFnUint, ctx.GcnSgprArrayId, sgprIdx)
+			b.EmitStore(ptrX, b.EmitCompositeExtract(typeUint, workgroupVec, 0))
+			sgprIdx = b.EmitIAdd(typeUint, sgprIdx, ctx.GetConstId(ConstIdUint1))
+
+			// TGID.Y (bit 8)
+			// condY := b.EmitBitwiseAnd(typeUint, b.EmitShiftRightLogical(typeUint, rsrc2, ctx.GetConstId(ConstIdUint8)), ctx.GetConstId(ConstIdUint1))
+			ptrY := b.EmitAccessChain(typePtrFnUint, ctx.GcnSgprArrayId, sgprIdx)
+			b.EmitStore(ptrY, b.EmitCompositeExtract(typeUint, workgroupVec, 1))
+			sgprIdx = b.EmitIAdd(typeUint, sgprIdx, ctx.GetConstId(ConstIdUint1))
+
+			// TGID.Z (bit 9)
+			// condZ := b.EmitBitwiseAnd(typeUint, b.EmitShiftRightLogical(typeUint, rsrc2, ctx.GetConstId(ConstIdUint9)), ctx.GetConstId(ConstIdUint1))
+			ptrZ := b.EmitAccessChain(typePtrFnUint, ctx.GcnSgprArrayId, sgprIdx)
+			b.EmitStore(ptrZ, b.EmitCompositeExtract(typeUint, workgroupVec, 2))
+			sgprIdx = b.EmitIAdd(typeUint, sgprIdx, ctx.GetConstId(ConstIdUint1))
+
+			// TG_SIZE_EN (bit 10)
+			// condTgSize := b.EmitBitwiseAnd(typeUint, b.EmitShiftRightLogical(typeUint, rsrc2, ctx.GetConstId(ConstIdUint10)), ctx.GetConstId(ConstIdUint1))
+			ptrTgSize := b.EmitAccessChain(typePtrFnUint, ctx.GcnSgprArrayId, sgprIdx)
+			b.EmitStore(ptrTgSize, ctx.GetConstId(ConstIdUint0))
+			sgprIdx = b.EmitIAdd(typeUint, sgprIdx, ctx.GetConstId(ConstIdUint1))
+
+			// Builtin local invocation ID.
+			localVec := b.EmitLoad(ctx.GetId(BlockContextIdTypeV3Uint), ctx.GetId(BlockContextIdLocalInvocationId))
+
+			ctx.SetGcnVgprId(b, 0, b.EmitCompositeExtract(ctx.GetId(BlockContextIdTypeUint), localVec, 0))
+			ctx.SetGcnVgprId(b, 1, b.EmitCompositeExtract(ctx.GetId(BlockContextIdTypeUint), localVec, 1))
+			ctx.SetGcnVgprId(b, 2, b.EmitCompositeExtract(ctx.GetId(BlockContextIdTypeUint), localVec, 2))
+		}
+
 		// Initialize EXEC and VCC.
 		// EXEC is initialized to the subgroup's active mask.
 		b.EmitString("initialize exec and vcc")
@@ -108,13 +138,14 @@ func emitBlock(b *SpvBuilder, block *GcnShaderCfgBlock, ctx *SpirvBlockContext) 
 	case TermEndpgm, TermExpDone:
 		switch ctx.Stage {
 		case GcnShaderStageVertex:
-			if false {
+			if true {
 				break
 			}
-			formatId := b.EmitString("Vertex %d: pos=(%f, %f, %f, %f)\n")
+			formatId := b.EmitString("Vertex %d: pos=(%f, %f, %f, %f) param_out=(%f, %f, %f, %f)\n")
 			typeV4Float := ctx.GetId(BlockContextIdTypeV4Float)
 			typeFloat := ctx.GetId(BlockContextIdTypeFloat)
 			posId := b.EmitLoad(typeV4Float, ctx.GetId(BlockContextIdPosOut))
+			paramOut := b.EmitLoad(typeV4Float, ctx.GetId(BlockContextIdParamOut0))
 			vertexIndexId := b.EmitLoad(ctx.GetId(BlockContextIdTypeUint), ctx.GetId(BlockContextIdVertexIndex))
 
 			px := b.EmitCompositeExtract(typeFloat, posId, 0)
@@ -122,10 +153,15 @@ func emitBlock(b *SpvBuilder, block *GcnShaderCfgBlock, ctx *SpirvBlockContext) 
 			pz := b.EmitCompositeExtract(typeFloat, posId, 2)
 			pw := b.EmitCompositeExtract(typeFloat, posId, 3)
 
+			pox := b.EmitCompositeExtract(typeFloat, paramOut, 0)
+			poy := b.EmitCompositeExtract(typeFloat, paramOut, 1)
+			poz := b.EmitCompositeExtract(typeFloat, paramOut, 2)
+			pow := b.EmitCompositeExtract(typeFloat, paramOut, 3)
+
 			b.EmitExtInst(ctx.GetId(BlockContextIdTypeVoid), ctx.GetId(BlockContextIdDebugPrintf), 1,
-				formatId, vertexIndexId, px, py, pz, pw)
+				formatId, vertexIndexId, px, py, pz, pw, pox, poy, poz, pow)
 		case GcnShaderStageFragment:
-			if false {
+			if true {
 				break
 			}
 			formatId := b.EmitString(fmt.Sprintf("Fragment 0x%X: color=(%%f, %%f, %%f, %%f)\n", ctx.Address))

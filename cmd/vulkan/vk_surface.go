@@ -2,35 +2,63 @@ package vulkan
 
 import (
 	"fmt"
+	"runtime"
 	"unsafe"
 
 	as "github.com/LamkasDev/asche"
 	vk "github.com/goki/vulkan"
 )
 
-func (t *GpuTranslator) allocSurface(s *GpuSurface) error {
+type VulkanSurface struct {
+	image     vk.Image
+	imageMem  vk.DeviceMemory
+	imageView vk.ImageView
+	sampler   vk.Sampler
+	format    vk.Format
+	width     uint32
+	height    uint32
+}
+
+type SurfaceRequest struct {
+	SurfaceKey
+	Format vk.Format
+	Width  uint32
+	Height uint32
+}
+
+type SurfaceKey struct {
+	GpuAddress uintptr
+}
+
+func (t *GpuTranslator) createSurface(request SurfaceRequest) (VulkanSurface, error) {
+	surface := VulkanSurface{
+		format: request.Format,
+		width:  request.Width,
+		height: request.Height,
+	}
+
 	// Create the render-target image.
 	var image vk.Image
 	result := vk.CreateImage(t.handles.Device, &vk.ImageCreateInfo{
 		SType:         vk.StructureTypeImageCreateInfo,
 		ImageType:     vk.ImageType2d,
-		Format:        s.Format,
-		Extent:        vk.Extent3D{Width: s.Width, Height: s.Height, Depth: 1},
+		Format:        request.Format,
+		Extent:        vk.Extent3D{Width: request.Width, Height: request.Height, Depth: 1},
 		MipLevels:     1,
 		ArrayLayers:   1,
 		Samples:       vk.SampleCount1Bit,
 		Tiling:        vk.ImageTilingOptimal,
-		Usage:         vk.ImageUsageFlags(vk.ImageUsageColorAttachmentBit | vk.ImageUsageSampledBit | vk.ImageUsageTransferSrcBit),
+		Usage:         vk.ImageUsageFlags(vk.ImageUsageColorAttachmentBit | vk.ImageUsageSampledBit | vk.ImageUsageStorageBit | vk.ImageUsageTransferSrcBit | vk.ImageUsageTransferDstBit),
 		SharingMode:   vk.SharingModeExclusive,
 		InitialLayout: vk.ImageLayoutUndefined,
 	}, nil, &image)
 	if err := as.NewError(result); err != nil {
-		return fmt.Errorf("vkCreateImage: %w", err)
+		return surface, fmt.Errorf("vkCreateImage: %w", err)
 	}
-	s.image = image
+	surface.image = image
 
 	var memReqs vk.MemoryRequirements
-	vk.GetImageMemoryRequirements(t.handles.Device, s.image, &memReqs)
+	vk.GetImageMemoryRequirements(t.handles.Device, surface.image, &memReqs)
 	memReqs.Deref()
 
 	var imageMem vk.DeviceMemory
@@ -41,17 +69,17 @@ func (t *GpuTranslator) allocSurface(s *GpuSurface) error {
 		MemoryTypeIndex: t.handles.FindMemoryType(memReqs.MemoryTypeBits, vk.MemoryPropertyDeviceLocalBit),
 	}, nil, &imageMem)
 	if err := as.NewError(result); err != nil {
-		return fmt.Errorf("vkAllocateMemory: %w", err)
+		return surface, fmt.Errorf("vkAllocateMemory: %w", err)
 	}
-	s.imageMem = imageMem
-	vk.BindImageMemory(t.handles.Device, s.image, s.imageMem, 0)
+	surface.imageMem = imageMem
+	vk.BindImageMemory(t.handles.Device, surface.image, surface.imageMem, 0)
 
 	var imageView vk.ImageView
 	result = vk.CreateImageView(t.handles.Device, &vk.ImageViewCreateInfo{
 		SType:    vk.StructureTypeImageViewCreateInfo,
-		Image:    s.image,
+		Image:    surface.image,
 		ViewType: vk.ImageViewType2d,
-		Format:   s.Format,
+		Format:   request.Format,
 		SubresourceRange: vk.ImageSubresourceRange{
 			AspectMask: vk.ImageAspectFlags(vk.ImageAspectColorBit),
 			LevelCount: 1,
@@ -59,9 +87,9 @@ func (t *GpuTranslator) allocSurface(s *GpuSurface) error {
 		},
 	}, nil, &imageView)
 	if err := as.NewError(result); err != nil {
-		return fmt.Errorf("vkCreateImageView: %w", err)
+		return surface, fmt.Errorf("vkCreateImageView: %w", err)
 	}
-	s.imageView = imageView
+	surface.imageView = imageView
 
 	var sampler vk.Sampler
 	result = vk.CreateSampler(t.handles.Device, &vk.SamplerCreateInfo{
@@ -73,82 +101,57 @@ func (t *GpuTranslator) allocSurface(s *GpuSurface) error {
 		AddressModeW: vk.SamplerAddressModeClampToEdge,
 	}, nil, &sampler)
 	if err := as.NewError(result); err != nil {
-		return fmt.Errorf("vkCreateSampler: %w", err)
+		return surface, fmt.Errorf("vkCreateSampler: %w", err)
 	}
-	s.sampler = sampler
+	surface.sampler = sampler
 
-	var renderPass vk.RenderPass
-	result = vk.CreateRenderPass(t.handles.Device, &vk.RenderPassCreateInfo{
-		SType:           vk.StructureTypeRenderPassCreateInfo,
-		AttachmentCount: 1,
-		PAttachments: []vk.AttachmentDescription{{
-			Format:         s.Format,
-			Samples:        vk.SampleCount1Bit,
-			LoadOp:         vk.AttachmentLoadOpClear,
-			StoreOp:        vk.AttachmentStoreOpStore,
-			StencilLoadOp:  vk.AttachmentLoadOpDontCare,
-			StencilStoreOp: vk.AttachmentStoreOpDontCare,
-			InitialLayout:  vk.ImageLayoutUndefined,
-			FinalLayout:    vk.ImageLayoutShaderReadOnlyOptimal,
-		}},
-		SubpassCount: 1,
-		PSubpasses: []vk.SubpassDescription{{
-			PipelineBindPoint:    vk.PipelineBindPointGraphics,
-			ColorAttachmentCount: 1,
-			PColorAttachments: []vk.AttachmentReference{{
-				Attachment: 0,
-				Layout:     vk.ImageLayoutColorAttachmentOptimal,
-			}},
-		}},
-	}, nil, &renderPass)
+	// Transition to ShaderReadOnly so it's valid for sampling before first draw.
+	cb := t.AllocateCommandBuffer()
+	vk.BeginCommandBuffer(cb, &vk.CommandBufferBeginInfo{
+		SType: vk.StructureTypeCommandBufferBeginInfo,
+		Flags: vk.CommandBufferUsageFlags(vk.CommandBufferUsageOneTimeSubmitBit),
+	})
+	t.imageBarrier(cb, surface.image,
+		vk.ImageLayoutUndefined, vk.ImageLayoutShaderReadOnlyOptimal,
+		0, vk.AccessFlags(vk.AccessShaderReadBit),
+		vk.PipelineStageFlags(vk.PipelineStageTopOfPipeBit), vk.PipelineStageFlags(vk.PipelineStageAllGraphicsBit))
+	vk.EndCommandBuffer(cb)
+	defer t.FreeCommandBuffer(cb)
+
+	// Submit and wait for completion.
+	commandBuffers := []vk.CommandBuffer{cb}
+	submitInfos := []vk.SubmitInfo{{
+		SType:              vk.StructureTypeSubmitInfo,
+		CommandBufferCount: 1,
+		PCommandBuffers:    commandBuffers,
+	}}
+
+	pinner := &runtime.Pinner{}
+	pinner.Pin(&commandBuffers)
+	pinner.Pin(&submitInfos)
+	defer pinner.Unpin()
+
+	t.ResetWorkerFence()
+	t.QueueMutex.Lock()
+	result = vk.QueueSubmit(t.handles.GraphicsQueue, 1, submitInfos, t.workerFence)
+	t.QueueMutex.Unlock()
+
 	if err := as.NewError(result); err != nil {
-		return fmt.Errorf("vkCreateRenderPass: %w", err)
+		return surface, fmt.Errorf("QueueSubmit: %w", err)
 	}
-	s.renderPass = renderPass
+	t.WaitOnWorkerFence()
 
-	var renderPassNoClear vk.RenderPass
-	result = vk.CreateRenderPass(t.handles.Device, &vk.RenderPassCreateInfo{
-		SType:           vk.StructureTypeRenderPassCreateInfo,
-		AttachmentCount: 1,
-		PAttachments: []vk.AttachmentDescription{{
-			Format:         s.Format,
-			Samples:        vk.SampleCount1Bit,
-			LoadOp:         vk.AttachmentLoadOpLoad,
-			StoreOp:        vk.AttachmentStoreOpStore,
-			StencilLoadOp:  vk.AttachmentLoadOpDontCare,
-			StencilStoreOp: vk.AttachmentStoreOpDontCare,
-			InitialLayout:  vk.ImageLayoutShaderReadOnlyOptimal,
-			FinalLayout:    vk.ImageLayoutShaderReadOnlyOptimal,
-		}},
-		SubpassCount: 1,
-		PSubpasses: []vk.SubpassDescription{{
-			PipelineBindPoint:    vk.PipelineBindPointGraphics,
-			ColorAttachmentCount: 1,
-			PColorAttachments: []vk.AttachmentReference{{
-				Attachment: 0,
-				Layout:     vk.ImageLayoutColorAttachmentOptimal,
-			}},
-		}},
-	}, nil, &renderPassNoClear)
-	if err := as.NewError(result); err != nil {
-		return fmt.Errorf("vkCreateRenderPass: %w", err)
+	return surface, nil
+}
+
+func (s *VulkanSurface) Destroy(device vk.Device) {
+	if s.imageView != vk.NullImageView {
+		vk.DestroyImageView(device, s.imageView, nil)
 	}
-	s.renderPassNoClear = renderPassNoClear
-
-	var framebuffer vk.Framebuffer
-	result = vk.CreateFramebuffer(t.handles.Device, &vk.FramebufferCreateInfo{
-		SType:           vk.StructureTypeFramebufferCreateInfo,
-		RenderPass:      s.renderPass,
-		AttachmentCount: 1,
-		PAttachments:    []vk.ImageView{s.imageView},
-		Width:           s.Width,
-		Height:          s.Height,
-		Layers:          1,
-	}, nil, &framebuffer)
-	if err := as.NewError(result); err != nil {
-		return fmt.Errorf("vkCreateFramebuffer: %w", err)
+	if s.image != vk.NullImage {
+		vk.DestroyImage(device, s.image, nil)
 	}
-	s.framebuffer = framebuffer
-
-	return nil
+	if s.imageMem != vk.NullDeviceMemory {
+		vk.FreeMemory(device, s.imageMem, nil)
+	}
 }

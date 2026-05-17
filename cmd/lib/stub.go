@@ -17,6 +17,8 @@ func RegisterStubs() {
 	RegisterVideoOutStubs()
 	RegisterAudioOutStubs()
 	RegisterNetworkStubs()
+
+	RegisterMinecraftStubs()
 }
 
 func Abort() uintptr {

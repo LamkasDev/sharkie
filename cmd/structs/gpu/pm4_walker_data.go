@@ -79,11 +79,13 @@ func (l *Liverpool) handleDmaData(ringName string, payload []uint32) {
 		return
 	}
 
-	// Copy the data.
-	srcSlice := unsafe.Slice((*uint32)(unsafe.Pointer(srcAddr)), count)
-	dstSlice := unsafe.Slice((*uint32)(unsafe.Pointer(dstAddr)), count)
+	// Queue the DMA copy.
 	l.StateMutex.Lock()
-	copy(dstSlice, srcSlice)
+	l.PendingDmaCopies = append(l.PendingDmaCopies, LiverpoolDmaCopy{
+		SrcAddress: srcAddr,
+		DstAddress: dstAddr,
+		Count:      count,
+	})
 	l.StateMutex.Unlock()
 
 	if LogPM4Packets {

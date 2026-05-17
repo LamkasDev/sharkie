@@ -2,6 +2,7 @@ package renderer
 
 import (
 	"runtime"
+	"sync"
 	"time"
 
 	as "github.com/LamkasDev/asche"
@@ -23,30 +24,33 @@ type Renderer struct {
 	FrameSource   *FrameSource
 	Overlay       *ImguiOverlay
 
-	SwapchainDimensions   *as.SwapchainDimensions
-	Depth                 *Depth
-	RenderPass            vk.RenderPass
-	PipelineCache         vk.PipelineCache
-	PendingCommandBuffers chan vk.CommandBuffer
+	SwapchainDimensions *as.SwapchainDimensions
+	Depth               *Depth
+	RenderPass          vk.RenderPass
+	PipelineCache       vk.PipelineCache
+
+	QueueMutex sync.Mutex
+	FrameReady chan struct{}
 
 	DisplayTextureId imgui.TextureRef
 }
 
 func NewRenderer(context as.Context, dimensions *as.SwapchainDimensions) *Renderer {
 	r := &Renderer{
-		Handles:               vulkan.NewVulkanHandles(context),
-		SwapchainDimensions:   dimensions,
-		FrameSource:           NewFrameSource(),
-		PendingCommandBuffers: make(chan vk.CommandBuffer),
+		Handles:             vulkan.NewVulkanHandles(context),
+		SwapchainDimensions: dimensions,
+		FrameSource:         NewFrameSource(),
+		QueueMutex:          sync.Mutex{},
 	}
 
 	var err error
 	if r.Backend, err = backend.CreateBackend(glfwvulkanbackend.NewGLFWBackend()); err != nil {
 		panic(err)
 	}
-	if r.GpuTranslator, err = vulkan.NewGpuTranslator(r.Handles, r.Backend); err != nil {
+	if r.GpuTranslator, err = vulkan.NewGpuTranslator(r.Handles, r.Backend, &r.QueueMutex); err != nil {
 		panic(err)
 	}
+	r.FrameSource.OnSubmit = r.GpuTranslator.ResetFence
 
 	r.Depth = NewDepth(r)
 	r.prepareRenderPass()
@@ -110,12 +114,63 @@ func (r *Renderer) ConsumeFrames(done chan struct{}) {
 		gpu.GlobalLiverpool.Walk()
 		draws := gpu.GlobalLiverpool.FlushDrawCalls()
 		dispatches := gpu.GlobalLiverpool.FlushComputeDispatches()
+		copies := gpu.GlobalLiverpool.FlushDmaCopies()
 		if r.GpuTranslator != nil {
-			commandBuffer := r.GpuTranslator.Translate(frame.Number, draws, dispatches)
-			if commandBuffer == nil {
-				continue
+			for {
+				// Translate draw calls.
+				commandBuffer := r.GpuTranslator.Translate(frame.Number, draws, dispatches, copies)
+
+				// Submit command buffer instantly.
+				commandBuffers := []vk.CommandBuffer{*commandBuffer}
+				submitInfos := []vk.SubmitInfo{{
+					SType:              vk.StructureTypeSubmitInfo,
+					CommandBufferCount: 1,
+					PCommandBuffers:    commandBuffers,
+				}}
+
+				pinner := &runtime.Pinner{}
+				pinner.Pin(&commandBuffers)
+				pinner.Pin(&submitInfos)
+
+				r.GpuTranslator.ResetWorkerFence()
+				r.QueueMutex.Lock()
+				result := vk.QueueSubmit(r.Handles.GraphicsQueue, 1, submitInfos, r.GpuTranslator.GetWorkerFence())
+				r.QueueMutex.Unlock()
+				if err := as.NewError(result); err != nil {
+					logger.Printf("[%s] QueueSubmit failed: %s\n",
+						color.Blue.Sprintf("Frame %d", frame.Number),
+						err.Error(),
+					)
+					pinner.Unpin()
+					break
+				}
+				r.GpuTranslator.WaitOnWorkerFence()
+				pinner.Unpin()
+
+				// Check for missing resources.
+				discoveredCount := r.GpuTranslator.FulfillResources(frame.Number)
+				r.GpuTranslator.DebugResources(frame.Number)
+
+				// Free the command buffer.
+				r.GpuTranslator.FreeCommandBuffer(*commandBuffer)
+
+				// If resources were missing, we need to try again.
+				if discoveredCount > 0 {
+					logger.Printf("[%s] missed %s resources. re-executing...\n",
+						color.Blue.Sprintf("Frame %d", frame.Number),
+						color.Green.Sprint(discoveredCount),
+					)
+					continue
+				}
+
+				// Now the frame should be all good, let's get out.
+				r.GpuTranslator.SignalFence()
+				select {
+				case r.FrameReady <- struct{}{}:
+				default:
+				}
+				break
 			}
-			r.PendingCommandBuffers <- *commandBuffer
 		}
 	}
 }
@@ -135,14 +190,26 @@ func (r *Renderer) UpdateCounters() {
 	r.Overlay.Framerate.Store(newFramerate)
 }
 
+func (r *Renderer) WaitOnFence() {
+	r.GpuTranslator.WaitOnFence()
+}
+
 func (r *Renderer) RegisterFramebuffer(address uintptr, attribute *VideoOutBufferAttribute) {
 	if r.GpuTranslator == nil {
 		return
 	}
-	textureId, err := r.GpuTranslator.GetSurface(address, attribute.Width, attribute.Height)
+	surface, err := r.GpuTranslator.GetSurface(vulkan.SurfaceRequest{
+		SurfaceKey: vulkan.SurfaceKey{
+			GpuAddress: address,
+		},
+		Format: vk.FormatR8g8b8a8Unorm,
+		Width:  attribute.Width,
+		Height: attribute.Height,
+	})
 	if err != nil {
 		panic("renderer: could not register GPU surface: " + err.Error())
 	}
+	textureId := r.GpuTranslator.GetSurfaceTexture(surface)
 
 	if r.DisplayTextureId.CData == nil && textureId.CData != nil {
 		r.DisplayTextureId = textureId

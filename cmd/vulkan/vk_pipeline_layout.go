@@ -4,6 +4,7 @@ import (
 	"unsafe"
 
 	as "github.com/LamkasDev/asche"
+	spirvStructs "github.com/LamkasDev/sharkie/cmd/spirv/structs"
 	vk "github.com/goki/vulkan"
 )
 
@@ -16,26 +17,36 @@ func (t *GpuTranslator) createStubPipelineLayout() error {
 		SType: vk.StructureTypeDescriptorSetLayoutBindingFlagsCreateInfo,
 		PBindingFlags: []vk.DescriptorBindingFlags{
 			vk.DescriptorBindingFlags(vk.DescriptorBindingUpdateAfterBindBit | vk.DescriptorBindingPartiallyBoundBit),
+			vk.DescriptorBindingFlags(vk.DescriptorBindingUpdateAfterBindBit | vk.DescriptorBindingPartiallyBoundBit),
 		},
-		BindingCount: 1,
+		BindingCount: 2,
 	}
 	result := vk.CreateDescriptorSetLayout(t.handles.Device, &vk.DescriptorSetLayoutCreateInfo{
 		SType: vk.StructureTypeDescriptorSetLayoutCreateInfo,
 		PNext: unsafe.Pointer(&stubBindingFlags),
-		PBindings: []vk.DescriptorSetLayoutBinding{{
-			Binding:            0,
-			DescriptorType:     vk.DescriptorTypeCombinedImageSampler,
-			DescriptorCount:    BindlessTextureCapacity,
-			StageFlags:         vk.ShaderStageFlags(vk.ShaderStageAllGraphics),
-			PImmutableSamplers: nil,
-		}},
-		BindingCount: 1,
+		PBindings: []vk.DescriptorSetLayoutBinding{
+			{
+				Binding:            spirvStructs.BindlessBindingSampledImages,
+				DescriptorType:     vk.DescriptorTypeCombinedImageSampler,
+				DescriptorCount:    BindlessTextureCapacity,
+				StageFlags:         vk.ShaderStageFlags(vk.ShaderStageAllGraphics | vk.ShaderStageComputeBit),
+				PImmutableSamplers: nil,
+			},
+			{
+				Binding:            spirvStructs.BindlessBindingStorageImages,
+				DescriptorType:     vk.DescriptorTypeStorageImage,
+				DescriptorCount:    BindlessTextureCapacity,
+				StageFlags:         vk.ShaderStageFlags(vk.ShaderStageAllGraphics | vk.ShaderStageComputeBit),
+				PImmutableSamplers: nil,
+			},
+		},
+		BindingCount: 2,
 		Flags:        vk.DescriptorSetLayoutCreateFlags(vk.DescriptorSetLayoutCreateUpdateAfterBindPoolBit),
 	}, nil, &stubLayout)
 	if err := as.NewError(result); err != nil {
 		return err
 	}
-	t.stubDescriptorSetLayout = stubLayout
+	t.bindlessDescriptorSetLayout = stubLayout
 
 	// Create descriptor set layout for texel buffers.
 	var texelLayout vk.DescriptorSetLayout
@@ -68,18 +79,18 @@ func (t *GpuTranslator) createStubPipelineLayout() error {
 	}
 	t.texelDescriptorSetLayout = texelLayout
 
-	// Create descriptor set layout for discovery (Set 2).
+	// Create descriptor set layout for discovery.
 	var discoveryLayout vk.DescriptorSetLayout
 	discoveryBindings := []vk.DescriptorSetLayoutBinding{
 		{
-			Binding:            0,
+			Binding:            spirvStructs.DiscoveryBindingMap,
 			DescriptorType:     vk.DescriptorTypeStorageBuffer,
 			DescriptorCount:    1,
 			StageFlags:         vk.ShaderStageFlags(vk.ShaderStageAllGraphics | vk.ShaderStageComputeBit),
 			PImmutableSamplers: nil,
 		},
 		{
-			Binding:            1,
+			Binding:            spirvStructs.DiscoveryBindingMissingResource,
 			DescriptorType:     vk.DescriptorTypeStorageBuffer,
 			DescriptorCount:    1,
 			StageFlags:         vk.ShaderStageFlags(vk.ShaderStageAllGraphics | vk.ShaderStageComputeBit),
@@ -99,23 +110,31 @@ func (t *GpuTranslator) createStubPipelineLayout() error {
 	var layout vk.PipelineLayout
 	result = vk.CreatePipelineLayout(t.handles.Device, &vk.PipelineLayoutCreateInfo{
 		SType: vk.StructureTypePipelineLayoutCreateInfo,
-		PPushConstantRanges: []vk.PushConstantRange{{
-			StageFlags: vk.ShaderStageFlags(vk.ShaderStageVertexBit | vk.ShaderStageFragmentBit),
-			Offset:     0,
-			Size:       uint32(unsafe.Sizeof(StubPushConstants{})),
-		}},
-		PushConstantRangeCount: 1,
-		PSetLayouts: []vk.DescriptorSetLayout{
-			t.stubDescriptorSetLayout,
-			t.texelDescriptorSetLayout,
-			t.discoveryDescriptorSetLayout,
+		PPushConstantRanges: []vk.PushConstantRange{
+			{
+				StageFlags: vk.ShaderStageFlags(vk.ShaderStageVertexBit | vk.ShaderStageComputeBit),
+				Offset:     0,
+				Size:       spirvStructs.PushConstantsSize,
+			},
+			{
+				StageFlags: vk.ShaderStageFlags(vk.ShaderStageFragmentBit),
+				Offset:     spirvStructs.PushConstantsSize,
+				Size:       spirvStructs.PushConstantsSize,
+			},
 		},
-		SetLayoutCount: 3,
+		PushConstantRangeCount: 2,
+		PSetLayouts: []vk.DescriptorSetLayout{
+			spirvStructs.DescriptorSetSlotBindless:       t.bindlessDescriptorSetLayout,
+			spirvStructs.DescriptorSetSlotDiscovery:      t.discoveryDescriptorSetLayout,
+			spirvStructs.DescriptorSetSlotTexel:          t.texelDescriptorSetLayout,
+			spirvStructs.DescriptorSetSlotTexelSecondary: t.texelDescriptorSetLayout,
+		},
+		SetLayoutCount: 4,
 	}, nil, &layout)
 	if err := as.NewError(result); err != nil {
 		return err
 	}
-	t.stubPipelineLayout = layout
+	t.pipelineLayout = layout
 
 	return nil
 }

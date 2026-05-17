@@ -5,7 +5,7 @@ import (
 	vk "github.com/goki/vulkan"
 )
 
-func (t *GpuTranslator) createCommandPool() error {
+func (t *GpuTranslator) createCommandPoolAndFence() error {
 	var pool vk.CommandPool
 	result := vk.CreateCommandPool(t.handles.Device, &vk.CommandPoolCreateInfo{
 		SType:            vk.StructureTypeCommandPoolCreateInfo,
@@ -16,6 +16,20 @@ func (t *GpuTranslator) createCommandPool() error {
 		return err
 	}
 	t.pool = pool
+
+	var fence vk.Fence
+	vk.CreateFence(t.handles.Device, &vk.FenceCreateInfo{
+		SType: vk.StructureTypeFenceCreateInfo,
+		Flags: vk.FenceCreateFlags(vk.FenceCreateSignaledBit),
+	}, nil, &fence)
+	t.fence = fence
+
+	var workerFence vk.Fence
+	vk.CreateFence(t.handles.Device, &vk.FenceCreateInfo{
+		SType: vk.StructureTypeFenceCreateInfo,
+		Flags: vk.FenceCreateFlags(vk.FenceCreateSignaledBit),
+	}, nil, &workerFence)
+	t.workerFence = workerFence
 
 	return nil
 }

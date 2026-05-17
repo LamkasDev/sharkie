@@ -1,6 +1,7 @@
 package vulkan
 
 import (
+	"runtime"
 	"unsafe"
 
 	as "github.com/LamkasDev/asche"
@@ -18,6 +19,8 @@ type VulkanHandles struct {
 	GraphicsQueue            vk.Queue
 	GraphicsQueueFamilyIndex uint32
 	MemoryProperties         vk.PhysicalDeviceMemoryProperties
+	DeviceProperties         vk.PhysicalDeviceProperties
+	SubgroupSizeProperties   VkPhysicalDeviceSubgroupSizeControlPropertiesEXT
 
 	// UploadPool is dedicated to our pre-render upload command buffers.
 	UploadPool vk.CommandPool
@@ -37,6 +40,24 @@ func NewVulkanHandles(context as.Context) VulkanHandles {
 		MemoryProperties:         context.Platform().MemoryProperties(),
 	}
 	vkh.MemoryProperties.Deref()
+
+	vk.GetPhysicalDeviceProperties(vkh.PhysicalDevice, &vkh.DeviceProperties)
+	vkh.DeviceProperties.Deref()
+
+	vkh.SubgroupSizeProperties = VkPhysicalDeviceSubgroupSizeControlPropertiesEXT{
+		SType: StructureTypePhysicalDeviceSubgroupSizeControlPropertiesExt,
+	}
+	props2 := vk.PhysicalDeviceProperties2{
+		SType: vk.StructureTypePhysicalDeviceProperties2,
+		PNext: unsafe.Pointer(&vkh.SubgroupSizeProperties),
+	}
+
+	pinner := &runtime.Pinner{}
+	pinner.Pin(&props2)
+	pinner.Pin(&vkh.SubgroupSizeProperties)
+	defer pinner.Unpin()
+
+	GetPhysicalDeviceProperties2(vkh.Instance, vkh.PhysicalDevice, unsafe.Pointer(&props2))
 
 	var pool vk.CommandPool
 	result := vk.CreateCommandPool(vkh.Device, &vk.CommandPoolCreateInfo{

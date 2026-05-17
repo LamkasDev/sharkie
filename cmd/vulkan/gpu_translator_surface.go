@@ -1,8 +1,6 @@
 package vulkan
 
 import (
-	"fmt"
-
 	"github.com/LamkasDev/cimgui-go-vulkan/imgui"
 	vk "github.com/goki/vulkan"
 )
@@ -10,20 +8,9 @@ import (
 // GpuSurface is a Vulkan-side render target that corresponds to a single
 // GPU-address-identified framebuffer surface registered by the game.
 type GpuSurface struct {
-	GPUAddress uintptr
-	Width      uint32
-	Height     uint32
-	Format     vk.Format
-	TextureId  imgui.TextureRef
-
-	// Vulkan objects.
-	image             vk.Image
-	imageMem          vk.DeviceMemory
-	imageView         vk.ImageView
-	sampler           vk.Sampler
-	framebuffer       vk.Framebuffer
-	renderPass        vk.RenderPass
-	renderPassNoClear vk.RenderPass
+	Key       SurfaceKey
+	Value     VulkanSurface
+	TextureId imgui.TextureRef
 
 	// firstUse tracks whether the image has been transitioned from UNDEFINED.
 	firstUse bool
@@ -32,83 +19,55 @@ type GpuSurface struct {
 	frameUsed uint64
 }
 
-// Destroy frees all Vulkan resources owned by this surface.
-func (s *GpuSurface) Destroy(dev vk.Device) {
-	if s.framebuffer != vk.NullFramebuffer {
-		vk.DestroyFramebuffer(dev, s.framebuffer, nil)
-	}
-	if s.renderPass != vk.NullRenderPass {
-		vk.DestroyRenderPass(dev, s.renderPass, nil)
-	}
-	if s.renderPassNoClear != vk.NullRenderPass {
-		vk.DestroyRenderPass(dev, s.renderPassNoClear, nil)
-	}
-	if s.imageView != vk.NullImageView {
-		vk.DestroyImageView(dev, s.imageView, nil)
-	}
-	if s.image != vk.NullImage {
-		vk.DestroyImage(dev, s.image, nil)
-	}
-	if s.imageMem != vk.NullDeviceMemory {
-		vk.FreeMemory(dev, s.imageMem, nil)
-	}
+func (s *GpuSurface) Destroy(device vk.Device) {
+	s.Value.Destroy(device)
 }
 
-func (t *GpuTranslator) GetSurface(address uintptr, width, height uint32) (imgui.TextureRef, error) {
-	// Check if it already exists.
+func (t *GpuTranslator) GetSurface(request SurfaceRequest) (*GpuSurface, error) {
 	t.surfacesMutex.Lock()
-	surface, ok := t.surfaces[address]
-	t.surfacesMutex.Unlock()
+	surface, ok := t.surfaces[request.SurfaceKey]
 	if ok {
-		return surface.TextureId, nil
+		// TODO: this should be temporary.
+		// Recreate surface if format or size changed.
+		if surface.Value.format != request.Format || surface.Value.width != request.Width || surface.Value.height != request.Height {
+			t.surfacesMutex.Unlock()
+			vulkanSurface, err := t.createSurface(request)
+			if err != nil {
+				return nil, err
+			}
+			t.surfacesMutex.Lock()
+			surface.Value.Destroy(t.handles.Device)
+			surface.Value = vulkanSurface
+			surface.TextureId = imgui.TextureRef{} // Reset texture so it's recreated.
+		}
+		t.surfacesMutex.Unlock()
+		return surface, nil
 	}
-
-	// Create the surface.
-	surface = &GpuSurface{
-		GPUAddress: address,
-		Width:      width,
-		Height:     height,
-		Format:     vk.FormatR8g8b8a8Unorm,
-		firstUse:   true,
-	}
-	if err := t.allocSurface(surface); err != nil {
-		return imgui.TextureRef{}, fmt.Errorf("RegisterSurface 0x%X: %w", address, err)
-	}
-	surface.TextureId = t.backend.CreateVulkanTexture(surface.sampler, surface.imageView, vk.ImageLayoutShaderReadOnlyOptimal)
-
-	// Transition to ShaderReadOnly so it's valid for sampling even before first draw.
-	cb := t.handles.AllocateCommandBuffer(t.pool)
-	vk.BeginCommandBuffer(cb, &vk.CommandBufferBeginInfo{
-		SType: vk.StructureTypeCommandBufferBeginInfo,
-		Flags: vk.CommandBufferUsageFlags(vk.CommandBufferUsageOneTimeSubmitBit),
-	})
-	t.imageBarrier(cb, surface.image,
-		vk.ImageLayoutUndefined, vk.ImageLayoutShaderReadOnlyOptimal,
-		0, vk.AccessFlags(vk.AccessShaderReadBit),
-		vk.PipelineStageFlags(vk.PipelineStageTopOfPipeBit), vk.PipelineStageFlags(vk.PipelineStageAllGraphicsBit))
-	vk.EndCommandBuffer(cb)
-	vk.QueueSubmit(t.handles.GraphicsQueue, 1, []vk.SubmitInfo{{
-		SType:              vk.StructureTypeSubmitInfo,
-		CommandBufferCount: 1,
-		PCommandBuffers:    []vk.CommandBuffer{cb},
-	}}, vk.NullFence)
-	vk.QueueWaitIdle(t.handles.GraphicsQueue)
-	vk.FreeCommandBuffers(t.handles.Device, t.pool, 1, []vk.CommandBuffer{cb})
-
-	t.surfacesMutex.Lock()
-	t.surfaces[address] = surface
 	t.surfacesMutex.Unlock()
 
-	return surface.TextureId, nil
+	vulkanSurface, err := t.createSurface(request)
+	if err != nil {
+		return nil, err
+	}
+
+	t.surfacesMutex.Lock()
+	surface = &GpuSurface{
+		Key:      request.SurfaceKey,
+		Value:    vulkanSurface,
+		firstUse: true,
+	}
+	t.surfaces[request.SurfaceKey] = surface
+	t.surfacesMutex.Unlock()
+
+	return surface, nil
 }
 
-// GetSurfaceImageView returns the VkImageView for a registered surface so the renderer can display it as a texture.
-// Returns vk.NullImageView if unknown.
-func (t *GpuTranslator) GetSurfaceImageView(gpuAddress uintptr) vk.ImageView {
+func (t *GpuTranslator) GetSurfaceTexture(surface *GpuSurface) imgui.TextureRef {
 	t.surfacesMutex.Lock()
 	defer t.surfacesMutex.Unlock()
-	if s, ok := t.surfaces[gpuAddress]; ok {
-		return s.imageView
+	if surface.TextureId.CData == nil {
+		surface.TextureId = t.backend.CreateVulkanTexture(surface.Value.sampler, surface.Value.imageView, vk.ImageLayoutShaderReadOnlyOptimal)
 	}
-	return vk.NullImageView
+
+	return surface.TextureId
 }

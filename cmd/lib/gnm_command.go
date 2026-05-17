@@ -185,6 +185,16 @@ func libSceGnmDriver_sceGnmSubmitAndFlipCommandBuffersForWorkload(workloadId, co
 	}
 	GlobalLiverpool.SubmitCommandBuffers(buffers)
 
+	// Schedule the flip.
+	flipResult := libSceVideoOut_sceVideoOutSubmitEopFlip(uintptr(videoOutHandle), uintptr(bufferIndex), uintptr(flipMode), uintptr(flipArg), 0)
+	if flipResult != 0 {
+		logger.Printf("%-132s %s failed due to sceVideoOutSubmitEopFlip error.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceGnmSubmitAndFlipCommandBuffersForWorkload"),
+		)
+		return SCE_GNM_ERROR_INVALID_VALUE
+	}
+
 	if logger.LogGraphics {
 		logger.Printf("%-132s %s submitted %s indirect buffers to ring %s and requested flip.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -220,7 +230,7 @@ func libSceGnmDriver_sceGnmRequestFlipAndSubmitDoneForWorkload(ctxPtr, dcbPtr, r
 		return SCE_GNM_ERROR_INVALID_POINTER
 	}
 
-	// Drain any queued ring work.
+	// Drain any queued ring work (doesn't do anything).
 	GlobalGraphicsController.Ioctl(SCE_GC_IOCTL_DRAIN_RING, 0)
 
 	// Rotate ring slot.
@@ -234,7 +244,7 @@ func libSceGnmDriver_sceGnmRequestFlipAndSubmitDoneForWorkload(ctxPtr, dcbPtr, r
 	pkt[0] = GNM_PREPARE_FLIP_MAGIC
 	pkt[1] = GNM_PREPARE_FLIP_VARIANT_BASE
 
-	// Patch the prepare flip block and schedule it.
+	// Patch prepare flip packet.
 	newDcbSizeDW, err := gnmPatchPrepareFlip(dcbPtr, uint32(len(pkt)), uint32(videoOutHandle), uint32(bufferIndex), uint32(flipMode), int64(flipArg))
 	if err != nil {
 		logger.Printf("%-132s %s failed due to gnmPatchPrepareFlip error (%s).\n",
@@ -252,8 +262,18 @@ func libSceGnmDriver_sceGnmRequestFlipAndSubmitDoneForWorkload(ctxPtr, dcbPtr, r
 	// Submit it.
 	GlobalLiverpool.SubmitCommandBuffers(buffers)
 
-	// Flush the ring and mark it idle.
-	GlobalGraphicsController.Ioctl(SCE_GC_IOCTL_SUBMIT_DONE, 0)
+	// Schedule the flip.
+	flipResult := libSceVideoOut_sceVideoOutSubmitEopFlip(uintptr(videoOutHandle), uintptr(bufferIndex), uintptr(flipMode), uintptr(flipArg), 0)
+	if flipResult != 0 {
+		logger.Printf("%-132s %s failed due to sceVideoOutSubmitEopFlip error.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceGnmSubmitAndFlipCommandBuffersForWorkload"),
+		)
+		return SCE_GNM_ERROR_INVALID_VALUE
+	}
+
+	// Wait for work to finish.
+	GlobalLiverpool.WaitOnFence()
 
 	// Signal that we're done.
 	WriteAddress(GlobalGraphicsController.SubmitDoneAddress, uintptr(1))
@@ -293,12 +313,6 @@ func gnmPatchPrepareFlip(lastDcbAddress uintptr, lastDcbSizeDW, videoOutHandle, 
 		return 0, fmt.Errorf("prepare flip variant ADDR gpu address 0x%X is not 4-byte aligned", packetBase[2])
 	}
 
-	// Schedule the flip.
-	flipResult := libSceVideoOut_sceVideoOutSubmitEopFlip(uintptr(videoOutHandle), uintptr(bufferIndex), uintptr(flipMode), uintptr(flipArg), 0)
-	if flipResult != 0 {
-		return 0, fmt.Errorf("sceVideoOutSubmitEopFlip returned 0x%X", flipResult)
-	}
-
 	// Get the handle's label buffer base address to build the WRITE_DATA target.
 	var labelBase uintptr
 	labelResult := libSceVideoOut_sceVideoOutGetBufferLabelAddress(uintptr(videoOutHandle), uintptr(unsafe.Pointer(&labelBase)))
@@ -334,11 +348,11 @@ func gnmPatchPrepareFlip(lastDcbAddress uintptr, lastDcbSizeDW, videoOutHandle, 
 // 0x0000000000001720
 // __int64 sceGnmSubmitDone()
 func libSceGnmDriver_sceGnmSubmitDone() int64 {
-	// Drain any queued ring work.
+	// Drain any queued ring work (doesn't do anything).
 	GlobalGraphicsController.Ioctl(SCE_GC_IOCTL_DRAIN_RING, 0)
 
-	// Flush the ring and mark it idle.
-	GlobalGraphicsController.Ioctl(SCE_GC_IOCTL_SUBMIT_DONE, 0)
+	// Wait for work to finish.
+	GlobalLiverpool.WaitOnFence()
 
 	// Signal that we're done.
 	WriteAddress(GlobalGraphicsController.SubmitDoneAddress, uintptr(1))
@@ -374,7 +388,7 @@ func libSceGnmDriver_sceGnmDingDongForWorkload(vqId, nextOffsetsDw uint32, workl
 		return 0
 	}
 
-	// Drain any queued ring work.
+	// Drain any queued ring work (doesn't do anything).
 	GlobalGraphicsController.Ioctl(SCE_GC_IOCTL_DRAIN_RING, 0)
 
 	// Decode ring index into doorbell coordinates and issue write.

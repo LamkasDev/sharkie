@@ -37,13 +37,25 @@ typedef void (*vgo_vkSetDeviceMemoryPriorityEXT)(VkDevice device, void* memory, 
 typedef VkDeviceAddress (*vgo_vkGetBufferDeviceAddress)(VkDevice device, const VkBufferDeviceAddressInfo* pInfo);
 typedef int (*vgo_vkGetMemoryFdKHR)(VkDevice device, const VkMemoryGetFdInfoKHR* pGetFdInfo, int* pFd);
 typedef int (*vgo_vkGetMemoryWin32HandleKHR)(VkDevice device, const VkMemoryGetWin32HandleInfoKHR* pGetWin32HandleInfo, void** pHandle);
+typedef void (*vgo_vkGetPhysicalDeviceProperties2KHR)(void* physicalDevice, void* pProperties);
 
 void callVkSetDeviceMemoryPriorityEXT(void* address, VkInstance instance, VkDevice device, void* memory, float priority) {
-    vgo_vkGetInstanceProcAddr getProc = (vgo_vkGetInstanceProcAddr)address;
-    vgo_vkSetDeviceMemoryPriorityEXT fn = (vgo_vkSetDeviceMemoryPriorityEXT)getProc(instance, "vkSetDeviceMemoryPriorityEXT");
-    if (!fn) { return; }
+	vgo_vkGetInstanceProcAddr getProc = (vgo_vkGetInstanceProcAddr)address;
+	vgo_vkSetDeviceMemoryPriorityEXT fn = (vgo_vkSetDeviceMemoryPriorityEXT)getProc(instance, "vkSetDeviceMemoryPriorityEXT");
+	if (!fn) { return; }
 
-    fn(device, memory, priority);
+	fn(device, memory, priority);
+}
+
+void callVkGetPhysicalDeviceProperties2KHR(void* address, VkInstance instance, void* physicalDevice, void* pProperties) {
+	vgo_vkGetInstanceProcAddr getProc = (vgo_vkGetInstanceProcAddr)address;
+	vgo_vkGetPhysicalDeviceProperties2KHR fn = (vgo_vkGetPhysicalDeviceProperties2KHR)getProc(instance, "vkGetPhysicalDeviceProperties2KHR");
+	if (!fn) {
+		fn = (vgo_vkGetPhysicalDeviceProperties2KHR)getProc(instance, "vkGetPhysicalDeviceProperties2");
+	}
+	if (!fn) { return; }
+
+	fn(physicalDevice, pProperties);
 }
 
 VkDeviceAddress callVkGetBufferDeviceAddress(void* address, VkInstance instance, VkDevice device, const VkBufferDeviceAddressInfo* info) {
@@ -146,4 +158,13 @@ func GetMemoryWin32Handle(instance vk.Instance, device vk.Device, memory vk.Devi
 	}
 
 	return uintptr(handle)
+}
+
+func GetPhysicalDeviceProperties2(instance vk.Instance, physicalDevice vk.PhysicalDevice, props unsafe.Pointer) {
+	C.callVkGetPhysicalDeviceProperties2KHR(
+		unsafe.Pointer(glfw.GetVulkanGetInstanceProcAddress()),
+		(C.VkInstance)(unsafe.Pointer(instance)),
+		unsafe.Pointer(physicalDevice),
+		props,
+	)
 }

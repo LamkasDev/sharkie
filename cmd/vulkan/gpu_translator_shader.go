@@ -8,14 +8,33 @@ import (
 
 	as "github.com/LamkasDev/asche"
 	"github.com/LamkasDev/sharkie/cmd/spirv"
+	"github.com/LamkasDev/sharkie/cmd/spirv/common"
 	"github.com/LamkasDev/sharkie/cmd/structs/gcn"
 	vk "github.com/goki/vulkan"
 )
 
+type SpirvShaderKey struct {
+	Address uintptr
+	ThreadX uint32
+	ThreadY uint32
+	ThreadZ uint32
+}
+
 func (t *GpuTranslator) GetShader(gcnShader *gcn.GcnShader) *spirv.SpirvShader {
+	return t.GetShaderWithContext(gcnShader, spirv.SpirvShaderContext{})
+}
+
+func (t *GpuTranslator) GetShaderWithContext(gcnShader *gcn.GcnShader, context spirv.SpirvShaderContext) *spirv.SpirvShader {
+	key := SpirvShaderKey{
+		Address: gcnShader.Address,
+		ThreadX: context.ThreadX,
+		ThreadY: context.ThreadY,
+		ThreadZ: context.ThreadZ,
+	}
+
 	// Get already loaded shader.
 	t.shadersMutex.Lock()
-	shader, ok := t.shaders[gcnShader.Address]
+	shader, ok := t.shaders[key]
 	t.shadersMutex.Unlock()
 	if ok {
 		return shader
@@ -23,17 +42,31 @@ func (t *GpuTranslator) GetShader(gcnShader *gcn.GcnShader) *spirv.SpirvShader {
 
 	// Load the shader.
 	t.shadersMutex.Lock()
-	shader, err := spirv.NewSpirvShader(gcnShader, spirv.SpirvShaderContext{})
+	shader, err := spirv.NewSpirvShader(gcnShader, context)
 	if err != nil {
 		panic(err)
 	}
 	if err = t.DumpShaderOnce(shader); err != nil {
 		panic(err)
 	}
-	t.shaders[gcnShader.Address] = shader
+	t.shaders[key] = shader
 	t.shadersMutex.Unlock()
 
 	return shader
+}
+
+func (t *GpuTranslator) GetShaderModuleFromBytes(bytecode []uint32) (vk.ShaderModule, error) {
+	var module vk.ShaderModule
+	result := vk.CreateShaderModule(t.handles.Device, &vk.ShaderModuleCreateInfo{
+		SType:    vk.StructureTypeShaderModuleCreateInfo,
+		CodeSize: uint64(len(bytecode) * 4),
+		PCode:    bytecode,
+	}, nil, &module)
+	if err := as.NewError(result); err != nil {
+		return vk.NullShaderModule, err
+	}
+
+	return module, nil
 }
 
 func (t *GpuTranslator) GetShaderModule(spirvShader *spirv.SpirvShader) (vk.ShaderModule, error) {
@@ -72,7 +105,7 @@ func (t *GpuTranslator) DumpShaderOnce(spirvShader *spirv.SpirvShader) error {
 
 	// Dump the recompiled shader.
 	textFilename := path.Join("temp", "shaders", fmt.Sprintf("shader_0x%X_%s.spv", spirvShader.Address, spirvShader.Stage))
-	if err := os.WriteFile(textFilename, spirv.SpvWordsToBytes(spirvShader.Code), 0777); err != nil {
+	if err := os.WriteFile(textFilename, common.SpvWordsToBytes(spirvShader.Code), 0777); err != nil {
 		return err
 	}
 

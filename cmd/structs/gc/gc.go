@@ -112,19 +112,6 @@ func (gc *GraphicsController) Ioctl(request uint64, argPtr uintptr) error {
 			color.Magenta.Sprint("ioctl"),
 		)
 		return nil
-	case SCE_GC_IOCTL_SUBMIT_DONE:
-		GlobalGraphicsController.RingActive = false
-		GlobalGraphicsController.PendingSubmits = 0
-		WriteAddress(GlobalGraphicsController.SubmitDoneAddress, uintptr(1))
-
-		if logger.LogGraphics {
-			logger.Printf("%-132s %s flushed ring %s.\n",
-				emu.GlobalModuleManager.GetCallSiteText(),
-				color.Magenta.Sprint("ioctl"),
-				color.Yellow.Sprintf("%d", GlobalGraphicsController.ActiveRingSlot),
-			)
-		}
-		return nil
 	case SCE_GC_IOCTL_DRAIN_RING:
 		if logger.LogGraphics {
 			logger.Printf("%-132s %s tried draining ring %s.\n",
@@ -198,10 +185,10 @@ func (gc *GraphicsController) Ioctl(request uint64, argPtr uintptr) error {
 
 func SetupGraphicsController() {
 	GlobalGraphicsController = NewGraphicsController()
-	if _, err := fs.GlobalFilesystem.Create(fs.GetUsablePath("/dev/rng")); err != nil {
-		panic(err)
-	}
-	fs.GlobalFilesystem.Devices[fs.GetUsablePath("/dev/rng")] = func() fs.PosixFile {
+	fs.GlobalFilesystem.Devices[fs.GetUsablePath("/dev/gc")] = func() fs.PosixFile {
 		return GlobalGraphicsController
+	}
+	if _, err := fs.GlobalFilesystem.Create(fs.GetUsablePath("/dev/gc")); err != nil {
+		panic(err)
 	}
 }

@@ -9,6 +9,9 @@ type LiverpoolComputeDispatch struct {
 	// Compute parameters.
 	DimX, DimY, DimZ uint32
 
+	// Thread parameters.
+	ThreadX, ThreadY, ThreadZ uint32
+
 	// Compute shader program
 	ComputeShPgmLo, ComputeShPgmHi uint32
 	ComputeShRsrc1, ComputeShRsrc2 uint32
@@ -28,6 +31,10 @@ func (l *Liverpool) NewComputeDispatch(dimX, dimY, dimZ uint32) LiverpoolCompute
 	l.StateMutex.Lock()
 	computeDispatch := LiverpoolComputeDispatch{
 		DimX: dimX, DimY: dimY, DimZ: dimZ,
+
+		ThreadX: l.Registers.Shader[GREG_MM_COMPUTE_NUM_THREAD_X],
+		ThreadY: l.Registers.Shader[GREG_MM_COMPUTE_NUM_THREAD_Y],
+		ThreadZ: l.Registers.Shader[GREG_MM_COMPUTE_NUM_THREAD_Z],
 
 		ComputeShPgmLo: l.Registers.Shader[GREG_MM_COMPUTE_PGM_LO],
 		ComputeShPgmHi: l.Registers.Shader[GREG_MM_COMPUTE_PGM_HI],

@@ -103,15 +103,15 @@ func (l *Linker) Link(e *elf.Elf) error {
 		})
 
 		if logger.GameDebugMode {
-			debugFlags := unsafe.Slice((*byte)(unsafe.Add(unsafe.Pointer(e.BaseAddress), 0xA214D0)), 8)
-			debugFlags[0] = 0xFF
-			debugFlags[1] = 0xFF
-			debugFlags[2] = 0xFF
-			debugFlags[3] = 0xFF
-			debugFlags[4] = 0xFF
-			debugFlags[5] = 0xFF
-			debugFlags[6] = 0xFF
-			debugFlags[7] = 0xFF
+			// We would have to put function pointers in this + 0xA0/0xA8.
+			// iggyDebugFlag := unsafe.Slice((*uint64)(unsafe.Add(unsafe.Pointer(e.BaseAddress), 0xA214C0)), 1)
+			// iggyDebugFlag[0] = 0xFFFFFFFFFFFFFFFF
+
+			ailDebugFlag1 := unsafe.Slice((*uint32)(unsafe.Add(unsafe.Pointer(e.BaseAddress), 0xA214D0)), 1)
+			ailDebugFlag1[0] = 0xFFFFFFFF
+
+			ailDebugFlag2 := unsafe.Slice((*uint32)(unsafe.Add(unsafe.Pointer(e.BaseAddress), 0xA214D4)), 1)
+			ailDebugFlag2[0] = 0xFFFFFFFF
 		}
 	}
 	if logger.FiosDebugMode && e.Name == "libSceFios2.sprx" {

@@ -14,6 +14,7 @@ import (
 	"github.com/LamkasDev/cimgui-go-vulkan/imgui"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/LamkasDev/sharkie/cmd/renderer"
+	"github.com/LamkasDev/sharkie/cmd/vulkan"
 	"github.com/elokore/glfw/v3.4/glfw"
 	vk "github.com/goki/vulkan"
 	"github.com/xlab/closer"
@@ -105,7 +106,9 @@ func RunApplication() error {
 			}
 			glfw.PollEvents()
 
+			GlobalApplication.Renderer.QueueMutex.Lock()
 			imageIdx, outdated, err := GlobalApplication.Renderer.Handles.Context.AcquireNextImage()
+			GlobalApplication.Renderer.QueueMutex.Unlock()
 			if err != nil {
 				panic(err)
 			}
@@ -115,18 +118,13 @@ func RunApplication() error {
 
 			GlobalApplication.Renderer.Backend.NewFrame(imageIdx)
 			select {
-			case commandBuffer := <-GlobalApplication.Renderer.PendingCommandBuffers:
-				vk.QueueSubmit(GlobalApplication.Renderer.Handles.GraphicsQueue, 1, []vk.SubmitInfo{{
-					SType:              vk.StructureTypeSubmitInfo,
-					CommandBufferCount: 1,
-					PCommandBuffers:    []vk.CommandBuffer{commandBuffer},
-				}}, vk.NullFence)
-				vk.QueueWaitIdle(GlobalApplication.Renderer.Handles.GraphicsQueue)
-				GlobalApplication.Renderer.GpuTranslator.FreeBuffer(commandBuffer)
+			case <-GlobalApplication.Renderer.FrameReady:
 			default:
 			}
+			GlobalApplication.Renderer.QueueMutex.Lock()
 			GlobalApplication.Renderer.Render()
 			GlobalApplication.Renderer.Backend.RenderFrame(imageIdx)
+			GlobalApplication.Renderer.QueueMutex.Unlock()
 			imgui.UpdatePlatformWindows()
 
 			_, err = GlobalApplication.Renderer.Handles.Context.PresentImage(imageIdx)
@@ -189,6 +187,7 @@ func (app *Application) VulkanDeviceExtensions() []string {
 		"VK_EXT_pageable_device_local_memory",
 		"VK_EXT_memory_priority",
 		"VK_EXT_shader_subgroup_ballot",
+		"VK_EXT_subgroup_size_control",
 	}
 	if runtime.GOOS == "linux" {
 		extensions = append(extensions, "VK_KHR_external_memory_fd")
@@ -206,22 +205,25 @@ func (app *Application) VulkanDeviceCreateNext() unsafe.Pointer {
 		SType:                           vk.StructureTypePhysicalDeviceVulkan12Features,
 		RuntimeDescriptorArray:          vk.True,
 		DescriptorBindingPartiallyBound: vk.True,
-		DescriptorBindingSampledImageUpdateAfterBind:       vk.True,
-		ShaderSampledImageArrayNonUniformIndexing:          vk.True,
-		ScalarBlockLayout:                                  vk.True,
-		BufferDeviceAddress:                                vk.True,
+		DescriptorBindingSampledImageUpdateAfterBind: vk.True,
+		DescriptorBindingStorageImageUpdateAfterBind: vk.True,
+		ShaderSampledImageArrayNonUniformIndexing:    vk.True,
+		ScalarBlockLayout:   vk.True,
+		BufferDeviceAddress: vk.True,
 		DescriptorBindingUniformTexelBufferUpdateAfterBind: vk.True,
 	}
 	features2 := &vk.PhysicalDeviceFeatures2{
 		SType: vk.StructureTypePhysicalDeviceFeatures2,
 		PNext: unsafe.Pointer(vulkan12Features),
 		Features: vk.PhysicalDeviceFeatures{
-			ShaderInt64:              vk.True,
-			SampleRateShading:        vk.True,
-			IndependentBlend:         vk.True,
-			GeometryShader:           vk.True,
-			TessellationShader:       vk.True,
-			FragmentStoresAndAtomics: vk.True,
+			ShaderInt64:                          vk.True,
+			SampleRateShading:                    vk.True,
+			IndependentBlend:                     vk.True,
+			GeometryShader:                       vk.True,
+			TessellationShader:                   vk.True,
+			FragmentStoresAndAtomics:             vk.True,
+			ShaderStorageImageReadWithoutFormat:  vk.True,
+			ShaderStorageImageWriteWithoutFormat: vk.True,
 		},
 	}
 	pageableDeviceLocalMemoryFeatures := &as.VkPhysicalDevicePageableDeviceLocalMemoryFeaturesEXT{
@@ -229,8 +231,14 @@ func (app *Application) VulkanDeviceCreateNext() unsafe.Pointer {
 		PNext:                     unsafe.Pointer(features2),
 		PageableDeviceLocalMemory: uint32(vk.True),
 	}
+	subgroupSizeControlFeatures := &vulkan.VkPhysicalDeviceSubgroupSizeControlFeaturesEXT{
+		SType:                vulkan.StructureTypePhysicalDeviceSubgroupSizeControlFeaturesExt,
+		PNext:                unsafe.Pointer(pageableDeviceLocalMemoryFeatures),
+		SubgroupSizeControl:  vk.True,
+		ComputeFullSubgroups: vk.True,
+	}
 
-	return unsafe.Pointer(pageableDeviceLocalMemoryFeatures)
+	return unsafe.Pointer(subgroupSizeControlFeatures)
 }
 
 func (app *Application) VulkanInstanceExtensions() []string {

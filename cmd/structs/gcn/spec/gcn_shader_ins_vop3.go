@@ -172,7 +172,7 @@ const (
 // VOP3 modifiers.
 type Vop3Details struct {
 	Op    uint32
-	Dst   uint32
+	Vdst  uint32
 	Sdst  uint32
 	Src0  uint32
 	Src1  uint32
@@ -186,12 +186,9 @@ type Vop3Details struct {
 func (instr *Instruction) DecodeVOP3() {
 	dw0 := instr.Dwords[0]
 	dw1 := instr.Dwords[1]
-	instr.Details = &Vop3Details{
-		Dst:   dw0 & 0b1111_1111,
-		Sdst:  (dw0 >> 8) & 0b1111_1111,
-		Abs:   uint8((dw0 >> 8) & 0b111),
-		Clamp: (dw0>>11)&0b1 == 1,
-		Op:    (dw0 >> 17) & 0b1111_1111_1,
+	details := &Vop3Details{
+		Vdst: dw0 & 0b1111_1111,
+		Op:   (dw0 >> 17) & 0b1111_1111_1,
 
 		Src0: dw1 & 0b1111_1111_1,
 		Src1: (dw1 >> 9) & 0b1111_1111_1,
@@ -199,4 +196,28 @@ func (instr *Instruction) DecodeVOP3() {
 		OMod: uint8((dw1 >> 27) & 0b11),
 		Neg:  uint8((dw1 >> 29) & 0b111),
 	}
+	if details.IsVOP3b() {
+		details.Sdst = (dw0 >> 8) & 0b1111_111
+	} else {
+		details.Abs = uint8((dw0 >> 8) & 0b111)
+		details.Clamp = (dw0>>11)&0b1 == 1
+
+		// If VOP3a is used for a VOPC comparison, VDST receives the scalar mask.
+		if details.Op < Vop3OpCndmaskB32 {
+			details.Sdst = details.Vdst
+		}
+	}
+	instr.Details = details
+	// TODO: VOP3 literals?
+}
+
+func (details *Vop3Details) IsVOP3b() bool {
+	switch details.Op {
+	case Vop3OpAddI32, Vop3OpAddcU32,
+		Vop3OpSubI32, Vop3OpSubbU32, Vop3OpSubbrevU32, Vop3OpSubrevI32,
+		Vop3OpDivScaleF32, Vop3OpDivScaleF64:
+		return true
+	}
+
+	return false
 }

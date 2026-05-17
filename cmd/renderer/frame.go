@@ -17,6 +17,7 @@ type FrameSource struct {
 	Count     uint64
 	Channel   chan Frame
 	IsClosing atomic.Bool
+	OnSubmit  func()
 }
 
 func NewFrameSource() *FrameSource {
@@ -30,6 +31,9 @@ func (s *FrameSource) Submit(gpuAddress uintptr, flipArg uint64) {
 
 	select {
 	case s.Channel <- Frame{Number: s.Count, GpuAddress: gpuAddress, FlipArg: flipArg}:
+		if s.OnSubmit != nil {
+			s.OnSubmit()
+		}
 		logger.Printf("[%s] submitted to channel.\n",
 			color.Blue.Sprintf("Frame %d", s.Count),
 		)

@@ -17,7 +17,6 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/structs/gc"
 	"github.com/LamkasDev/sharkie/cmd/structs/gpu"
 	"github.com/LamkasDev/sharkie/cmd/structs/ipmi"
-	"github.com/LamkasDev/sharkie/cmd/structs/output"
 	"github.com/LamkasDev/sharkie/cmd/structs/rng"
 	"github.com/gookit/color"
 )
@@ -52,14 +51,25 @@ func main() {
 	structs.SetupEventFlags()
 	fs.SetupFilesystem()
 	rng.SetupRngDevice()
-	output.SetupOutputDevices()
 	ipmi.SetupImpiManager()
 	gc.SetupGraphicsController()
 	dce.SetupDisplayCoreEngine()
 	audio.SetupAudioEngine()
 	gpu.SetupLiverpool()
+
+	// Hook functions.
+	fs.OutputPrintf = func(message string) {
+		logger.Printf("%-132s %s",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			message,
+		)
+	}
+	fs.OutputPrintln = func() {
+		logger.Println()
+	}
 	gpu.GlobalLiverpool.OnFlip = app.GlobalApplication.Renderer.FrameSource.Submit
 	gpu.GlobalLiverpool.OnRegisterDisplaySurface = app.GlobalApplication.Renderer.RegisterFramebuffer
+	gpu.GlobalLiverpool.WaitOnFence = app.GlobalApplication.Renderer.WaitOnFence
 
 	// Register function stubs.
 	symbol.LoadSymbolMap("data/aerolib.csv")

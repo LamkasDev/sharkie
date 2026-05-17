@@ -69,8 +69,9 @@ func (instr *Instruction) DecodeVOP1() {
 	dw := instr.Dwords[0]
 	instr.Details = &VectorDetails{
 		Src0: dw & 0b1111_1111_1,
+		Vdst: (dw >> 17) & 0b1111_1111,
 		Op:   (dw >> 9) & 0b1111_1111,
-		Dst:  (dw >> 17) & 0b1111_1111,
+		Sdst: OpVccLo,
 	}
 	if instr.DwordLen > 1 {
 		instr.HasLiteral = true

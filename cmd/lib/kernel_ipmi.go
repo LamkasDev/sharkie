@@ -353,11 +353,11 @@ func InvokeImpiClientMethod(client *IpmiClient, resultPtr, paramsPtr, paramsSize
 			processIdPtr := (*uint32)(unsafe.Pointer(inputSlice[0]))
 			if processIdPtr != nil {
 				processId := *processIdPtr
-				eventFlag := fmt.Sprintf("sceAudioOutMix%x", processId)
+				eventFlag := CreateEventFlag(fmt.Sprintf("sceAudioOutMix%x", processId), EVF_ATTR_TH_FIFO|EVF_ATTR_MULTI, 0, 0)
 				logger.Printf("%-132s %s initialized audio event flag %s.\n",
 					emu.GlobalModuleManager.GetCallSiteText(),
 					color.Magenta.Sprint("ipmimgr_call"),
-					color.Blue.Sprint(eventFlag),
+					color.Blue.Sprint(eventFlag.Name),
 				)
 				return 0
 			}

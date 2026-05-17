@@ -76,10 +76,10 @@ func (s *RngDevice) Ioctl(request uint64, argPtr uintptr) error {
 
 func SetupRngDevice() {
 	GlobalRngDevice = NewRngDevice()
-	if _, err := fs.GlobalFilesystem.Create(fs.GetUsablePath("/dev/rng")); err != nil {
-		panic(err)
-	}
 	fs.GlobalFilesystem.Devices[fs.GetUsablePath("/dev/rng")] = func() fs.PosixFile {
 		return GlobalRngDevice
+	}
+	if _, err := fs.GlobalFilesystem.Create(fs.GetUsablePath("/dev/rng")); err != nil {
+		panic(err)
 	}
 }

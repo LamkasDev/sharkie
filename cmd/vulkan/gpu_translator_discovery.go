@@ -3,9 +3,11 @@ package vulkan
 import (
 	"encoding/binary"
 	"fmt"
+	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/logger"
-	"github.com/LamkasDev/sharkie/cmd/spirv"
+	"github.com/LamkasDev/sharkie/cmd/spirv/gcn"
+	spirvStructs "github.com/LamkasDev/sharkie/cmd/spirv/structs"
 	vk "github.com/goki/vulkan"
 	"github.com/gookit/color"
 )
@@ -13,7 +15,7 @@ import (
 func (t *GpuTranslator) CreateDiscoveryBuffers() error {
 	// Setup discovery map buffer.
 	var err error
-	t.discoveryMapBuffer, t.discoveryMapMem, err = t.AllocBuffer(spirv.DiscoveryMapBufferSize,
+	t.discoveryMapBuffer, t.discoveryMapMem, err = t.AllocBuffer(gcn.DiscoveryMapBufferSize,
 		vk.BufferUsageFlags(vk.BufferUsageStorageBufferBit|vk.BufferUsageTransferDstBit),
 		vk.MemoryPropertyFlags(vk.MemoryPropertyHostVisibleBit|vk.MemoryPropertyHostCoherentBit))
 	if err != nil {
@@ -21,7 +23,7 @@ func (t *GpuTranslator) CreateDiscoveryBuffers() error {
 	}
 
 	// Setup missing resource buffer.
-	t.missingResourceBuffer, t.missingResourceMem, err = t.AllocBuffer(spirv.MissingResourceBufferSize,
+	t.missingResourceBuffer, t.missingResourceMem, err = t.AllocBuffer(gcn.MissingResourceBufferSize,
 		vk.BufferUsageFlags(vk.BufferUsageStorageBufferBit|vk.BufferUsageTransferSrcBit|vk.BufferUsageTransferDstBit),
 		vk.MemoryPropertyFlags(vk.MemoryPropertyHostVisibleBit|vk.MemoryPropertyHostCoherentBit))
 	if err != nil {
@@ -29,13 +31,13 @@ func (t *GpuTranslator) CreateDiscoveryBuffers() error {
 	}
 
 	// Zero out the buffers.
-	mapData := t.handles.MapMemory(t.discoveryMapMem, spirv.DiscoveryMapBufferSize)
+	mapData := t.handles.MapMemory(t.discoveryMapMem, gcn.DiscoveryMapBufferSize)
 	for i := range mapData {
 		mapData[i] = 0
 	}
 	vk.UnmapMemory(t.handles.Device, t.discoveryMapMem)
 
-	reportData := t.handles.MapMemory(t.missingResourceMem, spirv.MissingResourceBufferSize)
+	reportData := t.handles.MapMemory(t.missingResourceMem, gcn.MissingResourceBufferSize)
 	for i := range reportData {
 		reportData[i] = 0
 	}
@@ -44,28 +46,35 @@ func (t *GpuTranslator) CreateDiscoveryBuffers() error {
 	return nil
 }
 
-func (t *GpuTranslator) FulfillResources(frame uint64) {
+func (t *GpuTranslator) FulfillResources(frame uint64) uint32 {
 	// Read missing resource buffer.
-	missingData := t.handles.MapMemory(t.missingResourceMem, spirv.MissingResourceBufferSize)
+	missingData := t.handles.MapMemory(t.missingResourceMem, gcn.MissingResourceBufferSize)
 	defer vk.UnmapMemory(t.handles.Device, t.missingResourceMem)
 	count := binary.LittleEndian.Uint32(missingData[0:4])
 	if count == 0 {
-		return
+		return count
 	}
 
-	discoveryMapData := t.handles.MapMemory(t.discoveryMapMem, spirv.DiscoveryMapBufferSize)
+	discoveryMapData := t.handles.MapMemory(t.discoveryMapMem, gcn.DiscoveryMapBufferSize)
 	defer vk.UnmapMemory(t.handles.Device, t.discoveryMapMem)
 	for i := range count {
-		offset := spirv.MissingResourceBufferHeader + i*spirv.MissingResourceBufferEntrySize
-		descriptorData := missingData[offset : offset+spirv.MissingResourceBufferEntrySize]
+		offset := gcn.MissingResourceBufferHeader + i*gcn.MissingResourceBufferEntrySize
+		descriptorData := missingData[offset : offset+gcn.MissingResourceBufferEntrySize]
 
 		// Parse descriptors.
 		dwords := make([]uint32, 12)
 		for j := range 12 {
 			dwords[j] = binary.LittleEndian.Uint32(descriptorData[j*4 : j*4+4])
 		}
-		imageDescriptor := spirv.NewImageDescriptor(dwords[0:8])
-		samplerDescriptor := spirv.NewSamplerDescriptor(dwords[8:12])
+		imageDescriptor := spirvStructs.NewImageDescriptor(dwords[0:8])
+		samplerDescriptor := spirvStructs.NewSamplerDescriptor(dwords[8:12])
+		isSamplerZero := true
+		for j := 8; j < 12; j++ {
+			if dwords[j] != 0 {
+				isSamplerZero = false
+				break
+			}
+		}
 
 		// Calculate hash index (must match SPIR-V hash).
 		hash := uint32(0)
@@ -75,40 +84,83 @@ func (t *GpuTranslator) FulfillResources(frame uint64) {
 		hashIndex := hash & 0xFFFF
 
 		// Check if discovered.
-		var key [12]uint32
-		copy(key[:], dwords)
-		if _, ok := t.discoveryMap[key]; ok {
+		var samplerKey spirvStructs.ImageSamplerKey
+		copy(samplerKey[:], dwords)
+		if _, ok := t.discoveryImageSamplerMap[samplerKey]; ok {
 			continue
+		}
+		noSamplerKey := spirvStructs.NewImageIdentityKey(imageDescriptor)
+
+		// Alias image descriptors.
+		if isSamplerZero {
+			// If sampler key was discovered first for this image, reuse its index.
+			if vkIndex, ok := t.discoveryImageNoSamplerMap[noSamplerKey]; ok {
+				t.discoveryImageSamplerMap[samplerKey] = vkIndex
+				binary.LittleEndian.PutUint32(discoveryMapData[hashIndex*4:hashIndex*4+4], vkIndex)
+				logger.Printf("[%s] aliased no-sampler resource from %s to existing vulkanIndex=%s.\n",
+					color.Blue.Sprintf("Frame %d", frame),
+					color.Blue.Sprintf("0x%X", imageDescriptor.BaseAddress),
+					color.Green.Sprint(vkIndex),
+				)
+				continue
+			}
+		} else {
+			// If no-sampler key was discovered first for this image, reuse its index.
+			if vkIndex, ok := t.discoveryImageNoSamplerMap[noSamplerKey]; ok {
+				t.discoveryImageSamplerMap[samplerKey] = vkIndex
+				binary.LittleEndian.PutUint32(discoveryMapData[hashIndex*4:hashIndex*4+4], vkIndex)
+
+				// Ensure sampled descriptor at aliased index uses the actual sampler variant.
+				if view, _ := t.GetImageView(imageDescriptor); view != vk.NullImageView {
+					sampler := t.GetSampler(samplerDescriptor)
+					if sampler != vk.NullSampler {
+						t.updateBindlessDescriptorSet(vkIndex, view, sampler)
+					}
+				}
+
+				logger.Printf("[%s] aliased sampled resource from %s to existing no-sampler vulkanIndex=%s.\n",
+					color.Blue.Sprintf("Frame %d", frame),
+					color.Blue.Sprintf("0x%X", imageDescriptor.BaseAddress),
+					color.Green.Sprint(vkIndex),
+				)
+				continue
+			}
 		}
 		logger.Printf("[%s] new resource found (hashIndex=%s, imageDescriptor=%s, samplerDescriptor=%s).\n",
 			color.Blue.Sprintf("Frame %d", frame),
 			color.Blue.Sprintf("0x%X", hashIndex),
-			color.Blue.Sprintf("0x%X", imageDescriptor),
-			color.Blue.Sprintf("0x%X", samplerDescriptor),
+			color.Blue.Sprintf("%v", imageDescriptor),
+			color.Blue.Sprintf("%v", samplerDescriptor),
 		)
 
 		// Create host resources.
-		view := t.GetImageView(imageDescriptor)
+		view, isNew := t.GetImageView(imageDescriptor)
 		sampler := t.GetSampler(samplerDescriptor)
 		if view != vk.NullImageView && sampler != vk.NullSampler {
-			vulkanIndex := t.discoveryNextVulkanIndex
+			vkIndex := t.discoveryNextVulkanIndex
 			t.discoveryNextVulkanIndex++
-			t.discoveryMap[key] = vulkanIndex
-			logger.Printf("[%s] fulfilled resource from %s (vulkanIndex=%s).\n",
+			t.discoveryImageSamplerMap[samplerKey] = vkIndex
+			if _, ok := t.discoveryImageNoSamplerMap[noSamplerKey]; !ok {
+				t.discoveryImageNoSamplerMap[noSamplerKey] = vkIndex
+			}
+			logger.Printf("[%s] fulfilled resource from %s (vulkanIndex=%s, isNew=%v).\n",
 				color.Blue.Sprintf("Frame %d", frame),
 				color.Blue.Sprintf("0x%X", imageDescriptor.BaseAddress),
-				color.Green.Sprint(vulkanIndex),
+				color.Green.Sprint(vkIndex),
+				isNew,
 			)
 
-			// Upload image to GPU.
-			_, bytesPerPixel := TranslateGcnFormat(imageDescriptor.DataFormat, imageDescriptor.NumFormat)
-			t.uploadBufferDataToImage(imageDescriptor.BaseAddress, t.images[imageDescriptor.BaseAddress], imageDescriptor.Width, imageDescriptor.Height, bytesPerPixel)
+			// Upload image to GPU only if it's new.
+			if isNew {
+				_, bytesPerPixel := TranslateGcnFormat(imageDescriptor.DataFormat, imageDescriptor.NumFormat)
+				t.uploadBufferDataToImage(imageDescriptor.BaseAddress, t.images[imageDescriptor.BaseAddress], imageDescriptor.Width, imageDescriptor.Height, imageDescriptor.Pitch, bytesPerPixel, uint32(imageDescriptor.BaseLevel))
+			}
 
 			// Update discovery map.
-			binary.LittleEndian.PutUint32(discoveryMapData[hashIndex*4:hashIndex*4+4], vulkanIndex)
+			binary.LittleEndian.PutUint32(discoveryMapData[hashIndex*4:hashIndex*4+4], vkIndex)
 
 			// Update bindless set.
-			t.updateBindlessDescriptorSet(vulkanIndex, view, sampler)
+			t.updateBindlessDescriptorSet(vkIndex, view, sampler)
 		} else {
 			logger.Printf("[%s] failed fulfillment for resource from %s.\n",
 				color.Blue.Sprintf("Frame %d", frame),
@@ -122,76 +174,113 @@ func (t *GpuTranslator) FulfillResources(frame uint64) {
 
 	// Reset counter for next time.
 	binary.LittleEndian.PutUint32(missingData[0:4], 0)
+
+	return count
+}
+
+func (t *GpuTranslator) DebugResources(frame uint64) {
+	for _, descriptor := range t.imageDescriptors {
+		preview := []uint32{}
+		if _, _, err := t.GetBufferFromAddress(descriptor.BaseAddress); err == nil {
+			preview = unsafe.Slice((*uint32)(unsafe.Pointer(descriptor.BaseAddress)), 128)
+		}
+		logger.Printf("[%s] image addr=%s wh=%dx%d fmt=(data=%d num=%d type=%d mtype=%d) mips=(base=%d last=%d) tile=(idx=%d pow2pad=%v atc=%v) ext=(depth=%d pitch=%d baseArr=%d lastArr=%d) first_u32=%v\n",
+			color.Blue.Sprintf("Frame %d", frame),
+			color.Blue.Sprintf("0x%X", descriptor.BaseAddress),
+			descriptor.Width, descriptor.Height,
+			descriptor.DataFormat, descriptor.NumFormat, descriptor.Type, descriptor.MType,
+			descriptor.BaseLevel, descriptor.LastLevel,
+			descriptor.TilingIndex, descriptor.Pow2Pad, descriptor.Atc,
+			descriptor.Depth, descriptor.Pitch, descriptor.BaseArray, descriptor.LastArray,
+			preview,
+		)
+		/* logger.Printf("[%s] dst_sel=(%d,%d,%d,%d)\n",
+			color.Blue.Sprintf("Frame %d", frame),
+			descriptor.DstSelX, descriptor.DstSelY, descriptor.DstSelZ, descriptor.DstSelW,
+		) */
+	}
 }
 
 func (t *GpuTranslator) createDummyTexture() {
-	surface := &GpuSurface{
-		GPUAddress: 0,
-		Width:      1,
-		Height:     1,
-		Format:     vk.FormatR8g8b8a8Unorm,
-		firstUse:   true,
-	}
-	if err := t.allocSurface(surface); err != nil {
+	surface, err := t.GetSurface(SurfaceRequest{
+		SurfaceKey: SurfaceKey{
+			GpuAddress: 0,
+		},
+		Width:  1,
+		Height: 1,
+		Format: vk.FormatR8g8b8a8Unorm,
+	})
+	if err != nil {
 		fmt.Printf("failed to create dummy texture: %v\n", err)
 		return
 	}
 
-	// Transition dummy image to ShaderReadOnly so it's valid for sampling.
-	cb := t.handles.AllocateCommandBuffer(t.pool)
-	vk.BeginCommandBuffer(cb, &vk.CommandBufferBeginInfo{
-		SType: vk.StructureTypeCommandBufferBeginInfo,
-		Flags: vk.CommandBufferUsageFlags(vk.CommandBufferUsageOneTimeSubmitBit),
-	})
-	t.imageBarrier(cb, surface.image,
-		vk.ImageLayoutUndefined, vk.ImageLayoutShaderReadOnlyOptimal,
-		0, vk.AccessFlags(vk.AccessShaderReadBit),
-		vk.PipelineStageFlags(vk.PipelineStageTopOfPipeBit), vk.PipelineStageFlags(vk.PipelineStageAllGraphicsBit))
-	vk.EndCommandBuffer(cb)
-	vk.QueueSubmit(t.handles.GraphicsQueue, 1, []vk.SubmitInfo{{
-		SType:              vk.StructureTypeSubmitInfo,
-		CommandBufferCount: 1,
-		PCommandBuffers:    []vk.CommandBuffer{cb},
-	}}, vk.NullFence)
-	vk.QueueWaitIdle(t.handles.GraphicsQueue)
-	vk.FreeCommandBuffers(t.handles.Device, t.pool, 1, []vk.CommandBuffer{cb})
-
 	// Create dummy texture data (magenta).
 	dummyData := []uint8{255, 0, 255, 255}
-	t.uploadDataToImage(dummyData, surface.image, 1, 1, 4)
+	t.uploadDataToImage(dummyData, surface.Value.image, 1, 1, 4)
 
 	// Initialize the whole bindless array to a valid dummy descriptor so unresolved indices sample it.
-	infos := make([]vk.DescriptorImageInfo, BindlessTextureCapacity)
-	for i := range infos {
-		infos[i] = vk.DescriptorImageInfo{
-			Sampler:     surface.sampler,
-			ImageView:   surface.imageView,
-			ImageLayout: vk.ImageLayoutShaderReadOnlyOptimal,
+	sampledInfos := make([]vk.DescriptorImageInfo, BindlessTextureCapacity)
+	storageInfos := make([]vk.DescriptorImageInfo, BindlessTextureCapacity)
+	for i := range sampledInfos {
+		sampledInfos[i] = vk.DescriptorImageInfo{
+			Sampler:     surface.Value.sampler,
+			ImageView:   surface.Value.imageView,
+			ImageLayout: vk.ImageLayoutGeneral,
+		}
+		storageInfos[i] = vk.DescriptorImageInfo{
+			ImageView:   surface.Value.imageView,
+			ImageLayout: vk.ImageLayoutGeneral,
 		}
 	}
-	vk.UpdateDescriptorSets(t.handles.Device, 1, []vk.WriteDescriptorSet{{
-		SType:           vk.StructureTypeWriteDescriptorSet,
-		DstSet:          t.bindlessDescriptorSet,
-		DstBinding:      0,
-		DstArrayElement: 0,
-		DescriptorCount: BindlessTextureCapacity,
-		DescriptorType:  vk.DescriptorTypeCombinedImageSampler,
-		PImageInfo:      infos,
-	}}, 0, nil)
+	vk.UpdateDescriptorSets(t.handles.Device, 2, []vk.WriteDescriptorSet{
+		{
+			SType:           vk.StructureTypeWriteDescriptorSet,
+			DstSet:          t.bindlessDescriptorSet,
+			DstBinding:      spirvStructs.BindlessBindingSampledImages,
+			DstArrayElement: 0,
+			DescriptorCount: BindlessTextureCapacity,
+			DescriptorType:  vk.DescriptorTypeCombinedImageSampler,
+			PImageInfo:      sampledInfos,
+		},
+		{
+			SType:           vk.StructureTypeWriteDescriptorSet,
+			DstSet:          t.bindlessDescriptorSet,
+			DstBinding:      spirvStructs.BindlessBindingStorageImages,
+			DstArrayElement: 0,
+			DescriptorCount: BindlessTextureCapacity,
+			DescriptorType:  vk.DescriptorTypeStorageImage,
+			PImageInfo:      storageInfos,
+		},
+	}, 0, nil)
 }
 
 func (t *GpuTranslator) updateBindlessDescriptorSet(index uint32, view vk.ImageView, sampler vk.Sampler) {
-	vk.UpdateDescriptorSets(t.handles.Device, 1, []vk.WriteDescriptorSet{{
-		SType:           vk.StructureTypeWriteDescriptorSet,
-		DstSet:          t.bindlessDescriptorSet,
-		DstBinding:      0,
-		DstArrayElement: index,
-		DescriptorCount: 1,
-		DescriptorType:  vk.DescriptorTypeCombinedImageSampler,
-		PImageInfo: []vk.DescriptorImageInfo{{
-			Sampler:     sampler,
-			ImageView:   view,
-			ImageLayout: vk.ImageLayoutShaderReadOnlyOptimal,
-		}},
-	}}, 0, nil)
+	vk.UpdateDescriptorSets(t.handles.Device, 2, []vk.WriteDescriptorSet{
+		{
+			SType:           vk.StructureTypeWriteDescriptorSet,
+			DstSet:          t.bindlessDescriptorSet,
+			DstBinding:      spirvStructs.BindlessBindingSampledImages,
+			DstArrayElement: index,
+			DescriptorCount: 1,
+			DescriptorType:  vk.DescriptorTypeCombinedImageSampler,
+			PImageInfo: []vk.DescriptorImageInfo{{
+				Sampler:     sampler,
+				ImageView:   view,
+				ImageLayout: vk.ImageLayoutGeneral,
+			}},
+		},
+		{
+			SType:           vk.StructureTypeWriteDescriptorSet,
+			DstSet:          t.bindlessDescriptorSet,
+			DstBinding:      spirvStructs.BindlessBindingStorageImages,
+			DstArrayElement: index,
+			DescriptorCount: 1,
+			DescriptorType:  vk.DescriptorTypeStorageImage,
+			PImageInfo: []vk.DescriptorImageInfo{{
+				ImageView:   view,
+				ImageLayout: vk.ImageLayoutGeneral,
+			}},
+		},
+	}, 0, nil)
 }

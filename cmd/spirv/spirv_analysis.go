@@ -1,21 +1,11 @@
 package spirv
 
 import (
+	. "github.com/LamkasDev/sharkie/cmd/spirv/common"
 	. "github.com/LamkasDev/sharkie/cmd/structs/gcn"
 	gcnSpec "github.com/LamkasDev/sharkie/cmd/structs/gcn/spec"
 	"github.com/LamkasDev/sharkie/cmd/structs/gpu"
 )
-
-type SgprSource struct {
-	UserDataOffset int32 // -1 if unknown
-}
-
-type SpirvShaderResource struct {
-	InstructionOffset uintptr
-	FixedSlot         int32 // -1 if dynamic
-	RsrcUserData      int32 // UserData offset for T# base
-	SampUserData      int32 // UserData offset for S# base
-}
 
 func AnalyzeResources(shader *GcnShader) []SpirvShaderResource {
 	// Simple analysis: track SGPRs from UserData.

@@ -12,6 +12,12 @@ import (
 
 var GlobalLiverpool *Liverpool
 
+type LiverpoolDmaCopy struct {
+	SrcAddress uintptr
+	DstAddress uintptr
+	Count      uint32
+}
+
 // Liverpool keeps state of the AMD Liverpool GPU.
 type Liverpool struct {
 	RingMutex    sync.Mutex
@@ -23,6 +29,7 @@ type Liverpool struct {
 	DrawState                LiverpoolDrawState
 	PendingDrawCalls         []LiverpoolDrawCall
 	PendingComputeDispatches []LiverpoolComputeDispatch
+	PendingDmaCopies         []LiverpoolDmaCopy
 
 	ShadersMutex  sync.Mutex
 	LoadedShaders map[uintptr]*GcnShader
@@ -32,6 +39,7 @@ type Liverpool struct {
 
 	OnFlip                   func(gpuAddress uintptr, flipArg uint64)
 	OnRegisterDisplaySurface func(address uintptr, attribute *VideoOutBufferAttribute)
+	WaitOnFence              func()
 }
 
 func NewLiverpool() *Liverpool {
@@ -100,6 +108,15 @@ func (l *Liverpool) FlushComputeDispatches() []LiverpoolComputeDispatch {
 	l.StateMutex.Unlock()
 
 	return computeDispatches
+}
+
+func (l *Liverpool) FlushDmaCopies() []LiverpoolDmaCopy {
+	l.StateMutex.Lock()
+	dmaCopies := l.PendingDmaCopies
+	l.PendingDmaCopies = l.PendingDmaCopies[:0]
+	l.StateMutex.Unlock()
+
+	return dmaCopies
 }
 
 func (l *Liverpool) Flip(gpuAddress uintptr, flipArg uint64) {

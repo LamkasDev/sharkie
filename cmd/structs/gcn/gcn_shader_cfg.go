@@ -121,9 +121,9 @@ func (cfg *GcnShaderCfg) ClassifyTerminator(term *spec.Instruction) (TermKind, B
 	}
 
 	// EXP with done=true followed by S_ENDPGM. No successors.
-	if term.Encoding == spec.EncEXP && term.Details.(*spec.ExpDetails).Done {
+	/* if term.Encoding == spec.EncEXP && term.Details.(*spec.ExpDetails).Done {
 		return TermExpDone, CondNone, nil
-	}
+	} */
 
 	// S_BRANCH (unconditional). One successor.
 	if term.Encoding == spec.EncSOPP && term.Details.(*spec.ScalarDetails).Op == spec.SoppOpBranch {

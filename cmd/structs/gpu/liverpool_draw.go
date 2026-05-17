@@ -33,18 +33,58 @@ type LiverpoolDrawCall struct {
 	BaseVertexOffset uint32
 
 	// Render target.
-	RtBase   uint32
-	RtPitch  uint32
-	RtSlice  uint32
-	RtView   uint32
-	RtInfo   uint32
-	RtAttrib uint32
-	RtMask   uint32
+	RtBase         uint32
+	RtPitch        uint32
+	RtSlice        uint32
+	RtView         uint32
+	RtInfo         uint32
+	RtAttrib       uint32
+	RtTargetMask   uint32
+	RtColorControl uint32
+	RtBlendControl uint32
+
+	// Render target info fields (decoded from RtInfo/CB_COLOR0_INFO).
+	RtFormat               uint32
+	RtNumberType           uint32
+	RtCompSwap             uint32
+	RtLinearGeneral        bool
+	RtFastClear            bool
+	RtCompression          bool
+	RtBlendClamp           bool
+	RtBlendBypass          bool
+	RtSimpleFloat          bool
+	RtRoundMode            uint32
+	RtCmaskIsLinear        bool
+	RtBlendOptDontRdDst    uint32
+	RtBlendOptDiscardPixel uint32
+	RtFmaskCompressionDis  bool
+
+	// Shader control fields (decoded from DbShaderControl/DB_SHADER_CONTROL).
+	DbZExportEnable              bool
+	DbStencilTestValExportEnable bool
+	DbStencilOpValExportEnable   bool
+	DbZOrder                     uint32
+	DbKillEnable                 bool
+	DbCoverageToMaskEnable       bool
+	DbMaskExportEnable           bool
+	DbExecOnHierFail             bool
+	DbExecOnNoop                 bool
+	DbAlphaToMaskDisable         bool
+	DbDepthBeforeShader          bool
+	DbConservativeZExport        uint32
+
+	// Blend constants.
+	BlendRed   uint32
+	BlendGreen uint32
+	BlendBlue  uint32
+	BlendAlpha uint32
 
 	// Depth buffer.
-	DbZInfo      uint32
-	DbDepthSize  uint32
-	DbZWriteBase uint32
+	DbDepthControl   uint32
+	DbStencilControl uint32
+	DbZInfo          uint32
+	DbDepthSize      uint32
+	DbZWriteBase     uint32
 
 	// Viewport.
 	VpXScale  float32
@@ -53,21 +93,18 @@ type LiverpoolDrawCall struct {
 	VpYOffset float32
 	VpZScale  float32
 	VpZOffset float32
+	VpZMin    float32
+	VpZMax    float32
 
 	// Screen scissor.
 	ScissorTl uint32
 	ScissorBr uint32
 
-	// Shader programs (vertex, tessalation hull & evaluation, geometry, pixel).
-	VertexShPgmLo, VertexShPgmHi     uint32
+	// Shader programs parameters.
 	VertexShRsrc1, VertexShRsrc2     uint32
-	HullShPgmLo, HullShPgmHi         uint32
 	HullShRsrc1, HullShRsrc2         uint32
-	EvalShPgmLo, EvalShPgmHi         uint32
 	EvalShRsrc1, EvalShRsrc2         uint32
-	GeometryShPgmLo, GeometryShPgmHi uint32
 	GeometryShRsrc1, GeometryShRsrc2 uint32
-	PixelShPgmLo, PixelShPgmHi       uint32
 	PixelShRsrc1, PixelShRsrc2       uint32
 
 	// Pointers to parsed shader programs.
@@ -88,28 +125,28 @@ func (d *LiverpoolDrawCall) RtGpuAddress() uintptr { return uintptr(d.RtBase) <<
 func (d *LiverpoolDrawCall) RtPitchPixels() uint32 { return ((d.RtPitch & 0x7FF) + 1) * 8 }
 
 // VsGpuAddress returns the full vertex shader GPU address.
-func (d *LiverpoolDrawCall) VsGpuAddress() uintptr {
-	return (uintptr(d.VertexShPgmLo) | uintptr(d.VertexShPgmHi)<<32) << 8
-}
-
-// PsGpuAddress returns the full hull shader GPU address.
-func (d *LiverpoolDrawCall) HsGpuAddress() uintptr {
-	return (uintptr(d.HullShPgmLo) | uintptr(d.HullShPgmHi)<<32) << 8
-}
-
-// PsGpuAddress returns the full evaluation shader GPU address.
-func (d *LiverpoolDrawCall) EsGpuAddress() uintptr {
-	return (uintptr(d.EvalShPgmLo) | uintptr(d.EvalShPgmHi)<<32) << 8
-}
-
-// PsGpuAddress returns the full geometry shader GPU address.
-func (d *LiverpoolDrawCall) GsGpuAddress() uintptr {
-	return (uintptr(d.GeometryShPgmLo) | uintptr(d.GeometryShPgmHi)<<32) << 8
+func (l *Liverpool) VsGpuAddress() uintptr {
+	return (uintptr(l.Registers.Shader[GREG_MM_SPI_SHADER_PGM_LO_VS]) | uintptr(l.Registers.Shader[GREG_MM_SPI_SHADER_PGM_HI_VS])<<32) << 8
 }
 
 // PsGpuAddress returns the full pixel shader GPU address.
-func (d *LiverpoolDrawCall) PsGpuAddress() uintptr {
-	return (uintptr(d.PixelShPgmLo) | uintptr(d.PixelShPgmHi)<<32) << 8
+func (l *Liverpool) PsGpuAddress() uintptr {
+	return (uintptr(l.Registers.Shader[GREG_MM_SPI_SHADER_PGM_LO_PS]) | uintptr(l.Registers.Shader[GREG_MM_SPI_SHADER_PGM_HI_PS])<<32) << 8
+}
+
+// HsGpuAddress returns the full hull shader GPU address.
+func (l *Liverpool) HsGpuAddress() uintptr {
+	return (uintptr(l.Registers.Shader[GREG_MM_SPI_SHADER_PGM_LO_HS]) | uintptr(l.Registers.Shader[GREG_MM_SPI_SHADER_PGM_HI_HS])<<32) << 8
+}
+
+// EsGpuAddress returns the full evaluation shader GPU address.
+func (l *Liverpool) EsGpuAddress() uintptr {
+	return (uintptr(l.Registers.Shader[GREG_MM_SPI_SHADER_PGM_LO_ES]) | uintptr(l.Registers.Shader[GREG_MM_SPI_SHADER_PGM_HI_ES])<<32) << 8
+}
+
+// GsGpuAddress returns the full geometry shader GPU address.
+func (l *Liverpool) GsGpuAddress() uintptr {
+	return (uintptr(l.Registers.Shader[GREG_MM_SPI_SHADER_PGM_LO_GS]) | uintptr(l.Registers.Shader[GREG_MM_SPI_SHADER_PGM_HI_GS])<<32) << 8
 }
 
 // VpWidth / VpHeight returns pixel dimensions from the viewport XY scale.
@@ -145,17 +182,54 @@ func (l *Liverpool) NewDrawCall(vertexCount uint32, isIndexed bool) LiverpoolDra
 		IndexBaseAddress: l.DrawState.IndexBase,
 		BaseVertexOffset: l.DrawState.BaseVertexOffset,
 
-		RtBase:   l.Registers.Context[GREG_MM_CB_COLOR0_BASE],
-		RtPitch:  l.Registers.Context[GREG_MM_CB_COLOR0_PITCH],
-		RtSlice:  l.Registers.Context[GREG_MM_CB_COLOR0_SLICE],
-		RtView:   l.Registers.Context[GREG_MM_CB_COLOR0_VIEW],
-		RtInfo:   l.Registers.Context[GREG_MM_CB_COLOR0_INFO],
-		RtAttrib: l.Registers.Context[GREG_MM_CB_COLOR0_ATTRIB],
-		RtMask:   l.Registers.Context[GREG_MM_CB_TARGET_MASK],
+		RtBase:         l.Registers.Context[GREG_MM_CB_COLOR0_BASE],
+		RtPitch:        l.Registers.Context[GREG_MM_CB_COLOR0_PITCH],
+		RtSlice:        l.Registers.Context[GREG_MM_CB_COLOR0_SLICE],
+		RtView:         l.Registers.Context[GREG_MM_CB_COLOR0_VIEW],
+		RtInfo:         l.Registers.Context[GREG_MM_CB_COLOR0_INFO],
+		RtAttrib:       l.Registers.Context[GREG_MM_CB_COLOR0_ATTRIB],
+		RtTargetMask:   l.Registers.Context[GREG_MM_CB_TARGET_MASK],
+		RtColorControl: l.Registers.Context[GREG_MM_CB_COLOR_CONTROL],
+		RtBlendControl: l.Registers.Context[GREG_MM_CB_BLEND0_CONTROL],
 
-		DbZInfo:      l.Registers.Context[GREG_MM_DB_Z_INFO],
-		DbDepthSize:  l.Registers.Context[GREG_MM_DB_DEPTH_SIZE],
-		DbZWriteBase: l.Registers.Context[GREG_MM_DB_Z_WRITE_BASE],
+		RtFormat:               (l.Registers.Context[GREG_MM_CB_COLOR0_INFO] >> 2) & 0x1F,
+		RtNumberType:           (l.Registers.Context[GREG_MM_CB_COLOR0_INFO] >> 8) & 0x7,
+		RtCompSwap:             (l.Registers.Context[GREG_MM_CB_COLOR0_INFO] >> 11) & 0x3,
+		RtLinearGeneral:        (l.Registers.Context[GREG_MM_CB_COLOR0_INFO]>>7)&1 == 1,
+		RtFastClear:            (l.Registers.Context[GREG_MM_CB_COLOR0_INFO]>>13)&1 == 1,
+		RtCompression:          (l.Registers.Context[GREG_MM_CB_COLOR0_INFO]>>14)&1 == 1,
+		RtBlendClamp:           (l.Registers.Context[GREG_MM_CB_COLOR0_INFO]>>15)&1 == 1,
+		RtBlendBypass:          (l.Registers.Context[GREG_MM_CB_COLOR0_INFO]>>16)&1 == 1,
+		RtSimpleFloat:          (l.Registers.Context[GREG_MM_CB_COLOR0_INFO]>>17)&1 == 1,
+		RtRoundMode:            (l.Registers.Context[GREG_MM_CB_COLOR0_INFO] >> 18) & 1,
+		RtCmaskIsLinear:        (l.Registers.Context[GREG_MM_CB_COLOR0_INFO]>>19)&1 == 1,
+		RtBlendOptDontRdDst:    (l.Registers.Context[GREG_MM_CB_COLOR0_INFO] >> 20) & 0x7,
+		RtBlendOptDiscardPixel: (l.Registers.Context[GREG_MM_CB_COLOR0_INFO] >> 23) & 0x7,
+		RtFmaskCompressionDis:  (l.Registers.Context[GREG_MM_CB_COLOR0_INFO]>>26)&1 == 1,
+
+		DbZExportEnable:              (l.Registers.Context[GREG_MM_DB_SHADER_CONTROL]>>0)&1 == 1,
+		DbStencilTestValExportEnable: (l.Registers.Context[GREG_MM_DB_SHADER_CONTROL]>>1)&1 == 1,
+		DbStencilOpValExportEnable:   (l.Registers.Context[GREG_MM_DB_SHADER_CONTROL]>>2)&1 == 1,
+		DbZOrder:                     (l.Registers.Context[GREG_MM_DB_SHADER_CONTROL] >> 4) & 0x3,
+		DbKillEnable:                 (l.Registers.Context[GREG_MM_DB_SHADER_CONTROL]>>6)&1 == 1,
+		DbCoverageToMaskEnable:       (l.Registers.Context[GREG_MM_DB_SHADER_CONTROL]>>7)&1 == 1,
+		DbMaskExportEnable:           (l.Registers.Context[GREG_MM_DB_SHADER_CONTROL]>>8)&1 == 1,
+		DbExecOnHierFail:             (l.Registers.Context[GREG_MM_DB_SHADER_CONTROL]>>9)&1 == 1,
+		DbExecOnNoop:                 (l.Registers.Context[GREG_MM_DB_SHADER_CONTROL]>>10)&1 == 1,
+		DbAlphaToMaskDisable:         (l.Registers.Context[GREG_MM_DB_SHADER_CONTROL]>>11)&1 == 1,
+		DbDepthBeforeShader:          (l.Registers.Context[GREG_MM_DB_SHADER_CONTROL]>>12)&1 == 1,
+		DbConservativeZExport:        (l.Registers.Context[GREG_MM_DB_SHADER_CONTROL] >> 13) & 0x3,
+
+		BlendRed:   l.Registers.Context[GREG_MM_CB_BLEND_RED],
+		BlendGreen: l.Registers.Context[GREG_MM_CB_BLEND_GREEN],
+		BlendBlue:  l.Registers.Context[GREG_MM_CB_BLEND_BLUE],
+		BlendAlpha: l.Registers.Context[GREG_MM_CB_BLEND_ALPHA],
+
+		DbDepthControl:   l.Registers.Context[GREG_MM_DB_DEPTH_CONTROL],
+		DbStencilControl: l.Registers.Context[GREG_MM_DB_STENCIL_CONTROL],
+		DbZInfo:          l.Registers.Context[GREG_MM_DB_Z_INFO],
+		DbDepthSize:      l.Registers.Context[GREG_MM_DB_DEPTH_SIZE],
+		DbZWriteBase:     l.Registers.Context[GREG_MM_DB_Z_WRITE_BASE],
 
 		VpXScale:  math.Float32frombits(l.Registers.Context[GREG_MM_PA_CL_VPORT_XSCALE]),
 		VpXOffset: math.Float32frombits(l.Registers.Context[GREG_MM_PA_CL_VPORT_XOFFSET]),
@@ -163,46 +237,38 @@ func (l *Liverpool) NewDrawCall(vertexCount uint32, isIndexed bool) LiverpoolDra
 		VpYOffset: math.Float32frombits(l.Registers.Context[GREG_MM_PA_CL_VPORT_YOFFSET]),
 		VpZScale:  math.Float32frombits(l.Registers.Context[GREG_MM_PA_CL_VPORT_ZSCALE]),
 		VpZOffset: math.Float32frombits(l.Registers.Context[GREG_MM_PA_CL_VPORT_ZOFFSET]),
+		VpZMin:    math.Float32frombits(l.Registers.Context[GREG_MM_PA_SC_VPORT_ZMIN_0]),
+		VpZMax:    math.Float32frombits(l.Registers.Context[GREG_MM_PA_SC_VPORT_ZMAX_0]),
 
 		ScissorTl: l.Registers.Context[GREG_MM_PA_SC_SCREEN_SCISSOR_TL],
 		ScissorBr: l.Registers.Context[GREG_MM_PA_SC_SCREEN_SCISSOR_BR],
 
-		VertexShPgmLo:   l.Registers.Shader[GREG_MM_SPI_SHADER_PGM_LO_VS],
-		VertexShPgmHi:   l.Registers.Shader[GREG_MM_SPI_SHADER_PGM_HI_VS],
 		VertexShRsrc1:   l.Registers.Shader[GREG_MM_SPI_SHADER_PGM_RSRC1_VS],
 		VertexShRsrc2:   l.Registers.Shader[GREG_MM_SPI_SHADER_PGM_RSRC2_VS],
-		HullShPgmLo:     l.Registers.Shader[GREG_MM_SPI_SHADER_PGM_LO_HS],
-		HullShPgmHi:     l.Registers.Shader[GREG_MM_SPI_SHADER_PGM_HI_HS],
-		HullShRsrc1:     l.Registers.Shader[GREG_MM_SPI_SHADER_PGM_RSRC1_HS],
-		HullShRsrc2:     l.Registers.Shader[GREG_MM_SPI_SHADER_PGM_RSRC2_HS],
-		EvalShPgmLo:     l.Registers.Shader[GREG_MM_SPI_SHADER_PGM_LO_ES],
-		EvalShPgmHi:     l.Registers.Shader[GREG_MM_SPI_SHADER_PGM_HI_ES],
-		EvalShRsrc1:     l.Registers.Shader[GREG_MM_SPI_SHADER_PGM_RSRC1_ES],
-		EvalShRsrc2:     l.Registers.Shader[GREG_MM_SPI_SHADER_PGM_RSRC2_ES],
-		GeometryShPgmLo: l.Registers.Shader[GREG_MM_SPI_SHADER_PGM_LO_GS],
-		GeometryShPgmHi: l.Registers.Shader[GREG_MM_SPI_SHADER_PGM_HI_GS],
-		GeometryShRsrc1: l.Registers.Shader[GREG_MM_SPI_SHADER_PGM_RSRC1_GS],
-		GeometryShRsrc2: l.Registers.Shader[GREG_MM_SPI_SHADER_PGM_RSRC2_GS],
-		PixelShPgmLo:    l.Registers.Shader[GREG_MM_SPI_SHADER_PGM_LO_PS],
-		PixelShPgmHi:    l.Registers.Shader[GREG_MM_SPI_SHADER_PGM_HI_PS],
 		PixelShRsrc1:    l.Registers.Shader[GREG_MM_SPI_SHADER_PGM_RSRC1_PS],
 		PixelShRsrc2:    l.Registers.Shader[GREG_MM_SPI_SHADER_PGM_RSRC2_PS],
+		HullShRsrc1:     l.Registers.Shader[GREG_MM_SPI_SHADER_PGM_RSRC1_HS],
+		HullShRsrc2:     l.Registers.Shader[GREG_MM_SPI_SHADER_PGM_RSRC2_HS],
+		EvalShRsrc1:     l.Registers.Shader[GREG_MM_SPI_SHADER_PGM_RSRC1_ES],
+		EvalShRsrc2:     l.Registers.Shader[GREG_MM_SPI_SHADER_PGM_RSRC2_ES],
+		GeometryShRsrc1: l.Registers.Shader[GREG_MM_SPI_SHADER_PGM_RSRC1_GS],
+		GeometryShRsrc2: l.Registers.Shader[GREG_MM_SPI_SHADER_PGM_RSRC2_GS],
 
 		UserDataHash: l.SnapshotUserData(),
 	}
 	l.StateMutex.Unlock()
 
-	drawCall.VertexShader = l.GetShader(GcnShaderStageVertex, drawCall.VsGpuAddress())
-	if address := drawCall.HsGpuAddress(); address != 0 {
+	drawCall.VertexShader = l.GetShader(GcnShaderStageVertex, l.VsGpuAddress())
+	drawCall.PixelShader = l.GetShader(GcnShaderStageFragment, l.PsGpuAddress())
+	if address := l.HsGpuAddress(); address != 0 {
 		drawCall.HullShader = l.GetShader(GcnShaderStageHull, address)
 	}
-	if address := drawCall.EsGpuAddress(); address != 0 {
+	if address := l.EsGpuAddress(); address != 0 {
 		drawCall.EvalShader = l.GetShader(GcnShaderStageEvaluation, address)
 	}
-	if address := drawCall.GsGpuAddress(); address != 0 {
+	if address := l.GsGpuAddress(); address != 0 {
 		drawCall.GeometryShader = l.GetShader(GcnShaderStageGeometry, address)
 	}
-	drawCall.PixelShader = l.GetShader(GcnShaderStageFragment, drawCall.PsGpuAddress())
 
 	return drawCall
 }

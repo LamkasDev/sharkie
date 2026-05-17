@@ -35,6 +35,7 @@ func (shFs *SharkieFilesystem) Open(path string, oflag structs.FileFlags, mode s
 			Path:       path,
 			Descriptor: fd,
 			File:       createFunc(),
+			IsDevice:   true,
 		}
 		shFs.NextDescriptor++
 
@@ -85,6 +86,12 @@ func (shFs *SharkieFilesystem) Create(path string) (FileDescriptor, error) {
 }
 
 func (shFs *SharkieFilesystem) Write(path string, data []byte) (int, error) {
+	if createFunc, isDevice := shFs.Devices[path]; isDevice {
+		device := createFunc()
+		defer device.Close()
+		return device.Write(data)
+	}
+
 	if err := shFs.Fs.MkdirAll(filepath.ToSlash(filepath.Dir(path)), 0777); err != nil {
 		return 0, err
 	}
@@ -110,6 +117,10 @@ func (shFs *SharkieFilesystem) WriteFd(fd FileDescriptor, data []byte) (int, err
 }
 
 func (shFs *SharkieFilesystem) ReadFull(path string) ([]byte, error) {
+	if _, isDevice := shFs.Devices[path]; isDevice {
+		return []byte{}, nil
+	}
+
 	return shFs.Fs.ReadFile(path)
 }
 
@@ -121,11 +132,20 @@ func (shFs *SharkieFilesystem) ReadFullFd(fd FileDescriptor) ([]byte, error) {
 	if !ok {
 		return nil, errors.New("invalid file descriptor")
 	}
+	if shFile.IsDevice {
+		return []byte{}, nil
+	}
 
 	return io.ReadAll(shFile.File)
 }
 
 func (shFs *SharkieFilesystem) Read(path string, data []byte) (int, error) {
+	if createFunc, isDevice := shFs.Devices[path]; isDevice {
+		device := createFunc()
+		defer device.Close()
+		return device.Read(data)
+	}
+
 	file, err := shFs.Fs.OpenFile(path, os.O_RDONLY, 0)
 	if err != nil {
 		return 0, err
@@ -150,7 +170,6 @@ func (shFs *SharkieFilesystem) ReadFd(fd FileDescriptor, data []byte) (int, erro
 func (shFs *SharkieFilesystem) Close(fd FileDescriptor) error {
 	shFs.Lock.Lock()
 	defer shFs.Lock.Unlock()
-
 	shFile, ok := shFs.Descriptors[fd]
 	if !ok {
 		return errors.New("invalid file descriptor")
@@ -179,6 +198,9 @@ func NewFilesystem() *SharkieFilesystem {
 		Devices:        map[string]DeviceFileCreateFunc{},
 		Lock:           sync.Mutex{},
 	}
+	if err := shFs.InitializeStdDevices(); err != nil {
+		panic(err)
+	}
 	if err := shFs.InitializeSystemFiles(); err != nil {
 		panic(err)
 	}
@@ -191,18 +213,6 @@ func NewFilesystem() *SharkieFilesystem {
 
 func (shFs *SharkieFilesystem) InitializeSystemFiles() error {
 	// Device files.
-	if _, err := shFs.Create(GetUsablePath("stdin")); err != nil {
-		return err
-	}
-	if _, err := shFs.Create(GetUsablePath("stderr")); err != nil {
-		return err
-	}
-	if _, err := shFs.Create(GetUsablePath("/dev/console")); err != nil {
-		return err
-	}
-	if _, err := shFs.Create(GetUsablePath("/dev/deci_tty6")); err != nil {
-		return err
-	}
 	if _, err := shFs.Create(GetUsablePath("/dev/dipsw")); err != nil {
 		return err
 	}

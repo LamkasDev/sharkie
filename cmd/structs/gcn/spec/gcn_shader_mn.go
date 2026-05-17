@@ -1047,9 +1047,9 @@ func (instr *Instruction) GetFieldsString() string {
 			fmt.Fprintf(&b, " lit=0x%08X", instr.Literal)
 		}
 	case EncVOP2:
-		fmt.Fprintf(&b, "vdst=v%d vsrc1=v%d src0=%s",
-			instr.Details.(*VectorDetails).Dst,
-			instr.Details.(*VectorDetails).Src1,
+		fmt.Fprintf(&b, "vdst=v%d vsrc1=%s src0=%s",
+			instr.Details.(*VectorDetails).Vdst,
+			OperandToString(instr.Details.(*VectorDetails).Src1),
 			OperandToString(instr.Details.(*VectorDetails).Src0),
 		)
 		if instr.HasLiteral {
@@ -1057,15 +1057,15 @@ func (instr *Instruction) GetFieldsString() string {
 		}
 	case EncVOP1:
 		fmt.Fprintf(&b, "vdst=v%d src0=%s",
-			instr.Details.(*VectorDetails).Dst,
+			instr.Details.(*VectorDetails).Vdst,
 			OperandToString(instr.Details.(*VectorDetails).Src0),
 		)
 		if instr.HasLiteral {
 			fmt.Fprintf(&b, " lit=0x%08X", instr.Literal)
 		}
 	case EncVOPC:
-		fmt.Fprintf(&b, "vsrc1=v%d src0=%s",
-			instr.Details.(*VectorDetails).Src1,
+		fmt.Fprintf(&b, "vsrc1=%s src0=%s",
+			OperandToString(instr.Details.(*VectorDetails).Src1),
 			OperandToString(instr.Details.(*VectorDetails).Src0),
 		)
 		if instr.HasLiteral {
@@ -1079,16 +1079,23 @@ func (instr *Instruction) GetFieldsString() string {
 			instr.Details.(*VintrpDetails).Vsrc,
 		)
 	case EncVOP3:
-		fmt.Fprintf(&b, "neg=%d omod=%d src2=%s src1=%s src0=%s clamp=%d abs=%d sdst=s%d vdst=v%d",
+		abText := ""
+		if instr.Details.(*Vop3Details).IsVOP3b() {
+			abText = fmt.Sprintf(" clamp=%d abs=%d",
+				nstd.Btoi(instr.Details.(*Vop3Details).Clamp),
+				instr.Details.(*Vop3Details).Abs,
+			)
+			abText = fmt.Sprintf("sdst=s%d", instr.Details.(*Vop3Details).Sdst)
+		}
+		fmt.Fprintf(&b, "neg=%d omod=%d src2=%s src1=%s src0=%s%s sdst=s%d vdst=v%d",
 			instr.Details.(*Vop3Details).Neg,
 			instr.Details.(*Vop3Details).OMod,
 			OperandToString(instr.Details.(*Vop3Details).Src2),
 			OperandToString(instr.Details.(*Vop3Details).Src1),
 			OperandToString(instr.Details.(*Vop3Details).Src0),
-			nstd.Btoi(instr.Details.(*Vop3Details).Clamp),
-			instr.Details.(*Vop3Details).Abs,
+			abText,
 			instr.Details.(*Vop3Details).Sdst,
-			instr.Details.(*Vop3Details).Dst,
+			instr.Details.(*Vop3Details).Vdst,
 		)
 	case EncSMRD:
 		fmt.Fprintf(&b, "sdst=s%d sbase=s%d imm=%d offset=%d",
@@ -1115,9 +1122,9 @@ func (instr *Instruction) GetFieldsString() string {
 			OperandToString(instr.Details.(*MubufDetails).Soffset),
 		)
 	case EncMIMG:
-		rsrcLength := uint32(4)
+		rsrcLength := uint32(8)
 		if instr.Details.(*MimgDetails).R128 {
-			rsrcLength = 2
+			rsrcLength = 4
 		}
 		fmt.Fprintf(&b, "ssamp=s%d-%d srsrc=s%d-%d vdata=v%d vaddr=v%d slc=%d lwe=%d tfe=%d r128=%d da=%d glc=%d unrm=%d dmask=%d",
 			instr.Details.(*MimgDetails).Ssamp*4,

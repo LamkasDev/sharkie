@@ -29,9 +29,25 @@ type ScalarDetails struct {
 // Vector instructions.
 type VectorDetails struct {
 	Op   uint32
-	Dst  uint32
+	Vdst uint32
 	Src0 uint32
 	Src1 uint32
+	Sdst uint32 // VCC for most instructions, SDST for VOP3b.
+}
+
+func (details *VectorDetails) IsVopcCmpx() bool {
+	if details.Op >= 0x10 && details.Op <= 0x1F ||
+		details.Op >= 0x30 && details.Op <= 0x3F ||
+		details.Op >= 0x50 && details.Op <= 0x5F ||
+		details.Op >= 0x70 && details.Op <= 0x7F ||
+		details.Op >= 0x90 && details.Op <= 0x97 ||
+		details.Op >= 0xB0 && details.Op <= 0xB7 ||
+		details.Op >= 0xD0 && details.Op <= 0xD7 ||
+		details.Op >= 0xF0 && details.Op <= 0xF7 {
+		return true
+	}
+
+	return false
 }
 
 func (instr *Instruction) String() string {
