@@ -88,6 +88,13 @@ type GpuTranslator struct {
 	fence       vk.Fence
 	workerFence vk.Fence
 	QueueMutex  *sync.Mutex
+
+	// Active state for chronological stream processing.
+	activeSurface     *GpuSurface
+	activePass        vk.RenderPass
+	activeFramebuffer vk.Framebuffer
+	activePipeline    vk.Pipeline
+	activeVteControl  uint32
 }
 
 // NewGpuTranslator creates a GpuTranslator, loads stub shaders and builds the stub pipeline layout.
@@ -259,9 +266,9 @@ func (t *GpuTranslator) Destroy() {
 }
 
 // Translate translates Liverpool draw/compute commands into Vulkan commands and returns the command buffer.
-func (t *GpuTranslator) Translate(frame uint64, draws []gpu.LiverpoolDrawCall, dispatches []gpu.LiverpoolComputeDispatch, copies []gpu.LiverpoolDmaCopy) *vk.CommandBuffer {
+func (t *GpuTranslator) Translate(frame uint64, stream *gpu.LiverpoolCommandStream) *vk.CommandBuffer {
 	// Update buffers holding user data.
-	t.UpdateUserDataBuffers(draws, dispatches)
+	t.UpdateUserDataBuffers(stream)
 
 	// Begin recording.
 	commandBuffer := t.handles.AllocateCommandBuffer(t.pool)
@@ -270,37 +277,27 @@ func (t *GpuTranslator) Translate(frame uint64, draws []gpu.LiverpoolDrawCall, d
 		Flags: vk.CommandBufferUsageFlags(vk.CommandBufferUsageOneTimeSubmitBit),
 	})
 
-	// Process DMA copies.
-	if len(copies) > 0 {
-		logger.Printf("[%s] processing %s DMA copies.\n",
-			color.Blue.Sprintf("Frame %d", frame),
-			color.Blue.Sprint(len(copies)),
-		)
-		for i := range copies {
-			t.processDmaCopy(frame, commandBuffer, &copies[i])
+	// Process command stream.
+	logger.Printf("[%s] processing %s commands in stream.\n",
+		color.Blue.Sprintf("Frame %d", frame),
+		color.Blue.Sprint(len(stream.Commands)),
+	)
+	for _, command := range stream.Commands {
+		switch command.Type {
+		case gpu.LiverpoolCommandTypeDraw:
+			t.Draw(frame, commandBuffer, &stream.Draws[command.Index])
+		case gpu.LiverpoolCommandTypeDispatch:
+			t.Dispatch(frame, commandBuffer, &stream.Dispatches[command.Index])
+		case gpu.LiverpoolCommandTypeDmaCopy:
+			t.DmaCopy(frame, commandBuffer, &stream.DmaCopies[command.Index])
+		case gpu.LiverpoolCommandTypeBindPipeline:
+			t.BindPipeline(frame, commandBuffer, &stream.Pipelines[command.Index])
+		case gpu.LiverpoolCommandTypeSetDynamicState:
+			t.SetDynamicState(commandBuffer, &stream.DynamicStates[command.Index])
 		}
 	}
-
-	// Process compute dispatches.
-	if len(dispatches) > 0 {
-		logger.Printf("[%s] processing %s compute dispatches.\n",
-			color.Blue.Sprintf("Frame %d", frame),
-			color.Blue.Sprint(len(dispatches)),
-		)
-		for i := range dispatches {
-			t.dispatchCompute(frame, commandBuffer, &dispatches[i])
-		}
-	}
-
-	// Record draw calls.
-	if len(draws) > 0 {
-		logger.Printf("[%s] recording %s draw calls.\n",
-			color.Blue.Sprintf("Frame %d", frame),
-			color.Blue.Sprint(len(draws)),
-		)
-		for i := range draws {
-			t.recordDraw(frame, commandBuffer, &draws[i])
-		}
+	if t.activePass != vk.NullRenderPass {
+		t.EndRenderPass(commandBuffer)
 	}
 
 	// Finish.

@@ -112,13 +112,11 @@ func (r *Renderer) ConsumeFrames(done chan struct{}) {
 		r.UpdateCounters()
 
 		gpu.GlobalLiverpool.Walk()
-		draws := gpu.GlobalLiverpool.FlushDrawCalls()
-		dispatches := gpu.GlobalLiverpool.FlushComputeDispatches()
-		copies := gpu.GlobalLiverpool.FlushDmaCopies()
+		stream := gpu.GlobalLiverpool.FlushStream()
 		if r.GpuTranslator != nil {
 			for {
 				// Translate draw calls.
-				commandBuffer := r.GpuTranslator.Translate(frame.Number, draws, dispatches, copies)
+				commandBuffer := r.GpuTranslator.Translate(frame.Number, &stream)
 
 				// Submit command buffer instantly.
 				commandBuffers := []vk.CommandBuffer{*commandBuffer}

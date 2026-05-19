@@ -343,28 +343,3 @@ func (l *Liverpool) handleWaitOnDeCounterDiff(ringName string, payload []uint32)
 	// diff := payload[0] & 0xFF
 	// TODO: this
 }
-
-func (l *Liverpool) handleDispatchDirect(ringName string, payload []uint32) {
-	if len(payload) < 3 {
-		logger.Printf("[%s] failed dispatch direct payload too short.\n",
-			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
-		)
-		return
-	}
-
-	// Record dispatch.
-	dimX, dimY, dimZ := payload[0], payload[1], payload[2]
-	computeDispatch := l.NewComputeDispatch(dimX, dimY, dimZ)
-	l.StateMutex.Lock()
-	l.PendingComputeDispatches = append(l.PendingComputeDispatches, computeDispatch)
-	l.StateMutex.Unlock()
-
-	if LogPM4Packets {
-		logger.Printf("[%s] dispatch direct (dimX=%s, dimY=%s, dimZ=%s).\n",
-			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
-			color.Yellow.Sprintf("0x%X", dimX),
-			color.Yellow.Sprintf("0x%X", dimY),
-			color.Yellow.Sprintf("0x%X", dimZ),
-		)
-	}
-}

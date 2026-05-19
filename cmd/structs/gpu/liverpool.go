@@ -24,12 +24,10 @@ type Liverpool struct {
 	GraphicsRing *LiverpoolCommandRing
 	ComputeRing  *LiverpoolCommandRing
 
-	StateMutex               sync.Mutex
-	Registers                LiverpoolRegisters
-	DrawState                LiverpoolDrawState
-	PendingDrawCalls         []LiverpoolDrawCall
-	PendingComputeDispatches []LiverpoolComputeDispatch
-	PendingDmaCopies         []LiverpoolDmaCopy
+	StateMutex sync.Mutex
+	Registers  LiverpoolRegisters
+	DrawState  LiverpoolDrawState
+	Stream     LiverpoolCommandStream
 
 	ShadersMutex  sync.Mutex
 	LoadedShaders map[uintptr]*GcnShader
@@ -48,9 +46,11 @@ func NewLiverpool() *Liverpool {
 		GraphicsRing: &LiverpoolCommandRing{},
 		ComputeRing:  &LiverpoolCommandRing{},
 
-		StateMutex:               sync.Mutex{},
-		PendingDrawCalls:         []LiverpoolDrawCall{},
-		PendingComputeDispatches: []LiverpoolComputeDispatch{},
+		StateMutex: sync.Mutex{},
+		Stream: LiverpoolCommandStream{
+			PipelinesMap:     map[uint64]uint32{},
+			DynamicStatesMap: map[uint64]uint32{},
+		},
 
 		LoadedShaders: map[uintptr]*GcnShader{},
 		ShadersMutex:  sync.Mutex{},
@@ -92,31 +92,14 @@ func (l *Liverpool) SubmitCommandBuffers(indirectBuffers []PM4IndirectBuffer) {
 	}
 }
 
-func (l *Liverpool) FlushDrawCalls() []LiverpoolDrawCall {
+func (l *Liverpool) FlushStream() LiverpoolCommandStream {
 	l.StateMutex.Lock()
-	drawCalls := l.PendingDrawCalls
-	l.PendingDrawCalls = l.PendingDrawCalls[:0]
-	l.StateMutex.Unlock()
+	defer l.StateMutex.Unlock()
 
-	return drawCalls
-}
+	stream := l.Stream
+	l.Stream.Reset()
 
-func (l *Liverpool) FlushComputeDispatches() []LiverpoolComputeDispatch {
-	l.StateMutex.Lock()
-	computeDispatches := l.PendingComputeDispatches
-	l.PendingComputeDispatches = l.PendingComputeDispatches[:0]
-	l.StateMutex.Unlock()
-
-	return computeDispatches
-}
-
-func (l *Liverpool) FlushDmaCopies() []LiverpoolDmaCopy {
-	l.StateMutex.Lock()
-	dmaCopies := l.PendingDmaCopies
-	l.PendingDmaCopies = l.PendingDmaCopies[:0]
-	l.StateMutex.Unlock()
-
-	return dmaCopies
+	return stream
 }
 
 func (l *Liverpool) Flip(gpuAddress uintptr, flipArg uint64) {

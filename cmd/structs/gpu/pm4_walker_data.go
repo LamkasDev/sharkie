@@ -79,14 +79,20 @@ func (l *Liverpool) handleDmaData(ringName string, payload []uint32) {
 		return
 	}
 
-	// Queue the DMA copy.
+	// End render pass.
 	l.StateMutex.Lock()
-	l.PendingDmaCopies = append(l.PendingDmaCopies, LiverpoolDmaCopy{
+	defer l.StateMutex.Unlock()
+
+	// Construct DMA copy.
+	dmaCopy := LiverpoolDmaCopy{
 		SrcAddress: srcAddr,
 		DstAddress: dstAddr,
 		Count:      count,
-	})
-	l.StateMutex.Unlock()
+	}
+
+	// Add to command stream.
+	l.Stream.DmaCopies = append(l.Stream.DmaCopies, dmaCopy)
+	l.Stream.Commands = append(l.Stream.Commands, LiverpoolCommand{Type: LiverpoolCommandTypeDmaCopy, Index: uint32(len(l.Stream.DmaCopies) - 1)})
 
 	if LogPM4Packets {
 		logger.Printf("[%s] copied %s bytes from %s to %s\n",

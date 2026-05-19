@@ -14,20 +14,25 @@ func dmaRangesOverlap(aStart, aSize, bStart, bSize uintptr) bool {
 	return aStart < bEnd && bStart < aEnd
 }
 
-func (t *GpuTranslator) processDmaCopy(frame uint64, cb vk.CommandBuffer, copy *gpu.LiverpoolDmaCopy) {
-	srcBuffer, srcOffset, err1 := t.GetBufferFromAddress(copy.SrcAddress)
-	dstBuffer, dstOffset, err2 := t.GetBufferFromAddress(copy.DstAddress)
+func (t *GpuTranslator) DmaCopy(frame uint64, commandBuffer vk.CommandBuffer, dmaCopy *gpu.LiverpoolDmaCopy) {
+	if t.activePass != vk.NullRenderPass {
+		t.EndRenderPass(commandBuffer)
+	}
+
+	// Get buffers.
+	srcBuffer, srcOffset, err1 := t.GetBufferFromAddress(dmaCopy.SrcAddress)
+	dstBuffer, dstOffset, err2 := t.GetBufferFromAddress(dmaCopy.DstAddress)
 
 	if err1 == nil && err2 == nil {
 		// Perform raw linear copy between the buffers using Vulkan.
-		vk.CmdCopyBuffer(cb, srcBuffer, dstBuffer, 1, []vk.BufferCopy{{
+		vk.CmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, []vk.BufferCopy{{
 			SrcOffset: vk.DeviceSize(srcOffset),
 			DstOffset: vk.DeviceSize(dstOffset),
-			Size:      vk.DeviceSize(copy.Count * 4),
+			Size:      vk.DeviceSize(dmaCopy.Count * 4),
 		}})
 
 		// Add a barrier after the buffer copy.
-		vk.CmdPipelineBarrier(cb,
+		vk.CmdPipelineBarrier(commandBuffer,
 			vk.PipelineStageFlags(vk.PipelineStageTransferBit),
 			vk.PipelineStageFlags(vk.PipelineStageTransferBit|vk.PipelineStageComputeShaderBit|vk.PipelineStageAllGraphicsBit),
 			0, 1, []vk.MemoryBarrier{{

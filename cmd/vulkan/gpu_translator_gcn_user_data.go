@@ -11,22 +11,22 @@ import (
 
 const UserDataBufferSize = 4 * 1024 * 1024
 
-func (t *GpuTranslator) UpdateUserDataBuffers(draws []gpu.LiverpoolDrawCall, dispatches []gpu.LiverpoolComputeDispatch) {
+func (t *GpuTranslator) UpdateUserDataBuffers(stream *gpu.LiverpoolCommandStream) {
 	t.userDataBuffersMutex.Lock()
 	defer t.userDataBuffersMutex.Unlock()
 
 	// Find unique hashes in current draw calls or dispatches.
 	activeHashes := make([]uint32, 0)
 	hashesSeen := make(map[uint32]bool)
-	for i := range draws {
-		hash := draws[i].UserDataHash
+	for i := range stream.Draws {
+		hash := stream.Draws[i].UserDataHash
 		if !hashesSeen[hash] {
 			activeHashes = append(activeHashes, hash)
 			hashesSeen[hash] = true
 		}
 	}
-	for i := range dispatches {
-		hash := dispatches[i].UserDataHash
+	for i := range stream.Dispatches {
+		hash := stream.Dispatches[i].UserDataHash
 		if !hashesSeen[hash] {
 			activeHashes = append(activeHashes, hash)
 			hashesSeen[hash] = true

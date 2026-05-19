@@ -19,11 +19,13 @@ type GraphicsPipelineKey struct {
 	VertexModuleAddress   uintptr
 	FragmentModuleAddress uintptr
 	RenderTargetAddress   uintptr
-	RenderPass            vk.RenderPass
-	Width                 uint32
-	Height                uint32
 
-	PrimType          uint32
+	// Pipeline options.
+	Width    uint32
+	Height   uint32
+	PrimType uint32
+
+	// Render control flags.
 	BlendAttachment   vk.PipelineColorBlendAttachmentState
 	DepthStencilState vk.PipelineDepthStencilStateCreateInfo
 	LogicOpEnable     vk.Bool32

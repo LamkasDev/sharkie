@@ -2,7 +2,6 @@ package vulkan
 
 import (
 	"fmt"
-	"hash/fnv"
 	"image"
 	"image/color"
 	"image/png"
@@ -17,9 +16,7 @@ import (
 )
 
 func (t *GpuTranslator) GetImageView(descriptor spirvStructs.ImageDescriptor) (vk.ImageView, error, bool) {
-	h := fnv.New64a()
-	h.Write([]byte(fmt.Sprintf("%v", descriptor)))
-	hash := h.Sum64()
+	hash := descriptor.Hash()
 
 	// Get already created image view.
 	t.imagesMutex.Lock()
@@ -152,9 +149,7 @@ func (t *GpuTranslator) GetImageView(descriptor spirvStructs.ImageDescriptor) (v
 }
 
 func (t *GpuTranslator) GetSampler(descriptor spirvStructs.SamplerDescriptor) (vk.Sampler, error) {
-	h := fnv.New64a()
-	h.Write([]byte(fmt.Sprintf("%v", descriptor)))
-	hash := h.Sum64()
+	hash := descriptor.Hash()
 
 	// Get already created sampler.
 	t.samplersMutex.Lock()

@@ -1,7 +1,10 @@
 package gpu
 
 import (
+	"math"
+
 	"github.com/LamkasDev/sharkie/cmd/logger"
+	. "github.com/LamkasDev/sharkie/cmd/structs/gcn"
 	"github.com/gookit/color"
 )
 
@@ -15,21 +18,7 @@ func (l *Liverpool) handleDrawIndexAuto(ringName string, payload []uint32) {
 
 	// Record draw.
 	count := payload[0]
-	drawCall := l.NewDrawCall(count, false)
-	l.StateMutex.Lock()
-	l.PendingDrawCalls = append(l.PendingDrawCalls, drawCall)
-	l.StateMutex.Unlock()
-
-	if LogPM4Packets {
-		logger.Printf("[%s] draw index auto (vertex=%s, prim=%s, rt=%s, vs=%s, ps=%s).\n",
-			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
-			color.Green.Sprintf("%d", count),
-			color.Green.Sprintf("%d", drawCall.PrimType),
-			color.Yellow.Sprintf("0x%X", drawCall.RtGpuAddress()),
-			color.Yellow.Sprintf("0x%X", drawCall.VertexShader.Address),
-			color.Yellow.Sprintf("0x%X", drawCall.PixelShader.Address),
-		)
-	}
+	l.recordDraw(ringName, count, false)
 }
 
 func (l *Liverpool) handleDrawIndex2(ringName string, payload []uint32) {
@@ -44,21 +33,198 @@ func (l *Liverpool) handleDrawIndex2(ringName string, payload []uint32) {
 	l.DrawState.IndexBase = uintptr(uint64(payload[1]) | uint64(payload[2])<<32)
 	l.DrawState.IndexBufferSize = payload[0]
 	count := payload[3]
-	drawCall := l.NewDrawCall(count, true)
+	l.recordDraw(ringName, count, true)
+}
+
+func (l *Liverpool) recordDraw(ringName string, count uint32, isIndexed bool) {
 	l.StateMutex.Lock()
-	l.PendingDrawCalls = append(l.PendingDrawCalls, drawCall)
-	l.StateMutex.Unlock()
+	defer l.StateMutex.Unlock()
+
+	// Construct pipeline state.
+	bindPipeline := LiverpoolBindPipeline{
+		VertexShader: l.GetShader(GcnShaderStageVertex, l.VsGpuAddress()),
+		PixelShader:  l.GetShader(GcnShaderStageFragment, l.PsGpuAddress()),
+		LiverpoolBindPipelineInternal: LiverpoolBindPipelineInternal{
+			PrimType: l.Registers.UserConfig[GREG_MM_VGT_PRIMITIVE_TYPE__CI__VI],
+
+			RtBase:         l.Registers.Context[GREG_MM_CB_COLOR0_BASE],
+			RtPitch:        l.Registers.Context[GREG_MM_CB_COLOR0_PITCH],
+			RtSlice:        l.Registers.Context[GREG_MM_CB_COLOR0_SLICE],
+			RtView:         l.Registers.Context[GREG_MM_CB_COLOR0_VIEW],
+			RtAttrib:       l.Registers.Context[GREG_MM_CB_COLOR0_ATTRIB],
+			RtTargetMask:   l.Registers.Context[GREG_MM_CB_TARGET_MASK],
+			RtColorControl: l.Registers.Context[GREG_MM_CB_COLOR_CONTROL],
+			RtBlendControl: l.Registers.Context[GREG_MM_CB_BLEND0_CONTROL],
+
+			RtFormat:               (l.Registers.Context[GREG_MM_CB_COLOR0_INFO] >> 2) & 0x1F,
+			RtNumberType:           (l.Registers.Context[GREG_MM_CB_COLOR0_INFO] >> 8) & 0x7,
+			RtCompSwap:             (l.Registers.Context[GREG_MM_CB_COLOR0_INFO] >> 11) & 0x3,
+			RtLinearGeneral:        (l.Registers.Context[GREG_MM_CB_COLOR0_INFO]>>7)&1 == 1,
+			RtFastClear:            (l.Registers.Context[GREG_MM_CB_COLOR0_INFO]>>13)&1 == 1,
+			RtCompression:          (l.Registers.Context[GREG_MM_CB_COLOR0_INFO]>>14)&1 == 1,
+			RtBlendClamp:           (l.Registers.Context[GREG_MM_CB_COLOR0_INFO]>>15)&1 == 1,
+			RtBlendBypass:          (l.Registers.Context[GREG_MM_CB_COLOR0_INFO]>>16)&1 == 1,
+			RtSimpleFloat:          (l.Registers.Context[GREG_MM_CB_COLOR0_INFO]>>17)&1 == 1,
+			RtRoundMode:            (l.Registers.Context[GREG_MM_CB_COLOR0_INFO] >> 18) & 1,
+			RtCmaskIsLinear:        (l.Registers.Context[GREG_MM_CB_COLOR0_INFO]>>19)&1 == 1,
+			RtBlendOptDontRdDst:    (l.Registers.Context[GREG_MM_CB_COLOR0_INFO] >> 20) & 0x7,
+			RtBlendOptDiscardPixel: (l.Registers.Context[GREG_MM_CB_COLOR0_INFO] >> 23) & 0x7,
+			RtFmaskCompressionDis:  (l.Registers.Context[GREG_MM_CB_COLOR0_INFO]>>26)&1 == 1,
+
+			DbZExportEnable:              (l.Registers.Context[GREG_MM_DB_SHADER_CONTROL]>>0)&1 == 1,
+			DbStencilTestValExportEnable: (l.Registers.Context[GREG_MM_DB_SHADER_CONTROL]>>1)&1 == 1,
+			DbStencilOpValExportEnable:   (l.Registers.Context[GREG_MM_DB_SHADER_CONTROL]>>2)&1 == 1,
+			DbZOrder:                     (l.Registers.Context[GREG_MM_DB_SHADER_CONTROL] >> 4) & 0x3,
+			DbKillEnable:                 (l.Registers.Context[GREG_MM_DB_SHADER_CONTROL]>>6)&1 == 1,
+			DbCoverageToMaskEnable:       (l.Registers.Context[GREG_MM_DB_SHADER_CONTROL]>>7)&1 == 1,
+			DbMaskExportEnable:           (l.Registers.Context[GREG_MM_DB_SHADER_CONTROL]>>8)&1 == 1,
+			DbExecOnHierFail:             (l.Registers.Context[GREG_MM_DB_SHADER_CONTROL]>>9)&1 == 1,
+			DbExecOnNoop:                 (l.Registers.Context[GREG_MM_DB_SHADER_CONTROL]>>10)&1 == 1,
+			DbAlphaToMaskDisable:         (l.Registers.Context[GREG_MM_DB_SHADER_CONTROL]>>11)&1 == 1,
+			DbDepthBeforeShader:          (l.Registers.Context[GREG_MM_DB_SHADER_CONTROL]>>12)&1 == 1,
+			DbConservativeZExport:        (l.Registers.Context[GREG_MM_DB_SHADER_CONTROL] >> 13) & 0x3,
+
+			DbDepthControl:    l.Registers.Context[GREG_MM_DB_DEPTH_CONTROL],
+			DbDepthClearValue: l.Registers.Context[GREG_MM_DB_DEPTH_CLEAR],
+			DbDepthSize:       l.Registers.Context[GREG_MM_DB_DEPTH_SIZE],
+			DbZWriteBase:      l.Registers.Context[GREG_MM_DB_Z_WRITE_BASE],
+			DbZFormat:         l.Registers.Context[GREG_MM_DB_Z_INFO] & 0x3,
+
+			DbStencilControl:    l.Registers.Context[GREG_MM_DB_STENCIL_CONTROL],
+			DbStencilClearValue: l.Registers.Context[GREG_MM_DB_STENCIL_CLEAR],
+
+			DbDepthClearEnable:   (l.Registers.Context[GREG_MM_DB_RENDER_CONTROL]>>0)&1 == 1,
+			DbStencilClearEnable: (l.Registers.Context[GREG_MM_DB_RENDER_CONTROL]>>1)&1 == 1,
+			DbDepthCopy:          (l.Registers.Context[GREG_MM_DB_RENDER_CONTROL]>>2)&1 == 1,
+			DbStencilCopy:        (l.Registers.Context[GREG_MM_DB_RENDER_CONTROL]>>3)&1 == 1,
+		},
+	}
+	bindPipeline.VertexShaderAddress = bindPipeline.VertexShader.Address
+	bindPipeline.PixelShaderAddress = bindPipeline.PixelShader.Address
+	if address := l.HsGpuAddress(); address != 0 {
+		bindPipeline.HullShader = l.GetShader(GcnShaderStageHull, address)
+		bindPipeline.HullShaderAddress = address
+	}
+	if address := l.EsGpuAddress(); address != 0 {
+		bindPipeline.EvalShader = l.GetShader(GcnShaderStageEvaluation, address)
+		bindPipeline.EvalShaderAddress = address
+	}
+	if address := l.GsGpuAddress(); address != 0 {
+		bindPipeline.GeometryShader = l.GetShader(GcnShaderStageGeometry, address)
+		bindPipeline.GeometryShaderAddress = address
+	}
+
+	// Add to command stream.
+	bindHash := bindPipeline.Hash()
+	bindIndex, ok := l.Stream.PipelinesMap[bindHash]
+	if !ok {
+		bindIndex = uint32(len(l.Stream.Pipelines))
+		l.Stream.Pipelines = append(l.Stream.Pipelines, bindPipeline)
+		l.Stream.PipelinesMap[bindHash] = bindIndex
+	}
+	l.Stream.Commands = append(l.Stream.Commands, LiverpoolCommand{Type: LiverpoolCommandTypeBindPipeline, Index: bindIndex})
+
+	// Construct dynamic state.
+	setDynamicState := LiverpoolSetDynamicState{
+		LiverpoolSetDynamicStateInternal: LiverpoolSetDynamicStateInternal{
+			VpXScale:  math.Float32frombits(l.Registers.Context[GREG_MM_PA_CL_VPORT_XSCALE]),
+			VpXOffset: math.Float32frombits(l.Registers.Context[GREG_MM_PA_CL_VPORT_XOFFSET]),
+			VpYScale:  math.Float32frombits(l.Registers.Context[GREG_MM_PA_CL_VPORT_YSCALE]),
+			VpYOffset: math.Float32frombits(l.Registers.Context[GREG_MM_PA_CL_VPORT_YOFFSET]),
+			VpZScale:  math.Float32frombits(l.Registers.Context[GREG_MM_PA_CL_VPORT_ZSCALE]),
+			VpZOffset: math.Float32frombits(l.Registers.Context[GREG_MM_PA_CL_VPORT_ZOFFSET]),
+			VpZMin:    math.Float32frombits(l.Registers.Context[GREG_MM_PA_SC_VPORT_ZMIN_0]),
+			VpZMax:    math.Float32frombits(l.Registers.Context[GREG_MM_PA_SC_VPORT_ZMAX_0]),
+
+			VteControl:      l.Registers.Context[GREG_MM_PA_CL_VTE_CNTL],
+			VpXScaleEnable:  (l.Registers.Context[GREG_MM_PA_CL_VTE_CNTL]>>0)&1 == 1,
+			VpXOffsetEnable: (l.Registers.Context[GREG_MM_PA_CL_VTE_CNTL]>>1)&1 == 1,
+			VpYScaleEnable:  (l.Registers.Context[GREG_MM_PA_CL_VTE_CNTL]>>2)&1 == 1,
+			VpYOffsetEnable: (l.Registers.Context[GREG_MM_PA_CL_VTE_CNTL]>>3)&1 == 1,
+			VpZScaleEnable:  (l.Registers.Context[GREG_MM_PA_CL_VTE_CNTL]>>4)&1 == 1,
+			VpZOffsetEnable: (l.Registers.Context[GREG_MM_PA_CL_VTE_CNTL]>>5)&1 == 1,
+			VtxXyFmt:        (l.Registers.Context[GREG_MM_PA_CL_VTE_CNTL]>>8)&1 == 1,
+			VtxZFmt:         (l.Registers.Context[GREG_MM_PA_CL_VTE_CNTL]>>9)&1 == 1,
+			VtxW0Fmt:        (l.Registers.Context[GREG_MM_PA_CL_VTE_CNTL]>>10)&1 == 1,
+
+			BlendRed:   l.Registers.Context[GREG_MM_CB_BLEND_RED],
+			BlendGreen: l.Registers.Context[GREG_MM_CB_BLEND_GREEN],
+			BlendBlue:  l.Registers.Context[GREG_MM_CB_BLEND_BLUE],
+			BlendAlpha: l.Registers.Context[GREG_MM_CB_BLEND_ALPHA],
+
+			ScissorTl: l.Registers.Context[GREG_MM_PA_SC_SCREEN_SCISSOR_TL],
+			ScissorBr: l.Registers.Context[GREG_MM_PA_SC_SCREEN_SCISSOR_BR],
+		},
+	}
+
+	// Add to command stream.
+	dynHash := setDynamicState.Hash()
+	dynIndex, ok := l.Stream.DynamicStatesMap[dynHash]
+	if !ok {
+		dynIndex = uint32(len(l.Stream.DynamicStates))
+		l.Stream.DynamicStates = append(l.Stream.DynamicStates, setDynamicState)
+		l.Stream.DynamicStatesMap[dynHash] = dynIndex
+	}
+	l.Stream.Commands = append(l.Stream.Commands, LiverpoolCommand{Type: LiverpoolCommandTypeSetDynamicState, Index: dynIndex})
+
+	// Construct draw.
+	draw := LiverpoolDraw{
+		LiverpoolDrawInternal: LiverpoolDrawInternal{
+			VertexCount:   count,
+			InstanceCount: max(l.DrawState.InstanceCount, 1),
+			PrimType:      bindPipeline.PrimType,
+			IsIndexed:     isIndexed,
+
+			IndexCount:       l.DrawState.IndexBufferSize,
+			IndexType:        l.DrawState.IndexType,
+			IndexBaseAddress: l.DrawState.IndexBase,
+			BaseVertexOffset: l.DrawState.BaseVertexOffset,
+
+			VertexShRsrc1:   l.Registers.Shader[GREG_MM_SPI_SHADER_PGM_RSRC1_VS],
+			VertexShRsrc2:   l.Registers.Shader[GREG_MM_SPI_SHADER_PGM_RSRC2_VS],
+			PixelShRsrc1:    l.Registers.Shader[GREG_MM_SPI_SHADER_PGM_RSRC1_PS],
+			PixelShRsrc2:    l.Registers.Shader[GREG_MM_SPI_SHADER_PGM_RSRC2_PS],
+			HullShRsrc1:     l.Registers.Shader[GREG_MM_SPI_SHADER_PGM_RSRC1_HS],
+			HullShRsrc2:     l.Registers.Shader[GREG_MM_SPI_SHADER_PGM_RSRC2_HS],
+			EvalShRsrc1:     l.Registers.Shader[GREG_MM_SPI_SHADER_PGM_RSRC1_ES],
+			EvalShRsrc2:     l.Registers.Shader[GREG_MM_SPI_SHADER_PGM_RSRC2_ES],
+			GeometryShRsrc1: l.Registers.Shader[GREG_MM_SPI_SHADER_PGM_RSRC1_GS],
+			GeometryShRsrc2: l.Registers.Shader[GREG_MM_SPI_SHADER_PGM_RSRC2_GS],
+
+			DbDepthClearEnable:   (l.Registers.Context[GREG_MM_DB_RENDER_CONTROL]>>0)&1 == 1,
+			DbStencilClearEnable: (l.Registers.Context[GREG_MM_DB_RENDER_CONTROL]>>1)&1 == 1,
+			DbDepthClearValue:    l.Registers.Context[GREG_MM_DB_DEPTH_CLEAR],
+			DbStencilClearValue:  l.Registers.Context[GREG_MM_DB_STENCIL_CLEAR],
+
+			UserDataHash: l.SnapshotUserData(),
+		},
+	}
+
+	// Add to command stream.
+	l.Stream.Draws = append(l.Stream.Draws, draw)
+	l.Stream.Commands = append(l.Stream.Commands, LiverpoolCommand{Type: LiverpoolCommandTypeDraw, Index: uint32(len(l.Stream.Draws) - 1)})
 
 	if LogPM4Packets {
-		logger.Printf("[%s] draw index 2 (index_count=%s, max_size=%s, index_base=%s, prim=%s, rt=%s, vs=%s, ps=%s).\n",
-			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
-			color.Green.Sprintf("%d", count),
-			color.Green.Sprintf("%d", l.DrawState.IndexBufferSize),
-			color.Yellow.Sprintf("0x%X", drawCall.IndexBaseAddress),
-			color.Green.Sprintf("%d", drawCall.PrimType),
-			color.Yellow.Sprintf("0x%X", drawCall.RtGpuAddress()),
-			color.Yellow.Sprintf("0x%X", drawCall.VertexShader.Address),
-			color.Yellow.Sprintf("0x%X", drawCall.PixelShader.Address),
-		)
+		if isIndexed {
+			logger.Printf("[%s] draw index 2 (index_count=%s, max_size=%s, index_base=%s, prim=%s, rt=%s, vs=%s, ps=%s).\n",
+				color.Green.Sprintf("PM4-%s", ringName),
+				color.Green.Sprintf("%d", count),
+				color.Green.Sprintf("%d", l.DrawState.IndexBufferSize),
+				color.Yellow.Sprintf("0x%X", draw.IndexBaseAddress),
+				color.Green.Sprintf("%d", draw.PrimType),
+				color.Yellow.Sprintf("0x%X", bindPipeline.RtBase),
+				color.Yellow.Sprintf("0x%X", bindPipeline.VertexShader.Address),
+				color.Yellow.Sprintf("0x%X", bindPipeline.PixelShader.Address),
+			)
+		} else {
+			logger.Printf("[%s] draw index auto (vertex=%s, prim=%s, rt=%s, vs=%s, ps=%s).\n",
+				color.Green.Sprintf("PM4-%s", ringName),
+				color.Green.Sprintf("%d", count),
+				color.Green.Sprintf("%d", draw.PrimType),
+				color.Yellow.Sprintf("0x%X", bindPipeline.RtBase),
+				color.Yellow.Sprintf("0x%X", bindPipeline.VertexShader.Address),
+				color.Yellow.Sprintf("0x%X", bindPipeline.PixelShader.Address),
+			)
+		}
 	}
 }

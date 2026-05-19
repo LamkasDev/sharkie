@@ -1,37 +1,6 @@
 package structs
 
-type SamplerDescriptor struct {
-	ClampX            uint8
-	ClampY            uint8
-	ClampZ            uint8
-	MaxAnisoRatio     uint8
-	DepthCompareFunc  uint8
-	ForceUnnormalized bool
-	AnisoThreshold    uint8
-	McCoordTrunc      bool
-	ForceDegamma      bool
-	AnisoBias         float32
-	TruncCoord        bool
-	DisableCubeWrap   bool
-	FilterMode        uint8
-
-	MinLod  float32
-	MaxLod  float32
-	PerfMip uint8
-	PerfZ   uint8
-
-	LodBias          float32
-	LodBiasSec       float32
-	XyMagFilter      uint8
-	XyMinFilter      uint8
-	ZFilter          uint8
-	MipFilter        uint8
-	MipPointPreclamp bool
-	DisableLsbCeil   bool
-
-	BorderColorPtr  uint16
-	BorderColorType uint8
-}
+import "github.com/cespare/xxhash"
 
 func NewSamplerDescriptor(dwords []uint32) *SamplerDescriptor {
 	isSamplerZero := true
@@ -84,4 +53,9 @@ func NewSamplerDescriptor(dwords []uint32) *SamplerDescriptor {
 		BorderColorPtr:  uint16(dwords[3] & 0xFFF),
 		BorderColorType: uint8((dwords[3] >> 30) & 0x3),
 	}
+}
+
+func (z *SamplerDescriptor) Hash() uint64 {
+	data, _ := z.MarshalHash()
+	return xxhash.Sum64(data)
 }

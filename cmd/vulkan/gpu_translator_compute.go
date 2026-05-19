@@ -12,7 +12,11 @@ import (
 	"github.com/gookit/color"
 )
 
-func (t *GpuTranslator) dispatchCompute(frame uint64, commandBuffer vk.CommandBuffer, dispatch *gpu.LiverpoolComputeDispatch) {
+func (t *GpuTranslator) Dispatch(frame uint64, commandBuffer vk.CommandBuffer, dispatch *gpu.LiverpoolDispatch) {
+	if t.activePass != vk.NullRenderPass {
+		t.EndRenderPass(commandBuffer)
+	}
+
 	// Get shader module.
 	csSpirv := t.GetShaderWithContext(dispatch.ComputeShader, spirv.SpirvShaderContext{
 		ThreadX: dispatch.ThreadX,
