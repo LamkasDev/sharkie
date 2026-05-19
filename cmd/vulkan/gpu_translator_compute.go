@@ -7,7 +7,6 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/spirv"
 	spirvStructs "github.com/LamkasDev/sharkie/cmd/spirv/structs"
 	. "github.com/LamkasDev/sharkie/cmd/structs"
-	"github.com/LamkasDev/sharkie/cmd/structs/gcn"
 	"github.com/LamkasDev/sharkie/cmd/structs/gpu"
 	vk "github.com/goki/vulkan"
 	"github.com/gookit/color"
@@ -50,26 +49,14 @@ func (t *GpuTranslator) dispatchCompute(frame uint64, commandBuffer vk.CommandBu
 	t.userDataBuffersMutex.Lock()
 	userDataOffset := t.userDataOffsets[dispatch.UserDataHash]
 	t.userDataBuffersMutex.Unlock()
-	userData := gpu.GlobalUserDataSnapshots[dispatch.UserDataHash]
-
-	// Bind texel buffers.
-	formatSizes, formatStrides := t.BindTexelBuffers(commandBuffer, userData[:], gcn.GcnShaderStageCompute, spirvStructs.DescriptorSetSlotTexel, vk.PipelineBindPointCompute)
 
 	// Push constants to shader.
 	pushData := spirvStructs.PushConstants{
-		UserDataAddress:          t.userDataBufferAddress + uint64(userDataOffset),
-		OnionMemoryBaseAddress:   GlobalAllocator.DeviceAddress,
-		GarlicMemoryBaseAddress:  GlobalGpuAllocator.DeviceAddress,
-		TexelBuffer0FormatSize:   formatSizes[0],
-		TexelBuffer1FormatSize:   formatSizes[1],
-		TexelBuffer2FormatSize:   formatSizes[2],
-		TexelBuffer3FormatSize:   formatSizes[3],
-		TexelBuffer0FormatStride: formatStrides[0],
-		TexelBuffer1FormatStride: formatStrides[1],
-		TexelBuffer2FormatStride: formatStrides[2],
-		TexelBuffer3FormatStride: formatStrides[3],
-		UserSgprCount:            gpu.DecodeUserSgprCount(dispatch.ComputeShRsrc2),
-		ShaderRsrc2:              dispatch.ComputeShRsrc2,
+		UserDataAddress:         t.userDataBufferAddress + uint64(userDataOffset),
+		OnionMemoryBaseAddress:  GlobalAllocator.DeviceAddress,
+		GarlicMemoryBaseAddress: GlobalGpuAllocator.DeviceAddress,
+		UserSgprCount:           gpu.DecodeUserSgprCount(dispatch.ComputeShRsrc2),
+		ShaderRsrc2:             dispatch.ComputeShRsrc2,
 	}
 	vk.CmdPushConstants(
 		commandBuffer, t.pipelineLayout,

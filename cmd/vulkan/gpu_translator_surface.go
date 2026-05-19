@@ -12,11 +12,11 @@ type GpuSurface struct {
 	Value     VulkanSurface
 	TextureId imgui.TextureRef
 
-	// firstUse tracks whether the image has been transitioned from UNDEFINED.
-	firstUse bool
+	// FirstUse tracks whether the image has been transitioned from UNDEFINED.
+	FirstUse bool
 
-	// frameUsed tracks the last frame this surface was used in.
-	frameUsed uint64
+	// FrameUsed tracks the last frame this surface was used in.
+	FrameUsed uint64
 }
 
 func (s *GpuSurface) Destroy(device vk.Device) {
@@ -54,7 +54,7 @@ func (t *GpuTranslator) GetSurface(request SurfaceRequest) (*GpuSurface, error) 
 	surface = &GpuSurface{
 		Key:      request.SurfaceKey,
 		Value:    vulkanSurface,
-		firstUse: true,
+		FirstUse: true,
 	}
 	t.surfaces[request.SurfaceKey] = surface
 	t.surfacesMutex.Unlock()

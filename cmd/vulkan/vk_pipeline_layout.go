@@ -48,37 +48,6 @@ func (t *GpuTranslator) createStubPipelineLayout() error {
 	}
 	t.bindlessDescriptorSetLayout = stubLayout
 
-	// Create descriptor set layout for texel buffers.
-	var texelLayout vk.DescriptorSetLayout
-	texelBindings := make([]vk.DescriptorSetLayoutBinding, 4)
-	texelBindingFlagsArray := make([]vk.DescriptorBindingFlags, 4)
-	for i := range 4 {
-		texelBindings[i] = vk.DescriptorSetLayoutBinding{
-			Binding:            uint32(i),
-			DescriptorType:     vk.DescriptorTypeUniformTexelBuffer,
-			DescriptorCount:    1,
-			StageFlags:         vk.ShaderStageFlags(vk.ShaderStageVertexBit | vk.ShaderStageFragmentBit),
-			PImmutableSamplers: nil,
-		}
-		texelBindingFlagsArray[i] = vk.DescriptorBindingFlags(vk.DescriptorBindingUpdateAfterBindBit | vk.DescriptorBindingPartiallyBoundBit)
-	}
-	texelBindingFlags := vk.DescriptorSetLayoutBindingFlagsCreateInfo{
-		SType:         vk.StructureTypeDescriptorSetLayoutBindingFlagsCreateInfo,
-		PBindingFlags: texelBindingFlagsArray,
-		BindingCount:  4,
-	}
-	result = vk.CreateDescriptorSetLayout(t.handles.Device, &vk.DescriptorSetLayoutCreateInfo{
-		SType:        vk.StructureTypeDescriptorSetLayoutCreateInfo,
-		PNext:        unsafe.Pointer(&texelBindingFlags),
-		PBindings:    texelBindings,
-		BindingCount: 4,
-		Flags:        vk.DescriptorSetLayoutCreateFlags(vk.DescriptorSetLayoutCreateUpdateAfterBindPoolBit),
-	}, nil, &texelLayout)
-	if err := as.NewError(result); err != nil {
-		return err
-	}
-	t.texelDescriptorSetLayout = texelLayout
-
 	// Create descriptor set layout for discovery.
 	var discoveryLayout vk.DescriptorSetLayout
 	discoveryBindings := []vk.DescriptorSetLayoutBinding{
@@ -124,12 +93,10 @@ func (t *GpuTranslator) createStubPipelineLayout() error {
 		},
 		PushConstantRangeCount: 2,
 		PSetLayouts: []vk.DescriptorSetLayout{
-			spirvStructs.DescriptorSetSlotBindless:       t.bindlessDescriptorSetLayout,
-			spirvStructs.DescriptorSetSlotDiscovery:      t.discoveryDescriptorSetLayout,
-			spirvStructs.DescriptorSetSlotTexel:          t.texelDescriptorSetLayout,
-			spirvStructs.DescriptorSetSlotTexelSecondary: t.texelDescriptorSetLayout,
+			spirvStructs.DescriptorSetSlotBindless:  t.bindlessDescriptorSetLayout,
+			spirvStructs.DescriptorSetSlotDiscovery: t.discoveryDescriptorSetLayout,
 		},
-		SetLayoutCount: 4,
+		SetLayoutCount: 2,
 	}, nil, &layout)
 	if err := as.NewError(result); err != nil {
 		return err

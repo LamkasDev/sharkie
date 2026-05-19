@@ -80,10 +80,6 @@ func (ctx *SpirvBlockContext) SetGcnVgprId(b *SpvBuilder, reg uint32, value Spir
 	b.EmitStore(ctx.GetGcnVgprPtr(b, reg), value)
 }
 
-func (ctx *SpirvBlockContext) GetTexelBufferVariable(binding uint32) SpirvId {
-	return ctx.GetId(BlockContextIdTexelBuffer0 + SpirvId(binding))
-}
-
 func (ctx *SpirvBlockContext) GetGcnSpecialId(specialId SpirvId) SpirvId {
 	id := ctx.GcnSpecialIds[specialId]
 	if id.Id == 0 {
@@ -264,9 +260,7 @@ func (ctx *SpirvBlockContext) LoadPushConstantValue(b *SpvBuilder, i uint32) Spi
 	case PushConstantOnionMemoryBaseAddress, PushConstantGarlicMemoryBaseAddress:
 		valType = ctx.GetId(BlockContextIdTypeUint64)
 		ptrType = ctx.GetId(BlockContextIdPtrPcUint64)
-	case PushConstantTexelBuffer0FormatSize, PushConstantTexelBuffer1FormatSize, PushConstantTexelBuffer2FormatSize, PushConstantTexelBuffer3FormatSize,
-		PushConstantTexelBuffer0FormatStride, PushConstantTexelBuffer1FormatStride, PushConstantTexelBuffer2FormatStride, PushConstantTexelBuffer3FormatStride,
-		PushConstantUserSgprCount, PushConstantShaderRsrc2:
+	case PushConstantUserSgprCount, PushConstantShaderRsrc2, PushConstantVteControl:
 		valType = ctx.GetId(BlockContextIdTypeUint)
 		ptrType = ctx.GetId(BlockContextIdPtrPcUint)
 	default:

@@ -210,7 +210,6 @@ func (app *Application) VulkanDeviceCreateNext() unsafe.Pointer {
 		ShaderSampledImageArrayNonUniformIndexing:    vk.True,
 		ScalarBlockLayout:   vk.True,
 		BufferDeviceAddress: vk.True,
-		DescriptorBindingUniformTexelBufferUpdateAfterBind: vk.True,
 	}
 	features2 := &vk.PhysicalDeviceFeatures2{
 		SType: vk.StructureTypePhysicalDeviceFeatures2,

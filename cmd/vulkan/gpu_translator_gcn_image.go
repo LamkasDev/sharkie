@@ -4,6 +4,21 @@ import (
 	vk "github.com/goki/vulkan"
 )
 
+func translateBorderColorType(borderColor uint8) vk.BorderColor {
+	switch borderColor {
+	case 0: // opaque-black
+		return vk.BorderColorIntOpaqueBlack
+	case 1: // transparent-black
+		return vk.BorderColorIntTransparentBlack
+	case 2: // white
+		return vk.BorderColorIntOpaqueWhite
+	case 3: // TODO: use border color ptr
+		return vk.BorderColorIntTransparentBlack
+	default:
+		return vk.BorderColorIntTransparentBlack
+	}
+}
+
 func translateClampMode(mode uint8) vk.SamplerAddressMode {
 	switch mode {
 	case 0: // wrap

@@ -97,10 +97,6 @@ const (
 	BlockContextIdInstanceIndex
 	BlockContextIdFragCoord
 	BlockContextIdTypeImageBuffer
-	BlockContextIdTexelBuffer0
-	BlockContextIdTexelBuffer1
-	BlockContextIdTexelBuffer2
-	BlockContextIdTexelBuffer3
 	BlockContextIdGlobalDescriptorMap
 	BlockContextIdMissingResourceBuffer
 	BlockContextIdWorkgroupId
@@ -125,6 +121,7 @@ const (
 	ConstIdUint19                  = SpirvId(19)
 	ConstIdUint21                  = SpirvId(21)
 	ConstIdUint23                  = SpirvId(23)
+	ConstIdUint24                  = SpirvId(24)
 	ConstIdUint30                  = SpirvId(30)
 	ConstIdUint31                  = SpirvId(31)
 	ConstIdUint32                  = SpirvId(32)
@@ -133,20 +130,27 @@ const (
 	ConstIdUint63                  = SpirvId(63)
 	ConstIdUint127                 = SpirvId(127)
 	ConstIdUint7F                  = ConstIdUint127
+	ConstIdUint255                 = SpirvId(255)
 	ConstIdUint256                 = SpirvId(256)
 	ConstIdUint3FFF                = SpirvId(257)
 	ConstIdUintFFFF                = SpirvId(258)
 	ConstIdUint11111111            = SpirvId(259)
 	ConstIdUintFFFFFFFF            = SpirvId(260)
-	ConstId64Uint0                 = SpirvId(261)
-	ConstId64Uint1                 = SpirvId(262)
-	ConstId64Uint32                = SpirvId(263)
-	ConstId64UintNot3              = SpirvId(264)
-	ConstId64UintOnionBaseAddress  = SpirvId(265)
-	ConstId64UintGarlicBaseAddress = SpirvId(266)
-	ConstIdFloat0                  = SpirvId(267)
-	ConstIdFloat1                  = SpirvId(268)
-	ConstIdFloat05                 = SpirvId(269)
+	ConstIdUintFFFFFFFFC           = SpirvId(261)
+	ConstId64Uint0                 = SpirvId(262)
+	ConstId64Uint1                 = SpirvId(263)
+	ConstId64Uint4                 = SpirvId(264)
+	ConstId64Uint8                 = SpirvId(265)
+	ConstId64Uint12                = SpirvId(266)
+	ConstId64Uint32                = SpirvId(267)
+	ConstId64UintNot3              = SpirvId(268)
+	ConstId64UintOnionBaseAddress  = SpirvId(269)
+	ConstId64UintGarlicBaseAddress = SpirvId(270)
+	ConstIdFloat0                  = SpirvId(271)
+	ConstIdFloat1                  = SpirvId(272)
+	ConstIdFloat05                 = SpirvId(273)
+	ConstIdFloat255                = SpirvId(274)
+	ConstIdFloat65535              = SpirvId(275)
 )
 
 const (
@@ -196,17 +200,10 @@ const (
 )
 
 const (
-	PushConstantUserDataAddress          = 0
-	PushConstantOnionMemoryBaseAddress   = 1
-	PushConstantGarlicMemoryBaseAddress  = 2
-	PushConstantTexelBuffer0FormatSize   = 3
-	PushConstantTexelBuffer1FormatSize   = 4
-	PushConstantTexelBuffer2FormatSize   = 5
-	PushConstantTexelBuffer3FormatSize   = 6
-	PushConstantTexelBuffer0FormatStride = 7
-	PushConstantTexelBuffer1FormatStride = 8
-	PushConstantTexelBuffer2FormatStride = 9
-	PushConstantTexelBuffer3FormatStride = 10
-	PushConstantUserSgprCount            = 11
-	PushConstantShaderRsrc2              = 12
+	PushConstantUserDataAddress         = 0
+	PushConstantOnionMemoryBaseAddress  = 1
+	PushConstantGarlicMemoryBaseAddress = 2
+	PushConstantUserSgprCount           = 3
+	PushConstantShaderRsrc2             = 4
+	PushConstantVteControl              = 5
 )

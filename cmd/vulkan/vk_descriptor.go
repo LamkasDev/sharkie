@@ -2,7 +2,6 @@ package vulkan
 
 import (
 	"fmt"
-	"unsafe"
 
 	as "github.com/LamkasDev/asche"
 	spirvStructs "github.com/LamkasDev/sharkie/cmd/spirv/structs"
@@ -14,10 +13,6 @@ func (t *GpuTranslator) createDescriptorPool() error {
 	result := vk.CreateDescriptorPool(t.handles.Device, &vk.DescriptorPoolCreateInfo{
 		SType: vk.StructureTypeDescriptorPoolCreateInfo,
 		PPoolSizes: []vk.DescriptorPoolSize{
-			{
-				Type:            vk.DescriptorTypeUniformTexelBuffer,
-				DescriptorCount: 8192,
-			},
 			{
 				Type:            vk.DescriptorTypeCombinedImageSampler,
 				DescriptorCount: 8192,
@@ -39,22 +34,6 @@ func (t *GpuTranslator) createDescriptorPool() error {
 		return fmt.Errorf("create descriptor pool: %w", err)
 	}
 	t.descriptorPool = pool
-
-	// Allocate texel descriptor sets.
-	t.texelDescriptorSets = make([]vk.DescriptorSet, 1024)
-	texelLayouts := make([]vk.DescriptorSetLayout, 1024)
-	for i := range 1024 {
-		texelLayouts[i] = t.texelDescriptorSetLayout
-	}
-	result = vk.AllocateDescriptorSets(t.handles.Device, &vk.DescriptorSetAllocateInfo{
-		SType:              vk.StructureTypeDescriptorSetAllocateInfo,
-		DescriptorPool:     t.descriptorPool,
-		DescriptorSetCount: 1024,
-		PSetLayouts:        texelLayouts,
-	}, unsafe.SliceData(t.texelDescriptorSets))
-	if err := as.NewError(result); err != nil {
-		return fmt.Errorf("allocate texel descriptor sets: %w", err)
-	}
 
 	// Allocate discovery descriptor set.
 	var discoverySet vk.DescriptorSet

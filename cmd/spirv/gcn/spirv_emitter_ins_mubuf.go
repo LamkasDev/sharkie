@@ -12,15 +12,6 @@ func EmitMUBUF(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext
 	details := instr.Details.(*gcnSpec.MubufDetails)
 	typeUint := ctx.GetId(BlockContextIdTypeUint)
 	typeFloat := ctx.GetId(BlockContextIdTypeFloat)
-	typeVec4 := ctx.GetId(BlockContextIdTypeV4Float)
-	typeImageBuffer := ctx.GetId(BlockContextIdTypeImageBuffer)
-
-	// Load the texel buffer image from the descriptor set.
-	texelBufferVar := ctx.GetTexelBufferVariable(details.Srsrc)
-	image := b.EmitLoad(typeImageBuffer, texelBufferVar)
-
-	// Load the format size and stride for this specific buffer from push constant.
-	formatSize := ctx.LoadPushConstantValue(b, PushConstantTexelBuffer0FormatSize+details.Srsrc)
 
 	// index = (inst_idxen ? vgpr_index : 0).
 	index := ctx.GetConstId(ConstIdUint0)
@@ -45,31 +36,28 @@ func EmitMUBUF(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext
 	}
 
 	// mem_offset (scalar byte offset, aka sgpr_offset).
-	memOffset := ctx.GetOperandUintValue(b, details.Soffset, 0)
+	sgprOffset := ctx.GetOperandUintValue(b, details.Soffset, 0)
 
 	// Load buffer resource for stride and other params.
 	res := structs.NewBufferResource(b, ctx, details.Srsrc)
 
-	// Calculate final byte offset (buffer_offset in spec, DOES NOT include mem_offset).
-	bufferOffset := structs.CalculateBufferOffset(b, ctx, res.Stride, res.SwizzleEn, res.ElementSize, res.IndexStride, res.AddTidEnable, index, offset)
+	// Calculate buffer offset.
+	bufferOffset := structs.CalculateBufferOffset(b, ctx, res, index, offset)
 
-	// Perform range check (requires bufferOffset and memOffset separately).
+	// Perform range check.
 	typeBool := ctx.GetId(BlockContextIdTypeBool)
 	idxenId := ctx.GetId(BlockContextIdFalse)
 	if details.Idxen {
 		idxenId = ctx.GetId(BlockContextIdTrue)
 	}
 	idxenOrAddTidEnable := b.EmitLogicalOr(typeBool, idxenId, res.AddTidEnable)
-	outOfRange := structs.CalculateBufferRangeCheck(b, ctx, res, memOffset, index, offset, bufferOffset, idxenOrAddTidEnable)
+	outOfRange := structs.CalculateBufferRangeCheck(b, ctx, res, index, offset, bufferOffset, sgprOffset, idxenOrAddTidEnable)
 
-	// Final byte address for coordinated access: buffer_offset + mem_offset.
-	byteOffset := b.EmitIAdd(typeUint, bufferOffset, memOffset)
+	// Byte address for coordinated access (buffer_offset + mem_offset).
+	byteOffset := b.EmitIAdd(typeUint, bufferOffset, sgprOffset)
 
-	// TexelCoord = byteOffset / formatSize.
-	coord := b.EmitUDiv(typeUint, byteOffset, formatSize)
-
-	// Fetch the formatted texel.
-	fetchedVec4 := b.EmitImageFetch(typeVec4, image, coord, 0)
+	// Fetch the components and unpack.
+	fetchedVec4 := structs.EmitFormatUnpackHelper(b, ctx, res.BaseAddress, byteOffset, res.Dw3, uint32(details.Op))
 
 	// Determine how many components to store.
 	var count uint32
@@ -86,10 +74,33 @@ func EmitMUBUF(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext
 		panic(fmt.Sprintf("unknown mubuf op %s", gcnSpec.Mnemotics[gcnSpec.EncMUBUF][details.Op]))
 	}
 
-	// If out of range, result is zero.
+	// Pre-extract all 4 components.
+	compR := b.EmitCompositeExtract(typeFloat, fetchedVec4, 0)
+	compG := b.EmitCompositeExtract(typeFloat, fetchedVec4, 1)
+	compB := b.EmitCompositeExtract(typeFloat, fetchedVec4, 2)
+	compA := b.EmitCompositeExtract(typeFloat, fetchedVec4, 3)
+
+	// Put components in correct slots.
 	for i := range count {
-		// Extract X, Y, Z, or W.
-		compFloat := b.EmitCompositeExtract(typeFloat, fetchedVec4, i)
+		// Extract destination selector for current channel.
+		shiftAmount := ctx.GetConstId(ConstIdUint0 + SpirvId(i*3))
+		shiftedDword := b.EmitShiftRightLogical(typeUint, res.Dw3, shiftAmount)
+		dstSel := b.EmitBitwiseAnd(typeUint, shiftedDword, b.EmitConstantUint(typeUint, 7))
+
+		// Generate conditions for selectors.
+		is0 := b.EmitIEqual(typeBool, dstSel, ctx.GetConstId(ConstIdUint0))
+		is1 := b.EmitIEqual(typeBool, dstSel, ctx.GetConstId(ConstIdUint1))
+		isR := b.EmitIEqual(typeBool, dstSel, ctx.GetConstId(ConstIdUint4))
+		isG := b.EmitIEqual(typeBool, dstSel, ctx.GetConstId(ConstIdUint5))
+		isB := b.EmitIEqual(typeBool, dstSel, ctx.GetConstId(ConstIdUint6))
+
+		// Build selection chain (default to A).
+		compFloat := compA
+		compFloat = b.EmitSelect(typeFloat, isB, compB, compFloat)
+		compFloat = b.EmitSelect(typeFloat, isG, compG, compFloat)
+		compFloat = b.EmitSelect(typeFloat, isR, compR, compFloat)
+		compFloat = b.EmitSelect(typeFloat, is1, ctx.GetConstId(ConstIdFloat1), compFloat)
+		compFloat = b.EmitSelect(typeFloat, is0, ctx.GetConstId(ConstIdFloat0), compFloat)
 
 		// Select between 0.0 and the fetched value.
 		selectedFloat := b.EmitSelect(typeFloat, outOfRange, ctx.GetConstId(ConstIdFloat0), compFloat)
@@ -97,15 +108,4 @@ func EmitMUBUF(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext
 		// Store results back into VGPRs.
 		ctx.StoreRegisterPointerMasked(b, gcnSpec.OpVgpr0+details.Vdata+i, b.EmitBitcast(typeUint, selectedFloat))
 	}
-
-	/* formatId := b.EmitString(fmt.Sprintf("Mubuf 0x%X %%d: pos=(%%f, %%f, %%f, %%f)\n", instr.DwordOffset))
-	vertexIndexId := b.EmitLoad(ctx.GetId(BlockContextIdTypeUint), ctx.GetId(BlockContextIdVertexIndex))
-
-	px := b.EmitCompositeExtract(typeFloat, fetchedVec4, 0)
-	py := b.EmitCompositeExtract(typeFloat, fetchedVec4, 1)
-	pz := b.EmitCompositeExtract(typeFloat, fetchedVec4, 2)
-	pw := b.EmitCompositeExtract(typeFloat, fetchedVec4, 3)
-
-	b.EmitExtInst(ctx.GetId(BlockContextIdTypeVoid), ctx.GetId(BlockContextIdDebugPrintf), 1,
-		formatId, vertexIndexId, px, py, pz, pw) */
 }

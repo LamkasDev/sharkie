@@ -68,13 +68,6 @@ func (t *GpuTranslator) FulfillResources(frame uint64) uint32 {
 		}
 		imageDescriptor := spirvStructs.NewImageDescriptor(dwords[0:8])
 		samplerDescriptor := spirvStructs.NewSamplerDescriptor(dwords[8:12])
-		isSamplerZero := true
-		for j := 8; j < 12; j++ {
-			if dwords[j] != 0 {
-				isSamplerZero = false
-				break
-			}
-		}
 
 		// Calculate hash index (must match SPIR-V hash).
 		hash := uint32(0)
@@ -89,43 +82,6 @@ func (t *GpuTranslator) FulfillResources(frame uint64) uint32 {
 		if _, ok := t.discoveryImageSamplerMap[samplerKey]; ok {
 			continue
 		}
-		noSamplerKey := spirvStructs.NewImageIdentityKey(imageDescriptor)
-
-		// Alias image descriptors.
-		if isSamplerZero {
-			// If sampler key was discovered first for this image, reuse its index.
-			if vkIndex, ok := t.discoveryImageNoSamplerMap[noSamplerKey]; ok {
-				t.discoveryImageSamplerMap[samplerKey] = vkIndex
-				binary.LittleEndian.PutUint32(discoveryMapData[hashIndex*4:hashIndex*4+4], vkIndex)
-				logger.Printf("[%s] aliased no-sampler resource from %s to existing vulkanIndex=%s.\n",
-					color.Blue.Sprintf("Frame %d", frame),
-					color.Blue.Sprintf("0x%X", imageDescriptor.BaseAddress),
-					color.Green.Sprint(vkIndex),
-				)
-				continue
-			}
-		} else {
-			// If no-sampler key was discovered first for this image, reuse its index.
-			if vkIndex, ok := t.discoveryImageNoSamplerMap[noSamplerKey]; ok {
-				t.discoveryImageSamplerMap[samplerKey] = vkIndex
-				binary.LittleEndian.PutUint32(discoveryMapData[hashIndex*4:hashIndex*4+4], vkIndex)
-
-				// Ensure sampled descriptor at aliased index uses the actual sampler variant.
-				if view, _ := t.GetImageView(imageDescriptor); view != vk.NullImageView {
-					sampler := t.GetSampler(samplerDescriptor)
-					if sampler != vk.NullSampler {
-						t.updateBindlessDescriptorSet(vkIndex, view, sampler)
-					}
-				}
-
-				logger.Printf("[%s] aliased sampled resource from %s to existing no-sampler vulkanIndex=%s.\n",
-					color.Blue.Sprintf("Frame %d", frame),
-					color.Blue.Sprintf("0x%X", imageDescriptor.BaseAddress),
-					color.Green.Sprint(vkIndex),
-				)
-				continue
-			}
-		}
 		logger.Printf("[%s] new resource found (hashIndex=%s, imageDescriptor=%s, samplerDescriptor=%s).\n",
 			color.Blue.Sprintf("Frame %d", frame),
 			color.Blue.Sprintf("0x%X", hashIndex),
@@ -133,43 +89,68 @@ func (t *GpuTranslator) FulfillResources(frame uint64) uint32 {
 			color.Blue.Sprintf("%v", samplerDescriptor),
 		)
 
-		// Create host resources.
-		view, isNew := t.GetImageView(imageDescriptor)
-		sampler := t.GetSampler(samplerDescriptor)
-		if view != vk.NullImageView && sampler != vk.NullSampler {
-			vkIndex := t.discoveryNextVulkanIndex
-			t.discoveryNextVulkanIndex++
+		// Alias if it was first discovered without sampler.
+		var noSamplerKey spirvStructs.ImageNoSamplerKey
+		copy(noSamplerKey[:], dwords[0:8])
+		if vkIndex, ok := t.discoveryImageNoSamplerMap[noSamplerKey]; ok {
 			t.discoveryImageSamplerMap[samplerKey] = vkIndex
-			if _, ok := t.discoveryImageNoSamplerMap[noSamplerKey]; !ok {
-				t.discoveryImageNoSamplerMap[noSamplerKey] = vkIndex
-			}
-			logger.Printf("[%s] fulfilled resource from %s (vulkanIndex=%s, isNew=%v).\n",
+			binary.LittleEndian.PutUint32(discoveryMapData[hashIndex*4:hashIndex*4+4], vkIndex)
+			logger.Printf("[%s] aliased resource from %s to existing vulkanIndex=%s.\n",
 				color.Blue.Sprintf("Frame %d", frame),
 				color.Blue.Sprintf("0x%X", imageDescriptor.BaseAddress),
 				color.Green.Sprint(vkIndex),
-				isNew,
 			)
 
-			// Upload image to GPU only if it's new.
-			if isNew {
-				_, bytesPerPixel := TranslateGcnFormat(imageDescriptor.DataFormat, imageDescriptor.NumFormat)
-				t.uploadBufferDataToImage(imageDescriptor.BaseAddress, t.images[imageDescriptor.BaseAddress], imageDescriptor.Width, imageDescriptor.Height, imageDescriptor.Pitch, bytesPerPixel, uint32(imageDescriptor.BaseLevel))
+			// Add the new sampler.
+			if samplerDescriptor == nil {
+				panic("no sampler to alias")
 			}
-
-			// Update discovery map.
-			binary.LittleEndian.PutUint32(discoveryMapData[hashIndex*4:hashIndex*4+4], vkIndex)
-
-			// Update bindless set.
+			view, err, _ := t.GetImageView(imageDescriptor)
+			if err != nil {
+				panic(fmt.Errorf("failed to create image view resource: %w", err))
+			}
+			sampler, err := t.GetSampler(*samplerDescriptor)
+			if err != nil {
+				panic(fmt.Errorf("failed to create sampler resource: %w", err))
+			}
 			t.updateBindlessDescriptorSet(vkIndex, view, sampler)
-		} else {
-			logger.Printf("[%s] failed fulfillment for resource from %s.\n",
-				color.Blue.Sprintf("Frame %d", frame),
-				color.Blue.Sprintf("0x%X", imageDescriptor.BaseAddress),
-			)
-
-			// Reset the map entry so it can be retried.
-			binary.LittleEndian.PutUint32(discoveryMapData[hashIndex*4:hashIndex*4+4], 0)
+			continue
 		}
+
+		// Create host resources.
+		view, err, isImageNew := t.GetImageView(imageDescriptor)
+		if err != nil {
+			panic(fmt.Errorf("failed to create image view resource: %w", err))
+		}
+		sampler := t.defaultSampler
+		if samplerDescriptor != nil {
+			sampler, err = t.GetSampler(*samplerDescriptor)
+			if err != nil {
+				panic(fmt.Errorf("failed to create sampler resource: %w", err))
+			}
+		}
+
+		// Update our maps.
+		vkIndex := t.discoveryNextVulkanIndex
+		t.discoveryNextVulkanIndex++
+		t.discoveryImageNoSamplerMap[noSamplerKey] = vkIndex
+		t.discoveryImageSamplerMap[samplerKey] = vkIndex
+		logger.Printf("[%s] fulfilled resource from %s (vulkanIndex=%s).\n",
+			color.Blue.Sprintf("Frame %d", frame),
+			color.Blue.Sprintf("0x%X", imageDescriptor.BaseAddress),
+			color.Green.Sprint(vkIndex),
+		)
+
+		// Upload image to GPU (only if new image).
+		if isImageNew {
+			t.uploadBufferDataToImage(imageDescriptor, t.images[imageDescriptor.BaseAddress])
+		}
+
+		// Update discovery map.
+		binary.LittleEndian.PutUint32(discoveryMapData[hashIndex*4:hashIndex*4+4], vkIndex)
+
+		// Update bindless set.
+		t.updateBindlessDescriptorSet(vkIndex, view, sampler)
 	}
 
 	// Reset counter for next time.
@@ -182,7 +163,7 @@ func (t *GpuTranslator) DebugResources(frame uint64) {
 	for _, descriptor := range t.imageDescriptors {
 		preview := []uint32{}
 		if _, _, err := t.GetBufferFromAddress(descriptor.BaseAddress); err == nil {
-			preview = unsafe.Slice((*uint32)(unsafe.Pointer(descriptor.BaseAddress)), 128)
+			preview = unsafe.Slice((*uint32)(unsafe.Pointer(descriptor.BaseAddress)), 32)
 		}
 		logger.Printf("[%s] image addr=%s wh=%dx%d fmt=(data=%d num=%d type=%d mtype=%d) mips=(base=%d last=%d) tile=(idx=%d pow2pad=%v atc=%v) ext=(depth=%d pitch=%d baseArr=%d lastArr=%d) first_u32=%v\n",
 			color.Blue.Sprintf("Frame %d", frame),
@@ -214,6 +195,7 @@ func (t *GpuTranslator) createDummyTexture() {
 		fmt.Printf("failed to create dummy texture: %v\n", err)
 		return
 	}
+	t.defaultSampler = surface.Value.sampler
 
 	// Create dummy texture data (magenta).
 	dummyData := []uint8{255, 0, 255, 255}

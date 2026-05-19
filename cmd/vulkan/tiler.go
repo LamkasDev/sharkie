@@ -1,4 +1,4 @@
-package renderer
+package vulkan
 
 const (
 	// TileNumPipes is the Liverpool pipe count.

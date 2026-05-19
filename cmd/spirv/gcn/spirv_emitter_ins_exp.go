@@ -86,6 +86,22 @@ func EmitEXP(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext) 
 				comps[i] = b.EmitSelect(typeFloat, isNaN, defaultValue, comps[i])
 			}
 		}
+		if details.Target >= 12 && details.Target <= 15 {
+			vteControl := ctx.LoadPushConstantValue(b, PushConstantVteControl)
+			vtxXyFmt := ctx.TestMask(b, vteControl, 1<<8)
+			vtxZFmt := ctx.TestMask(b, vteControl, 1<<9)
+			vtxW0Fmt := ctx.TestMask(b, vteControl, 1<<10)
+
+			// If VTX_W0_FMT is 0, W0 is 1/W, so W = 1/W0.
+			wVulkan := b.EmitSelect(typeFloat, vtxW0Fmt, comps[3], b.EmitFDiv(typeFloat, idOneF, comps[3]))
+
+			// If FMT is 1, X/Y/Z are already multiplied by 1/W, so multiply by W to undo Vulkan's divide.
+			comps[0] = b.EmitSelect(typeFloat, vtxXyFmt, b.EmitFMul(typeFloat, comps[0], wVulkan), comps[0])
+			comps[1] = b.EmitSelect(typeFloat, vtxXyFmt, b.EmitFMul(typeFloat, comps[1], wVulkan), comps[1])
+			comps[2] = b.EmitSelect(typeFloat, vtxZFmt, b.EmitFMul(typeFloat, comps[2], wVulkan), comps[2])
+			comps[3] = wVulkan
+		}
+
 		vec := b.EmitCompositeConstruct(typeV4Float, comps[0], comps[1], comps[2], comps[3])
 		b.EmitStore(outId, vec)
 	}

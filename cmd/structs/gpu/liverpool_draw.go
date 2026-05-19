@@ -37,13 +37,12 @@ type LiverpoolDrawCall struct {
 	RtPitch        uint32
 	RtSlice        uint32
 	RtView         uint32
-	RtInfo         uint32
 	RtAttrib       uint32
 	RtTargetMask   uint32
 	RtColorControl uint32
 	RtBlendControl uint32
 
-	// Render target info fields (decoded from RtInfo/CB_COLOR0_INFO).
+	// Render target info fields (decoded from CB_COLOR0_INFO).
 	RtFormat               uint32
 	RtNumberType           uint32
 	RtCompSwap             uint32
@@ -59,7 +58,7 @@ type LiverpoolDrawCall struct {
 	RtBlendOptDiscardPixel uint32
 	RtFmaskCompressionDis  bool
 
-	// Shader control fields (decoded from DbShaderControl/DB_SHADER_CONTROL).
+	// Shader control fields (decoded from DB_SHADER_CONTROL).
 	DbZExportEnable              bool
 	DbStencilTestValExportEnable bool
 	DbStencilOpValExportEnable   bool
@@ -79,12 +78,22 @@ type LiverpoolDrawCall struct {
 	BlendBlue  uint32
 	BlendAlpha uint32
 
-	// Depth buffer.
-	DbDepthControl   uint32
-	DbStencilControl uint32
-	DbZInfo          uint32
-	DbDepthSize      uint32
-	DbZWriteBase     uint32
+	// Depth buffer control.
+	DbDepthControl    uint32
+	DbDepthSize       uint32
+	DbZWriteBase      uint32
+	DbZFormat         uint32
+	DbDepthClearValue uint32
+
+	// Stencil buffer control.
+	DbStencilControl    uint32
+	DbStencilClearValue uint32
+
+	// Render control.
+	DbDepthClearEnable   bool
+	DbStencilClearEnable bool
+	DbDepthCopy          bool
+	DbStencilCopy        bool
 
 	// Viewport.
 	VpXScale  float32
@@ -95,6 +104,18 @@ type LiverpoolDrawCall struct {
 	VpZOffset float32
 	VpZMin    float32
 	VpZMax    float32
+
+	// Viewport transform engine control.
+	VteControl      uint32
+	VpXScaleEnable  bool
+	VpXOffsetEnable bool
+	VpYScaleEnable  bool
+	VpYOffsetEnable bool
+	VpZScaleEnable  bool
+	VpZOffsetEnable bool
+	VtxXyFmt        bool
+	VtxZFmt         bool
+	VtxW0Fmt        bool
 
 	// Screen scissor.
 	ScissorTl uint32
@@ -186,7 +207,6 @@ func (l *Liverpool) NewDrawCall(vertexCount uint32, isIndexed bool) LiverpoolDra
 		RtPitch:        l.Registers.Context[GREG_MM_CB_COLOR0_PITCH],
 		RtSlice:        l.Registers.Context[GREG_MM_CB_COLOR0_SLICE],
 		RtView:         l.Registers.Context[GREG_MM_CB_COLOR0_VIEW],
-		RtInfo:         l.Registers.Context[GREG_MM_CB_COLOR0_INFO],
 		RtAttrib:       l.Registers.Context[GREG_MM_CB_COLOR0_ATTRIB],
 		RtTargetMask:   l.Registers.Context[GREG_MM_CB_TARGET_MASK],
 		RtColorControl: l.Registers.Context[GREG_MM_CB_COLOR_CONTROL],
@@ -225,11 +245,19 @@ func (l *Liverpool) NewDrawCall(vertexCount uint32, isIndexed bool) LiverpoolDra
 		BlendBlue:  l.Registers.Context[GREG_MM_CB_BLEND_BLUE],
 		BlendAlpha: l.Registers.Context[GREG_MM_CB_BLEND_ALPHA],
 
-		DbDepthControl:   l.Registers.Context[GREG_MM_DB_DEPTH_CONTROL],
-		DbStencilControl: l.Registers.Context[GREG_MM_DB_STENCIL_CONTROL],
-		DbZInfo:          l.Registers.Context[GREG_MM_DB_Z_INFO],
-		DbDepthSize:      l.Registers.Context[GREG_MM_DB_DEPTH_SIZE],
-		DbZWriteBase:     l.Registers.Context[GREG_MM_DB_Z_WRITE_BASE],
+		DbDepthControl:    l.Registers.Context[GREG_MM_DB_DEPTH_CONTROL],
+		DbDepthClearValue: l.Registers.Context[GREG_MM_DB_DEPTH_CLEAR],
+		DbDepthSize:       l.Registers.Context[GREG_MM_DB_DEPTH_SIZE],
+		DbZWriteBase:      l.Registers.Context[GREG_MM_DB_Z_WRITE_BASE],
+		DbZFormat:         l.Registers.Context[GREG_MM_DB_Z_INFO] & 0x3,
+
+		DbStencilControl:    l.Registers.Context[GREG_MM_DB_STENCIL_CONTROL],
+		DbStencilClearValue: l.Registers.Context[GREG_MM_DB_STENCIL_CLEAR],
+
+		DbDepthClearEnable:   (l.Registers.Context[GREG_MM_DB_RENDER_CONTROL]>>0)&1 == 1,
+		DbStencilClearEnable: (l.Registers.Context[GREG_MM_DB_RENDER_CONTROL]>>1)&1 == 1,
+		DbDepthCopy:          (l.Registers.Context[GREG_MM_DB_RENDER_CONTROL]>>2)&1 == 1,
+		DbStencilCopy:        (l.Registers.Context[GREG_MM_DB_RENDER_CONTROL]>>3)&1 == 1,
 
 		VpXScale:  math.Float32frombits(l.Registers.Context[GREG_MM_PA_CL_VPORT_XSCALE]),
 		VpXOffset: math.Float32frombits(l.Registers.Context[GREG_MM_PA_CL_VPORT_XOFFSET]),
@@ -239,6 +267,17 @@ func (l *Liverpool) NewDrawCall(vertexCount uint32, isIndexed bool) LiverpoolDra
 		VpZOffset: math.Float32frombits(l.Registers.Context[GREG_MM_PA_CL_VPORT_ZOFFSET]),
 		VpZMin:    math.Float32frombits(l.Registers.Context[GREG_MM_PA_SC_VPORT_ZMIN_0]),
 		VpZMax:    math.Float32frombits(l.Registers.Context[GREG_MM_PA_SC_VPORT_ZMAX_0]),
+
+		VteControl:      l.Registers.Context[GREG_MM_PA_CL_VTE_CNTL],
+		VpXScaleEnable:  (l.Registers.Context[GREG_MM_PA_CL_VTE_CNTL]>>0)&1 == 1,
+		VpXOffsetEnable: (l.Registers.Context[GREG_MM_PA_CL_VTE_CNTL]>>1)&1 == 1,
+		VpYScaleEnable:  (l.Registers.Context[GREG_MM_PA_CL_VTE_CNTL]>>2)&1 == 1,
+		VpYOffsetEnable: (l.Registers.Context[GREG_MM_PA_CL_VTE_CNTL]>>3)&1 == 1,
+		VpZScaleEnable:  (l.Registers.Context[GREG_MM_PA_CL_VTE_CNTL]>>4)&1 == 1,
+		VpZOffsetEnable: (l.Registers.Context[GREG_MM_PA_CL_VTE_CNTL]>>5)&1 == 1,
+		VtxXyFmt:        (l.Registers.Context[GREG_MM_PA_CL_VTE_CNTL]>>8)&1 == 1,
+		VtxZFmt:         (l.Registers.Context[GREG_MM_PA_CL_VTE_CNTL]>>9)&1 == 1,
+		VtxW0Fmt:        (l.Registers.Context[GREG_MM_PA_CL_VTE_CNTL]>>10)&1 == 1,
 
 		ScissorTl: l.Registers.Context[GREG_MM_PA_SC_SCREEN_SCISSOR_TL],
 		ScissorBr: l.Registers.Context[GREG_MM_PA_SC_SCREEN_SCISSOR_BR],

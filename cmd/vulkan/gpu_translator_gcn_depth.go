@@ -77,3 +77,14 @@ func translateStencilOp(op uint32) vk.StencilOp {
 		return vk.StencilOpKeep
 	}
 }
+
+func TranslateGcnDepthFormat(format uint32) vk.Format {
+	switch format {
+	case 1: // Z_16: 16-bit UNORM depth surface.
+		return vk.FormatD16Unorm
+	case 3: // Z_32_FLOAT: 32-bit FLOAT depth surface.
+		return vk.FormatD32Sfloat
+	default:
+		return vk.FormatUndefined
+	}
+}

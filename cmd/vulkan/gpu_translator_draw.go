@@ -2,15 +2,12 @@ package vulkan
 
 import (
 	"math"
-	"os"
 	"time"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/logger"
-	"github.com/LamkasDev/sharkie/cmd/spirv/common"
 	spirvStructs "github.com/LamkasDev/sharkie/cmd/spirv/structs"
 	. "github.com/LamkasDev/sharkie/cmd/structs"
-	"github.com/LamkasDev/sharkie/cmd/structs/gcn"
 	"github.com/LamkasDev/sharkie/cmd/structs/gpu"
 	vk "github.com/goki/vulkan"
 	"github.com/gookit/color"
@@ -29,7 +26,7 @@ func (t *GpuTranslator) recordDraw(frame uint64, commandBuffer vk.CommandBuffer,
 		return
 	}
 
-	// Get or create surface and framebuffer.
+	// Get or create surface.
 	width := draw.RtPitchPixels()
 	height := draw.VpHeight()
 	if height == 0 {
@@ -46,15 +43,40 @@ func (t *GpuTranslator) recordDraw(frame uint64, commandBuffer vk.CommandBuffer,
 	if err != nil {
 		return
 	}
-	fb, err := t.GetFramebuffer(FramebufferRequest{
+
+	// Handle depth surface.
+	var depthSurface *GpuSurface
+	depthFormat := vk.FormatUndefined
+	/* depthFormat := TranslateGcnDepthFormat(draw.DbZFormat)
+	if depthFormat != vk.FormatUndefined && draw.DbZWriteBase != 0 {
+		depthSurface, err = t.GetSurface(SurfaceRequest{
+			SurfaceKey: SurfaceKey{
+				GpuAddress: uintptr(draw.DbZWriteBase) << 8,
+			},
+			Format: depthFormat,
+			Width:  width,
+			Height: height,
+		})
+		if err != nil {
+			return
+		}
+	} */
+
+	// Get or create framebuffer.
+	fbRequest := FramebufferRequest{
 		ImageView: surface.Value.imageView,
 		FramebufferKey: FramebufferKey{
-			GpuAddress: rtAddress,
-			Format:     surface.Value.format,
-			Width:      surface.Value.width,
-			Height:     surface.Value.height,
+			GpuAddress:  rtAddress,
+			Format:      surface.Value.format,
+			DepthFormat: depthFormat,
+			Width:       surface.Value.width,
+			Height:      surface.Value.height,
 		},
-	})
+	}
+	if depthSurface != nil {
+		fbRequest.DepthImageView = depthSurface.Value.imageView
+	}
+	fb, err := t.GetFramebuffer(fbRequest)
 	if err != nil {
 		return
 	}
@@ -84,11 +106,7 @@ func (t *GpuTranslator) recordDraw(frame uint64, commandBuffer vk.CommandBuffer,
 
 	var gsModule vk.ShaderModule
 	if draw.PrimType == 17 { // RECTLIST
-		bytes, err := os.ReadFile("temp/shaders/shader_rectlist.spv")
-		if err != nil {
-			return
-		}
-		gsModule, err = t.GetShaderModuleFromBytes(common.SpvBytesToWords(bytes))
+		gsModule, err = t.GetRectlistShader()
 		if err != nil {
 			return
 		}
@@ -144,36 +162,57 @@ func (t *GpuTranslator) recordDraw(frame uint64, commandBuffer vk.CommandBuffer,
 		return
 	}
 
-	// Select render pass and clear on first use in frame.
+	// Select render pass and clear on first use in frame or if explicitly requested.
 	var renderPass vk.RenderPass
-	var clearValueCount uint32
 	var clearValues []vk.ClearValue
-	if surface.frameUsed < frame {
+	shouldClear := surface.FrameUsed < frame
+	if depthSurface != nil && depthSurface.FrameUsed < frame {
+		shouldClear = true
+	}
+	/* if draw.DbDepthClearEnable || draw.DbStencilClearEnable {
+		shouldClear = true
+	} */
+	if shouldClear {
 		renderPass = fb.RenderPass
-		clearValueCount = 1
 		clearColor := vk.ClearValue{}
 		clearColor.SetColor([]float32{0.8, 0.8, 0.8, 1.0})
 		clearValues = []vk.ClearValue{clearColor}
-		surface.frameUsed = frame
+		if depthSurface != nil {
+			clearDepth := vk.ClearValue{}
+			clearDepth.SetDepthStencil(math.Float32frombits(draw.DbDepthClearValue), draw.DbStencilClearValue)
+			clearValues = append(clearValues, clearDepth)
+		}
+
+		surface.FrameUsed = frame
+		if depthSurface != nil {
+			depthSurface.FrameUsed = frame
+		}
 
 		// Transition surface to General if it's the first use.
-		if surface.firstUse {
+		if surface.FirstUse {
 			t.imageBarrier(commandBuffer, surface.Value.image,
 				vk.ImageLayoutUndefined, vk.ImageLayoutGeneral,
 				0, vk.AccessFlags(vk.AccessColorAttachmentWriteBit|vk.AccessShaderReadBit|vk.AccessShaderWriteBit),
 				vk.PipelineStageFlags(vk.PipelineStageTopOfPipeBit), vk.PipelineStageFlags(vk.PipelineStageColorAttachmentOutputBit|vk.PipelineStageAllGraphicsBit|vk.PipelineStageComputeShaderBit))
-			surface.firstUse = false
+			surface.FirstUse = false
+		}
+		if depthSurface != nil && depthSurface.FirstUse {
+			t.imageBarrier(commandBuffer, depthSurface.Value.image,
+				vk.ImageLayoutUndefined, vk.ImageLayoutGeneral,
+				0, vk.AccessFlags(vk.AccessDepthStencilAttachmentWriteBit|vk.AccessShaderReadBit|vk.AccessShaderWriteBit),
+				vk.PipelineStageFlags(vk.PipelineStageTopOfPipeBit), vk.PipelineStageFlags(vk.PipelineStageEarlyFragmentTestsBit|vk.PipelineStageLateFragmentTestsBit|vk.PipelineStageAllGraphicsBit|vk.PipelineStageComputeShaderBit))
+			depthSurface.FirstUse = false
 		}
 	} else {
 		renderPass = fb.RenderPassNoClear
-		clearValueCount = 0
 	}
+
 	vk.CmdBeginRenderPass(commandBuffer, &vk.RenderPassBeginInfo{
 		SType:           vk.StructureTypeRenderPassBeginInfo,
 		RenderPass:      renderPass,
 		Framebuffer:     fb.Framebuffer,
 		RenderArea:      vk.Rect2D{Extent: vk.Extent2D{Width: surface.Value.width, Height: surface.Value.height}},
-		ClearValueCount: clearValueCount,
+		ClearValueCount: uint32(len(clearValues)),
 		PClearValues:    clearValues,
 	}, vk.SubpassContentsInline)
 
@@ -191,25 +230,14 @@ func (t *GpuTranslator) recordDraw(frame uint64, commandBuffer vk.CommandBuffer,
 	t.userDataBuffersMutex.Lock()
 	userDataOffset := t.userDataOffsets[draw.UserDataHash]
 	t.userDataBuffersMutex.Unlock()
-	userData := gpu.GlobalUserDataSnapshots[draw.UserDataHash]
-
-	// Bind texel buffers for vertex.
-	vsFormatSizes, vsFormatStrides := t.BindTexelBuffers(commandBuffer, userData[:], gcn.GcnShaderStageVertex, spirvStructs.DescriptorSetSlotTexel, vk.PipelineBindPointGraphics)
 
 	// Push constants to vertex shader.
 	pushDataVs := spirvStructs.PushConstants{
-		UserDataAddress:          t.userDataBufferAddress + uint64(userDataOffset),
-		OnionMemoryBaseAddress:   GlobalAllocator.DeviceAddress,
-		GarlicMemoryBaseAddress:  GlobalGpuAllocator.DeviceAddress,
-		TexelBuffer0FormatSize:   vsFormatSizes[0],
-		TexelBuffer1FormatSize:   vsFormatSizes[1],
-		TexelBuffer2FormatSize:   vsFormatSizes[2],
-		TexelBuffer3FormatSize:   vsFormatSizes[3],
-		TexelBuffer0FormatStride: vsFormatStrides[0],
-		TexelBuffer1FormatStride: vsFormatStrides[1],
-		TexelBuffer2FormatStride: vsFormatStrides[2],
-		TexelBuffer3FormatStride: vsFormatStrides[3],
-		UserSgprCount:            gpu.DecodeUserSgprCount(draw.VertexShRsrc2),
+		UserDataAddress:         t.userDataBufferAddress + uint64(userDataOffset),
+		OnionMemoryBaseAddress:  GlobalAllocator.DeviceAddress,
+		GarlicMemoryBaseAddress: GlobalGpuAllocator.DeviceAddress,
+		UserSgprCount:           gpu.DecodeUserSgprCount(draw.VertexShRsrc2),
+		VteControl:              draw.VteControl,
 	}
 	vk.CmdPushConstants(
 		commandBuffer, t.pipelineLayout,
@@ -218,24 +246,14 @@ func (t *GpuTranslator) recordDraw(frame uint64, commandBuffer vk.CommandBuffer,
 		unsafe.Pointer(&pushDataVs),
 	)
 
-	// Bind texel buffers for fragment.
-	fsFormatSizes, fsFormatStrides := t.BindTexelBuffers(commandBuffer, userData[:], gcn.GcnShaderStageFragment, spirvStructs.DescriptorSetSlotTexelSecondary, vk.PipelineBindPointGraphics)
-
 	// Push constants to fragment shader.
 	pushDataFs := spirvStructs.PushConstants{
-		UserDataAddress:          t.userDataBufferAddress + uint64(userDataOffset),
-		OnionMemoryBaseAddress:   GlobalAllocator.DeviceAddress,
-		GarlicMemoryBaseAddress:  GlobalGpuAllocator.DeviceAddress,
-		TexelBuffer0FormatSize:   fsFormatSizes[0],
-		TexelBuffer1FormatSize:   fsFormatSizes[1],
-		TexelBuffer2FormatSize:   fsFormatSizes[2],
-		TexelBuffer3FormatSize:   fsFormatSizes[3],
-		TexelBuffer0FormatStride: fsFormatStrides[0],
-		TexelBuffer1FormatStride: fsFormatStrides[1],
-		TexelBuffer2FormatStride: fsFormatStrides[2],
-		TexelBuffer3FormatStride: fsFormatStrides[3],
-		UserSgprCount:            gpu.DecodeUserSgprCount(draw.PixelShRsrc2),
-		ShaderRsrc2:              draw.PixelShRsrc2,
+		UserDataAddress:         t.userDataBufferAddress + uint64(userDataOffset),
+		OnionMemoryBaseAddress:  GlobalAllocator.DeviceAddress,
+		GarlicMemoryBaseAddress: GlobalGpuAllocator.DeviceAddress,
+		UserSgprCount:           gpu.DecodeUserSgprCount(draw.PixelShRsrc2),
+		ShaderRsrc2:             draw.PixelShRsrc2,
+		VteControl:              draw.VteControl,
 	}
 	vk.CmdPushConstants(
 		commandBuffer, t.pipelineLayout,
@@ -278,20 +296,45 @@ func (t *GpuTranslator) recordDraw(frame uint64, commandBuffer vk.CommandBuffer,
 }
 
 func (t *GpuTranslator) setDynamicState(commandBuffer vk.CommandBuffer, draw *gpu.LiverpoolDrawCall, surface *GpuSurface) {
-	// Derive viewport from GCN scale/offset registers.
-	vpWidth := draw.VpXScale * 2
-	vpHeight := draw.VpYScale * 2
-	vpX, vpY := draw.VpXOffset-vpWidth/2, draw.VpYOffset-vpHeight/2
+	// Derive viewport from GCN scale/offset/control registers.
+	vpxScale := draw.VpXScale
+	if !draw.VpXScaleEnable {
+		vpxScale = 1.0
+	}
+	vpxOffset := draw.VpXOffset
+	if !draw.VpXOffsetEnable {
+		vpxOffset = 0.0
+	}
+	vpyScale := draw.VpYScale
+	if !draw.VpYScaleEnable {
+		vpyScale = 1.0
+	}
+	vpyOffset := draw.VpYOffset
+	if !draw.VpYOffsetEnable {
+		vpyOffset = 0.0
+	}
+	vpZScale := draw.VpZScale
+	if !draw.VpZScaleEnable {
+		vpZScale = 1.0
+	}
+	vpZOffset := draw.VpZOffset
+	if !draw.VpZOffsetEnable {
+		vpZOffset = 0.0
+	}
 
-	if vpWidth <= 0 || vpHeight == 0 {
+	// Process viewport transforms.
+	vpWidth := vpxScale * 2
+	vpHeight := vpyScale * 2
+	vpX, vpY := vpxOffset-vpxScale, vpyOffset-vpyScale
+	if vpWidth == 0 || vpHeight == 0 {
 		vpWidth, vpHeight = float32(surface.Value.width), float32(surface.Value.height)
 		vpX, vpY = 0, 0
 	}
 	vk.CmdSetViewport(commandBuffer, 0, 1, []vk.Viewport{{
 		X: vpX, Y: vpY,
 		Width: vpWidth, Height: vpHeight,
-		MinDepth: draw.VpZMin,
-		MaxDepth: draw.VpZMax,
+		MinDepth: vpZOffset,
+		MaxDepth: vpZOffset + vpZScale,
 	}})
 
 	// Setup the scissor from TL/BR registers.

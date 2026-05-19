@@ -58,28 +58,49 @@ void emit_vertex(int index) {
 }
 
 void main() {
-    emit_vertex(0);
-    emit_vertex(1);
-    emit_vertex(2);
+    vec4 v0 = gl_in[0].gl_Position;
+    vec4 v1 = gl_in[1].gl_Position;
+    vec4 v2 = gl_in[2].gl_Position;
+
+    vec2 e01 = v1.xy - v0.xy;
+    vec2 e02 = v2.xy - v0.xy;
+    vec2 e12 = v2.xy - v1.xy;
+
+    int i_c = 0;
+    if (abs(dot(e01, e02)) < 0.001) {
+        i_c = 0;
+    } else if (abs(dot(e01, e12)) < 0.001) {
+        i_c = 1;
+    } else {
+        i_c = 2;
+    }
+
+    int i_a1 = (i_c + 1) % 3;
+    int i_a2 = (i_c + 2) % 3;
+
+    emit_vertex(i_a1);
+    emit_vertex(i_c);
     
-    gl_Position = gl_in[1].gl_Position + gl_in[2].gl_Position - gl_in[0].gl_Position;
-    param_out_0 = param_in_0[1] + param_in_0[2] - param_in_0[0];
-    param_out_1 = param_in_1[1] + param_in_1[2] - param_in_1[0];
-    param_out_2 = param_in_2[1] + param_in_2[2] - param_in_2[0];
-    param_out_3 = param_in_3[1] + param_in_3[2] - param_in_3[0];
-    param_out_4 = param_in_4[1] + param_in_4[2] - param_in_4[0];
-    param_out_5 = param_in_5[1] + param_in_5[2] - param_in_5[0];
-    param_out_6 = param_in_6[1] + param_in_6[2] - param_in_6[0];
-    param_out_7 = param_in_7[1] + param_in_7[2] - param_in_7[0];
-    param_out_8 = param_in_8[1] + param_in_8[2] - param_in_8[0];
-    param_out_9 = param_in_9[1] + param_in_9[2] - param_in_9[0];
-    param_out_10 = param_in_10[1] + param_in_10[2] - param_in_10[0];
-    param_out_11 = param_in_11[1] + param_in_11[2] - param_in_11[0];
-    param_out_12 = param_in_12[1] + param_in_12[2] - param_in_12[0];
-    param_out_13 = param_in_13[1] + param_in_13[2] - param_in_13[0];
-    param_out_14 = param_in_14[1] + param_in_14[2] - param_in_14[0];
-    param_out_15 = param_in_15[1] + param_in_15[2] - param_in_15[0];
+    gl_Position = gl_in[i_a1].gl_Position + gl_in[i_a2].gl_Position - gl_in[i_c].gl_Position;
+    param_out_0 = param_in_0[i_a1] + param_in_0[i_a2] - param_in_0[i_c];
+    param_out_1 = param_in_1[i_a1] + param_in_1[i_a2] - param_in_1[i_c];
+    param_out_2 = param_in_2[i_a1] + param_in_2[i_a2] - param_in_2[i_c];
+    param_out_3 = param_in_3[i_a1] + param_in_3[i_a2] - param_in_3[i_c];
+    param_out_4 = param_in_4[i_a1] + param_in_4[i_a2] - param_in_4[i_c];
+    param_out_5 = param_in_5[i_a1] + param_in_5[i_a2] - param_in_5[i_c];
+    param_out_6 = param_in_6[i_a1] + param_in_6[i_a2] - param_in_6[i_c];
+    param_out_7 = param_in_7[i_a1] + param_in_7[i_a2] - param_in_7[i_c];
+    param_out_8 = param_in_8[i_a1] + param_in_8[i_a2] - param_in_8[i_c];
+    param_out_9 = param_in_9[i_a1] + param_in_9[i_a2] - param_in_9[i_c];
+    param_out_10 = param_in_10[i_a1] + param_in_10[i_a2] - param_in_10[i_c];
+    param_out_11 = param_in_11[i_a1] + param_in_11[i_a2] - param_in_11[i_c];
+    param_out_12 = param_in_12[i_a1] + param_in_12[i_a2] - param_in_12[i_c];
+    param_out_13 = param_in_13[i_a1] + param_in_13[i_a2] - param_in_13[i_c];
+    param_out_14 = param_in_14[i_a1] + param_in_14[i_a2] - param_in_14[i_c];
+    param_out_15 = param_in_15[i_a1] + param_in_15[i_a2] - param_in_15[i_c];
     EmitVertex();
+
+    emit_vertex(i_a2);
     
     EndPrimitive();
 }

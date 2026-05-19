@@ -1,10 +1,8 @@
 package structs
 
 const (
-	DescriptorSetSlotBindless       = 0
-	DescriptorSetSlotDiscovery      = 1
-	DescriptorSetSlotTexel          = 2
-	DescriptorSetSlotTexelSecondary = 3
+	DescriptorSetSlotBindless  = 0
+	DescriptorSetSlotDiscovery = 1
 
 	// Bindings for DescriptorSetSlotBindless (Set 0)
 	BindlessBindingSampledImages = 0

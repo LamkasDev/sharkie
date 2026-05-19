@@ -76,7 +76,7 @@ func EmitMIMG(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 	case gcnSpec.MimgOpLoadMip:
 		vulkanIndex := getBindlessImageIndex(b, ctx, details, false)
 
-		// Access bindless array textures[vulkanIndex]
+		// Access bindless array bindless_textures[vulkanIndex]
 		b.EmitDecorate(vulkanIndex, spec.SpvDecorationNonUniform)
 		ptr := b.EmitAccessChain(typePtrUniformSampledImage, idBindlessTextures, vulkanIndex)
 		sampledImage := b.EmitLoad(typeSampledImage, ptr)
