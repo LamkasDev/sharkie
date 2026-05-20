@@ -15,6 +15,9 @@ type SpirvShaderContext struct {
 	ThreadX uint32
 	ThreadY uint32
 	ThreadZ uint32
+
+	PsInputAddress  uint32
+	PsInputControls [32]uint32
 }
 
 type SpirvShader struct {
@@ -108,11 +111,6 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	if shader.Stage == GcnShaderStageFragment {
 		b.EmitDecorate(typeInstanceIndex, spec.SpvDecorationFlat)
 	}
-
-	typePtrInputV4F := b.EmitTypePointer(spec.SpvStorageInput, typeV4Float)
-	typeFragCoord := b.EmitVariable(typePtrInputV4F, spec.SpvStorageInput)
-	b.EmitName(typeFragCoord, "frag_coord")
-	b.EmitDecorate(typeFragCoord, spec.SpvDecorationBuiltIn, spec.SpvBuiltInFragCoord)
 
 	// Push constant types.
 	typePtrPsbUint := b.EmitTypePointer(spec.SpvStoragePhysicalStorageBuffer, typeUint)
@@ -223,8 +221,8 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	interfaceIds := []SpirvId{typeSubgroupLocalInvocationId, typeVertexIndex, typeInstanceIndex}
 	var typePosOut, typeFragDepthOut SpirvId
 	var idColorOuts [8]SpirvId
-	var idParamOuts [16]SpirvId
-	var idParamIns [16]SpirvId
+	var idParamOuts [32]SpirvId
+	var idParamIns [32]SpirvId
 	var idWorkgroupId, idLocalInvocationId SpirvId
 	switch shader.Stage {
 	case GcnShaderStageVertex:
@@ -244,17 +242,44 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 			b.EmitDecorate(idColorOuts[i], spec.SpvDecorationLocation, uint32(i))
 			interfaceIds = append(interfaceIds, idColorOuts[i])
 		}
-		for i := range idParamIns {
-			idParamIns[i] = b.EmitVariable(b.EmitTypePointer(spec.SpvStorageInput, typeV4Float), spec.SpvStorageInput)
-			b.EmitName(idParamIns[i], fmt.Sprintf("param_in_%d", i))
-			b.EmitDecorate(idParamIns[i], spec.SpvDecorationLocation, uint32(i))
-			interfaceIds = append(interfaceIds, idParamIns[i])
+
+		// Use PsInputAddress to determine which parameters to declare.
+		var usedParamTypes []uint8
+		for i := 0; i < 32; i++ {
+			if (ctx.PsInputAddress>>i)&1 != 0 {
+				usedParamTypes = append(usedParamTypes, uint8(i))
+			}
+		}
+
+		for i := range usedParamTypes {
+			control := ctx.PsInputControls[i]
+			offset := control & 0x3F
+			if match := offset&0x20 == 0; match {
+				// Vertex shader match found.
+				location := offset & 0x1F
+				idParamIns[i] = b.EmitVariable(b.EmitTypePointer(spec.SpvStorageInput, typeV4Float), spec.SpvStorageInput)
+				b.EmitName(idParamIns[i], fmt.Sprintf("param_in_%d", i))
+				b.EmitDecorate(idParamIns[i], spec.SpvDecorationLocation, location)
+				if flat := (control>>10)&1 == 1; flat {
+					b.EmitDecorate(idParamIns[i], spec.SpvDecorationFlat)
+				}
+				interfaceIds = append(interfaceIds, idParamIns[i])
+			}
+		}
+
+		// Handle system inputs based on address bits.
+		if (ctx.PsInputAddress>>8)&0xF != 0 {
+			typePtrInputV4F := b.EmitTypePointer(spec.SpvStorageInput, typeV4Float)
+			typeFragCoord := b.EmitVariable(typePtrInputV4F, spec.SpvStorageInput)
+			b.EmitName(typeFragCoord, "frag_coord")
+			b.EmitDecorate(typeFragCoord, spec.SpvDecorationBuiltIn, spec.SpvBuiltInFragCoord)
+			interfaceIds = append(interfaceIds, typeFragCoord)
 		}
 
 		typeFragDepthOut = b.EmitVariable(idPtrOutF, spec.SpvStorageOutput)
 		b.EmitName(typeFragDepthOut, "frag_depth_out")
 		b.EmitDecorate(typeFragDepthOut, spec.SpvDecorationBuiltIn, spec.SpvBuiltInFragDepth)
-		interfaceIds = append(interfaceIds, typeFragDepthOut, typeFragCoord)
+		interfaceIds = append(interfaceIds, typeFragDepthOut)
 	case GcnShaderStageCompute:
 		typePtrInputV3Uint := b.EmitTypePointer(spec.SpvStorageInput, typeV3Uint)
 		idWorkgroupId = b.EmitVariable(typePtrInputV3Uint, spec.SpvStorageInput)
@@ -419,7 +444,6 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 		BlockContextIdSubgroupLocalInvocationId: {Id: typeSubgroupLocalInvocationId, Name: "subgroup_local_invocation_id_t"},
 		BlockContextIdVertexIndex:               {Id: typeVertexIndex, Name: "vertex_index_t"},
 		BlockContextIdInstanceIndex:             {Id: typeInstanceIndex, Name: "instance_index_t"},
-		BlockContextIdFragCoord:                 {Id: typeFragCoord, Name: "frag_coord_t"},
 		BlockContextIdGlobalDescriptorMap:       {Id: idDescriptorMapVar, Name: "global_descriptor_map_t"},
 		BlockContextIdMissingResourceBuffer:     {Id: idMissingResourceBufferVar, Name: "missing_resource_buffer_t"},
 		BlockContextIdWorkgroupId:               {Id: idWorkgroupId, Name: "workgroup_id_t"},
@@ -429,7 +453,6 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 		ids[BlockContextIdColorOut0+SpirvId(i)] = SpirvUsedId{Id: id, Name: fmt.Sprintf("color_out_%d", i)}
 	}
 
-	// TODO: SPI_XX_INPUT_CNTL otherwise parameters will be wired different.
 	for i, id := range idParamOuts {
 		ids[BlockContextIdParamOut0+SpirvId(i)] = SpirvUsedId{Id: id, Name: fmt.Sprintf("param_out_%d", i)}
 	}
@@ -446,16 +469,17 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 
 	// Prepare block context with all GCN and our internal IDs.
 	blockContext := SpirvBlockContext{
-		Stage:          shader.Stage,
-		Address:        shader.Address,
-		LabelIds:       labelIds,
-		Ids:            ids,
-		ConstIds:       constIds,
-		GcnSgprArrayId: idSgprArrayVar,
-		GcnVgprArrayId: idVgprArrayVar,
-		GcnSpecialIds:  gcnSpecialIds,
-		GcnConstIds:    gcnConstIds,
-		Resources:      resources,
+		Stage:           shader.Stage,
+		Address:         shader.Address,
+		LabelIds:        labelIds,
+		Ids:             ids,
+		ConstIds:        constIds,
+		GcnSgprArrayId:  idSgprArrayVar,
+		GcnVgprArrayId:  idVgprArrayVar,
+		GcnSpecialIds:   gcnSpecialIds,
+		GcnConstIds:     gcnConstIds,
+		Resources:       resources,
+		PsInputControls: ctx.PsInputControls,
 	}
 
 	// Function body.

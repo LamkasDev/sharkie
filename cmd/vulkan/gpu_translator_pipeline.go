@@ -5,6 +5,7 @@ import (
 	"math"
 
 	"github.com/LamkasDev/sharkie/cmd/logger"
+	"github.com/LamkasDev/sharkie/cmd/spirv"
 	"github.com/LamkasDev/sharkie/cmd/structs/gpu"
 	vk "github.com/goki/vulkan"
 	"github.com/gookit/color"
@@ -77,7 +78,10 @@ func (t *GpuTranslator) BindPipeline(frame uint64, commandBuffer vk.CommandBuffe
 	if err != nil {
 		return
 	}
-	psSpirv := t.GetShader(bind.PixelShader)
+	psSpirv := t.GetShaderWithContext(bind.PixelShader, spirv.SpirvShaderContext{
+		PsInputAddress:  bind.PsInputAddress,
+		PsInputControls: bind.PsInputControls,
+	})
 	psModule, err := t.GetShaderModule(psSpirv)
 	if err != nil {
 		return
@@ -136,6 +140,16 @@ func (t *GpuTranslator) BindPipeline(frame uint64, commandBuffer vk.CommandBuffe
 			DbKillEnable:           bind.DbKillEnable,
 			DbCoverageToMaskEnable: bind.DbCoverageToMaskEnable,
 			DbAlphaToMaskDisable:   bind.DbAlphaToMaskDisable,
+
+			VpScissorEnable:    bind.VpScissorEnable,
+			WindowOffsetEnable: bind.WindowOffsetEnable,
+
+			LineStippleEnable: bind.LineStippleEnable,
+
+			MsaaEnable:          bind.MsaaEnable,
+			MsaaSampleLocations: bind.MsaaSampleLocations,
+
+			MultiPrimIbResetEnable: bind.MultiPrimIbResetEnable,
 		},
 	})
 	if err != nil {

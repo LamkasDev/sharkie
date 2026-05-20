@@ -35,6 +35,20 @@ type GraphicsPipelineKey struct {
 	DbKillEnable           bool
 	DbCoverageToMaskEnable bool
 	DbAlphaToMaskDisable   bool
+
+	// Viewport/window control.
+	VpScissorEnable    bool
+	WindowOffsetEnable bool
+
+	// Line stipple.
+	LineStippleEnable bool
+
+	// Anti-aliasing flags.
+	MsaaEnable          bool
+	MsaaSampleLocations uint32
+
+	// Primitive restart options.
+	MultiPrimIbResetEnable bool
 }
 
 type ComputePipelineRequest struct {
@@ -93,14 +107,22 @@ func (t *GpuTranslator) createGraphicsPipeline(request GraphicsPipelineRequest) 
 		SType:    vk.StructureTypePipelineInputAssemblyStateCreateInfo,
 		Topology: topology,
 		PrimitiveRestartEnable: vk.Bool32(
-			nstd.Btoi(topology == vk.PrimitiveTopologyLineStrip ||
-				topology == vk.PrimitiveTopologyTriangleStrip ||
-				topology == vk.PrimitiveTopologyTriangleFan),
+			nstd.Btoi(request.MultiPrimIbResetEnable &&
+				(topology == vk.PrimitiveTopologyLineStrip ||
+					topology == vk.PrimitiveTopologyTriangleStrip ||
+					topology == vk.PrimitiveTopologyTriangleFan)),
 		),
 	}
 
 	// Viewport and scissor are dynamic so they match each draw call without rebuilding the pipeline.
-	dynStates := []vk.DynamicState{vk.DynamicStateViewport, vk.DynamicStateScissor, vk.DynamicStateBlendConstants}
+	hasScissor := request.VpScissorEnable || request.WindowOffsetEnable
+	dynStates := []vk.DynamicState{vk.DynamicStateViewport, vk.DynamicStateBlendConstants}
+	if hasScissor {
+		dynStates = append(dynStates, vk.DynamicStateScissor)
+	}
+	if request.LineStippleEnable {
+		// dynStates = append(dynStates, vk.DynamicStateLineStippleExt)
+	}
 	dynamicState := vk.PipelineDynamicStateCreateInfo{
 		SType:             vk.StructureTypePipelineDynamicStateCreateInfo,
 		DynamicStateCount: uint32(len(dynStates)),
@@ -110,6 +132,12 @@ func (t *GpuTranslator) createGraphicsPipeline(request GraphicsPipelineRequest) 
 		SType:         vk.StructureTypePipelineViewportStateCreateInfo,
 		ViewportCount: 1,
 		ScissorCount:  1,
+	}
+	if !hasScissor {
+		viewportState.PScissors = []vk.Rect2D{{
+			Offset: vk.Offset2D{X: 0, Y: 0},
+			Extent: vk.Extent2D{Width: 16384, Height: 16384},
+		}}
 	}
 
 	// Setup rasterization.
@@ -122,7 +150,7 @@ func (t *GpuTranslator) createGraphicsPipeline(request GraphicsPipelineRequest) 
 	}
 	multisample := vk.PipelineMultisampleStateCreateInfo{
 		SType:                 vk.StructureTypePipelineMultisampleStateCreateInfo,
-		RasterizationSamples:  vk.SampleCount1Bit,
+		RasterizationSamples:  translateMsaaSamples(request.MsaaSampleLocations),
 		SampleShadingEnable:   vk.False,
 		MinSampleShading:      1.0,
 		PSampleMask:           nil,

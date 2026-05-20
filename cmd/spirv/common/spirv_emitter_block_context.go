@@ -21,6 +21,8 @@ type SpirvBlockContext struct {
 	GcnConstIds    [120]SpirvUsedId
 	GcnConditionId SpirvId
 	Resources      []SpirvShaderResource
+
+	PsInputControls [32]uint32
 }
 
 func (ctx *SpirvBlockContext) GetLabelId(i int) SpirvId {
@@ -269,6 +271,34 @@ func (ctx *SpirvBlockContext) LoadPushConstantValue(b *SpvBuilder, i uint32) Spi
 
 	ptr := b.EmitAccessChain(ptrType, ctx.GetId(BlockContextIdPcVar), b.EmitConstantUint(ctx.GetId(BlockContextIdTypeUint), i))
 	return b.EmitLoad(valType, ptr)
+}
+
+// LoadPsInputParameter loads a pixel shader input parameter.
+func (ctx *SpirvBlockContext) LoadPsInputParameter(b *SpvBuilder, i uint32) SpirvId {
+	typeV4Float := ctx.GetId(BlockContextIdTypeV4Float)
+	control := ctx.PsInputControls[i]
+	offset := control & 0x3F
+	if match := offset&0x20 == 0; match {
+		ptr := ctx.GetId(BlockContextIdParamIn0 + SpirvId(i))
+		return b.EmitLoad(typeV4Float, ptr)
+	}
+
+	// No vertex shader match, use default value.
+	idZeroF := ctx.GetConstId(ConstIdFloat0)
+	idOneF := ctx.GetConstId(ConstIdFloat1)
+	defaultValue := (control >> 8) & 3
+	switch defaultValue {
+	case 0: // 0.0, 0.0, 0.0, 0.0
+		return b.EmitConstantComposite(typeV4Float, idZeroF, idZeroF, idZeroF, idZeroF)
+	case 1: // 0.0, 0.0, 0.0, 1.0
+		return b.EmitConstantComposite(typeV4Float, idZeroF, idZeroF, idZeroF, idOneF)
+	case 2: // 1.0, 1.0, 1.0, 0.0
+		return b.EmitConstantComposite(typeV4Float, idOneF, idOneF, idOneF, idZeroF)
+	case 3: // 1.0, 1.0, 1.0, 1.0
+		return b.EmitConstantComposite(typeV4Float, idOneF, idOneF, idOneF, idOneF)
+	}
+
+	return ctx.GetId(BlockContextIdZeroVec4)
 }
 
 // TranslateAddress translates a PS4 address into a memory buffer address.

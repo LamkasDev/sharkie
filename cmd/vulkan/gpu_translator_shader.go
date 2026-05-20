@@ -18,6 +18,9 @@ type SpirvShaderKey struct {
 	ThreadX uint32
 	ThreadY uint32
 	ThreadZ uint32
+
+	PsInputAddress  uint32
+	PsInputControls [32]uint32
 }
 
 func (t *GpuTranslator) GetShader(gcnShader *gcn.GcnShader) *spirv.SpirvShader {
@@ -30,6 +33,9 @@ func (t *GpuTranslator) GetShaderWithContext(gcnShader *gcn.GcnShader, context s
 		ThreadX: context.ThreadX,
 		ThreadY: context.ThreadY,
 		ThreadZ: context.ThreadZ,
+
+		PsInputAddress:  context.PsInputAddress,
+		PsInputControls: context.PsInputControls,
 	}
 
 	// Get already loaded shader.

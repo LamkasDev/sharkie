@@ -24,7 +24,7 @@ type LiverpoolBindPipelineInternal struct {
 	RtColorControl uint32
 	RtBlendControl uint32
 
-	// Render target info fields (decoded from CB_COLOR0_INFO).
+	// Render target info (decoded from CB_COLOR0_INFO).
 	RtFormat               uint32
 	RtNumberType           uint32
 	RtCompSwap             uint32
@@ -40,7 +40,7 @@ type LiverpoolBindPipelineInternal struct {
 	RtBlendOptDiscardPixel uint32
 	RtFmaskCompressionDis  bool
 
-	// Shader control fields (decoded from DB_SHADER_CONTROL).
+	// Shader control (decoded from DB_SHADER_CONTROL).
 	DbZExportEnable              bool
 	DbStencilTestValExportEnable bool
 	DbStencilOpValExportEnable   bool
@@ -53,6 +53,10 @@ type LiverpoolBindPipelineInternal struct {
 	DbAlphaToMaskDisable         bool
 	DbDepthBeforeShader          bool
 	DbConservativeZExport        uint32
+
+	// Pixel shader input controls.
+	PsInputAddress  uint32
+	PsInputControls [32]uint32
 
 	// Depth buffer control.
 	DbDepthControl    uint32
@@ -70,6 +74,23 @@ type LiverpoolBindPipelineInternal struct {
 	DbStencilClearEnable bool
 	DbDepthCopy          bool
 	DbStencilCopy        bool
+
+	// Viewport/window control.
+	VpScissorEnable    bool
+	WindowOffsetEnable bool
+
+	// Line stipple.
+	LineStippleEnable      bool
+	LineStippleRepeatCount uint32
+	LineStipplePattern     uint32
+
+	// Anti-aliasing control.
+	MsaaEnable          bool
+	MsaaSampleLocations uint32
+
+	// Multi primitive index buffer reset.
+	MultiPrimIbResetEnable bool
+	MultiPrimIbResetIndex  uint32
 }
 
 type LiverpoolSetDynamicStateInternal struct {
@@ -104,6 +125,28 @@ type LiverpoolSetDynamicStateInternal struct {
 	// Screen scissor.
 	ScissorTl uint32
 	ScissorBr uint32
+
+	// Viewport scissor.
+	VpScissorEnable bool
+	VpScissorTl     uint32
+	VpScissorBr     uint32
+
+	// Generic scissor.
+	GenericScissorTl uint32
+	GenericScissorBr uint32
+
+	// Window scissor and offset.
+	WindowOffsetEnable bool
+	WindowScissorTl    uint32
+	WindowScissorBr    uint32
+	WindowOffset       uint32
+
+	// Line stipple.
+	LineStippleRepeatCount uint32
+	LineStipplePattern     uint32
+
+	// Hardware screen offset.
+	HardwareScreenOffset uint32
 }
 
 type LiverpoolDrawInternal struct {

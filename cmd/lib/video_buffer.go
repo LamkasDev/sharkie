@@ -107,9 +107,9 @@ func libSceVideoOut_sceVideoOutRegisterBufferAttribute(rawHandle, attributeIndex
 	attribute := (*VideoOutBufferAttribute)(unsafe.Pointer(attrPtr))
 	handle.Attributes[attributeIndex] = *attribute
 
-	logger.Printf("%-132s %s registered %s's buffer attribute %s in %s (pixf=%s, tile=%s, aspr=%s, %sx%s, pitch=%s).\n",
+	logger.Printf("%-132s %s registered %s's buffer attribute %s (pixf=%s, tile=%s, aspr=%s, %sx%s, pitch=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprint("sceVideoOutRegisterBuffers"),
+		color.Magenta.Sprint("sceVideoOutRegisterBufferAttribute"),
 		color.Yellow.Sprintf("0x%X", handle.Id),
 		color.Yellow.Sprintf("%d", attributeIndex),
 		color.Yellow.Sprintf("0x%X", attribute.PixelFormat),

@@ -97,8 +97,22 @@ func (l *Liverpool) recordDraw(ringName string, count uint32, isIndexed bool) {
 			DbStencilClearEnable: (l.Registers.Context[GREG_MM_DB_RENDER_CONTROL]>>1)&1 == 1,
 			DbDepthCopy:          (l.Registers.Context[GREG_MM_DB_RENDER_CONTROL]>>2)&1 == 1,
 			DbStencilCopy:        (l.Registers.Context[GREG_MM_DB_RENDER_CONTROL]>>3)&1 == 1,
+
+			VpScissorEnable:    (l.Registers.Context[GREG_MM_PA_SC_MODE_CNTL_0]>>1)&1 == 1,
+			WindowOffsetEnable: (l.Registers.Context[GREG_MM_PA_SU_SC_MODE_CNTL]>>16)&1 == 1,
+
+			LineStippleEnable: (l.Registers.Context[GREG_MM_PA_SC_MODE_CNTL_0]>>2)&1 == 1,
+
+			MsaaEnable:          (l.Registers.Context[GREG_MM_PA_SC_MODE_CNTL_0]>>0)&1 == 1,
+			MsaaSampleLocations: l.Registers.Context[GREG_MM_PA_SC_AA_CONFIG] & 0x7,
+
+			PsInputAddress: l.Registers.Context[GREG_MM_SPI_PS_INPUT_ADDR],
+
+			MultiPrimIbResetEnable: l.Registers.Context[GREG_MM_VGT_MULTI_PRIM_IB_RESET_EN]&1 == 1,
+			MultiPrimIbResetIndex:  l.Registers.Context[GREG_MM_VGT_MULTI_PRIM_IB_RESET_INDX],
 		},
 	}
+	copy(bindPipeline.PsInputControls[:], l.Registers.Context[GREG_MM_SPI_PS_INPUT_CNTL_0:GREG_MM_SPI_PS_INPUT_CNTL_31+1])
 	bindPipeline.VertexShaderAddress = bindPipeline.VertexShader.Address
 	bindPipeline.PixelShaderAddress = bindPipeline.PixelShader.Address
 	if address := l.HsGpuAddress(); address != 0 {
@@ -154,6 +168,23 @@ func (l *Liverpool) recordDraw(ringName string, count uint32, isIndexed bool) {
 
 			ScissorTl: l.Registers.Context[GREG_MM_PA_SC_SCREEN_SCISSOR_TL],
 			ScissorBr: l.Registers.Context[GREG_MM_PA_SC_SCREEN_SCISSOR_BR],
+
+			VpScissorEnable: (l.Registers.Context[GREG_MM_PA_SC_MODE_CNTL_0]>>1)&1 == 1,
+			VpScissorTl:     l.Registers.Context[GREG_MM_PA_SC_VPORT_SCISSOR_0_TL],
+			VpScissorBr:     l.Registers.Context[GREG_MM_PA_SC_VPORT_SCISSOR_0_BR],
+
+			GenericScissorTl: l.Registers.Context[GREG_MM_PA_SC_GENERIC_SCISSOR_TL],
+			GenericScissorBr: l.Registers.Context[GREG_MM_PA_SC_GENERIC_SCISSOR_BR],
+
+			WindowScissorTl:    l.Registers.Context[GREG_MM_PA_SC_WINDOW_SCISSOR_TL],
+			WindowScissorBr:    l.Registers.Context[GREG_MM_PA_SC_WINDOW_SCISSOR_BR],
+			WindowOffset:       l.Registers.Context[GREG_MM_PA_SC_WINDOW_OFFSET],
+			WindowOffsetEnable: (l.Registers.Context[GREG_MM_PA_SU_SC_MODE_CNTL]>>16)&1 == 1,
+
+			LineStippleRepeatCount: (l.Registers.Context[GREG_MM_PA_SU_LINE_STIPPLE_CNTL] >> 16) & 0xFF,
+			LineStipplePattern:     l.Registers.Context[GREG_MM_PA_SU_LINE_STIPPLE_CNTL] & 0xFFFF,
+
+			HardwareScreenOffset: l.Registers.Context[GREG_MM_PA_SU_HARDWARE_SCREEN_OFFSET],
 		},
 	}
 

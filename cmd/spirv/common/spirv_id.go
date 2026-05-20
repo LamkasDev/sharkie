@@ -71,6 +71,22 @@ const (
 	BlockContextIdParamOut13
 	BlockContextIdParamOut14
 	BlockContextIdParamOut15
+	BlockContextIdParamOut16
+	BlockContextIdParamOut17
+	BlockContextIdParamOut18
+	BlockContextIdParamOut19
+	BlockContextIdParamOut20
+	BlockContextIdParamOut21
+	BlockContextIdParamOut22
+	BlockContextIdParamOut23
+	BlockContextIdParamOut24
+	BlockContextIdParamOut25
+	BlockContextIdParamOut26
+	BlockContextIdParamOut27
+	BlockContextIdParamOut28
+	BlockContextIdParamOut29
+	BlockContextIdParamOut30
+	BlockContextIdParamOut31
 	BlockContextIdParamIn0
 	BlockContextIdParamIn1
 	BlockContextIdParamIn2
@@ -87,6 +103,22 @@ const (
 	BlockContextIdParamIn13
 	BlockContextIdParamIn14
 	BlockContextIdParamIn15
+	BlockContextIdParamIn16
+	BlockContextIdParamIn17
+	BlockContextIdParamIn18
+	BlockContextIdParamIn19
+	BlockContextIdParamIn20
+	BlockContextIdParamIn21
+	BlockContextIdParamIn22
+	BlockContextIdParamIn23
+	BlockContextIdParamIn24
+	BlockContextIdParamIn25
+	BlockContextIdParamIn26
+	BlockContextIdParamIn27
+	BlockContextIdParamIn28
+	BlockContextIdParamIn29
+	BlockContextIdParamIn30
+	BlockContextIdParamIn31
 	BlockContextIdZeroVec4
 	BlockContextIdBindlessTextures
 	BlockContextIdBindlessStorageTextures

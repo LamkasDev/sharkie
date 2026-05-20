@@ -96,6 +96,19 @@ func (t *GpuTranslator) Draw(frame uint64, commandBuffer vk.CommandBuffer, draw 
 func (t *GpuTranslator) SetDynamicState(commandBuffer vk.CommandBuffer, dynamicState *gpu.LiverpoolSetDynamicState) {
 	t.activeVteControl = dynamicState.VteControl
 
+	t.setViewport(commandBuffer, dynamicState)
+	t.setScissor(commandBuffer, dynamicState)
+
+	// Setup blend constants.
+	vk.CmdSetBlendConstants(commandBuffer, &[4]float32{
+		math.Float32frombits(dynamicState.BlendRed),
+		math.Float32frombits(dynamicState.BlendGreen),
+		math.Float32frombits(dynamicState.BlendBlue),
+		math.Float32frombits(dynamicState.BlendAlpha),
+	})
+}
+
+func (t *GpuTranslator) setViewport(commandBuffer vk.CommandBuffer, dynamicState *gpu.LiverpoolSetDynamicState) {
 	// Derive viewport from GCN scale/offset/control registers.
 	vpxScale := dynamicState.VpXScale
 	if !dynamicState.VpXScaleEnable {
@@ -113,50 +126,115 @@ func (t *GpuTranslator) SetDynamicState(commandBuffer vk.CommandBuffer, dynamicS
 	if !dynamicState.VpYOffsetEnable {
 		vpyOffset = 0.0
 	}
-	vpZScale := dynamicState.VpZScale
+	vpzScale := dynamicState.VpZScale
 	if !dynamicState.VpZScaleEnable {
-		vpZScale = 1.0
+		vpzScale = 1.0
 	}
-	vpZOffset := dynamicState.VpZOffset
+	vpzOffset := dynamicState.VpZOffset
 	if !dynamicState.VpZOffsetEnable {
-		vpZOffset = 0.0
+		vpzOffset = 0.0
 	}
+	windowOffsetX := int32(int16(dynamicState.WindowOffset & 0xFFFF))
+	windowOffsetY := int32(int16((dynamicState.WindowOffset >> 16) & 0xFFFF))
 
 	// Process viewport transforms.
 	vpWidth := vpxScale * 2
 	vpHeight := vpyScale * 2
 	vpX, vpY := vpxOffset-vpxScale, vpyOffset-vpyScale
+	if dynamicState.WindowOffsetEnable {
+		vpX += float32(windowOffsetX)
+		vpY += float32(windowOffsetY)
+	}
+
+	// Apply fallback if zero sized.
 	if vpWidth == 0 || vpHeight == 0 {
 		vpWidth, vpHeight = float32(t.activeSurface.Value.width), float32(t.activeSurface.Value.height)
 		vpX, vpY = 0, 0
+		if dynamicState.WindowOffsetEnable {
+			vpX, vpY = float32(windowOffsetX), float32(windowOffsetY)
+		}
 	}
 	vk.CmdSetViewport(commandBuffer, 0, 1, []vk.Viewport{{
 		X: vpX, Y: vpY,
 		Width: vpWidth, Height: vpHeight,
-		MinDepth: vpZOffset,
-		MaxDepth: vpZOffset + vpZScale,
+		MinDepth: vpzOffset,
+		MaxDepth: vpzOffset + vpzScale,
 	}})
+}
 
-	// Setup the scissor from TL/BR registers.
-	scissorX := int32(dynamicState.ScissorTl & 0x7FFF)
-	scissorY := int32((dynamicState.ScissorTl >> 16) & 0x7FFF)
-	scissorW := uint32((dynamicState.ScissorBr & 0x7FFF) - uint32(scissorX))
-	scissorH := uint32(((dynamicState.ScissorBr >> 16) & 0x7FFF) - uint32(scissorY))
-	if scissorW <= 0 || scissorH <= 0 {
-		scissorW = t.activeSurface.Value.width
-		scissorH = t.activeSurface.Value.height
-		scissorX, scissorY = 0, 0
+type ScissorRect struct {
+	X1, Y1, X2, Y2 int32
+}
+
+func (s ScissorRect) Intersect(other ScissorRect) ScissorRect {
+	return ScissorRect{
+		X1: max(s.X1, other.X1),
+		Y1: max(s.Y1, other.Y1),
+		X2: min(s.X2, other.X2),
+		Y2: min(s.Y2, other.Y2),
+	}
+}
+
+func (t *GpuTranslator) setScissor(commandBuffer vk.CommandBuffer, dynamicState *gpu.LiverpoolSetDynamicState) {
+	windowOffsetX := int32(int16(dynamicState.WindowOffset & 0xFFFF))
+	windowOffsetY := int32(int16((dynamicState.WindowOffset >> 16) & 0xFFFF))
+
+	// Helper to decode a GCN scissor register.
+	decodeScissor := func(tl, br uint32) ScissorRect {
+		windowOffsetDisable := (tl >> 31) & 1
+		x1 := int32(tl & 0x7FFF)
+		y1 := int32((tl >> 16) & 0x7FFF)
+		x2 := int32(br & 0x7FFF)
+		y2 := int32((br >> 16) & 0x7FFF)
+		if windowOffsetDisable == 0 {
+			x1 += windowOffsetX
+			y1 += windowOffsetY
+			x2 += windowOffsetX
+			y2 += windowOffsetY
+		}
+
+		return ScissorRect{X1: x1, Y1: y1, X2: x2, Y2: y2}
+	}
+
+	// Apply screen scissor (no offset).
+	screenScissor := ScissorRect{
+		X1: int32(int16(dynamicState.ScissorTl & 0xFFFF)),
+		Y1: int32(int16((dynamicState.ScissorTl >> 16) & 0xFFFF)),
+		X2: int32(int16(dynamicState.ScissorBr & 0xFFFF)),
+		Y2: int32(int16((dynamicState.ScissorBr >> 16) & 0xFFFF)),
+	}
+	finalScissor := screenScissor
+
+	// Apply window scissor.
+	if dynamicState.WindowScissorTl != 0 || dynamicState.WindowScissorBr != 0 {
+		windowScissor := decodeScissor(dynamicState.WindowScissorTl, dynamicState.WindowScissorBr)
+		finalScissor = screenScissor.Intersect(windowScissor)
+	}
+
+	// Apply optional viewport scissor.
+	if dynamicState.VpScissorEnable {
+		vpScissor := decodeScissor(dynamicState.VpScissorTl, dynamicState.VpScissorBr)
+		finalScissor = finalScissor.Intersect(vpScissor)
+	}
+
+	// Apply generic scissor.
+	if dynamicState.GenericScissorTl != 0 || dynamicState.GenericScissorBr != 0 {
+		genericScissor := decodeScissor(dynamicState.GenericScissorTl, dynamicState.GenericScissorBr)
+		finalScissor = finalScissor.Intersect(genericScissor)
+	}
+
+	// Calculate width and height.
+	width := uint32(max(0, finalScissor.X2-finalScissor.X1))
+	height := uint32(max(0, finalScissor.Y2-finalScissor.Y1))
+	if width == 0 || height == 0 {
+		vk.CmdSetScissor(commandBuffer, 0, 1, []vk.Rect2D{{
+			Offset: vk.Offset2D{X: 0, Y: 0},
+			Extent: vk.Extent2D{Width: 0, Height: 0},
+		}})
+		return
 	}
 	vk.CmdSetScissor(commandBuffer, 0, 1, []vk.Rect2D{{
-		Offset: vk.Offset2D{X: scissorX, Y: scissorY},
-		Extent: vk.Extent2D{Width: scissorW, Height: scissorH},
+		Offset: vk.Offset2D{X: finalScissor.X1, Y: finalScissor.Y1},
+		Extent: vk.Extent2D{Width: width, Height: height},
 	}})
-
-	// Setup blend constants.
-	vk.CmdSetBlendConstants(commandBuffer, &[4]float32{
-		math.Float32frombits(dynamicState.BlendRed),
-		math.Float32frombits(dynamicState.BlendGreen),
-		math.Float32frombits(dynamicState.BlendBlue),
-		math.Float32frombits(dynamicState.BlendAlpha),
-	})
 }
