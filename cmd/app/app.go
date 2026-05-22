@@ -188,6 +188,7 @@ func (app *Application) VulkanDeviceExtensions() []string {
 		"VK_EXT_memory_priority",
 		"VK_EXT_shader_subgroup_ballot",
 		"VK_EXT_subgroup_size_control",
+		"VK_EXT_provoking_vertex",
 	}
 	if runtime.GOOS == "linux" {
 		extensions = append(extensions, "VK_KHR_external_memory_fd")
@@ -230,9 +231,14 @@ func (app *Application) VulkanDeviceCreateNext() unsafe.Pointer {
 		PNext:                     unsafe.Pointer(features2),
 		PageableDeviceLocalMemory: uint32(vk.True),
 	}
+	provokingVertexFeatures := &vk.PhysicalDeviceProvokingVertexFeatures{
+		SType:               vk.StructureTypePhysicalDeviceProvokingVertexFeatures,
+		PNext:               unsafe.Pointer(pageableDeviceLocalMemoryFeatures),
+		ProvokingVertexLast: vk.True,
+	}
 	subgroupSizeControlFeatures := &vulkan.VkPhysicalDeviceSubgroupSizeControlFeaturesEXT{
 		SType:                vulkan.StructureTypePhysicalDeviceSubgroupSizeControlFeaturesExt,
-		PNext:                unsafe.Pointer(pageableDeviceLocalMemoryFeatures),
+		PNext:                unsafe.Pointer(provokingVertexFeatures),
 		SubgroupSizeControl:  vk.True,
 		ComputeFullSubgroups: vk.True,
 	}

@@ -208,3 +208,30 @@ func translateColorFormat(format uint32, numberType uint32, compSwap uint32) vk.
 	}
 	return vk.FormatR8g8b8a8Unorm
 }
+
+func translateClearColor(word0 uint32, word1 uint32, format uint32, numberType uint32, compSwap uint32) []float32 {
+	// TODO: fix this.
+	return []float32{1.0, 1.0, 1.0, 1.0}
+
+	var r, g, b, a float32 = 0.0, 0.0, 0.0, 1.0
+	switch format {
+	case 10:
+		switch numberType {
+		case 0, 6:
+			r = float32(word0&0xFF) / 255.0
+			g = float32((word0>>8)&0xFF) / 255.0
+			b = float32((word0>>16)&0xFF) / 255.0
+			a = float32((word0>>24)&0xFF) / 255.0
+		case 4, 5:
+			r = float32(word0 & 0xFF)
+			g = float32((word0 >> 8) & 0xFF)
+			b = float32((word0 >> 16) & 0xFF)
+			a = float32((word0 >> 24) & 0xFF)
+		}
+		if compSwap == 1 {
+			r, b = b, r
+		}
+	}
+
+	return []float32{r, g, b, a}
+}

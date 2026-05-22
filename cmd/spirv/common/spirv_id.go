@@ -34,11 +34,10 @@ const (
 	BlockContextIdPtrUniformSampledImage
 	BlockContextIdTypeStorageImage
 	BlockContextIdPtrUniformStorageImage
-	BlockContextIdPtrPcFloat
 	BlockContextIdPtrPcPsbUint
-	BlockContextIdPtrPcPsbUint64
-	BlockContextIdPtrPcUint
 	BlockContextIdPtrPcUint64
+	BlockContextIdPtrPcUint
+	BlockContextIdPtrPcFloat
 	BlockContextIdPtrPsbUint
 	BlockContextIdPtrPsbV2Uint
 	BlockContextIdPtrPsbV3Uint
@@ -147,7 +146,10 @@ const (
 	ConstIdUint8                   = SpirvId(8)
 	ConstIdUint9                   = SpirvId(9)
 	ConstIdUint10                  = SpirvId(10)
+	ConstIdUint11                  = SpirvId(11)
 	ConstIdUint12                  = SpirvId(12)
+	ConstIdUint13                  = SpirvId(13)
+	ConstIdUint14                  = SpirvId(14)
 	ConstIdUint15                  = SpirvId(15)
 	ConstIdUint16                  = SpirvId(16)
 	ConstIdUint19                  = SpirvId(19)
@@ -179,10 +181,11 @@ const (
 	ConstId64UintOnionBaseAddress  = SpirvId(269)
 	ConstId64UintGarlicBaseAddress = SpirvId(270)
 	ConstIdFloat0                  = SpirvId(271)
-	ConstIdFloat1                  = SpirvId(272)
-	ConstIdFloat05                 = SpirvId(273)
-	ConstIdFloat255                = SpirvId(274)
-	ConstIdFloat65535              = SpirvId(275)
+	ConstIdFloat05                 = SpirvId(272)
+	ConstIdFloat1                  = SpirvId(273)
+	ConstIdFloat2                  = SpirvId(274)
+	ConstIdFloat255                = SpirvId(275)
+	ConstIdFloat65535              = SpirvId(276)
 )
 
 const (
@@ -238,4 +241,7 @@ const (
 	PushConstantUserSgprCount           = 3
 	PushConstantShaderRsrc2             = 4
 	PushConstantVteControl              = 5
+	PushConstantClipControl             = 6
+	PushConstantGbHorzClipAdj           = 7
+	PushConstantGbVertClipAdj           = 8
 )

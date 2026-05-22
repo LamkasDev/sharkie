@@ -15,20 +15,20 @@ import (
 	vk "github.com/goki/vulkan"
 )
 
-func (t *GpuTranslator) GetImageView(descriptor spirvStructs.ImageDescriptor) (vk.ImageView, error, bool) {
+func (t *GpuTranslator) GetImageView(descriptor spirvStructs.ImageDescriptor) (vk.ImageView, vk.ImageView, error, bool) {
 	hash := descriptor.Hash()
 
 	// Get already created image view.
 	t.imagesMutex.Lock()
 	defer t.imagesMutex.Unlock()
 	if view, ok := t.imageViews[hash]; ok {
-		return view, nil, false
+		return view, t.storageImageViews[hash], nil, false
 	}
 
 	// Create a new image if needed.
 	format, _ := TranslateGcnFormat(descriptor.DataFormat, descriptor.NumFormat)
 	if format == vk.FormatUndefined {
-		return vk.NullImageView, fmt.Errorf("invalid format"), false
+		return vk.NullImageView, vk.NullImageView, fmt.Errorf("invalid format"), false
 	}
 	image, imageExists := t.images[descriptor.BaseAddress]
 	if !imageExists {
@@ -63,7 +63,7 @@ func (t *GpuTranslator) GetImageView(descriptor spirvStructs.ImageDescriptor) (v
 			Usage:       vk.ImageUsageFlags(vk.ImageUsageSampledBit | vk.ImageUsageStorageBit | vk.ImageUsageTransferDstBit | vk.ImageUsageTransferSrcBit),
 		}, nil, &image)
 		if err := as.NewError(result); err != nil {
-			return vk.NullImageView, err, false
+			return vk.NullImageView, vk.NullImageView, err, false
 		}
 
 		// Allocate image memory.
@@ -78,7 +78,7 @@ func (t *GpuTranslator) GetImageView(descriptor spirvStructs.ImageDescriptor) (v
 			MemoryTypeIndex: t.handles.FindMemoryType(memReqs.MemoryTypeBits, vk.MemoryPropertyDeviceLocalBit),
 		}, nil, &imageMem)
 		if err := as.NewError(result); err != nil {
-			return vk.NullImageView, err, false
+			return vk.NullImageView, vk.NullImageView, err, false
 		}
 		vk.BindImageMemory(t.handles.Device, image, imageMem, 0)
 		t.images[descriptor.BaseAddress] = image
@@ -93,7 +93,8 @@ func (t *GpuTranslator) GetImageView(descriptor spirvStructs.ImageDescriptor) (v
 		t.imageBarrier(cb, image,
 			vk.ImageLayoutUndefined, vk.ImageLayoutGeneral,
 			0, vk.AccessFlags(vk.AccessShaderReadBit|vk.AccessShaderWriteBit),
-			vk.PipelineStageFlags(vk.PipelineStageTopOfPipeBit), vk.PipelineStageFlags(vk.PipelineStageAllCommandsBit))
+			vk.PipelineStageFlags(vk.PipelineStageTopOfPipeBit), vk.PipelineStageFlags(vk.PipelineStageAllCommandsBit),
+			vk.ImageAspectFlags(vk.ImageAspectColorBit))
 		vk.EndCommandBuffer(cb)
 		defer t.FreeCommandBuffer(cb)
 
@@ -114,7 +115,7 @@ func (t *GpuTranslator) GetImageView(descriptor spirvStructs.ImageDescriptor) (v
 		result = vk.QueueSubmit(t.handles.GraphicsQueue, 1, submitInfos, t.workerFence)
 		t.QueueMutex.Unlock()
 		if err := as.NewError(result); err != nil {
-			return vk.NullImageView, err, false
+			return vk.NullImageView, vk.NullImageView, err, false
 		}
 		t.WaitOnWorkerFence()
 	}
@@ -140,12 +141,38 @@ func (t *GpuTranslator) GetImageView(descriptor spirvStructs.ImageDescriptor) (v
 		},
 	}, nil, &view)
 	if err := as.NewError(result); err != nil {
-		return vk.NullImageView, err, false
+		return vk.NullImageView, vk.NullImageView, err, false
 	}
+
+	// Create the storage image view (identity swizzle).
+	var storageView vk.ImageView
+	result = vk.CreateImageView(t.handles.Device, &vk.ImageViewCreateInfo{
+		SType:    vk.StructureTypeImageViewCreateInfo,
+		Image:    image,
+		ViewType: vk.ImageViewType2d,
+		Format:   format,
+		Components: vk.ComponentMapping{
+			R: vk.ComponentSwizzleIdentity,
+			G: vk.ComponentSwizzleIdentity,
+			B: vk.ComponentSwizzleIdentity,
+			A: vk.ComponentSwizzleIdentity,
+		},
+		SubresourceRange: vk.ImageSubresourceRange{
+			AspectMask:   vk.ImageAspectFlags(vk.ImageAspectColorBit),
+			BaseMipLevel: min(uint32(descriptor.BaseLevel), 15),
+			LevelCount:   1,
+			LayerCount:   1,
+		},
+	}, nil, &storageView)
+	if err := as.NewError(result); err != nil {
+		return vk.NullImageView, vk.NullImageView, err, false
+	}
+
 	t.imageViews[hash] = view
+	t.storageImageViews[hash] = storageView
 	t.imageDescriptors[hash] = descriptor
 
-	return view, nil, !imageExists
+	return view, storageView, nil, !imageExists
 }
 
 func (t *GpuTranslator) GetSampler(descriptor spirvStructs.SamplerDescriptor) (vk.Sampler, error) {
@@ -211,7 +238,8 @@ func (t *GpuTranslator) uploadBufferDataToImage(descriptor spirvStructs.ImageDes
 	t.imageBarrier(cb, image,
 		vk.ImageLayoutGeneral, vk.ImageLayoutGeneral,
 		vk.AccessFlags(vk.AccessTransferWriteBit), vk.AccessFlags(vk.AccessShaderReadBit|vk.AccessShaderWriteBit),
-		vk.PipelineStageFlags(vk.PipelineStageTransferBit), vk.PipelineStageFlags(vk.PipelineStageAllCommandsBit))
+		vk.PipelineStageFlags(vk.PipelineStageTransferBit), vk.PipelineStageFlags(vk.PipelineStageAllCommandsBit),
+		vk.ImageAspectFlags(vk.ImageAspectColorBit))
 	vk.EndCommandBuffer(cb)
 	defer t.FreeCommandBuffer(cb)
 

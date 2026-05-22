@@ -23,8 +23,11 @@ const (
 	// Logs filesystem operations.
 	LogFilesystem = false
 
-	// Logs gnm & video functions.
+	// Logs graphics & video driver functions.
 	LogGraphics = false
+
+	// Logs vulkan rendering.
+	LogRenderer = false
 
 	// Logs things that clutter log (value returns, etc).
 	LogMisc = false

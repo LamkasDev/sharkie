@@ -10,6 +10,10 @@ type PushConstants struct {
 	UserSgprCount uint32
 	ShaderRsrc2   uint32
 	VteControl    uint32
+	ClipControl   uint32
+
+	GbHorzClipAdj float32
+	GbVertClipAdj float32
 }
 
 const PushConstantsSize = uint32(unsafe.Sizeof(PushConstants{}))

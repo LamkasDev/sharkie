@@ -38,6 +38,17 @@ func (t *GpuTranslator) createSurface(request SurfaceRequest) (VulkanSurface, er
 	}
 
 	// Create the render-target image.
+	imageUsage := vk.ImageUsageFlags(vk.ImageUsageColorAttachmentBit | vk.ImageUsageSampledBit | vk.ImageUsageStorageBit | vk.ImageUsageTransferSrcBit | vk.ImageUsageTransferDstBit)
+	aspectMask := vk.ImageAspectFlags(vk.ImageAspectColorBit)
+	dstLayout := vk.ImageLayoutShaderReadOnlyOptimal
+	dstAccess := vk.AccessFlags(vk.AccessShaderReadBit)
+	if IsDepthFormat(request.Format) {
+		imageUsage = vk.ImageUsageFlags(vk.ImageUsageDepthStencilAttachmentBit | vk.ImageUsageSampledBit | vk.ImageUsageTransferSrcBit | vk.ImageUsageTransferDstBit)
+		aspectMask = vk.ImageAspectFlags(vk.ImageAspectDepthBit | vk.ImageAspectStencilBit)
+		dstLayout = vk.ImageLayoutDepthStencilAttachmentOptimal
+		dstAccess = vk.AccessFlags(vk.AccessDepthStencilAttachmentReadBit | vk.AccessDepthStencilAttachmentWriteBit)
+	}
+
 	var image vk.Image
 	result := vk.CreateImage(t.handles.Device, &vk.ImageCreateInfo{
 		SType:         vk.StructureTypeImageCreateInfo,
@@ -48,7 +59,7 @@ func (t *GpuTranslator) createSurface(request SurfaceRequest) (VulkanSurface, er
 		ArrayLayers:   1,
 		Samples:       vk.SampleCount1Bit,
 		Tiling:        vk.ImageTilingOptimal,
-		Usage:         vk.ImageUsageFlags(vk.ImageUsageColorAttachmentBit | vk.ImageUsageSampledBit | vk.ImageUsageStorageBit | vk.ImageUsageTransferSrcBit | vk.ImageUsageTransferDstBit),
+		Usage:         imageUsage,
 		SharingMode:   vk.SharingModeExclusive,
 		InitialLayout: vk.ImageLayoutUndefined,
 	}, nil, &image)
@@ -81,7 +92,7 @@ func (t *GpuTranslator) createSurface(request SurfaceRequest) (VulkanSurface, er
 		ViewType: vk.ImageViewType2d,
 		Format:   request.Format,
 		SubresourceRange: vk.ImageSubresourceRange{
-			AspectMask: vk.ImageAspectFlags(vk.ImageAspectColorBit),
+			AspectMask: aspectMask,
 			LevelCount: 1,
 			LayerCount: 1,
 		},
@@ -105,16 +116,17 @@ func (t *GpuTranslator) createSurface(request SurfaceRequest) (VulkanSurface, er
 	}
 	surface.sampler = sampler
 
-	// Transition to ShaderReadOnly so it's valid for sampling before first draw.
+	// Transition to a valid initial layout for first use.
 	cb := t.AllocateCommandBuffer()
 	vk.BeginCommandBuffer(cb, &vk.CommandBufferBeginInfo{
 		SType: vk.StructureTypeCommandBufferBeginInfo,
 		Flags: vk.CommandBufferUsageFlags(vk.CommandBufferUsageOneTimeSubmitBit),
 	})
 	t.imageBarrier(cb, surface.image,
-		vk.ImageLayoutUndefined, vk.ImageLayoutShaderReadOnlyOptimal,
-		0, vk.AccessFlags(vk.AccessShaderReadBit),
-		vk.PipelineStageFlags(vk.PipelineStageTopOfPipeBit), vk.PipelineStageFlags(vk.PipelineStageAllGraphicsBit))
+		vk.ImageLayoutUndefined, dstLayout,
+		0, dstAccess,
+		vk.PipelineStageFlags(vk.PipelineStageTopOfPipeBit), vk.PipelineStageFlags(vk.PipelineStageAllGraphicsBit),
+		aspectMask)
 	vk.EndCommandBuffer(cb)
 	defer t.FreeCommandBuffer(cb)
 

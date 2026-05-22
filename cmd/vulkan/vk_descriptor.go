@@ -26,7 +26,7 @@ func (t *GpuTranslator) createDescriptorPool() error {
 				DescriptorCount: 256,
 			},
 		},
-		PoolSizeCount: 4,
+		PoolSizeCount: 3,
 		MaxSets:       8192,
 		Flags:         vk.DescriptorPoolCreateFlags(vk.DescriptorPoolCreateFreeDescriptorSetBit | vk.DescriptorPoolCreateUpdateAfterBindBit),
 	}, nil, &pool)

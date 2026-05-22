@@ -55,6 +55,7 @@ func (t *GpuTranslator) Draw(frame uint64, commandBuffer vk.CommandBuffer, draw 
 		GarlicMemoryBaseAddress: GlobalGpuAllocator.DeviceAddress,
 		UserSgprCount:           gpu.DecodeUserSgprCount(draw.VertexShRsrc2),
 		VteControl:              t.activeVteControl,
+		ClipControl:             t.activeClipControl,
 	}
 	vk.CmdPushConstants(commandBuffer, t.pipelineLayout, vk.ShaderStageFlags(vk.ShaderStageVertexBit|vk.ShaderStageComputeBit), 0, spirvStructs.PushConstantsSize, unsafe.Pointer(&pushDataVs))
 
@@ -66,17 +67,20 @@ func (t *GpuTranslator) Draw(frame uint64, commandBuffer vk.CommandBuffer, draw 
 		UserSgprCount:           gpu.DecodeUserSgprCount(draw.PixelShRsrc2),
 		ShaderRsrc2:             draw.PixelShRsrc2,
 		VteControl:              t.activeVteControl,
+		ClipControl:             t.activeClipControl,
 	}
 	vk.CmdPushConstants(commandBuffer, t.pipelineLayout, vk.ShaderStageFlags(vk.ShaderStageFragmentBit), spirvStructs.PushConstantsSize, spirvStructs.PushConstantsSize, unsafe.Pointer(&pushDataFs))
 
 	// Draw.
-	logger.Printf("[%s] Drawing %s vertices (userData=%s, topology=%s, indexed=%s).\n",
-		color.Blue.Sprintf("Frame %d", frame),
-		color.Green.Sprint(draw.VertexCount),
-		color.Yellow.Sprintf("0x%X", draw.UserDataHash),
-		color.Green.Sprint(draw.PrimType),
-		color.Green.Sprint(nstd.Btoi(draw.IsIndexed)),
-	)
+	if logger.LogRenderer {
+		logger.Printf("[%s] Drawing %s vertices (userData=%s, topology=%s, indexed=%s).\n",
+			color.Blue.Sprintf("Frame %d", frame),
+			color.Green.Sprint(draw.VertexCount),
+			color.Yellow.Sprintf("0x%X", draw.UserDataHash),
+			color.Green.Sprint(draw.PrimType),
+			color.Green.Sprint(nstd.Btoi(draw.IsIndexed)),
+		)
+	}
 	if draw.IsIndexed {
 		targetBuffer, relativeOffset, err := t.GetBufferFromAddress(draw.IndexBaseAddress)
 		if err != nil {
@@ -87,7 +91,7 @@ func (t *GpuTranslator) Draw(frame uint64, commandBuffer vk.CommandBuffer, draw 
 			indexType = vk.IndexTypeUint32
 		}
 		vk.CmdBindIndexBuffer(commandBuffer, targetBuffer, vk.DeviceSize(relativeOffset), indexType)
-		vk.CmdDrawIndexed(commandBuffer, draw.IndexCount, draw.InstanceCount, 0, int32(draw.BaseVertexOffset), 0)
+		vk.CmdDrawIndexed(commandBuffer, draw.IndexCount, draw.InstanceCount, 0, 0, 0)
 	} else {
 		vk.CmdDraw(commandBuffer, draw.VertexCount, draw.InstanceCount, 0, 0)
 	}
@@ -95,6 +99,7 @@ func (t *GpuTranslator) Draw(frame uint64, commandBuffer vk.CommandBuffer, draw 
 
 func (t *GpuTranslator) SetDynamicState(commandBuffer vk.CommandBuffer, dynamicState *gpu.LiverpoolSetDynamicState) {
 	t.activeVteControl = dynamicState.VteControl
+	t.activeClipControl = dynamicState.ClipControl
 
 	t.setViewport(commandBuffer, dynamicState)
 	t.setScissor(commandBuffer, dynamicState)
@@ -136,6 +141,8 @@ func (t *GpuTranslator) setViewport(commandBuffer vk.CommandBuffer, dynamicState
 	}
 	windowOffsetX := int32(int16(dynamicState.WindowOffset & 0xFFFF))
 	windowOffsetY := int32(int16((dynamicState.WindowOffset >> 16) & 0xFFFF))
+	// hwOffsetX := float32(int32(int16(dynamicState.HardwareScreenOffset & 0xFFFF)))
+	// hwOffsetY := float32(int32(int16((dynamicState.HardwareScreenOffset >> 16) & 0xFFFF)))
 
 	// Process viewport transforms.
 	vpWidth := vpxScale * 2
@@ -145,6 +152,8 @@ func (t *GpuTranslator) setViewport(commandBuffer vk.CommandBuffer, dynamicState
 		vpX += float32(windowOffsetX)
 		vpY += float32(windowOffsetY)
 	}
+	// vpX += hwOffsetX
+	// vpY += hwOffsetY
 
 	// Apply fallback if zero sized.
 	if vpWidth == 0 || vpHeight == 0 {
@@ -157,8 +166,8 @@ func (t *GpuTranslator) setViewport(commandBuffer vk.CommandBuffer, dynamicState
 	vk.CmdSetViewport(commandBuffer, 0, 1, []vk.Viewport{{
 		X: vpX, Y: vpY,
 		Width: vpWidth, Height: vpHeight,
-		MinDepth: vpzOffset,
-		MaxDepth: vpzOffset + vpzScale,
+		MinDepth: vpzOffset + vpzScale,
+		MaxDepth: vpzOffset,
 	}})
 }
 

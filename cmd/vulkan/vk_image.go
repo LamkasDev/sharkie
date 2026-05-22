@@ -31,7 +31,8 @@ func (t *GpuTranslator) uploadDataToImage(data []uint8, image vk.Image, width, h
 	t.imageBarrier(cb, image,
 		vk.ImageLayoutUndefined, vk.ImageLayoutTransferDstOptimal,
 		0, vk.AccessFlags(vk.AccessTransferWriteBit),
-		vk.PipelineStageFlags(vk.PipelineStageTopOfPipeBit), vk.PipelineStageFlags(vk.PipelineStageTransferBit))
+		vk.PipelineStageFlags(vk.PipelineStageTopOfPipeBit), vk.PipelineStageFlags(vk.PipelineStageTransferBit),
+		vk.ImageAspectFlags(vk.ImageAspectColorBit))
 	vk.CmdCopyBufferToImage(cb, stagingBuffer, image, vk.ImageLayoutTransferDstOptimal, 1, []vk.BufferImageCopy{{
 		BufferOffset:      0,
 		BufferRowLength:   0,
@@ -46,7 +47,8 @@ func (t *GpuTranslator) uploadDataToImage(data []uint8, image vk.Image, width, h
 	t.imageBarrier(cb, image,
 		vk.ImageLayoutTransferDstOptimal, vk.ImageLayoutGeneral,
 		vk.AccessFlags(vk.AccessTransferWriteBit), vk.AccessFlags(vk.AccessShaderReadBit|vk.AccessShaderWriteBit),
-		vk.PipelineStageFlags(vk.PipelineStageTransferBit), vk.PipelineStageFlags(vk.PipelineStageAllCommandsBit))
+		vk.PipelineStageFlags(vk.PipelineStageTransferBit), vk.PipelineStageFlags(vk.PipelineStageAllCommandsBit),
+		vk.ImageAspectFlags(vk.ImageAspectColorBit))
 	vk.EndCommandBuffer(cb)
 	defer t.FreeCommandBuffer(cb)
 
@@ -82,6 +84,7 @@ func (t *GpuTranslator) imageBarrier(commandBuffer vk.CommandBuffer, image vk.Im
 	oldLayout, newLayout vk.ImageLayout,
 	srcAccess, dstAccess vk.AccessFlags,
 	srcStage, dstStage vk.PipelineStageFlags,
+	aspectMask vk.ImageAspectFlags,
 ) {
 	vk.CmdPipelineBarrier(commandBuffer,
 		srcStage, dstStage,
@@ -94,7 +97,7 @@ func (t *GpuTranslator) imageBarrier(commandBuffer vk.CommandBuffer, image vk.Im
 			DstQueueFamilyIndex: vk.QueueFamilyIgnored,
 			Image:               image,
 			SubresourceRange: vk.ImageSubresourceRange{
-				AspectMask:     vk.ImageAspectFlags(vk.ImageAspectColorBit),
+				AspectMask:     aspectMask,
 				BaseMipLevel:   0,
 				LevelCount:     vk.RemainingMipLevels,
 				BaseArrayLayer: 0,

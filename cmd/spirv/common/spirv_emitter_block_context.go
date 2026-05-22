@@ -262,9 +262,12 @@ func (ctx *SpirvBlockContext) LoadPushConstantValue(b *SpvBuilder, i uint32) Spi
 	case PushConstantOnionMemoryBaseAddress, PushConstantGarlicMemoryBaseAddress:
 		valType = ctx.GetId(BlockContextIdTypeUint64)
 		ptrType = ctx.GetId(BlockContextIdPtrPcUint64)
-	case PushConstantUserSgprCount, PushConstantShaderRsrc2, PushConstantVteControl:
+	case PushConstantUserSgprCount, PushConstantShaderRsrc2, PushConstantVteControl, PushConstantClipControl:
 		valType = ctx.GetId(BlockContextIdTypeUint)
 		ptrType = ctx.GetId(BlockContextIdPtrPcUint)
+	case PushConstantGbHorzClipAdj, PushConstantGbVertClipAdj:
+		valType = ctx.GetId(BlockContextIdTypeFloat)
+		ptrType = ctx.GetId(BlockContextIdPtrPcFloat)
 	default:
 		panic(fmt.Sprintf("unknown push constant index %d", i))
 	}

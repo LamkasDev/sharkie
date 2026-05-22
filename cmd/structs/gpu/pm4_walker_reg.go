@@ -108,6 +108,7 @@ func (l *Liverpool) handleWaitRegMemory(ringName string, payload []uint32) {
 			color.Yellow.Sprintf("0x%X", reference),
 		)
 	}
+	// TODO: fix this
 	for {
 		var current uint32
 		if address != 0 {

@@ -38,20 +38,20 @@ func (t *GpuTranslator) BindPipeline(frame uint64, commandBuffer vk.CommandBuffe
 	// Handle depth surface.
 	var depthSurface *GpuSurface
 	depthFormat := vk.FormatUndefined
-	/* depthFormat := TranslateGcnDepthFormat(bind.DbZFormat)
-	if depthFormat != vk.FormatUndefined && bind.DbZBase != 0 {
+	depthFormat = TranslateGcnDepthFormat(bind.DbZFormat)
+	if depthFormat != vk.FormatUndefined && bind.DbZWriteBase != 0 {
 		depthSurface, err = t.GetSurface(SurfaceRequest{
 			SurfaceKey: SurfaceKey{
-				GpuAddress: uintptr(bind.DbZBase) << 8,
+				GpuAddress: uintptr(bind.DbZWriteBase) << 8,
 			},
 			Format: depthFormat,
-			Width:  bind.RtWidth,
-			Height: bind.RtHeight,
+			Width:  surface.Value.width,
+			Height: surface.Value.height,
 		})
 		if err != nil {
 			return
 		}
-	} */
+	}
 
 	// Get or create framebuffer.
 	fbRequest := FramebufferRequest{
@@ -132,8 +132,19 @@ func (t *GpuTranslator) BindPipeline(frame uint64, commandBuffer vk.CommandBuffe
 			Height:   surface.Value.height,
 			PrimType: bind.PrimType,
 
+			CullFront:             bind.CullFront,
+			CullBack:              bind.CullBack,
+			Face:                  bind.Face,
+			PolyMode:              bind.PolyMode,
+			PolyModeFrontPtype:    bind.PolyModeFrontPtype,
+			PolyModeBackPtype:     bind.PolyModeBackPtype,
+			PolyOffsetFrontEnable: bind.PolyOffsetFrontEnable,
+			PolyOffsetBackEnable:  bind.PolyOffsetBackEnable,
+			PolyOffsetParaEnable:  bind.PolyOffsetParaEnable,
+			ProvokingVertexLast:   bind.ProvokingVertexLast,
+
 			BlendAttachment:   translateBlendControl(bind.RtBlendControl, colorWriteMask, bind.RtBlendBypass),
-			DepthStencilState: translateDepthControl(bind.DbDepthControl, bind.DbStencilControl),
+			DepthStencilState: translateDepthControl(bind.DbDepthControl, bind.DbStencilControl, bind.DbStencilRefMask, bind.DbStencilRefMaskBf),
 			LogicOpEnable:     logicOpEnable,
 			LogicOp:           logicOp,
 
@@ -169,7 +180,8 @@ func (t *GpuTranslator) BindPipeline(frame uint64, commandBuffer vk.CommandBuffe
 	if shouldClear {
 		renderPass = fb.RenderPass
 		clearColor := vk.ClearValue{}
-		clearColor.SetColor([]float32{0.8, 0.8, 0.8, 1.0})
+		clearColorFloat := translateClearColor(bind.RtClearWord0, bind.RtClearWord1, bind.RtFormat, bind.RtNumberType, bind.RtCompSwap)
+		clearColor.SetColor(clearColorFloat)
 		clearValues = []vk.ClearValue{clearColor}
 		if depthSurface != nil {
 			clearDepth := vk.ClearValue{}
@@ -201,11 +213,13 @@ func (t *GpuTranslator) BindPipeline(frame uint64, commandBuffer vk.CommandBuffe
 	t.activeFramebuffer = fb.Framebuffer
 	t.activePipeline = pipeline
 
-	logger.Printf("[%s] Bound pipeline (vertex=%s, fragment=%s).\n",
-		color.Blue.Sprintf("Frame %d", frame),
-		color.Yellow.Sprintf("0x%X", bind.VertexShader.Address),
-		color.Yellow.Sprintf("0x%X", bind.PixelShader.Address),
-	)
+	if logger.LogRenderer {
+		logger.Printf("[%s] Bound pipeline (vertex=%s, fragment=%s).\n",
+			color.Blue.Sprintf("Frame %d", frame),
+			color.Yellow.Sprintf("0x%X", bind.VertexShader.Address),
+			color.Yellow.Sprintf("0x%X", bind.PixelShader.Address),
+		)
+	}
 }
 
 func (t *GpuTranslator) EndRenderPass(commandBuffer vk.CommandBuffer) {

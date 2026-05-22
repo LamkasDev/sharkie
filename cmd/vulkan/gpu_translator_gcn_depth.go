@@ -5,7 +5,7 @@ import (
 	"go101.org/nstd"
 )
 
-func translateDepthControl(depthControl uint32, stencilControl uint32) vk.PipelineDepthStencilStateCreateInfo {
+func translateDepthControl(depthControl uint32, stencilControl uint32, stencilRefMask uint32, stencilRefMaskBf uint32) vk.PipelineDepthStencilStateCreateInfo {
 	return vk.PipelineDepthStencilStateCreateInfo{
 		SType:                 vk.StructureTypePipelineDepthStencilStateCreateInfo,
 		DepthTestEnable:       vk.Bool32(nstd.Btoi((depthControl>>1)&1 == 1)),
@@ -18,12 +18,18 @@ func translateDepthControl(depthControl uint32, stencilControl uint32) vk.Pipeli
 			PassOp:      translateStencilOp((stencilControl >> 4) & 0xf),
 			DepthFailOp: translateStencilOp((stencilControl >> 8) & 0xf),
 			CompareOp:   translateCompareOp((depthControl >> 8) & 0x7),
+			CompareMask: (stencilRefMask >> 8) & 0xff,
+			WriteMask:   (stencilRefMask >> 16) & 0xff,
+			Reference:   stencilRefMask & 0xff,
 		},
 		Back: vk.StencilOpState{
 			FailOp:      translateStencilOp((stencilControl >> 12) & 0xf),
 			PassOp:      translateStencilOp((stencilControl >> 16) & 0xf),
 			DepthFailOp: translateStencilOp((stencilControl >> 20) & 0xf),
 			CompareOp:   translateCompareOp((depthControl >> 20) & 0x7),
+			CompareMask: (stencilRefMaskBf >> 8) & 0xff,
+			WriteMask:   (stencilRefMaskBf >> 16) & 0xff,
+			Reference:   stencilRefMaskBf & 0xff,
 		},
 	}
 }
@@ -81,10 +87,19 @@ func translateStencilOp(op uint32) vk.StencilOp {
 func TranslateGcnDepthFormat(format uint32) vk.Format {
 	switch format {
 	case 1: // Z_16: 16-bit UNORM depth surface.
-		return vk.FormatD16Unorm
+		return vk.FormatD16UnormS8Uint
 	case 3: // Z_32_FLOAT: 32-bit FLOAT depth surface.
-		return vk.FormatD32Sfloat
+		return vk.FormatD32SfloatS8Uint
 	default:
 		return vk.FormatUndefined
+	}
+}
+
+func IsDepthFormat(format vk.Format) bool {
+	switch format {
+	case vk.FormatD16UnormS8Uint, vk.FormatD32SfloatS8Uint:
+		return true
+	default:
+		return false
 	}
 }

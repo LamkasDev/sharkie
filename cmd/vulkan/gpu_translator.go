@@ -67,14 +67,15 @@ type GpuTranslator struct {
 	framebuffers      map[FramebufferRequest]*VulkanFramebuffer
 
 	// Caches for images, image views and samplers.
-	imagesMutex      sync.Mutex
-	images           map[uintptr]vk.Image
-	imageMems        map[uintptr]vk.DeviceMemory
-	imageViews       map[uint64]vk.ImageView
-	imageDescriptors map[uint64]spirvStructs.ImageDescriptor
-	samplersMutex    sync.Mutex
-	samplers         map[uint64]vk.Sampler
-	defaultSampler   vk.Sampler
+	imagesMutex       sync.Mutex
+	images            map[uintptr]vk.Image
+	imageMems         map[uintptr]vk.DeviceMemory
+	imageViews        map[uint64]vk.ImageView
+	storageImageViews map[uint64]vk.ImageView
+	imageDescriptors  map[uint64]spirvStructs.ImageDescriptor
+	samplersMutex     sync.Mutex
+	samplers          map[uint64]vk.Sampler
+	defaultSampler    vk.Sampler
 
 	// Physical buffers for User Data snapshots.
 	userDataBuffersMutex  sync.Mutex
@@ -95,6 +96,7 @@ type GpuTranslator struct {
 	activeFramebuffer vk.Framebuffer
 	activePipeline    vk.Pipeline
 	activeVteControl  uint32
+	activeClipControl uint32
 }
 
 // NewGpuTranslator creates a GpuTranslator, loads stub shaders and builds the stub pipeline layout.
@@ -127,11 +129,12 @@ func NewGpuTranslator(handles VulkanHandles, bknd backend.Backend[glfwvulkanback
 		discoveryImageNoSamplerMap: map[spirvStructs.ImageNoSamplerKey]uint32{},
 		discoveryNextVulkanIndex:   1, // 0 is reserved for missing.
 
-		imagesMutex:      sync.Mutex{},
-		images:           map[uintptr]vk.Image{},
-		imageMems:        map[uintptr]vk.DeviceMemory{},
-		imageViews:       map[uint64]vk.ImageView{},
-		imageDescriptors: map[uint64]spirvStructs.ImageDescriptor{},
+		imagesMutex:       sync.Mutex{},
+		images:            map[uintptr]vk.Image{},
+		imageMems:         map[uintptr]vk.DeviceMemory{},
+		imageViews:        map[uint64]vk.ImageView{},
+		storageImageViews: map[uint64]vk.ImageView{},
+		imageDescriptors:  map[uint64]spirvStructs.ImageDescriptor{},
 
 		samplersMutex: sync.Mutex{},
 		samplers:      map[uint64]vk.Sampler{},

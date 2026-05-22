@@ -1,6 +1,8 @@
 package vulkan
 
 import (
+	"unsafe"
+
 	as "github.com/LamkasDev/asche"
 	vk "github.com/goki/vulkan"
 	"go101.org/nstd"
@@ -24,6 +26,18 @@ type GraphicsPipelineKey struct {
 	Width    uint32
 	Height   uint32
 	PrimType uint32
+
+	// Culling and polygon mode.
+	CullFront             bool
+	CullBack              bool
+	Face                  bool
+	PolyMode              uint32
+	PolyModeFrontPtype    uint32
+	PolyModeBackPtype     uint32
+	PolyOffsetFrontEnable bool
+	PolyOffsetBackEnable  bool
+	PolyOffsetParaEnable  bool
+	ProvokingVertexLast   bool
 
 	// Render control flags.
 	BlendAttachment   vk.PipelineColorBlendAttachmentState
@@ -63,28 +77,28 @@ type ComputePipelineKey struct {
 
 func (t *GpuTranslator) createGraphicsPipeline(request GraphicsPipelineRequest) (vk.Pipeline, error) {
 	// Setup stages.
-	/* subgroupSizeVs := &VkPipelineShaderStageRequiredSubgroupSizeCreateInfoEXT{
+	subgroupSizeVs := &VkPipelineShaderStageRequiredSubgroupSizeCreateInfoEXT{
 		SType:                StructureTypePipelineShaderStageRequiredSubgroupSizeCreateInfoExt,
 		RequiredSubgroupSize: t.handles.SubgroupSizeProperties.MaxSubgroupSize,
 	}
 	subgroupSizeFs := &VkPipelineShaderStageRequiredSubgroupSizeCreateInfoEXT{
 		SType:                StructureTypePipelineShaderStageRequiredSubgroupSizeCreateInfoExt,
 		RequiredSubgroupSize: t.handles.SubgroupSizeProperties.MaxSubgroupSize,
-	} */
+	}
 	stages := []vk.PipelineShaderStageCreateInfo{
 		{
 			SType:  vk.StructureTypePipelineShaderStageCreateInfo,
 			Stage:  vk.ShaderStageVertexBit,
 			Module: request.VertexModule,
 			PName:  "main\x00",
-			PNext:/* unsafe.Pointer(subgroupSizeVs) */ nil,
+			PNext:  unsafe.Pointer(subgroupSizeVs),
 		},
 		{
 			SType:  vk.StructureTypePipelineShaderStageCreateInfo,
 			Stage:  vk.ShaderStageFragmentBit,
 			Module: request.FragmentModule,
 			PName:  "main\x00",
-			PNext:/* unsafe.Pointer(subgroupSizeFs) */ nil,
+			PNext:  unsafe.Pointer(subgroupSizeFs),
 		},
 	}
 	if request.GeometryModule != vk.NullShaderModule {
@@ -115,11 +129,7 @@ func (t *GpuTranslator) createGraphicsPipeline(request GraphicsPipelineRequest) 
 	}
 
 	// Viewport and scissor are dynamic so they match each draw call without rebuilding the pipeline.
-	hasScissor := request.VpScissorEnable || request.WindowOffsetEnable
-	dynStates := []vk.DynamicState{vk.DynamicStateViewport, vk.DynamicStateBlendConstants}
-	if hasScissor {
-		dynStates = append(dynStates, vk.DynamicStateScissor)
-	}
+	dynStates := []vk.DynamicState{vk.DynamicStateViewport, vk.DynamicStateScissor, vk.DynamicStateBlendConstants}
 	if request.LineStippleEnable {
 		// dynStates = append(dynStates, vk.DynamicStateLineStippleExt)
 	}
@@ -132,22 +142,57 @@ func (t *GpuTranslator) createGraphicsPipeline(request GraphicsPipelineRequest) 
 		SType:         vk.StructureTypePipelineViewportStateCreateInfo,
 		ViewportCount: 1,
 		ScissorCount:  1,
-	}
-	if !hasScissor {
-		viewportState.PScissors = []vk.Rect2D{{
+		PScissors: []vk.Rect2D{{
 			Offset: vk.Offset2D{X: 0, Y: 0},
 			Extent: vk.Extent2D{Width: 16384, Height: 16384},
-		}}
+		}},
 	}
 
 	// Setup rasterization.
+	cullMode := vk.CullModeNone
+	switch {
+	case request.CullFront && request.CullBack:
+		cullMode = vk.CullModeFrontAndBack
+	case request.CullFront:
+		cullMode = vk.CullModeFrontBit
+	case request.CullBack:
+		cullMode = vk.CullModeBackBit
+	}
+
+	frontFace := vk.FrontFaceCounterClockwise
+	if request.Face {
+		frontFace = vk.FrontFaceClockwise
+	}
+
+	polygonMode := vk.PolygonModeFill
+	if request.PolyMode == 1 {
+		polygonMode = vk.PolygonModePoint
+		if request.PolyModeFrontPtype == 1 {
+			polygonMode = vk.PolygonModeLine
+		} else if request.PolyModeFrontPtype == 2 {
+			polygonMode = vk.PolygonModeFill
+		}
+	}
+
+	provokingVertex := vk.PipelineRasterizationProvokingVertexStateCreateInfo{
+		SType:               vk.StructureTypePipelineRasterizationProvokingVertexStateCreateInfo,
+		ProvokingVertexMode: vk.ProvokingVertexModeFirstVertex,
+	}
+	if request.ProvokingVertexLast {
+		provokingVertex.ProvokingVertexMode = vk.ProvokingVertexModeLastVertex
+	}
+
 	raster := vk.PipelineRasterizationStateCreateInfo{
 		SType:       vk.StructureTypePipelineRasterizationStateCreateInfo,
-		PolygonMode: vk.PolygonModeFill,
-		CullMode:    vk.CullModeFlags(vk.CullModeNone),
-		FrontFace:   vk.FrontFaceCounterClockwise,
+		PNext:       unsafe.Pointer(&provokingVertex),
+		PolygonMode: polygonMode,
+		CullMode:    vk.CullModeFlags(cullMode),
+		FrontFace:   frontFace,
 		LineWidth:   1.0,
 	}
+	depthStencil := request.DepthStencilState
+
+	// Setup anti-aliasing.
 	multisample := vk.PipelineMultisampleStateCreateInfo{
 		SType:                 vk.StructureTypePipelineMultisampleStateCreateInfo,
 		RasterizationSamples:  translateMsaaSamples(request.MsaaSampleLocations),
@@ -157,7 +202,6 @@ func (t *GpuTranslator) createGraphicsPipeline(request GraphicsPipelineRequest) 
 		AlphaToCoverageEnable: vk.Bool32(nstd.Btoi((request.DbKillEnable || request.DbCoverageToMaskEnable) && !request.DbAlphaToMaskDisable)),
 		AlphaToOneEnable:      vk.False,
 	}
-	depthStencil := request.DepthStencilState
 
 	// Setup blending.
 	blend := vk.PipelineColorBlendStateCreateInfo{

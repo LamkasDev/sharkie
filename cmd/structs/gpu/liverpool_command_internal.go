@@ -23,6 +23,20 @@ type LiverpoolBindPipelineInternal struct {
 	RtTargetMask   uint32
 	RtColorControl uint32
 	RtBlendControl uint32
+	RtClearWord0   uint32
+	RtClearWord1   uint32
+
+	// Culling and polygon mode.
+	CullFront             bool
+	CullBack              bool
+	Face                  bool
+	PolyMode              uint32
+	PolyModeFrontPtype    uint32
+	PolyModeBackPtype     uint32
+	PolyOffsetFrontEnable bool
+	PolyOffsetBackEnable  bool
+	PolyOffsetParaEnable  bool
+	ProvokingVertexLast   bool
 
 	// Render target info (decoded from CB_COLOR0_INFO).
 	RtFormat               uint32
@@ -67,6 +81,8 @@ type LiverpoolBindPipelineInternal struct {
 
 	// Stencil buffer control.
 	DbStencilControl    uint32
+	DbStencilRefMask    uint32
+	DbStencilRefMaskBf  uint32
 	DbStencilClearValue uint32
 
 	// Render control.
@@ -116,6 +132,15 @@ type LiverpoolSetDynamicStateInternal struct {
 	VtxZFmt         bool
 	VtxW0Fmt        bool
 
+	// Clip control.
+	ClipControl uint32
+
+	// Guard band adjust.
+	GbVertClipAdj float32
+	GbVertDiscAdj float32
+	GbHorzClipAdj float32
+	GbHorzDiscAdj float32
+
 	// Blend constants.
 	BlendRed   uint32
 	BlendGreen uint32
@@ -160,7 +185,6 @@ type LiverpoolDrawInternal struct {
 	IndexCount       uint32
 	IndexType        uint32
 	IndexBaseAddress uintptr
-	BaseVertexOffset uint32
 
 	// Shader resources.
 	VertexShRsrc1, VertexShRsrc2     uint32

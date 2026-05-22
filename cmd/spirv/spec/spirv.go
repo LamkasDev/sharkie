@@ -74,6 +74,7 @@ var GncStageToSpvExecModel = map[GcnShaderStage]uint32{
 // SPIR-V execution modes.
 const (
 	SpvExecModeOriginUpperLeft = uint32(7)
+	SpvExecModeDepthReplacing  = uint32(12)
 	SpvExecModeLocalSize       = uint32(17)
 )
 
@@ -184,8 +185,9 @@ const (
 	SpvOpImageRead              = uint32(98)
 	SpvOpImageWrite             = uint32(99)
 	SpvOpImage                  = uint32(100)
+	SpvOpConvertSToF            = uint32(111)
+	SpvOpConvertUToF            = uint32(112)
 	SpvOpUConvert               = uint32(113)
-	SpvOpConvertUToF            = uint32(111)
 	SpvOpConvertUToPtr          = uint32(120)
 	SpvOpBitcast                = uint32(124)
 	SpvOpFNegate                = uint32(127)

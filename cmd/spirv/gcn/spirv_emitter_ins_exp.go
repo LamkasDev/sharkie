@@ -100,6 +100,16 @@ func EmitEXP(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext) 
 			comps[1] = b.EmitSelect(typeFloat, vtxXyFmt, b.EmitFMul(typeFloat, comps[1], wVulkan), comps[1])
 			comps[2] = b.EmitSelect(typeFloat, vtxZFmt, b.EmitFMul(typeFloat, comps[2], wVulkan), comps[2])
 			comps[3] = wVulkan
+
+			// Adjust Z based on DX_CLIP_SPACE_DEF.
+			clipControl := ctx.LoadPushConstantValue(b, PushConstantClipControl)
+			dxClipSpaceDef := ctx.TestMask(b, clipControl, 1<<19)
+
+			// OpenGL: Z_vul = (Z_gl + W) / 2.0
+			zGl := comps[2]
+			zGlPlusW := b.EmitFAdd(typeFloat, zGl, wVulkan)
+			halfW := b.EmitFDiv(typeFloat, zGlPlusW, ctx.GetConstId(ConstIdFloat2))
+			comps[2] = b.EmitSelect(typeFloat, dxClipSpaceDef, zGl, halfW)
 		}
 
 		vec := b.EmitCompositeConstruct(typeV4Float, comps[0], comps[1], comps[2], comps[3])

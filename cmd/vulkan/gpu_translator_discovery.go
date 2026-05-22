@@ -105,7 +105,7 @@ func (t *GpuTranslator) FulfillResources(frame uint64) uint32 {
 			if samplerDescriptor == nil {
 				panic("no sampler to alias")
 			}
-			view, err, _ := t.GetImageView(imageDescriptor)
+			view, storageView, err, _ := t.GetImageView(imageDescriptor)
 			if err != nil {
 				panic(fmt.Errorf("failed to create image view resource: %w", err))
 			}
@@ -113,12 +113,12 @@ func (t *GpuTranslator) FulfillResources(frame uint64) uint32 {
 			if err != nil {
 				panic(fmt.Errorf("failed to create sampler resource: %w", err))
 			}
-			t.updateBindlessDescriptorSet(vkIndex, view, sampler)
+			t.updateBindlessDescriptorSet(vkIndex, view, storageView, sampler)
 			continue
 		}
 
 		// Create host resources.
-		view, err, isImageNew := t.GetImageView(imageDescriptor)
+		view, storageView, err, isImageNew := t.GetImageView(imageDescriptor)
 		if err != nil {
 			panic(fmt.Errorf("failed to create image view resource: %w", err))
 		}
@@ -150,7 +150,7 @@ func (t *GpuTranslator) FulfillResources(frame uint64) uint32 {
 		binary.LittleEndian.PutUint32(discoveryMapData[hashIndex*4:hashIndex*4+4], vkIndex)
 
 		// Update bindless set.
-		t.updateBindlessDescriptorSet(vkIndex, view, sampler)
+		t.updateBindlessDescriptorSet(vkIndex, view, storageView, sampler)
 	}
 
 	// Reset counter for next time.
@@ -237,7 +237,7 @@ func (t *GpuTranslator) createDummyTexture() {
 	}, 0, nil)
 }
 
-func (t *GpuTranslator) updateBindlessDescriptorSet(index uint32, view vk.ImageView, sampler vk.Sampler) {
+func (t *GpuTranslator) updateBindlessDescriptorSet(index uint32, view vk.ImageView, storageView vk.ImageView, sampler vk.Sampler) {
 	vk.UpdateDescriptorSets(t.handles.Device, 2, []vk.WriteDescriptorSet{
 		{
 			SType:           vk.StructureTypeWriteDescriptorSet,
@@ -260,7 +260,7 @@ func (t *GpuTranslator) updateBindlessDescriptorSet(index uint32, view vk.ImageV
 			DescriptorCount: 1,
 			DescriptorType:  vk.DescriptorTypeStorageImage,
 			PImageInfo: []vk.DescriptorImageInfo{{
-				ImageView:   view,
+				ImageView:   storageView,
 				ImageLayout: vk.ImageLayoutGeneral,
 			}},
 		},

@@ -166,6 +166,13 @@ func (b *SpvBuilder) EmitConvertUToF(resultType, operand SpirvId) SpirvId {
 	return id
 }
 
+// EmitConvertSToF emits EmitConvertSToF and returns the result ID.
+func (b *SpvBuilder) EmitConvertSToF(resultType, operand SpirvId) SpirvId {
+	id := b.AllocId()
+	b.instr(&b.code, spec.SpvOpConvertSToF, uint32(resultType), uint32(id), uint32(operand))
+	return id
+}
+
 // EmitConvertUToPtr emits OpConvertUToPtr and returns the result ID.
 func (b *SpvBuilder) EmitConvertUToPtr(resultType, operand SpirvId) SpirvId {
 	id := b.AllocId()

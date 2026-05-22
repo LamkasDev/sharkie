@@ -55,6 +55,19 @@ func (l *Liverpool) recordDraw(ringName string, count uint32, isIndexed bool) {
 			RtTargetMask:   l.Registers.Context[GREG_MM_CB_TARGET_MASK],
 			RtColorControl: l.Registers.Context[GREG_MM_CB_COLOR_CONTROL],
 			RtBlendControl: l.Registers.Context[GREG_MM_CB_BLEND0_CONTROL],
+			RtClearWord0:   l.Registers.Context[GREG_MM_CB_COLOR0_CLEAR_WORD0],
+			RtClearWord1:   l.Registers.Context[GREG_MM_CB_COLOR0_CLEAR_WORD1],
+
+			CullFront:             (l.Registers.Context[GREG_MM_PA_SU_SC_MODE_CNTL]>>0)&1 == 1,
+			CullBack:              (l.Registers.Context[GREG_MM_PA_SU_SC_MODE_CNTL]>>1)&1 == 1,
+			Face:                  (l.Registers.Context[GREG_MM_PA_SU_SC_MODE_CNTL]>>2)&1 == 1,
+			PolyMode:              (l.Registers.Context[GREG_MM_PA_SU_SC_MODE_CNTL] >> 3) & 0x3,
+			PolyModeFrontPtype:    (l.Registers.Context[GREG_MM_PA_SU_SC_MODE_CNTL] >> 5) & 0x7,
+			PolyModeBackPtype:     (l.Registers.Context[GREG_MM_PA_SU_SC_MODE_CNTL] >> 8) & 0x7,
+			PolyOffsetFrontEnable: (l.Registers.Context[GREG_MM_PA_SU_SC_MODE_CNTL]>>11)&1 == 1,
+			PolyOffsetBackEnable:  (l.Registers.Context[GREG_MM_PA_SU_SC_MODE_CNTL]>>12)&1 == 1,
+			PolyOffsetParaEnable:  (l.Registers.Context[GREG_MM_PA_SU_SC_MODE_CNTL]>>13)&1 == 1,
+			ProvokingVertexLast:   (l.Registers.Context[GREG_MM_PA_SU_SC_MODE_CNTL]>>19)&1 == 1,
 
 			RtFormat:               (l.Registers.Context[GREG_MM_CB_COLOR0_INFO] >> 2) & 0x1F,
 			RtNumberType:           (l.Registers.Context[GREG_MM_CB_COLOR0_INFO] >> 8) & 0x7,
@@ -91,6 +104,8 @@ func (l *Liverpool) recordDraw(ringName string, count uint32, isIndexed bool) {
 			DbZFormat:         l.Registers.Context[GREG_MM_DB_Z_INFO] & 0x3,
 
 			DbStencilControl:    l.Registers.Context[GREG_MM_DB_STENCIL_CONTROL],
+			DbStencilRefMask:    l.Registers.Context[GREG_MM_DB_STENCILREFMASK],
+			DbStencilRefMaskBf:  l.Registers.Context[GREG_MM_DB_STENCILREFMASK_BF],
 			DbStencilClearValue: l.Registers.Context[GREG_MM_DB_STENCIL_CLEAR],
 
 			DbDepthClearEnable:   (l.Registers.Context[GREG_MM_DB_RENDER_CONTROL]>>0)&1 == 1,
@@ -161,6 +176,12 @@ func (l *Liverpool) recordDraw(ringName string, count uint32, isIndexed bool) {
 			VtxZFmt:         (l.Registers.Context[GREG_MM_PA_CL_VTE_CNTL]>>9)&1 == 1,
 			VtxW0Fmt:        (l.Registers.Context[GREG_MM_PA_CL_VTE_CNTL]>>10)&1 == 1,
 
+			ClipControl:   l.Registers.Context[GREG_MM_PA_CL_CLIP_CNTL],
+			GbVertClipAdj: math.Float32frombits(l.Registers.Context[GREG_MM_PA_CL_GB_VERT_CLIP_ADJ]),
+			GbVertDiscAdj: math.Float32frombits(l.Registers.Context[GREG_MM_PA_CL_GB_VERT_DISC_ADJ]),
+			GbHorzClipAdj: math.Float32frombits(l.Registers.Context[GREG_MM_PA_CL_GB_HORZ_CLIP_ADJ]),
+			GbHorzDiscAdj: math.Float32frombits(l.Registers.Context[GREG_MM_PA_CL_GB_HORZ_DISC_ADJ]),
+
 			BlendRed:   l.Registers.Context[GREG_MM_CB_BLEND_RED],
 			BlendGreen: l.Registers.Context[GREG_MM_CB_BLEND_GREEN],
 			BlendBlue:  l.Registers.Context[GREG_MM_CB_BLEND_BLUE],
@@ -209,7 +230,6 @@ func (l *Liverpool) recordDraw(ringName string, count uint32, isIndexed bool) {
 			IndexCount:       l.DrawState.IndexBufferSize,
 			IndexType:        l.DrawState.IndexType,
 			IndexBaseAddress: l.DrawState.IndexBase,
-			BaseVertexOffset: l.DrawState.BaseVertexOffset,
 
 			VertexShRsrc1:   l.Registers.Shader[GREG_MM_SPI_SHADER_PGM_RSRC1_VS],
 			VertexShRsrc2:   l.Registers.Shader[GREG_MM_SPI_SHADER_PGM_RSRC2_VS],
