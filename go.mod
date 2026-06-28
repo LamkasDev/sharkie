@@ -4,7 +4,6 @@ go 1.26.1
 
 require (
 	github.com/CovenantSQL/HashStablePack v2.0.0+incompatible
-	github.com/LamkasDev/asche v0.0.0-20260410215934-d36c06ea04a8
 	github.com/LamkasDev/cimgui-go-vulkan v0.0.0-20260410221204-bd4ebb3a4cf0
 	github.com/bpfsnoop/gapstone v0.0.0-20250326154852-7e3bee2c2f09
 	github.com/cespare/xxhash v1.1.0
@@ -13,6 +12,7 @@ require (
 	github.com/gookit/color v1.6.0
 	github.com/langhuihui/gomem v0.0.0-20251013004544-ee5a2a75c165
 	github.com/xlab/closer v1.1.0
+	github.com/xlab/linmath v0.0.0-20220922225318-40b6290c3b40
 	go.uber.org/atomic v1.11.0
 	go101.org/nstd v0.2.3
 	golang.org/x/sys v0.44.0
@@ -20,6 +20,5 @@ require (
 
 require (
 	github.com/philhofer/fwd v1.2.0 // indirect
-	github.com/xlab/linmath v0.0.0-20220922225318-40b6290c3b40 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 )

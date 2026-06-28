@@ -25,20 +25,6 @@ func (t *GpuTranslator) Draw(frame uint64, commandBuffer vk.CommandBuffer, draw 
 		return
 	}
 
-	// Handle explicit clears.
-	/* if draw.DbDepthClearEnable || draw.DbStencilClearEnable {
-		clearDepth := vk.ClearAttachment{
-			AspectMask: vk.ImageAspectFlags(vk.ImageAspectDepthBit | vk.ImageAspectStencilBit),
-			ClearValue: vk.ClearValue{},
-		}
-		clearDepth.ClearValue.SetDepthStencil(math.Float32frombits(draw.DbDepthClearValue), draw.DbStencilClearValue)
-		vk.CmdClearAttachments(commandBuffer, 1, []vk.ClearAttachment{clearDepth}, 1, []vk.ClearRect{{
-			Rect:           vk.Rect2D{Extent: vk.Extent2D{Width: t.activeSurface.Value.width, Height: t.activeSurface.Value.height}},
-			BaseArrayLayer: 0,
-			LayerCount:     1,
-		}})
-	} */
-
 	// Bind bindless/discovery descriptor sets.
 	vk.CmdBindDescriptorSets(commandBuffer, vk.PipelineBindPointGraphics, t.pipelineLayout, spirvStructs.DescriptorSetSlotBindless, 1, []vk.DescriptorSet{t.bindlessDescriptorSet}, 0, nil)
 	vk.CmdBindDescriptorSets(commandBuffer, vk.PipelineBindPointGraphics, t.pipelineLayout, spirvStructs.DescriptorSetSlotDiscovery, 1, []vk.DescriptorSet{t.discoveryDescriptorSet}, 0, nil)

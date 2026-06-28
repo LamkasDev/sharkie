@@ -68,9 +68,6 @@ func translateLogicOp(rop3 uint32) vk.LogicOp {
 }
 
 func translateColorFormat(format uint32, numberType uint32, compSwap uint32) vk.Format {
-	// TODO: fix this.
-	return vk.FormatR8g8b8a8Unorm
-
 	switch format {
 	case 1: // COLOR_8
 		switch numberType {
@@ -210,9 +207,6 @@ func translateColorFormat(format uint32, numberType uint32, compSwap uint32) vk.
 }
 
 func translateClearColor(word0 uint32, word1 uint32, format uint32, numberType uint32, compSwap uint32) []float32 {
-	// TODO: fix this.
-	return []float32{1.0, 1.0, 1.0, 1.0}
-
 	var r, g, b, a float32 = 0.0, 0.0, 0.0, 1.0
 	switch format {
 	case 10:
@@ -227,10 +221,14 @@ func translateClearColor(word0 uint32, word1 uint32, format uint32, numberType u
 			g = float32((word0 >> 8) & 0xFF)
 			b = float32((word0 >> 16) & 0xFF)
 			a = float32((word0 >> 24) & 0xFF)
+		default:
+			panic("unhandled")
 		}
 		if compSwap == 1 {
 			r, b = b, r
 		}
+	default:
+		panic("unhandled")
 	}
 
 	return []float32{r, g, b, a}

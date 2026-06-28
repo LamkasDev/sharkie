@@ -3,7 +3,6 @@ package vulkan
 import (
 	"runtime"
 
-	as "github.com/LamkasDev/asche"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	vk "github.com/goki/vulkan"
 )
@@ -70,7 +69,7 @@ func (t *GpuTranslator) uploadDataToImage(data []uint8, image vk.Image, width, h
 	result := vk.QueueSubmit(t.handles.GraphicsQueue, 1, submitInfos, t.workerFence)
 	t.QueueMutex.Unlock()
 
-	if err = as.NewError(result); err != nil {
+	if err = NewError(result); err != nil {
 		logger.Printf("uploadDataToImage: QueueSubmit failed: %s\n", err.Error())
 		t.FreeCommandBuffer(cb)
 		vk.DestroyBuffer(t.handles.Device, stagingBuffer, nil)

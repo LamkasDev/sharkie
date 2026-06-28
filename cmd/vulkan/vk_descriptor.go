@@ -3,7 +3,6 @@ package vulkan
 import (
 	"fmt"
 
-	as "github.com/LamkasDev/asche"
 	spirvStructs "github.com/LamkasDev/sharkie/cmd/spirv/structs"
 	vk "github.com/goki/vulkan"
 )
@@ -30,7 +29,7 @@ func (t *GpuTranslator) createDescriptorPool() error {
 		MaxSets:       8192,
 		Flags:         vk.DescriptorPoolCreateFlags(vk.DescriptorPoolCreateFreeDescriptorSetBit | vk.DescriptorPoolCreateUpdateAfterBindBit),
 	}, nil, &pool)
-	if err := as.NewError(result); err != nil {
+	if err := NewError(result); err != nil {
 		return fmt.Errorf("create descriptor pool: %w", err)
 	}
 	t.descriptorPool = pool
@@ -43,7 +42,7 @@ func (t *GpuTranslator) createDescriptorPool() error {
 		DescriptorSetCount: 1,
 		PSetLayouts:        []vk.DescriptorSetLayout{t.discoveryDescriptorSetLayout},
 	}, &discoverySet)
-	if err := as.NewError(result); err != nil {
+	if err := NewError(result); err != nil {
 		return fmt.Errorf("allocate discovery descriptor set: %w", err)
 	}
 	t.discoveryDescriptorSet = discoverySet
@@ -56,7 +55,7 @@ func (t *GpuTranslator) createDescriptorPool() error {
 		DescriptorSetCount: 1,
 		PSetLayouts:        []vk.DescriptorSetLayout{t.bindlessDescriptorSetLayout},
 	}, &bindlessSet)
-	if err := as.NewError(result); err != nil {
+	if err := NewError(result); err != nil {
 		return fmt.Errorf("allocate bindless descriptor set: %w", err)
 	}
 	t.bindlessDescriptorSet = bindlessSet

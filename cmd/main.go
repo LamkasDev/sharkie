@@ -6,7 +6,7 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/app"
 	"github.com/LamkasDev/sharkie/cmd/asm"
 	"github.com/LamkasDev/sharkie/cmd/elf"
-	"github.com/LamkasDev/sharkie/cmd/elf_symbol"
+	symbol "github.com/LamkasDev/sharkie/cmd/elf_symbol"
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	"github.com/LamkasDev/sharkie/cmd/lib"
 	"github.com/LamkasDev/sharkie/cmd/logger"

@@ -5,18 +5,18 @@ import (
 	"runtime"
 	"unsafe"
 
-	as "github.com/LamkasDev/asche"
 	vk "github.com/goki/vulkan"
 )
 
 type VulkanSurface struct {
-	image     vk.Image
-	imageMem  vk.DeviceMemory
-	imageView vk.ImageView
-	sampler   vk.Sampler
-	format    vk.Format
-	width     uint32
-	height    uint32
+	image            vk.Image
+	imageMem         vk.DeviceMemory
+	imageView        vk.ImageView
+	storageImageView vk.ImageView
+	sampler          vk.Sampler
+	format           vk.Format
+	width            uint32
+	height           uint32
 }
 
 type SurfaceRequest struct {
@@ -63,7 +63,7 @@ func (t *GpuTranslator) createSurface(request SurfaceRequest) (VulkanSurface, er
 		SharingMode:   vk.SharingModeExclusive,
 		InitialLayout: vk.ImageLayoutUndefined,
 	}, nil, &image)
-	if err := as.NewError(result); err != nil {
+	if err := NewError(result); err != nil {
 		return surface, fmt.Errorf("vkCreateImage: %w", err)
 	}
 	surface.image = image
@@ -79,7 +79,7 @@ func (t *GpuTranslator) createSurface(request SurfaceRequest) (VulkanSurface, er
 		AllocationSize:  memReqs.Size,
 		MemoryTypeIndex: t.handles.FindMemoryType(memReqs.MemoryTypeBits, vk.MemoryPropertyDeviceLocalBit),
 	}, nil, &imageMem)
-	if err := as.NewError(result); err != nil {
+	if err := NewError(result); err != nil {
 		return surface, fmt.Errorf("vkAllocateMemory: %w", err)
 	}
 	surface.imageMem = imageMem
@@ -97,10 +97,29 @@ func (t *GpuTranslator) createSurface(request SurfaceRequest) (VulkanSurface, er
 			LayerCount: 1,
 		},
 	}, nil, &imageView)
-	if err := as.NewError(result); err != nil {
+	if err := NewError(result); err != nil {
 		return surface, fmt.Errorf("vkCreateImageView: %w", err)
 	}
 	surface.imageView = imageView
+
+	if !IsDepthFormat(request.Format) {
+		var storageImageView vk.ImageView
+		result = vk.CreateImageView(t.handles.Device, &vk.ImageViewCreateInfo{
+			SType:    vk.StructureTypeImageViewCreateInfo,
+			Image:    surface.image,
+			ViewType: vk.ImageViewType2d,
+			Format:   request.Format,
+			SubresourceRange: vk.ImageSubresourceRange{
+				AspectMask: aspectMask,
+				LevelCount: 1,
+				LayerCount: 1,
+			},
+		}, nil, &storageImageView)
+		if err := NewError(result); err != nil {
+			return surface, fmt.Errorf("vkCreateImageView (storage): %w", err)
+		}
+		surface.storageImageView = storageImageView
+	}
 
 	var sampler vk.Sampler
 	result = vk.CreateSampler(t.handles.Device, &vk.SamplerCreateInfo{
@@ -111,7 +130,7 @@ func (t *GpuTranslator) createSurface(request SurfaceRequest) (VulkanSurface, er
 		AddressModeV: vk.SamplerAddressModeClampToEdge,
 		AddressModeW: vk.SamplerAddressModeClampToEdge,
 	}, nil, &sampler)
-	if err := as.NewError(result); err != nil {
+	if err := NewError(result); err != nil {
 		return surface, fmt.Errorf("vkCreateSampler: %w", err)
 	}
 	surface.sampler = sampler
@@ -148,7 +167,7 @@ func (t *GpuTranslator) createSurface(request SurfaceRequest) (VulkanSurface, er
 	result = vk.QueueSubmit(t.handles.GraphicsQueue, 1, submitInfos, t.workerFence)
 	t.QueueMutex.Unlock()
 
-	if err := as.NewError(result); err != nil {
+	if err := NewError(result); err != nil {
 		return surface, fmt.Errorf("QueueSubmit: %w", err)
 	}
 	t.WaitOnWorkerFence()
@@ -159,6 +178,9 @@ func (t *GpuTranslator) createSurface(request SurfaceRequest) (VulkanSurface, er
 func (s *VulkanSurface) Destroy(device vk.Device) {
 	if s.imageView != vk.NullImageView {
 		vk.DestroyImageView(device, s.imageView, nil)
+	}
+	if s.storageImageView != vk.NullImageView {
+		vk.DestroyImageView(device, s.storageImageView, nil)
 	}
 	if s.image != vk.NullImage {
 		vk.DestroyImage(device, s.image, nil)

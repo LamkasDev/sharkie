@@ -6,7 +6,6 @@ import (
 	"runtime"
 	"unsafe"
 
-	as "github.com/LamkasDev/asche"
 	vk "github.com/goki/vulkan"
 )
 
@@ -26,7 +25,7 @@ func (t *GpuTranslator) AllocExternalBuffer(size vk.DeviceSize, usage vk.BufferU
 		Size:  size,
 		Usage: usage,
 	}, nil, &buffer)
-	if err := as.NewError(result); err != nil {
+	if err := NewError(result); err != nil {
 		return vk.NullBuffer, vk.NullDeviceMemory, fmt.Errorf("vkCreateBuffer: %w", err)
 	}
 
@@ -45,7 +44,7 @@ func (t *GpuTranslator) AllocExternalBuffer(size vk.DeviceSize, usage vk.BufferU
 		AllocationSize:  memReqs.Size,
 		MemoryTypeIndex: t.handles.FindMemoryType(memReqs.MemoryTypeBits, vk.MemoryPropertyFlagBits(props)),
 	}, nil, &mem)
-	if err := as.NewError(result); err != nil {
+	if err := NewError(result); err != nil {
 		vk.DestroyBuffer(t.handles.Device, buffer, nil)
 		return vk.NullBuffer, vk.NullDeviceMemory, fmt.Errorf("vkAllocateMemory: %w", err)
 	}
@@ -63,7 +62,7 @@ func (t *GpuTranslator) AllocBuffer(size vk.DeviceSize, usage vk.BufferUsageFlag
 		Size:  size,
 		Usage: usage,
 	}, nil, &buffer)
-	if err := as.NewError(result); err != nil {
+	if err := NewError(result); err != nil {
 		return vk.NullBuffer, vk.NullDeviceMemory, fmt.Errorf("vkCreateBuffer: %w", err)
 	}
 
@@ -78,7 +77,7 @@ func (t *GpuTranslator) AllocBuffer(size vk.DeviceSize, usage vk.BufferUsageFlag
 		AllocationSize:  memReqs.Size,
 		MemoryTypeIndex: t.handles.FindMemoryType(memReqs.MemoryTypeBits, vk.MemoryPropertyFlagBits(props)),
 	}, nil, &mem)
-	if err := as.NewError(result); err != nil {
+	if err := NewError(result); err != nil {
 		vk.DestroyBuffer(t.handles.Device, buffer, nil)
 		return vk.NullBuffer, vk.NullDeviceMemory, fmt.Errorf("vkAllocateMemory: %w", err)
 	}
@@ -89,7 +88,7 @@ func (t *GpuTranslator) AllocBuffer(size vk.DeviceSize, usage vk.BufferUsageFlag
 	return buffer, mem, nil
 }
 
-func NewPriorityInfo(usage vk.BufferUsageFlags, priority float32) as.VkMemoryPriorityAllocateInfoEXT {
+func NewPriorityInfo(usage vk.BufferUsageFlags, priority float32) VkMemoryPriorityAllocateInfoEXT {
 	allocateFlags := vk.MemoryAllocateFlagsInfo{
 		SType: vk.StructureTypeMemoryAllocateFlagsInfo,
 	}
@@ -97,8 +96,8 @@ func NewPriorityInfo(usage vk.BufferUsageFlags, priority float32) as.VkMemoryPri
 		allocateFlags.Flags = vk.MemoryAllocateFlags(vk.MemoryAllocateDeviceAddressBit)
 	}
 
-	return as.VkMemoryPriorityAllocateInfoEXT{
-		SType:    as.StructureTypeMemoryPriorityAllocateInfoExt,
+	return VkMemoryPriorityAllocateInfoEXT{
+		SType:    StructureTypeMemoryPriorityAllocateInfoExt,
 		PNext:    unsafe.Pointer(&allocateFlags),
 		Priority: priority,
 	}

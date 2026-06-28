@@ -5,7 +5,7 @@ import (
 	"log"
 	"time"
 
-	as "github.com/LamkasDev/asche"
+	"github.com/LamkasDev/cimgui-go-vulkan/backend"
 	"github.com/elokore/glfw/v3.4/glfw"
 	vk "github.com/goki/vulkan"
 )
@@ -42,21 +42,21 @@ func getRefreshRate(monitor *glfw.Monitor) (time.Duration, int) {
 	return time.Second / time.Duration(refreshRate), refreshRate
 }
 
-func getSwapchainDimensions(monitor *glfw.Monitor, videoMode *glfw.VidMode) *as.SwapchainDimensions {
+func getSwapchainDimensions(monitor *glfw.Monitor, videoMode *glfw.VidMode) *backend.SwapchainDimensions {
 	// Exclusive fullscreen.
 	if monitor != nil {
-		return &as.SwapchainDimensions{
+		return &backend.SwapchainDimensions{
 			Width: uint32(videoMode.Width), Height: uint32(videoMode.Height), Format: vk.FormatB8g8r8a8Unorm,
 		}
 	}
 
 	// Windowed mode.
-	return &as.SwapchainDimensions{
+	return &backend.SwapchainDimensions{
 		Width: 800, Height: 600, Format: vk.FormatB8g8r8a8Unorm,
 	}
 }
 
-func createWindow(monitor *glfw.Monitor, videoMode *glfw.VidMode, dimensions *as.SwapchainDimensions) *glfw.Window {
+func createWindow(monitor *glfw.Monitor, videoMode *glfw.VidMode, dimensions *backend.SwapchainDimensions) *glfw.Window {
 	glfw.WindowHint(glfw.ClientAPI, glfw.NoAPI)
 	glfw.WindowHint(glfw.Resizable, glfw.False)
 

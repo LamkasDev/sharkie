@@ -4,16 +4,14 @@ import (
 	"runtime"
 	"unsafe"
 
-	as "github.com/LamkasDev/asche"
 	vk "github.com/goki/vulkan"
 )
 
 // VulkanHandles holds vulkan handles for lifetime of the process.
 type VulkanHandles struct {
-	Context as.Context
+	Context *VulkanContext
 	Device  vk.Device
 
-	Platform                 as.Platform
 	Instance                 vk.Instance
 	PhysicalDevice           vk.PhysicalDevice
 	GraphicsQueue            vk.Queue
@@ -26,18 +24,17 @@ type VulkanHandles struct {
 	UploadPool vk.CommandPool
 }
 
-// NewVulkanHandles extracts handles from the asche context and creates our upload command pool.
-func NewVulkanHandles(context as.Context) VulkanHandles {
+// NewVulkanHandles extracts handles from the vulkan context and creates our upload command pool.
+func NewVulkanHandles(context *VulkanContext) VulkanHandles {
 	vkh := VulkanHandles{
 		Context: context,
-		Device:  context.Device(),
+		Device:  context.Device,
 
-		Platform:                 context.Platform(),
-		Instance:                 context.Platform().Instance(),
-		PhysicalDevice:           context.Platform().PhysicalDevice(),
-		GraphicsQueue:            context.Platform().GraphicsQueue(),
-		GraphicsQueueFamilyIndex: context.Platform().GraphicsQueueFamilyIndex(),
-		MemoryProperties:         context.Platform().MemoryProperties(),
+		Instance:                 context.Instance,
+		PhysicalDevice:           context.PhysicalDevice,
+		GraphicsQueue:            context.GraphicsQueue,
+		GraphicsQueueFamilyIndex: context.GraphicsQueueIndex,
+		MemoryProperties:         context.MemoryProperties,
 	}
 	vkh.MemoryProperties.Deref()
 
@@ -65,7 +62,7 @@ func NewVulkanHandles(context as.Context) VulkanHandles {
 		QueueFamilyIndex: vkh.GraphicsQueueFamilyIndex,
 		Flags:            vk.CommandPoolCreateFlags(vk.CommandPoolCreateResetCommandBufferBit),
 	}, nil, &pool)
-	if err := as.NewError(result); err != nil {
+	if err := NewError(result); err != nil {
 		panic(err)
 	}
 	vkh.UploadPool = pool
@@ -74,7 +71,7 @@ func NewVulkanHandles(context as.Context) VulkanHandles {
 }
 
 func (vkh *VulkanHandles) Destroy() {
-	vkh.Platform.Destroy()
+	vkh.Context.Destroy()
 }
 
 // FindMemoryType returns index of a memory type that satisfies typeFilter and has all required property flags set.

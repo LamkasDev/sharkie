@@ -6,7 +6,6 @@ import (
 	"os/exec"
 	"path"
 
-	as "github.com/LamkasDev/asche"
 	"github.com/LamkasDev/sharkie/cmd/spirv"
 	"github.com/LamkasDev/sharkie/cmd/spirv/common"
 	"github.com/LamkasDev/sharkie/cmd/structs/gcn"
@@ -68,7 +67,7 @@ func (t *GpuTranslator) GetShaderModuleFromBytes(bytecode []uint32) (vk.ShaderMo
 		CodeSize: uint64(len(bytecode) * 4),
 		PCode:    bytecode,
 	}, nil, &module)
-	if err := as.NewError(result); err != nil {
+	if err := NewError(result); err != nil {
 		return vk.NullShaderModule, err
 	}
 
@@ -91,7 +90,7 @@ func (t *GpuTranslator) GetShaderModule(spirvShader *spirv.SpirvShader) (vk.Shad
 		CodeSize: uint64(len(spirvShader.Code) * 4),
 		PCode:    spirvShader.Code,
 	}, nil, &module)
-	if err := as.NewError(result); err != nil {
+	if err := NewError(result); err != nil {
 		return vk.NullShaderModule, fmt.Errorf("vkCreateShaderModule 0x%X: %w", spirvShader.Address, err)
 	}
 	t.shaderModulesMutex.Lock()

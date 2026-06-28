@@ -85,8 +85,8 @@ func (t *GpuTranslator) FulfillResources(frame uint64) uint32 {
 		logger.Printf("[%s] new resource found (hashIndex=%s, imageDescriptor=%s, samplerDescriptor=%s).\n",
 			color.Blue.Sprintf("Frame %d", frame),
 			color.Blue.Sprintf("0x%X", hashIndex),
-			color.Blue.Sprintf("%v", imageDescriptor),
-			color.Blue.Sprintf("%v", samplerDescriptor),
+			color.Blue.Sprintf("%+v", imageDescriptor),
+			color.Blue.Sprintf("%+v", samplerDescriptor),
 		)
 
 		// Alias if it was first discovered without sampler.

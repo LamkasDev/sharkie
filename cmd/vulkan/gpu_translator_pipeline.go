@@ -37,14 +37,13 @@ func (t *GpuTranslator) BindPipeline(frame uint64, commandBuffer vk.CommandBuffe
 
 	// Handle depth surface.
 	var depthSurface *GpuSurface
-	depthFormat := vk.FormatUndefined
-	depthFormat = TranslateGcnDepthFormat(bind.DbZFormat)
-	if depthFormat != vk.FormatUndefined && bind.DbZWriteBase != 0 {
+	dbAddress := uintptr(bind.DbZWriteBase) << 8
+	if dbAddress != 0 {
 		depthSurface, err = t.GetSurface(SurfaceRequest{
 			SurfaceKey: SurfaceKey{
-				GpuAddress: uintptr(bind.DbZWriteBase) << 8,
+				GpuAddress: dbAddress,
 			},
-			Format: depthFormat,
+			Format: TranslateGcnDepthFormat(bind.DbZFormat),
 			Width:  surface.Value.width,
 			Height: surface.Value.height,
 		})
@@ -57,14 +56,15 @@ func (t *GpuTranslator) BindPipeline(frame uint64, commandBuffer vk.CommandBuffe
 	fbRequest := FramebufferRequest{
 		ImageView: surface.Value.imageView,
 		FramebufferKey: FramebufferKey{
-			GpuAddress:  rtAddress,
-			Format:      surface.Value.format,
-			DepthFormat: depthFormat,
-			Width:       surface.Value.width,
-			Height:      surface.Value.height,
+			GpuAddress:      rtAddress,
+			DepthGpuAddress: dbAddress,
+			Format:          surface.Value.format,
+			Width:           surface.Value.width,
+			Height:          surface.Value.height,
 		},
 	}
 	if depthSurface != nil {
+		fbRequest.DepthFormat = depthSurface.Value.format
 		fbRequest.DepthImageView = depthSurface.Value.imageView
 	}
 	fb, err := t.GetFramebuffer(fbRequest)
@@ -168,33 +168,21 @@ func (t *GpuTranslator) BindPipeline(frame uint64, commandBuffer vk.CommandBuffe
 	}
 
 	// Select render pass and clear on first use in frame or if explicitly requested.
-	var renderPass vk.RenderPass
 	var clearValues []vk.ClearValue
-	shouldClear := surface.FrameUsed < frame
-	if depthSurface != nil && depthSurface.FrameUsed < frame {
-		shouldClear = true
-	}
-	/* if draw.DbDepthClearEnable || draw.DbStencilClearEnable {
-		shouldClear = true
-	} */
-	if shouldClear {
+	renderPass := fb.RenderPassNoClear
+	if surface.FrameUsed < frame {
 		renderPass = fb.RenderPass
 		clearColor := vk.ClearValue{}
 		clearColorFloat := translateClearColor(bind.RtClearWord0, bind.RtClearWord1, bind.RtFormat, bind.RtNumberType, bind.RtCompSwap)
 		clearColor.SetColor(clearColorFloat)
-		clearValues = []vk.ClearValue{clearColor}
+		clearValues = append(clearValues, clearColor)
+		surface.FrameUsed = frame
 		if depthSurface != nil {
 			clearDepth := vk.ClearValue{}
 			clearDepth.SetDepthStencil(math.Float32frombits(bind.DbDepthClearValue), bind.DbStencilClearValue)
 			clearValues = append(clearValues, clearDepth)
-		}
-
-		surface.FrameUsed = frame
-		if depthSurface != nil {
 			depthSurface.FrameUsed = frame
 		}
-	} else {
-		renderPass = fb.RenderPassNoClear
 	}
 
 	// Start render pass.

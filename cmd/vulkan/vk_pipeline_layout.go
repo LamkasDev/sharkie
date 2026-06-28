@@ -3,7 +3,6 @@ package vulkan
 import (
 	"unsafe"
 
-	as "github.com/LamkasDev/asche"
 	spirvStructs "github.com/LamkasDev/sharkie/cmd/spirv/structs"
 	vk "github.com/goki/vulkan"
 )
@@ -43,7 +42,7 @@ func (t *GpuTranslator) createStubPipelineLayout() error {
 		BindingCount: 2,
 		Flags:        vk.DescriptorSetLayoutCreateFlags(vk.DescriptorSetLayoutCreateUpdateAfterBindPoolBit),
 	}, nil, &stubLayout)
-	if err := as.NewError(result); err != nil {
+	if err := NewError(result); err != nil {
 		return err
 	}
 	t.bindlessDescriptorSetLayout = stubLayout
@@ -71,7 +70,7 @@ func (t *GpuTranslator) createStubPipelineLayout() error {
 		PBindings:    discoveryBindings,
 		BindingCount: uint32(len(discoveryBindings)),
 	}, nil, &discoveryLayout)
-	if err := as.NewError(result); err != nil {
+	if err := NewError(result); err != nil {
 		return err
 	}
 	t.discoveryDescriptorSetLayout = discoveryLayout
@@ -98,7 +97,7 @@ func (t *GpuTranslator) createStubPipelineLayout() error {
 		},
 		SetLayoutCount: 2,
 	}, nil, &layout)
-	if err := as.NewError(result); err != nil {
+	if err := NewError(result); err != nil {
 		return err
 	}
 	t.pipelineLayout = layout

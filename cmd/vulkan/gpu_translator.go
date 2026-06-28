@@ -76,6 +76,8 @@ type GpuTranslator struct {
 	samplersMutex     sync.Mutex
 	samplers          map[uint64]vk.Sampler
 	defaultSampler    vk.Sampler
+	dumpedImagesMutex sync.Mutex
+	dumpedImages      map[uint64]bool
 
 	// Physical buffers for User Data snapshots.
 	userDataBuffersMutex  sync.Mutex
@@ -86,7 +88,8 @@ type GpuTranslator struct {
 
 	// Command pool/buffer for this frame's GPU work.
 	pool        vk.CommandPool
-	fence       vk.Fence
+	fenceChan   chan struct{}
+	fenceMutex  sync.Mutex
 	workerFence vk.Fence
 	QueueMutex  *sync.Mutex
 
@@ -139,11 +142,17 @@ func NewGpuTranslator(handles VulkanHandles, bknd backend.Backend[glfwvulkanback
 		samplersMutex: sync.Mutex{},
 		samplers:      map[uint64]vk.Sampler{},
 
+		dumpedImagesMutex: sync.Mutex{},
+		dumpedImages:      map[uint64]bool{},
+
 		userDataBuffersMutex: sync.Mutex{},
 		userDataOffsets:      map[uint32]uint32{},
 
+		fenceChan:  make(chan struct{}),
+		fenceMutex: sync.Mutex{},
 		QueueMutex: queueMutex,
 	}
+	close(t.fenceChan)
 
 	// Allocate user data buffer.
 	userDataBuffer, userDataBufferMem, err := t.AllocBuffer(vk.DeviceSize(UserDataBufferSize),
@@ -266,6 +275,24 @@ func (t *GpuTranslator) Destroy() {
 	if t.pool != vk.NullCommandPool {
 		vk.DestroyCommandPool(t.handles.Device, t.pool, nil)
 	}
+	if t.workerFence != vk.NullFence {
+		vk.DestroyFence(t.handles.Device, t.workerFence, nil)
+	}
+}
+
+func (t *GpuTranslator) ResetFrameState() {
+	t.activeSurface = nil
+	t.activePass = vk.NullRenderPass
+	t.activeFramebuffer = vk.NullFramebuffer
+	t.activePipeline = vk.NullPipeline
+	t.activeVteControl = 0
+	t.activeClipControl = 0
+
+	t.surfacesMutex.Lock()
+	for _, surface := range t.surfaces {
+		surface.FrameUsed = 0
+	}
+	t.surfacesMutex.Unlock()
 }
 
 // Translate translates Liverpool draw/compute commands into Vulkan commands and returns the command buffer.
@@ -309,24 +336,31 @@ func (t *GpuTranslator) Translate(frame uint64, stream *gpu.LiverpoolCommandStre
 	return &commandBuffer
 }
 
-func (t *GpuTranslator) GetFence() vk.Fence {
-	return t.fence
-}
-
 func (t *GpuTranslator) WaitOnFence() {
-	vk.WaitForFences(t.handles.Device, 1, []vk.Fence{t.fence}, vk.True, ^uint64(0))
+	t.fenceMutex.Lock()
+	fenceChan := t.fenceChan
+	t.fenceMutex.Unlock()
+	<-fenceChan
 }
 
 func (t *GpuTranslator) SignalFence() {
-	t.QueueMutex.Lock()
-	defer t.QueueMutex.Unlock()
-	vk.QueueSubmit(t.handles.GraphicsQueue, 0, nil, t.fence)
+	t.fenceMutex.Lock()
+	defer t.fenceMutex.Unlock()
+	select {
+	case <-t.fenceChan:
+	default:
+		close(t.fenceChan)
+	}
 }
 
 func (t *GpuTranslator) ResetFence() {
-	t.QueueMutex.Lock()
-	defer t.QueueMutex.Unlock()
-	vk.ResetFences(t.handles.Device, 1, []vk.Fence{t.fence})
+	t.fenceMutex.Lock()
+	defer t.fenceMutex.Unlock()
+	select {
+	case <-t.fenceChan:
+		t.fenceChan = make(chan struct{})
+	default:
+	}
 }
 
 func (t *GpuTranslator) GetWorkerFence() vk.Fence {

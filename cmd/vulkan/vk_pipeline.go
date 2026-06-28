@@ -3,7 +3,6 @@ package vulkan
 import (
 	"unsafe"
 
-	as "github.com/LamkasDev/asche"
 	vk "github.com/goki/vulkan"
 	"go101.org/nstd"
 )
@@ -231,7 +230,7 @@ func (t *GpuTranslator) createGraphicsPipeline(request GraphicsPipelineRequest) 
 			RenderPass:          request.RenderPass,
 		}},
 		nil, pipelines)
-	if err := as.NewError(result); err != nil {
+	if err := NewError(result); err != nil {
 		return vk.NullPipeline, err
 	}
 
@@ -261,7 +260,7 @@ func (t *GpuTranslator) createComputePipeline(request ComputePipelineRequest) (v
 			Layout: t.pipelineLayout,
 		}},
 		nil, pipelines)
-	if err := as.NewError(result); err != nil {
+	if err := NewError(result); err != nil {
 		return vk.NullPipeline, err
 	}
 

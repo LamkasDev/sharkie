@@ -1,7 +1,5 @@
 github.com/CovenantSQL/HashStablePack v2.0.0+incompatible h1:gV5qy4uU6X8gF3BEoIYGDpk4j2bdHuUZ5c6ntzUCbCk=
 github.com/CovenantSQL/HashStablePack v2.0.0+incompatible/go.mod h1:j3/ZR//Y2JLhvJrwzE0TUe4Jx2L80N7r8xh6gfQkkUg=
-github.com/LamkasDev/asche v0.0.0-20260410215934-d36c06ea04a8 h1:Vy3d7crbZ2nl5vixw7MkS4cfFt3+bNLTQ3kKrgk7FcM=
-github.com/LamkasDev/asche v0.0.0-20260410215934-d36c06ea04a8/go.mod h1:GZGWFHbfpt8XWnUDoDhNpm9w+768JTYuBjnTfaFg0Nk=
 github.com/LamkasDev/cimgui-go-vulkan v0.0.0-20260410221204-bd4ebb3a4cf0 h1:nlRO2DArCjr2eWC2rszw8tq8eYD3SFq/yrK8TVTVL2o=
 github.com/LamkasDev/cimgui-go-vulkan v0.0.0-20260410221204-bd4ebb3a4cf0/go.mod h1:3UZhIOFtx4MR0q7oL/2rRPHMzXZSGewCoZgu/pbqF5g=
 github.com/OneOfOne/xxhash v1.2.2 h1:KMrpdQIwFcEqXDklaen+P1axHaj9BSKzvpUUfnHldSE=

@@ -5,7 +5,6 @@ import (
 	"sync"
 	"time"
 
-	as "github.com/LamkasDev/asche"
 	"github.com/LamkasDev/cimgui-go-vulkan/backend"
 	glfwvulkanbackend "github.com/LamkasDev/cimgui-go-vulkan/backend/glfwvulkan-backend"
 	"github.com/LamkasDev/cimgui-go-vulkan/imgui"
@@ -24,7 +23,7 @@ type Renderer struct {
 	FrameSource   *FrameSource
 	Overlay       *ImguiOverlay
 
-	SwapchainDimensions *as.SwapchainDimensions
+	SwapchainDimensions *backend.SwapchainDimensions
 	Depth               *Depth
 	RenderPass          vk.RenderPass
 	PipelineCache       vk.PipelineCache
@@ -35,7 +34,7 @@ type Renderer struct {
 	DisplayTextureId imgui.TextureRef
 }
 
-func NewRenderer(context as.Context, dimensions *as.SwapchainDimensions) *Renderer {
+func NewRenderer(context *vulkan.VulkanContext, dimensions *backend.SwapchainDimensions) *Renderer {
 	r := &Renderer{
 		Handles:             vulkan.NewVulkanHandles(context),
 		SwapchainDimensions: dimensions,
@@ -56,12 +55,12 @@ func NewRenderer(context as.Context, dimensions *as.SwapchainDimensions) *Render
 	r.prepareRenderPass()
 	r.preparePipelineCache()
 	r.prepareFramebuffers()
-	for _, res := range r.Handles.Context.SwapchainImageResources() {
-		vk.BeginCommandBuffer(res.CommandBuffer(), &vk.CommandBufferBeginInfo{
+	for _, res := range r.Handles.Context.SwapchainImageResources {
+		vk.BeginCommandBuffer(res.Cmd, &vk.CommandBufferBeginInfo{
 			SType: vk.StructureTypeCommandBufferBeginInfo,
 			Flags: vk.CommandBufferUsageFlags(vk.CommandBufferUsageSimultaneousUseBit),
 		})
-		vk.EndCommandBuffer(res.CommandBuffer())
+		vk.EndCommandBuffer(res.Cmd)
 	}
 
 	return r
@@ -115,6 +114,8 @@ func (r *Renderer) ConsumeFrames(done chan struct{}) {
 		stream := gpu.GlobalLiverpool.FlushStream()
 		if r.GpuTranslator != nil {
 			for {
+				r.GpuTranslator.ResetFrameState()
+
 				// Translate draw calls.
 				commandBuffer := r.GpuTranslator.Translate(frame.Number, &stream)
 
@@ -134,7 +135,7 @@ func (r *Renderer) ConsumeFrames(done chan struct{}) {
 				r.QueueMutex.Lock()
 				result := vk.QueueSubmit(r.Handles.GraphicsQueue, 1, submitInfos, r.GpuTranslator.GetWorkerFence())
 				r.QueueMutex.Unlock()
-				if err := as.NewError(result); err != nil {
+				if err := vulkan.NewError(result); err != nil {
 					logger.Printf("[%s] QueueSubmit failed: %s\n",
 						color.Blue.Sprintf("Frame %d", frame.Number),
 						err.Error(),
@@ -147,7 +148,6 @@ func (r *Renderer) ConsumeFrames(done chan struct{}) {
 
 				// Check for missing resources.
 				discoveredCount := r.GpuTranslator.FulfillResources(frame.Number)
-				r.GpuTranslator.DebugResources(frame.Number)
 
 				// Free the command buffer.
 				r.GpuTranslator.FreeCommandBuffer(*commandBuffer)
@@ -162,6 +162,13 @@ func (r *Renderer) ConsumeFrames(done chan struct{}) {
 				}
 
 				// Now the frame should be all good, let's get out.
+				// r.GpuTranslator.DebugResources(frame.Number)
+				displaySurface := r.GpuTranslator.GetSurfaceByAddress(frame.GpuAddress)
+				if displaySurface != nil {
+					r.QueueMutex.Lock()
+					r.DisplayTextureId = r.GpuTranslator.GetSurfaceTexture(displaySurface)
+					r.QueueMutex.Unlock()
+				}
 				r.GpuTranslator.SignalFence()
 				select {
 				case r.FrameReady <- struct{}{}:
@@ -215,22 +222,22 @@ func (r *Renderer) RegisterFramebuffer(address uintptr, attribute *VideoOutBuffe
 }
 
 func (r *Renderer) prepareFramebuffers() {
-	swapchainImageResources := r.Handles.Context.SwapchainImageResources()
+	swapchainImageResources := r.Handles.Context.SwapchainImageResources
 	for _, res := range swapchainImageResources {
 		var framebuffer vk.Framebuffer
 		result := vk.CreateFramebuffer(r.Handles.Device, &vk.FramebufferCreateInfo{
 			SType:           vk.StructureTypeFramebufferCreateInfo,
 			RenderPass:      r.RenderPass,
 			AttachmentCount: 2,
-			PAttachments:    []vk.ImageView{res.View(), r.Depth.view},
+			PAttachments:    []vk.ImageView{res.View, r.Depth.view},
 			Width:           r.SwapchainDimensions.Width,
 			Height:          r.SwapchainDimensions.Height,
 			Layers:          1,
 		}, nil, &framebuffer)
-		if err := as.NewError(result); err != nil {
+		if err := vulkan.NewError(result); err != nil {
 			panic(err)
 		}
-		res.SetFramebuffer(framebuffer)
+		res.Framebuffer = framebuffer
 	}
 }
 
@@ -280,7 +287,7 @@ func (r *Renderer) prepareRenderPass() {
 			},
 		}},
 	}, nil, &renderPass)
-	if err := as.NewError(result); err != nil {
+	if err := vulkan.NewError(result); err != nil {
 		panic(err)
 	}
 	r.RenderPass = renderPass

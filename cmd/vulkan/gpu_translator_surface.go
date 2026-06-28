@@ -62,6 +62,12 @@ func (t *GpuTranslator) GetSurface(request SurfaceRequest) (*GpuSurface, error) 
 	return surface, nil
 }
 
+func (t *GpuTranslator) GetSurfaceByAddress(address uintptr) *GpuSurface {
+	t.surfacesMutex.Lock()
+	defer t.surfacesMutex.Unlock()
+	return t.surfaces[SurfaceKey{GpuAddress: address}]
+}
+
 func (t *GpuTranslator) GetSurfaceTexture(surface *GpuSurface) imgui.TextureRef {
 	t.surfacesMutex.Lock()
 	defer t.surfacesMutex.Unlock()

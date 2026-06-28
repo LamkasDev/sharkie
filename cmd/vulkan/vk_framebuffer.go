@@ -3,7 +3,6 @@ package vulkan
 import (
 	"fmt"
 
-	as "github.com/LamkasDev/asche"
 	vk "github.com/goki/vulkan"
 )
 
@@ -21,7 +20,9 @@ type FramebufferRequest struct {
 }
 
 type FramebufferKey struct {
-	GpuAddress  uintptr
+	GpuAddress      uintptr
+	DepthGpuAddress uintptr
+
 	Format      vk.Format
 	DepthFormat vk.Format
 	Width       uint32
@@ -100,7 +101,7 @@ func (t *GpuTranslator) createFramebuffer(request FramebufferRequest) (*VulkanFr
 			PDepthStencilAttachment: depthAttachmentRef,
 		}},
 	}, nil, &renderPass)
-	if err := as.NewError(result); err != nil {
+	if err := NewError(result); err != nil {
 		return nil, fmt.Errorf("vkCreateRenderPass: %w", err)
 	}
 	fb.RenderPass = renderPass
@@ -122,7 +123,7 @@ func (t *GpuTranslator) createFramebuffer(request FramebufferRequest) (*VulkanFr
 			PDepthStencilAttachment: depthAttachmentRef,
 		}},
 	}, nil, &renderPassNoClear)
-	if err := as.NewError(result); err != nil {
+	if err := NewError(result); err != nil {
 		return nil, fmt.Errorf("vkCreateRenderPass (no clear): %w", err)
 	}
 	fb.RenderPassNoClear = renderPassNoClear
@@ -142,7 +143,7 @@ func (t *GpuTranslator) createFramebuffer(request FramebufferRequest) (*VulkanFr
 		Height:          request.Height,
 		Layers:          1,
 	}, nil, &framebuffer)
-	if err := as.NewError(result); err != nil {
+	if err := NewError(result); err != nil {
 		return nil, fmt.Errorf("vkCreateFramebuffer: %w", err)
 	}
 	fb.Framebuffer = framebuffer

@@ -10,7 +10,7 @@ import (
 	"time"
 	"unsafe"
 
-	as "github.com/LamkasDev/asche"
+	"github.com/LamkasDev/cimgui-go-vulkan/backend"
 	"github.com/LamkasDev/cimgui-go-vulkan/imgui"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/LamkasDev/sharkie/cmd/renderer"
@@ -23,10 +23,9 @@ import (
 var GlobalApplication *Application
 
 type Application struct {
-	as.BaseVulkanApp
-
+	VulkanContext       *vulkan.VulkanContext
 	Renderer            *renderer.Renderer
-	SwapchainDimensions *as.SwapchainDimensions
+	SwapchainDimensions *backend.SwapchainDimensions
 	Config              Config
 
 	Monitor *glfw.Monitor
@@ -42,7 +41,10 @@ func SetupApplication() error {
 	if err := vk.Init(); err != nil {
 		return fmt.Errorf("vulkan init: %w", err)
 	}
-	GlobalApplication = &Application{}
+	GlobalApplication = &Application{
+		Config:        DefaultConfig(),
+		VulkanContext: vulkan.NewVulkanContext(),
+	}
 
 	// Set up window and monitor.
 	var videoMode *glfw.VidMode
@@ -50,14 +52,27 @@ func SetupApplication() error {
 	GlobalApplication.SwapchainDimensions = getSwapchainDimensions(GlobalApplication.Monitor, videoMode)
 	GlobalApplication.Window = createWindow(GlobalApplication.Monitor, videoMode, GlobalApplication.SwapchainDimensions)
 
-	// Setup platform.
-	if _, err := as.NewPlatform(GlobalApplication); err != nil {
-		return fmt.Errorf("asche platform: %w", err)
+	// Setup context.
+	cfg := vulkan.ContextConfig{
+		ApiVersion:         uint32(GlobalApplication.VulkanAPIVersion()),
+		AppVersion:         uint32(GlobalApplication.VulkanAPIVersion()), // Uses same for app right now
+		AppName:            "base",
+		InstanceExtensions: GlobalApplication.VulkanInstanceExtensions(),
+		DeviceExtensions:   GlobalApplication.VulkanDeviceExtensions(),
+		ValidationLayers:   GlobalApplication.VulkanLayers(),
+		Debug:              GlobalApplication.Config.DebugMode,
+		DeviceCreateNext:   GlobalApplication.VulkanDeviceCreateNext(),
+		SurfaceFunc:        GlobalApplication.VulkanSurface,
+		Dimensions:         GlobalApplication.SwapchainDimensions,
+	}
+
+	if err := GlobalApplication.VulkanContext.Init(cfg); err != nil {
+		return fmt.Errorf("vulkan context init: %w", err)
 	}
 
 	// Setup renderer.
 	GlobalApplication.Config = DefaultConfig()
-	GlobalApplication.Renderer = renderer.NewRenderer(GlobalApplication.Context(), GlobalApplication.SwapchainDimensions)
+	GlobalApplication.Renderer = renderer.NewRenderer(GlobalApplication.VulkanContext, GlobalApplication.SwapchainDimensions)
 	GlobalApplication.Renderer.Backend.AttachToExistingWindow(
 		GlobalApplication.Window,
 		GlobalApplication.Renderer.Handles.Instance,
@@ -66,7 +81,7 @@ func SetupApplication() error {
 		GlobalApplication.Renderer.Handles.GraphicsQueue,
 		GlobalApplication.Renderer.PipelineCache,
 		GlobalApplication.Renderer.Handles.GraphicsQueueFamilyIndex,
-		GlobalApplication.Renderer.Handles.Context.SwapchainImageResources(),
+		GlobalApplication.Renderer.Handles.Context.SwapchainImageResources,
 		GlobalApplication.Renderer.SwapchainDimensions,
 	)
 
@@ -107,7 +122,7 @@ func RunApplication() error {
 			glfw.PollEvents()
 
 			GlobalApplication.Renderer.QueueMutex.Lock()
-			imageIdx, outdated, err := GlobalApplication.Renderer.Handles.Context.AcquireNextImage()
+			imageIdx, outdated, err := GlobalApplication.VulkanContext.AcquireNextImage()
 			GlobalApplication.Renderer.QueueMutex.Unlock()
 			if err != nil {
 				panic(err)
@@ -124,10 +139,13 @@ func RunApplication() error {
 			GlobalApplication.Renderer.QueueMutex.Lock()
 			GlobalApplication.Renderer.Render()
 			GlobalApplication.Renderer.Backend.RenderFrame(imageIdx)
+			if err = GlobalApplication.VulkanContext.Submit(imageIdx); err != nil {
+				panic(err)
+			}
 			GlobalApplication.Renderer.QueueMutex.Unlock()
 			imgui.UpdatePlatformWindows()
 
-			_, err = GlobalApplication.Renderer.Handles.Context.PresentImage(imageIdx)
+			_, err = GlobalApplication.VulkanContext.PresentImage(imageIdx)
 			if err != nil {
 				panic(fmt.Errorf("PresentImage: %w", err))
 			}
@@ -140,6 +158,7 @@ func RunApplication() error {
 func CloseApplication() error {
 	GlobalApplication.Renderer.Overlay.Destroy(GlobalApplication.Renderer.Backend)
 	GlobalApplication.Renderer.Destroy()
+	GlobalApplication.VulkanContext.Destroy()
 	GlobalApplication.Window.Destroy()
 	glfw.Terminate()
 	closer.Close()
@@ -147,11 +166,11 @@ func CloseApplication() error {
 	return nil
 }
 
-func (app *Application) VulkanSwapchainDimensions() *as.SwapchainDimensions {
+func (app *Application) VulkanSwapchainDimensions() *backend.SwapchainDimensions {
 	return app.SwapchainDimensions
 }
 
-func (app *Application) SetSwapchainDimensions(dimensions *as.SwapchainDimensions) {
+func (app *Application) SetSwapchainDimensions(dimensions *backend.SwapchainDimensions) {
 	// TODO: this
 	app.SwapchainDimensions = dimensions
 }
@@ -226,8 +245,8 @@ func (app *Application) VulkanDeviceCreateNext() unsafe.Pointer {
 			ShaderStorageImageWriteWithoutFormat: vk.True,
 		},
 	}
-	pageableDeviceLocalMemoryFeatures := &as.VkPhysicalDevicePageableDeviceLocalMemoryFeaturesEXT{
-		SType:                     as.StructureTypePhysicalDevicePageableDeviceLocalMemoryFeaturesExt,
+	pageableDeviceLocalMemoryFeatures := &vulkan.VkPhysicalDevicePageableDeviceLocalMemoryFeaturesEXT{
+		SType:                     vulkan.StructureTypePhysicalDevicePageableDeviceLocalMemoryFeaturesExt,
 		PNext:                     unsafe.Pointer(features2),
 		PageableDeviceLocalMemory: uint32(vk.True),
 	}

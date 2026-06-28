@@ -1,7 +1,7 @@
 package renderer
 
 import (
-	as "github.com/LamkasDev/asche"
+	"github.com/LamkasDev/sharkie/cmd/vulkan"
 	vk "github.com/goki/vulkan"
 )
 
@@ -32,7 +32,7 @@ func NewDepth(r *Renderer) *Depth {
 		Tiling:      vk.ImageTilingOptimal,
 		Usage:       vk.ImageUsageFlags(vk.ImageUsageDepthStencilAttachmentBit),
 	}, nil, &depth.image)
-	if err := as.NewError(result); err != nil {
+	if err := vulkan.NewError(result); err != nil {
 		panic(err)
 	}
 
@@ -40,7 +40,7 @@ func NewDepth(r *Renderer) *Depth {
 	vk.GetImageMemoryRequirements(r.Handles.Device, depth.image, &memReqs)
 	memReqs.Deref()
 
-	memTypeIndex, _ := as.FindRequiredMemoryTypeFallback(r.Handles.MemoryProperties,
+	memTypeIndex, _ := vulkan.FindRequiredMemoryTypeFallback(r.Handles.MemoryProperties,
 		vk.MemoryPropertyFlagBits(memReqs.MemoryTypeBits), vk.MemoryPropertyDeviceLocalBit)
 	depth.memAlloc = &vk.MemoryAllocateInfo{
 		SType:           vk.StructureTypeMemoryAllocateInfo,
@@ -50,13 +50,13 @@ func NewDepth(r *Renderer) *Depth {
 
 	var mem vk.DeviceMemory
 	result = vk.AllocateMemory(r.Handles.Device, depth.memAlloc, nil, &mem)
-	if err := as.NewError(result); err != nil {
+	if err := vulkan.NewError(result); err != nil {
 		panic(err)
 	}
 	depth.mem = mem
 
 	result = vk.BindImageMemory(r.Handles.Device, depth.image, depth.mem, 0)
-	if err := as.NewError(result); err != nil {
+	if err := vulkan.NewError(result); err != nil {
 		panic(err)
 	}
 
@@ -72,7 +72,7 @@ func NewDepth(r *Renderer) *Depth {
 		ViewType: vk.ImageViewType2d,
 		Image:    depth.image,
 	}, nil, &view)
-	if err := as.NewError(result); err != nil {
+	if err := vulkan.NewError(result); err != nil {
 		panic(err)
 	}
 	depth.view = view

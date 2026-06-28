@@ -2,16 +2,9 @@ package vulkan
 
 import (
 	"fmt"
-	"image"
-	"image/color"
-	"image/png"
-	"os"
 	"runtime"
-	"unsafe"
 
-	as "github.com/LamkasDev/asche"
 	spirvStructs "github.com/LamkasDev/sharkie/cmd/spirv/structs"
-	. "github.com/LamkasDev/sharkie/cmd/structs"
 	vk "github.com/goki/vulkan"
 )
 
@@ -23,6 +16,11 @@ func (t *GpuTranslator) GetImageView(descriptor spirvStructs.ImageDescriptor) (v
 	defer t.imagesMutex.Unlock()
 	if view, ok := t.imageViews[hash]; ok {
 		return view, t.storageImageViews[hash], nil, false
+	}
+
+	// Check if this image address corresponds to an existing surface.
+	if surface := t.GetSurfaceByAddress(descriptor.BaseAddress); surface != nil {
+		return surface.Value.imageView, surface.Value.storageImageView, nil, false
 	}
 
 	// Create a new image if needed.
@@ -62,7 +60,7 @@ func (t *GpuTranslator) GetImageView(descriptor spirvStructs.ImageDescriptor) (v
 			Tiling:      vk.ImageTilingOptimal,
 			Usage:       vk.ImageUsageFlags(vk.ImageUsageSampledBit | vk.ImageUsageStorageBit | vk.ImageUsageTransferDstBit | vk.ImageUsageTransferSrcBit),
 		}, nil, &image)
-		if err := as.NewError(result); err != nil {
+		if err := NewError(result); err != nil {
 			return vk.NullImageView, vk.NullImageView, err, false
 		}
 
@@ -77,7 +75,7 @@ func (t *GpuTranslator) GetImageView(descriptor spirvStructs.ImageDescriptor) (v
 			AllocationSize:  memReqs.Size,
 			MemoryTypeIndex: t.handles.FindMemoryType(memReqs.MemoryTypeBits, vk.MemoryPropertyDeviceLocalBit),
 		}, nil, &imageMem)
-		if err := as.NewError(result); err != nil {
+		if err := NewError(result); err != nil {
 			return vk.NullImageView, vk.NullImageView, err, false
 		}
 		vk.BindImageMemory(t.handles.Device, image, imageMem, 0)
@@ -114,7 +112,7 @@ func (t *GpuTranslator) GetImageView(descriptor spirvStructs.ImageDescriptor) (v
 		t.QueueMutex.Lock()
 		result = vk.QueueSubmit(t.handles.GraphicsQueue, 1, submitInfos, t.workerFence)
 		t.QueueMutex.Unlock()
-		if err := as.NewError(result); err != nil {
+		if err := NewError(result); err != nil {
 			return vk.NullImageView, vk.NullImageView, err, false
 		}
 		t.WaitOnWorkerFence()
@@ -140,7 +138,7 @@ func (t *GpuTranslator) GetImageView(descriptor spirvStructs.ImageDescriptor) (v
 			LayerCount:   1,
 		},
 	}, nil, &view)
-	if err := as.NewError(result); err != nil {
+	if err := NewError(result); err != nil {
 		return vk.NullImageView, vk.NullImageView, err, false
 	}
 
@@ -164,7 +162,7 @@ func (t *GpuTranslator) GetImageView(descriptor spirvStructs.ImageDescriptor) (v
 			LayerCount:   1,
 		},
 	}, nil, &storageView)
-	if err := as.NewError(result); err != nil {
+	if err := NewError(result); err != nil {
 		return vk.NullImageView, vk.NullImageView, err, false
 	}
 
@@ -199,7 +197,7 @@ func (t *GpuTranslator) GetSampler(descriptor spirvStructs.SamplerDescriptor) (v
 		MaxLod:       descriptor.MaxLod,
 		BorderColor:  translateBorderColorType(descriptor.BorderColorType),
 	}, nil, &sampler)
-	if err := as.NewError(result); err != nil {
+	if err := NewError(result); err != nil {
 		return vk.NullSampler, err
 	}
 	t.samplers[hash] = sampler
@@ -266,64 +264,12 @@ func (t *GpuTranslator) uploadBufferDataToImage(descriptor spirvStructs.ImageDes
 	t.QueueMutex.Lock()
 	result := vk.QueueSubmit(t.handles.GraphicsQueue, 1, submitInfos, fence)
 	t.QueueMutex.Unlock()
-	if err = as.NewError(result); err != nil {
+	if err = NewError(result); err != nil {
 		return false
 	}
 	vk.WaitForFences(t.handles.Device, 1, []vk.Fence{fence}, vk.True, ^uint64(0))
 
-	t.dumpImage(descriptor)
-
 	return true
-}
-
-func (t *GpuTranslator) dumpImage(descriptor spirvStructs.ImageDescriptor) {
-	_, bpp := TranslateGcnFormat(descriptor.DataFormat, descriptor.NumFormat)
-	if bpp != 4 {
-		return
-	}
-
-	width := int(descriptor.Width)
-	height := int(descriptor.Height)
-	pitch := int(descriptor.Pitch)
-	if pitch == 0 {
-		pitch = width
-	}
-
-	// Use pitch to ensure we read enough data.
-	dataSize := pitch * height * int(bpp)
-	inOnion := descriptor.BaseAddress >= GlobalAllocator.Base && descriptor.BaseAddress < GlobalAllocator.Base+uintptr(GlobalAllocator.Size)
-	inGarlic := descriptor.BaseAddress >= GlobalGpuAllocator.Base && descriptor.BaseAddress < GlobalGpuAllocator.Base+uintptr(GlobalGpuAllocator.Size)
-	if !inOnion && !inGarlic {
-		return
-	}
-	srcData := unsafe.Slice((*byte)(unsafe.Pointer(descriptor.BaseAddress)), dataSize)
-
-	img := image.NewRGBA(image.Rect(0, 0, width, height))
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
-			offset := (y*pitch + x) * int(bpp)
-			if offset+3 >= len(srcData) {
-				continue
-			}
-
-			// We assume A8R8G8B8 little-endian which is [B, G, R, A] in memory.
-			img.SetRGBA(x, y, color.RGBA{
-				R: srcData[offset+2],
-				G: srcData[offset+1],
-				B: srcData[offset+0],
-				A: srcData[offset+3],
-			})
-		}
-	}
-
-	f, err := os.Create(fmt.Sprintf("temp/images/image_0x%X_%dx%d_t%d.png", descriptor.BaseAddress, width, height, descriptor.TilingIndex))
-	if err != nil {
-		return
-	}
-	defer f.Close()
-	if err := png.Encode(f, img); err != nil {
-		fmt.Printf("failed to encode image: %v\n", err)
-	}
 }
 
 func translateDstSelToVkSwizzle(sel uint8) vk.ComponentSwizzle {
