@@ -18,7 +18,7 @@ func (l *Liverpool) handleDrawIndexAuto(ringName string, payload []uint32) {
 
 	// Record draw.
 	count := payload[0]
-	l.recordDraw(ringName, count, false)
+	l.recordDraw(ringName, count, false, 0)
 }
 
 func (l *Liverpool) handleDrawIndex2(ringName string, payload []uint32) {
@@ -33,10 +33,25 @@ func (l *Liverpool) handleDrawIndex2(ringName string, payload []uint32) {
 	l.DrawState.IndexBase = uintptr(uint64(payload[1]) | uint64(payload[2])<<32)
 	l.DrawState.IndexBufferSize = payload[0]
 	count := payload[3]
-	l.recordDraw(ringName, count, true)
+	l.recordDraw(ringName, count, true, 0)
 }
 
-func (l *Liverpool) recordDraw(ringName string, count uint32, isIndexed bool) {
+func (l *Liverpool) handleDrawIndexOffset2(ringName string, payload []uint32) {
+	if len(payload) < 4 {
+		logger.Printf("[%s] failed draw index offset 2 payload too short.\n",
+			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
+		)
+		return
+	}
+
+	// Record draw.
+	l.DrawState.IndexBufferSize = payload[0]
+	indexOffset := payload[1]
+	count := payload[2]
+	l.recordDraw(ringName, count, true, indexOffset)
+}
+
+func (l *Liverpool) recordDraw(ringName string, count uint32, isIndexed bool, indexOffset uint32) {
 	l.StateMutex.Lock()
 	defer l.StateMutex.Unlock()
 
@@ -100,8 +115,13 @@ func (l *Liverpool) recordDraw(ringName string, count uint32, isIndexed bool) {
 			DbDepthControl:    l.Registers.Context[GREG_MM_DB_DEPTH_CONTROL],
 			DbDepthClearValue: l.Registers.Context[GREG_MM_DB_DEPTH_CLEAR],
 			DbDepthSize:       l.Registers.Context[GREG_MM_DB_DEPTH_SIZE],
-			DbZWriteBase:      l.Registers.Context[GREG_MM_DB_Z_WRITE_BASE],
-			DbZFormat:         l.Registers.Context[GREG_MM_DB_Z_INFO] & 0x3,
+			DbZWriteBase: func() uint32 {
+				if l.Registers.Context[GREG_MM_DB_Z_WRITE_BASE] != 0 {
+					return l.Registers.Context[GREG_MM_DB_Z_WRITE_BASE]
+				}
+				return l.Registers.Context[GREG_MM_DB_Z_READ_BASE]
+			}(),
+			DbZFormat: l.Registers.Context[GREG_MM_DB_Z_INFO] & 0x3,
 
 			DbStencilControl:    l.Registers.Context[GREG_MM_DB_STENCIL_CONTROL],
 			DbStencilRefMask:    l.Registers.Context[GREG_MM_DB_STENCILREFMASK],
@@ -230,6 +250,7 @@ func (l *Liverpool) recordDraw(ringName string, count uint32, isIndexed bool) {
 			IndexCount:       l.DrawState.IndexBufferSize,
 			IndexType:        l.DrawState.IndexType,
 			IndexBaseAddress: l.DrawState.IndexBase,
+			IndexOffset:      indexOffset,
 
 			VertexShRsrc1:   l.Registers.Shader[GREG_MM_SPI_SHADER_PGM_RSRC1_VS],
 			VertexShRsrc2:   l.Registers.Shader[GREG_MM_SPI_SHADER_PGM_RSRC2_VS],

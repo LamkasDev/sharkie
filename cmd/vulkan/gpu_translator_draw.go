@@ -11,7 +11,6 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/structs/gpu"
 	vk "github.com/goki/vulkan"
 	"github.com/gookit/color"
-	"go101.org/nstd"
 )
 
 var startTime time.Time
@@ -21,8 +20,61 @@ func init() {
 }
 
 func (t *GpuTranslator) Draw(frame uint64, commandBuffer vk.CommandBuffer, draw *gpu.LiverpoolDraw) {
-	if t.activePass == vk.NullRenderPass || t.activePipeline == vk.NullPipeline {
+	t.ResearchLogDraw(frame, draw)
+	if t.activePass == vk.NullRenderPass {
+		// If a DmaCopy temporarily ended the render pass mid-frame, resume it without clearing attachments.
+		if t.activePipeline != vk.NullPipeline && t.activeFramebuffer != vk.NullFramebuffer && t.activePassNoClear != vk.NullRenderPass && t.activeSurface != nil {
+			vk.CmdBeginRenderPass(commandBuffer, &vk.RenderPassBeginInfo{
+				SType:           vk.StructureTypeRenderPassBeginInfo,
+				RenderPass:      t.activePassNoClear,
+				Framebuffer:     t.activeFramebuffer,
+				RenderArea:      vk.Rect2D{Extent: vk.Extent2D{Width: t.activeSurface.Value.width, Height: t.activeSurface.Value.height}},
+				ClearValueCount: 0,
+				PClearValues:    nil,
+			}, vk.SubpassContentsInline)
+			vk.CmdBindPipeline(commandBuffer, vk.PipelineBindPointGraphics, t.activePipeline)
+			if t.activeDynamicState != nil {
+				t.SetDynamicState(commandBuffer, t.activeDynamicState)
+			}
+			t.activePass = t.activePassNoClear
+		} else {
+			return
+		}
+	}
+	if t.activePipeline == vk.NullPipeline {
 		return
+	}
+	if t.activeSurface != nil {
+		t.activeSurface.ContentValid = true
+	}
+
+	// Perform depth/stencil clears before rendering the draw
+	if draw.DbDepthClearEnable || draw.DbStencilClearEnable {
+		var aspectMask vk.ImageAspectFlags
+		if draw.DbDepthClearEnable {
+			aspectMask |= vk.ImageAspectFlags(vk.ImageAspectDepthBit)
+		}
+		if draw.DbStencilClearEnable {
+			aspectMask |= vk.ImageAspectFlags(vk.ImageAspectStencilBit)
+		}
+
+		clearValue := vk.ClearValue{}
+		clearValue.SetDepthStencil(math.Float32frombits(draw.DbDepthClearValue), draw.DbStencilClearValue)
+		clearAttachments := []vk.ClearAttachment{{
+			AspectMask: aspectMask,
+			ClearValue: clearValue,
+		}}
+		clearRects := []vk.ClearRect{{
+			Rect: vk.Rect2D{
+				Extent: vk.Extent2D{
+					Width:  t.activeSurface.Value.width,
+					Height: t.activeSurface.Value.height,
+				},
+			},
+			BaseArrayLayer: 0,
+			LayerCount:     1,
+		}}
+		vk.CmdClearAttachments(commandBuffer, 1, clearAttachments, 1, clearRects)
 	}
 
 	// Bind bindless/discovery descriptor sets.
@@ -64,10 +116,13 @@ func (t *GpuTranslator) Draw(frame uint64, commandBuffer vk.CommandBuffer, draw 
 			color.Green.Sprint(draw.VertexCount),
 			color.Yellow.Sprintf("0x%X", draw.UserDataHash),
 			color.Green.Sprint(draw.PrimType),
-			color.Green.Sprint(nstd.Btoi(draw.IsIndexed)),
+			color.Green.Sprint(draw.IsIndexed),
 		)
 	}
 	if draw.IsIndexed {
+		if draw.PrimType == 19 {
+			panic("Indexed QuadList drawing is not implemented")
+		}
 		targetBuffer, relativeOffset, err := t.GetBufferFromAddress(draw.IndexBaseAddress)
 		if err != nil {
 			panic(err)
@@ -77,15 +132,22 @@ func (t *GpuTranslator) Draw(frame uint64, commandBuffer vk.CommandBuffer, draw 
 			indexType = vk.IndexTypeUint32
 		}
 		vk.CmdBindIndexBuffer(commandBuffer, targetBuffer, vk.DeviceSize(relativeOffset), indexType)
-		vk.CmdDrawIndexed(commandBuffer, draw.IndexCount, draw.InstanceCount, 0, 0, 0)
+		vk.CmdDrawIndexed(commandBuffer, draw.VertexCount, draw.InstanceCount, draw.IndexOffset, 0, 0)
 	} else {
-		vk.CmdDraw(commandBuffer, draw.VertexCount, draw.InstanceCount, 0, 0)
+		if draw.PrimType == 19 {
+			quadCount := draw.VertexCount / 4
+			vk.CmdBindIndexBuffer(commandBuffer, t.quadListIndexBuffer, 0, vk.IndexTypeUint16)
+			vk.CmdDrawIndexed(commandBuffer, quadCount*6, draw.InstanceCount, 0, 0, 0)
+		} else {
+			vk.CmdDraw(commandBuffer, draw.VertexCount, draw.InstanceCount, 0, 0)
+		}
 	}
 }
 
 func (t *GpuTranslator) SetDynamicState(commandBuffer vk.CommandBuffer, dynamicState *gpu.LiverpoolSetDynamicState) {
 	t.activeVteControl = dynamicState.VteControl
 	t.activeClipControl = dynamicState.ClipControl
+	t.activeDynamicState = dynamicState
 
 	t.setViewport(commandBuffer, dynamicState)
 	t.setScissor(commandBuffer, dynamicState)
@@ -149,11 +211,14 @@ func (t *GpuTranslator) setViewport(commandBuffer vk.CommandBuffer, dynamicState
 			vpX, vpY = float32(windowOffsetX), float32(windowOffsetY)
 		}
 	}
+	minDepth := max(0.0, min(1.0, vpzOffset))
+	maxDepth := max(0.0, min(1.0, vpzOffset+vpzScale))
+
 	vk.CmdSetViewport(commandBuffer, 0, 1, []vk.Viewport{{
 		X: vpX, Y: vpY,
 		Width: vpWidth, Height: vpHeight,
-		MinDepth: vpzOffset + vpzScale,
-		MaxDepth: vpzOffset,
+		MinDepth: minDepth,
+		MaxDepth: maxDepth,
 	}})
 }
 
@@ -222,11 +287,10 @@ func (t *GpuTranslator) setScissor(commandBuffer vk.CommandBuffer, dynamicState 
 	width := uint32(max(0, finalScissor.X2-finalScissor.X1))
 	height := uint32(max(0, finalScissor.Y2-finalScissor.Y1))
 	if width == 0 || height == 0 {
-		vk.CmdSetScissor(commandBuffer, 0, 1, []vk.Rect2D{{
-			Offset: vk.Offset2D{X: 0, Y: 0},
-			Extent: vk.Extent2D{Width: 0, Height: 0},
-		}})
-		return
+		width = uint32(t.activeSurface.Value.width)
+		height = uint32(t.activeSurface.Value.height)
+		finalScissor.X1 = 0
+		finalScissor.Y1 = 0
 	}
 	vk.CmdSetScissor(commandBuffer, 0, 1, []vk.Rect2D{{
 		Offset: vk.Offset2D{X: finalScissor.X1, Y: finalScissor.Y1},

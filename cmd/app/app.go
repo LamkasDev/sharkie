@@ -142,13 +142,12 @@ func RunApplication() error {
 			if err = GlobalApplication.VulkanContext.Submit(imageIdx); err != nil {
 				panic(err)
 			}
-			GlobalApplication.Renderer.QueueMutex.Unlock()
-			imgui.UpdatePlatformWindows()
-
 			_, err = GlobalApplication.VulkanContext.PresentImage(imageIdx)
 			if err != nil {
 				panic(fmt.Errorf("PresentImage: %w", err))
 			}
+			GlobalApplication.Renderer.QueueMutex.Unlock()
+			imgui.UpdatePlatformWindows()
 		}
 	}
 
@@ -243,6 +242,9 @@ func (app *Application) VulkanDeviceCreateNext() unsafe.Pointer {
 			FragmentStoresAndAtomics:             vk.True,
 			ShaderStorageImageReadWithoutFormat:  vk.True,
 			ShaderStorageImageWriteWithoutFormat: vk.True,
+			DepthClamp:                           vk.True,
+			TextureCompressionBC:                 vk.True,
+			LogicOp:                              vk.True,
 		},
 	}
 	pageableDeviceLocalMemoryFeatures := &vulkan.VkPhysicalDevicePageableDeviceLocalMemoryFeaturesEXT{

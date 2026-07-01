@@ -6,23 +6,21 @@ import (
 )
 
 func translateDepthControl(depthControl uint32, stencilControl uint32, stencilRefMask uint32, stencilRefMaskBf uint32) vk.PipelineDepthStencilStateCreateInfo {
-	return vk.PipelineDepthStencilStateCreateInfo{
-		SType:                 vk.StructureTypePipelineDepthStencilStateCreateInfo,
-		DepthTestEnable:       vk.Bool32(nstd.Btoi((depthControl>>1)&1 == 1)),
-		DepthWriteEnable:      vk.Bool32(nstd.Btoi((depthControl>>2)&1 == 1)),
-		DepthCompareOp:        translateCompareOp((depthControl >> 4) & 0x7),
-		DepthBoundsTestEnable: vk.Bool32(nstd.Btoi((depthControl>>3)&1 == 1)),
-		StencilTestEnable:     vk.Bool32(nstd.Btoi((depthControl>>0)&1 == 1)),
-		Front: vk.StencilOpState{
-			FailOp:      translateStencilOp(stencilControl & 0xf),
-			PassOp:      translateStencilOp((stencilControl >> 4) & 0xf),
-			DepthFailOp: translateStencilOp((stencilControl >> 8) & 0xf),
-			CompareOp:   translateCompareOp((depthControl >> 8) & 0x7),
-			CompareMask: (stencilRefMask >> 8) & 0xff,
-			WriteMask:   (stencilRefMask >> 16) & 0xff,
-			Reference:   stencilRefMask & 0xff,
-		},
-		Back: vk.StencilOpState{
+	backfaceEnable := (depthControl>>7)&1 == 1
+
+	frontState := vk.StencilOpState{
+		FailOp:      translateStencilOp(stencilControl & 0xf),
+		PassOp:      translateStencilOp((stencilControl >> 4) & 0xf),
+		DepthFailOp: translateStencilOp((stencilControl >> 8) & 0xf),
+		CompareOp:   translateCompareOp((depthControl >> 8) & 0x7),
+		CompareMask: (stencilRefMask >> 8) & 0xff,
+		WriteMask:   (stencilRefMask >> 16) & 0xff,
+		Reference:   stencilRefMask & 0xff,
+	}
+
+	var backState vk.StencilOpState
+	if backfaceEnable {
+		backState = vk.StencilOpState{
 			FailOp:      translateStencilOp((stencilControl >> 12) & 0xf),
 			PassOp:      translateStencilOp((stencilControl >> 16) & 0xf),
 			DepthFailOp: translateStencilOp((stencilControl >> 20) & 0xf),
@@ -30,7 +28,30 @@ func translateDepthControl(depthControl uint32, stencilControl uint32, stencilRe
 			CompareMask: (stencilRefMaskBf >> 8) & 0xff,
 			WriteMask:   (stencilRefMaskBf >> 16) & 0xff,
 			Reference:   stencilRefMaskBf & 0xff,
-		},
+		}
+	} else {
+		backState = frontState
+	}
+
+	// When ZFUNC is ALWAYS (7), disable depth writes unconditionally.
+	// Writing depth from ZFUNC=ALWAYS draws provides no occlusion benefit
+	// and, with depth-clearing to 1.0, any geometry that maps to depth < 1
+	// will corrupt the depth buffer for subsequent LESS comparisons.
+	zfunc := (depthControl >> 4) & 0x7
+	depthWriteEnable := (depthControl>>2)&1 == 1
+	if zfunc == 7 {
+		depthWriteEnable = false
+	}
+
+	return vk.PipelineDepthStencilStateCreateInfo{
+		SType:                 vk.StructureTypePipelineDepthStencilStateCreateInfo,
+		DepthTestEnable:       vk.Bool32(nstd.Btoi((depthControl>>1)&1 == 1)),
+		DepthWriteEnable:      vk.Bool32(nstd.Btoi(depthWriteEnable)),
+		DepthCompareOp:        translateCompareOp(zfunc),
+		DepthBoundsTestEnable: vk.Bool32(nstd.Btoi((depthControl>>3)&1 == 1)),
+		StencilTestEnable:     vk.Bool32(nstd.Btoi((depthControl>>0)&1 == 1)),
+		Front:                 frontState,
+		Back:                  backState,
 	}
 }
 
@@ -39,13 +60,13 @@ func translateCompareOp(op uint32) vk.CompareOp {
 	case 0: // FRAG_NEVER / REF_NEVER
 		return vk.CompareOpNever
 	case 1: // FRAG_LESS / REF_LESS
-		return vk.CompareOpLess
+		return vk.CompareOpLessOrEqual
 	case 2: // FRAG_EQUAL / REF_EQUAL
 		return vk.CompareOpEqual
 	case 3: // FRAG_LEQUAL / REF_LEQUAL
 		return vk.CompareOpLessOrEqual
 	case 4: // FRAG_GREATER / REF_GREATER
-		return vk.CompareOpGreater
+		return vk.CompareOpGreaterOrEqual
 	case 5: // FRAG_NOTEQUAL / REF_NOTEQUAL
 		return vk.CompareOpNotEqual
 	case 6: // FRAG_GEQUAL / REF_GEQUAL
@@ -84,20 +105,35 @@ func translateStencilOp(op uint32) vk.StencilOp {
 	}
 }
 
-func TranslateGcnDepthFormat(format uint32) vk.Format {
+func (t *GpuTranslator) TranslateGcnDepthFormat(format uint32) vk.Format {
+	var requested vk.Format
 	switch format {
 	case 1: // Z_16: 16-bit UNORM depth surface.
-		return vk.FormatD16UnormS8Uint
+		requested = vk.FormatD16UnormS8Uint
+	case 2: // Z_24: 24-bit UNORM depth surface.
+		requested = vk.FormatD24UnormS8Uint
 	case 3: // Z_32_FLOAT: 32-bit FLOAT depth surface.
-		return vk.FormatD32SfloatS8Uint
+		requested = vk.FormatD32SfloatS8Uint
 	default:
 		return vk.FormatUndefined
 	}
+
+	// Check if the physical device supports optimal tiling for this format as both a depth-stencil attachment and a sampled image.
+	var props vk.FormatProperties
+	vk.GetPhysicalDeviceFormatProperties(t.handles.PhysicalDevice, requested, &props)
+	props.Deref()
+	required := vk.FormatFeatureFlags(vk.FormatFeatureDepthStencilAttachmentBit | vk.FormatFeatureSampledImageBit)
+	if (props.OptimalTilingFeatures & required) == required {
+		return requested
+	}
+
+	// Fallback to D32_SFLOAT_S8_UINT which is universally supported by all Vulkan implementations supporting stencil.
+	return vk.FormatD32SfloatS8Uint
 }
 
 func IsDepthFormat(format vk.Format) bool {
 	switch format {
-	case vk.FormatD16UnormS8Uint, vk.FormatD32SfloatS8Uint:
+	case vk.FormatD16Unorm, vk.FormatD16UnormS8Uint, vk.FormatD24UnormS8Uint, vk.FormatD32Sfloat, vk.FormatD32SfloatS8Uint:
 		return true
 	default:
 		return false

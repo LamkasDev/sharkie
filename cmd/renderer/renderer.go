@@ -110,6 +110,7 @@ func (r *Renderer) ConsumeFrames(done chan struct{}) {
 		)
 		r.UpdateCounters()
 
+		gpu.GlobalLiverpool.FrameNumber = frame.Number
 		gpu.GlobalLiverpool.Walk()
 		stream := gpu.GlobalLiverpool.FlushStream()
 		if r.GpuTranslator != nil {
@@ -162,6 +163,7 @@ func (r *Renderer) ConsumeFrames(done chan struct{}) {
 				}
 
 				// Now the frame should be all good, let's get out.
+				r.GpuTranslator.ResearchDumpResources(frame.Number)
 				// r.GpuTranslator.DebugResources(frame.Number)
 				displaySurface := r.GpuTranslator.GetSurfaceByAddress(frame.GpuAddress)
 				if displaySurface != nil {

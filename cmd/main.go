@@ -22,6 +22,8 @@ import (
 )
 
 func main() {
+	color.Disable()
+
 	// Lock the goroutine to its current OS thread.
 	// This is crucial because we are manipulating the mem and setting up
 	// a thread-local exception handler.
@@ -40,6 +42,7 @@ func main() {
 	asm.SetupCooperativeGC()
 	asm.AllocTlsSlots()
 	emu.SetupSignalHandler()
+	structs.SetupMemoryManagerSignalHandler()
 	structs.SetupAllocator()
 	if err := app.SetupApplication(); err != nil {
 		panic(err)

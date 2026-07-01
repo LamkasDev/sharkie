@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/spirv"
 	"github.com/LamkasDev/sharkie/cmd/spirv/common"
@@ -60,7 +61,7 @@ func (t *GpuTranslator) GetShaderWithContext(gcnShader *gcn.GcnShader, context s
 	return shader
 }
 
-func (t *GpuTranslator) GetShaderModuleFromBytes(bytecode []uint32) (vk.ShaderModule, error) {
+func (t *GpuTranslator) GetShaderModuleFromBytes(bytecode []uint32, name string) (vk.ShaderModule, error) {
 	var module vk.ShaderModule
 	result := vk.CreateShaderModule(t.handles.Device, &vk.ShaderModuleCreateInfo{
 		SType:    vk.StructureTypeShaderModuleCreateInfo,
@@ -70,6 +71,7 @@ func (t *GpuTranslator) GetShaderModuleFromBytes(bytecode []uint32) (vk.ShaderMo
 	if err := NewError(result); err != nil {
 		return vk.NullShaderModule, err
 	}
+	SetDebugUtilsObjectName(t.handles.Instance, t.handles.Device, vk.ObjectTypeShaderModule, uint64(uintptr(unsafe.Pointer(module))), name)
 
 	return module, nil
 }
@@ -93,6 +95,7 @@ func (t *GpuTranslator) GetShaderModule(spirvShader *spirv.SpirvShader) (vk.Shad
 	if err := NewError(result); err != nil {
 		return vk.NullShaderModule, fmt.Errorf("vkCreateShaderModule 0x%X: %w", spirvShader.Address, err)
 	}
+	SetDebugUtilsObjectName(t.handles.Instance, t.handles.Device, vk.ObjectTypeShaderModule, uint64(uintptr(unsafe.Pointer(module))), fmt.Sprintf("Shader 0x%X", spirvShader.Address))
 	t.shaderModulesMutex.Lock()
 	t.shaderModules[spirvShader.Address] = module
 	t.shaderModulesMutex.Unlock()
@@ -111,7 +114,7 @@ func (t *GpuTranslator) GetRectlistShader() (vk.ShaderModule, error) {
 	if err != nil {
 		return vk.NullShaderModule, err
 	}
-	module, err := t.GetShaderModuleFromBytes(common.SpvBytesToWords(bytes))
+	module, err := t.GetShaderModuleFromBytes(common.SpvBytesToWords(bytes), "Rectlist Shader")
 	if err != nil {
 		return vk.NullShaderModule, err
 	}

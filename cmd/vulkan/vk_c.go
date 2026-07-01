@@ -31,6 +31,14 @@ typedef struct {
     uint32_t HandleType;
 } VkMemoryGetWin32HandleInfoKHR;
 
+typedef struct {
+    uint32_t SType;
+    const void* PNext;
+    uint32_t ObjectType;
+    uint64_t ObjectHandle;
+    const char* PObjectName;
+} VkDebugUtilsObjectNameInfoEXT;
+
 typedef void* (*vgo_vkGetInstanceProcAddr)(VkInstance instance, const char* pName);
 
 typedef void (*vgo_vkSetDeviceMemoryPriorityEXT)(VkDevice device, void* memory, float priority);
@@ -38,6 +46,7 @@ typedef VkDeviceAddress (*vgo_vkGetBufferDeviceAddress)(VkDevice device, const V
 typedef int (*vgo_vkGetMemoryFdKHR)(VkDevice device, const VkMemoryGetFdInfoKHR* pGetFdInfo, int* pFd);
 typedef int (*vgo_vkGetMemoryWin32HandleKHR)(VkDevice device, const VkMemoryGetWin32HandleInfoKHR* pGetWin32HandleInfo, void** pHandle);
 typedef void (*vgo_vkGetPhysicalDeviceProperties2KHR)(void* physicalDevice, void* pProperties);
+typedef int (*vgo_vkSetDebugUtilsObjectNameEXT)(VkDevice device, const VkDebugUtilsObjectNameInfoEXT* pNameInfo);
 
 void callVkSetDeviceMemoryPriorityEXT(void* address, VkInstance instance, VkDevice device, void* memory, float priority) {
 	vgo_vkGetInstanceProcAddr getProc = (vgo_vkGetInstanceProcAddr)address;
@@ -83,6 +92,14 @@ int callVkGetMemoryWin32HandleKHR(void* address, VkInstance instance, VkDevice d
     if (!fn) { return -1; }
 
     return fn(device, info, handle);
+}
+
+int32_t callVkSetDebugUtilsObjectNameEXT(void* address, VkInstance instance, VkDevice device, const VkDebugUtilsObjectNameInfoEXT* pNameInfo) {
+    vgo_vkGetInstanceProcAddr getProc = (vgo_vkGetInstanceProcAddr)address;
+    vgo_vkSetDebugUtilsObjectNameEXT fn = (vgo_vkSetDebugUtilsObjectNameEXT)getProc(instance, "vkSetDebugUtilsObjectNameEXT");
+    if (!fn) { return -1; }
+
+    return fn(device, pNameInfo);
 }
 */
 import "C"
@@ -166,5 +183,23 @@ func GetPhysicalDeviceProperties2(instance vk.Instance, physicalDevice vk.Physic
 		(C.VkInstance)(unsafe.Pointer(instance)),
 		unsafe.Pointer(physicalDevice),
 		props,
+	)
+}
+
+func SetDebugUtilsObjectName(instance vk.Instance, device vk.Device, objectType vk.ObjectType, objectHandle uint64, name string) {
+	cName := C.CString(name)
+	defer C.free(unsafe.Pointer(cName))
+	info := C.VkDebugUtilsObjectNameInfoEXT{
+		SType:        (C.uint32_t)(vk.StructureTypeDebugUtilsObjectNameInfo),
+		PNext:        nil,
+		ObjectType:   (C.uint32_t)(objectType),
+		ObjectHandle: (C.uint64_t)(objectHandle),
+		PObjectName:  cName,
+	}
+	C.callVkSetDebugUtilsObjectNameEXT(
+		unsafe.Pointer(glfw.GetVulkanGetInstanceProcAddress()),
+		(C.VkInstance)(unsafe.Pointer(instance)),
+		(C.VkDevice)(unsafe.Pointer(device)),
+		&info,
 	)
 }

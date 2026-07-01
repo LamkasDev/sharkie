@@ -110,3 +110,29 @@ func (l *Liverpool) CsGpuAddress() uintptr {
 func DecodeUserSgprCount(rsrc2 uint32) uint32 {
 	return (rsrc2 >> 1) & 0x1F
 }
+
+// DescribeDepthCompare returns a human-readable description of
+// the ZFUNC field from DB_DEPTH_CONTROL (bits 6:4).
+func DescribeDepthCompare(depthControl uint32) string {
+	zf := (depthControl >> 4) & 0x7
+	switch zf {
+	case 0:
+		return "NEVER"
+	case 1:
+		return "LESS"
+	case 2:
+		return "EQUAL"
+	case 3:
+		return "LEQUAL"
+	case 4:
+		return "GREATER"
+	case 5:
+		return "NOTEQUAL"
+	case 6:
+		return "GEQUAL"
+	case 7:
+		return "ALWAYS"
+	default:
+		return "???"
+	}
+}

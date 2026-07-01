@@ -15,6 +15,9 @@ type GpuSurface struct {
 	// FirstUse tracks whether the image has been transitioned from UNDEFINED.
 	FirstUse bool
 
+	// ContentValid tracks whether the surface has valid content.
+	ContentValid bool
+
 	// FrameUsed tracks the last frame this surface was used in.
 	FrameUsed uint64
 }
@@ -36,7 +39,7 @@ func (t *GpuTranslator) GetSurface(request SurfaceRequest) (*GpuSurface, error) 
 				return nil, err
 			}
 			t.surfacesMutex.Lock()
-			surface.Value.Destroy(t.handles.Device)
+			surface.Value.DestroyViews(t.handles.Device)
 			surface.Value = vulkanSurface
 			surface.TextureId = imgui.TextureRef{} // Reset texture so it's recreated.
 		}
@@ -65,6 +68,7 @@ func (t *GpuTranslator) GetSurface(request SurfaceRequest) (*GpuSurface, error) 
 func (t *GpuTranslator) GetSurfaceByAddress(address uintptr) *GpuSurface {
 	t.surfacesMutex.Lock()
 	defer t.surfacesMutex.Unlock()
+
 	return t.surfaces[SurfaceKey{GpuAddress: address}]
 }
 

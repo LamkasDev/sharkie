@@ -3,7 +3,6 @@ package vulkan
 import (
 	"encoding/binary"
 	"fmt"
-	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/LamkasDev/sharkie/cmd/spirv/gcn"
@@ -118,7 +117,7 @@ func (t *GpuTranslator) FulfillResources(frame uint64) uint32 {
 		}
 
 		// Create host resources.
-		view, storageView, err, isImageNew := t.GetImageView(imageDescriptor)
+		view, storageView, err, _ := t.GetImageView(imageDescriptor)
 		if err != nil {
 			panic(fmt.Errorf("failed to create image view resource: %w", err))
 		}
@@ -141,11 +140,6 @@ func (t *GpuTranslator) FulfillResources(frame uint64) uint32 {
 			color.Green.Sprint(vkIndex),
 		)
 
-		// Upload image to GPU (only if new image).
-		if isImageNew {
-			t.uploadBufferDataToImage(imageDescriptor, t.images[imageDescriptor.BaseAddress])
-		}
-
 		// Update discovery map.
 		binary.LittleEndian.PutUint32(discoveryMapData[hashIndex*4:hashIndex*4+4], vkIndex)
 
@@ -159,33 +153,10 @@ func (t *GpuTranslator) FulfillResources(frame uint64) uint32 {
 	return count
 }
 
-func (t *GpuTranslator) DebugResources(frame uint64) {
-	for _, descriptor := range t.imageDescriptors {
-		preview := []uint32{}
-		if _, _, err := t.GetBufferFromAddress(descriptor.BaseAddress); err == nil {
-			preview = unsafe.Slice((*uint32)(unsafe.Pointer(descriptor.BaseAddress)), 32)
-		}
-		logger.Printf("[%s] image addr=%s wh=%dx%d fmt=(data=%d num=%d type=%d mtype=%d) mips=(base=%d last=%d) tile=(idx=%d pow2pad=%v atc=%v) ext=(depth=%d pitch=%d baseArr=%d lastArr=%d) first_u32=%v\n",
-			color.Blue.Sprintf("Frame %d", frame),
-			color.Blue.Sprintf("0x%X", descriptor.BaseAddress),
-			descriptor.Width, descriptor.Height,
-			descriptor.DataFormat, descriptor.NumFormat, descriptor.Type, descriptor.MType,
-			descriptor.BaseLevel, descriptor.LastLevel,
-			descriptor.TilingIndex, descriptor.Pow2Pad, descriptor.Atc,
-			descriptor.Depth, descriptor.Pitch, descriptor.BaseArray, descriptor.LastArray,
-			preview,
-		)
-		/* logger.Printf("[%s] dst_sel=(%d,%d,%d,%d)\n",
-			color.Blue.Sprintf("Frame %d", frame),
-			descriptor.DstSelX, descriptor.DstSelY, descriptor.DstSelZ, descriptor.DstSelW,
-		) */
-	}
-}
-
 func (t *GpuTranslator) createDummyTexture() {
 	surface, err := t.GetSurface(SurfaceRequest{
 		SurfaceKey: SurfaceKey{
-			GpuAddress: 0,
+			GpuAddress: spirvStructs.GetPhysicalGpuAddress(0),
 		},
 		Width:  1,
 		Height: 1,

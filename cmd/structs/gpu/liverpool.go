@@ -20,6 +20,7 @@ type LiverpoolDmaCopy struct {
 
 // Liverpool keeps state of the AMD Liverpool GPU.
 type Liverpool struct {
+	FrameNumber  uint64
 	RingMutex    sync.Mutex
 	GraphicsRing *LiverpoolCommandRing
 	ComputeRing  *LiverpoolCommandRing

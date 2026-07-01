@@ -5,7 +5,7 @@ import (
 	"os"
 )
 
-const LogToFile = false
+const LogToFile = true
 
 const (
 	// Logs mutexes, conditions, semaphores, etc.
@@ -27,7 +27,7 @@ const (
 	LogGraphics = false
 
 	// Logs vulkan rendering.
-	LogRenderer = false
+	LogRenderer = true
 
 	// Logs things that clutter log (value returns, etc).
 	LogMisc = false

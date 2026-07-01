@@ -2,6 +2,7 @@ package gpu
 
 import (
 	"context"
+	"os"
 	"runtime/pprof"
 	"sync"
 	"unsafe"
@@ -29,6 +30,7 @@ func (l *Liverpool) SetupPM4Handlers() {
 
 	l.PM4Handlers[PM4_IT_DRAW_INDEX_AUTO] = l.handleDrawIndexAuto
 	l.PM4Handlers[PM4_IT_DRAW_INDEX_2] = l.handleDrawIndex2
+	l.PM4Handlers[PM4_IT_DRAW_INDEX_OFFSET_2] = l.handleDrawIndexOffset2
 
 	l.PM4Handlers[PM4_IT_CONTEXT_CONTROL] = l.handleContextControl
 	l.PM4Handlers[PM4_IT_CLEAR_STATE] = l.handleClearState
@@ -44,6 +46,10 @@ func (l *Liverpool) SetupPM4Handlers() {
 
 // Walk drains both the graphics and compute rings, decoding every PM4 packet and updating GPU register state.
 func (l *Liverpool) Walk() {
+	if l.FrameNumber == 600 {
+		_ = os.Remove("temp/pm4_commands_dump.txt")
+	}
+
 	asm.GCFence.Store(true)
 
 	l.RingMutex.Lock()

@@ -20,6 +20,7 @@ type GraphicsPipelineKey struct {
 	VertexModuleAddress   uintptr
 	FragmentModuleAddress uintptr
 	RenderTargetAddress   uintptr
+	DepthTargetAddress    uintptr
 
 	// Pipeline options.
 	Width    uint32
@@ -182,14 +183,20 @@ func (t *GpuTranslator) createGraphicsPipeline(request GraphicsPipelineRequest) 
 	}
 
 	raster := vk.PipelineRasterizationStateCreateInfo{
-		SType:       vk.StructureTypePipelineRasterizationStateCreateInfo,
-		PNext:       unsafe.Pointer(&provokingVertex),
-		PolygonMode: polygonMode,
-		CullMode:    vk.CullModeFlags(cullMode),
-		FrontFace:   frontFace,
-		LineWidth:   1.0,
+		SType:            vk.StructureTypePipelineRasterizationStateCreateInfo,
+		PNext:            unsafe.Pointer(&provokingVertex),
+		DepthClampEnable: vk.False,
+		PolygonMode:      polygonMode,
+		CullMode:         vk.CullModeFlags(cullMode),
+		FrontFace:        frontFace,
+		LineWidth:        1.0,
 	}
 	depthStencil := request.DepthStencilState
+	if request.DepthTargetAddress == 0 {
+		depthStencil.DepthTestEnable = vk.False
+		depthStencil.DepthWriteEnable = vk.False
+		depthStencil.StencilTestEnable = vk.False
+	}
 
 	// Setup anti-aliasing.
 	multisample := vk.PipelineMultisampleStateCreateInfo{

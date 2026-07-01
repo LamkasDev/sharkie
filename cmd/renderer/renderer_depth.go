@@ -1,6 +1,8 @@
 package renderer
 
 import (
+	"unsafe"
+
 	"github.com/LamkasDev/sharkie/cmd/vulkan"
 	vk "github.com/goki/vulkan"
 )
@@ -35,6 +37,7 @@ func NewDepth(r *Renderer) *Depth {
 	if err := vulkan.NewError(result); err != nil {
 		panic(err)
 	}
+	vulkan.SetDebugUtilsObjectName(r.Handles.Instance, r.Handles.Device, vk.ObjectTypeImage, uint64(uintptr(unsafe.Pointer(depth.image))), "2D Depth Image")
 
 	var memReqs vk.MemoryRequirements
 	vk.GetImageMemoryRequirements(r.Handles.Device, depth.image, &memReqs)

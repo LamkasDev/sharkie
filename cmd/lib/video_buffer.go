@@ -5,6 +5,7 @@ import (
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	"github.com/LamkasDev/sharkie/cmd/logger"
+	"github.com/LamkasDev/sharkie/cmd/spirv/structs"
 	. "github.com/LamkasDev/sharkie/cmd/structs/dce"
 	. "github.com/LamkasDev/sharkie/cmd/structs/gpu"
 	. "github.com/LamkasDev/sharkie/cmd/structs/video"
@@ -50,7 +51,7 @@ func libSceVideoOut_sceVideoOutRegisterBuffers(rawHandle, startIndex, addressesP
 	handle.Attributes[0] = *attribute
 	for i := range bufferNum {
 		slot := startIndex + i
-		address := addresses[i]
+		address := structs.GetPhysicalGpuAddress(addresses[i])
 		handle.Buffers[slot] = VideoOutBuffer{
 			GpuAddress:     address,
 			AttributeIndex: 0,

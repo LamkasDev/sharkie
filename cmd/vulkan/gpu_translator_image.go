@@ -3,24 +3,39 @@ package vulkan
 import (
 	"fmt"
 	"runtime"
+	"unsafe"
 
 	spirvStructs "github.com/LamkasDev/sharkie/cmd/spirv/structs"
+	"github.com/LamkasDev/sharkie/cmd/structs"
 	vk "github.com/goki/vulkan"
 )
 
 func (t *GpuTranslator) GetImageView(descriptor spirvStructs.ImageDescriptor) (vk.ImageView, vk.ImageView, error, bool) {
 	hash := descriptor.Hash()
+	bpp := structs.GetBytesPerPixel(descriptor.DataFormat)
+	size := uintptr(descriptor.Pitch) * uintptr(descriptor.Height) * uintptr(bpp)
+	isDirty := structs.IsRegionDirty(descriptor.BaseAddress, size)
 
 	// Get already created image view.
 	t.imagesMutex.Lock()
 	defer t.imagesMutex.Unlock()
 	if view, ok := t.imageViews[hash]; ok {
+		if isDirty {
+			image := t.images[descriptor.BaseAddress]
+			t.uploadBufferDataToImage(descriptor, image)
+			structs.ClearRegionDirty(descriptor.BaseAddress, size)
+		}
 		return view, t.storageImageViews[hash], nil, false
 	}
 
 	// Check if this image address corresponds to an existing surface.
+	var image vk.Image
+	var imageExists bool
 	if surface := t.GetSurfaceByAddress(descriptor.BaseAddress); surface != nil {
-		return surface.Value.imageView, surface.Value.storageImageView, nil, false
+		image = surface.Value.image
+		imageExists = true
+	} else {
+		image, imageExists = t.images[descriptor.BaseAddress]
 	}
 
 	// Create a new image if needed.
@@ -28,7 +43,6 @@ func (t *GpuTranslator) GetImageView(descriptor spirvStructs.ImageDescriptor) (v
 	if format == vk.FormatUndefined {
 		return vk.NullImageView, vk.NullImageView, fmt.Errorf("invalid format"), false
 	}
-	image, imageExists := t.images[descriptor.BaseAddress]
 	if !imageExists {
 		// Calculate max mip levels.
 		maxDim := descriptor.Width
@@ -63,6 +77,7 @@ func (t *GpuTranslator) GetImageView(descriptor spirvStructs.ImageDescriptor) (v
 		if err := NewError(result); err != nil {
 			return vk.NullImageView, vk.NullImageView, err, false
 		}
+		SetDebugUtilsObjectName(t.handles.Instance, t.handles.Device, vk.ObjectTypeImage, uint64(uintptr(unsafe.Pointer(image))), fmt.Sprintf("2D Image 0x%X", descriptor.BaseAddress))
 
 		// Allocate image memory.
 		var memReqs vk.MemoryRequirements
@@ -116,6 +131,12 @@ func (t *GpuTranslator) GetImageView(descriptor spirvStructs.ImageDescriptor) (v
 			return vk.NullImageView, vk.NullImageView, err, false
 		}
 		t.WaitOnWorkerFence()
+
+		t.uploadBufferDataToImage(descriptor, image)
+		structs.ClearRegionDirty(descriptor.BaseAddress, size)
+	} else if isDirty {
+		t.uploadBufferDataToImage(descriptor, image)
+		structs.ClearRegionDirty(descriptor.BaseAddress, size)
 	}
 
 	// Create the image view.

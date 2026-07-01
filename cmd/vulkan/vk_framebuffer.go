@@ -7,9 +7,11 @@ import (
 )
 
 type VulkanFramebuffer struct {
-	Framebuffer       vk.Framebuffer
-	RenderPass        vk.RenderPass
-	RenderPassNoClear vk.RenderPass
+	Framebuffer                   vk.Framebuffer
+	RenderPass                    vk.RenderPass
+	RenderPassNoClear             vk.RenderPass
+	RenderPassLoadColorClearDepth vk.RenderPass
+	RenderPassClearColorLoadDepth vk.RenderPass
 }
 
 type FramebufferRequest struct {
@@ -127,6 +129,58 @@ func (t *GpuTranslator) createFramebuffer(request FramebufferRequest) (*VulkanFr
 		return nil, fmt.Errorf("vkCreateRenderPass (no clear): %w", err)
 	}
 	fb.RenderPassNoClear = renderPassNoClear
+
+	if request.DepthFormat != vk.FormatUndefined {
+		attachmentsLoadColorClearDepth := []vk.AttachmentDescription{
+			attachmentsNoClear[0],
+			attachments[1],
+		}
+		var renderPassLoadColorClearDepth vk.RenderPass
+		result = vk.CreateRenderPass(t.handles.Device, &vk.RenderPassCreateInfo{
+			SType:           vk.StructureTypeRenderPassCreateInfo,
+			AttachmentCount: uint32(len(attachmentsLoadColorClearDepth)),
+			PAttachments:    attachmentsLoadColorClearDepth,
+			SubpassCount:    1,
+			PSubpasses: []vk.SubpassDescription{{
+				PipelineBindPoint:    vk.PipelineBindPointGraphics,
+				ColorAttachmentCount: 1,
+				PColorAttachments: []vk.AttachmentReference{{
+					Attachment: 0,
+					Layout:     vk.ImageLayoutColorAttachmentOptimal,
+				}},
+				PDepthStencilAttachment: depthAttachmentRef,
+			}},
+		}, nil, &renderPassLoadColorClearDepth)
+		if err := NewError(result); err != nil {
+			return nil, fmt.Errorf("vkCreateRenderPass (load color clear depth): %w", err)
+		}
+		fb.RenderPassLoadColorClearDepth = renderPassLoadColorClearDepth
+
+		attachmentsClearColorLoadDepth := []vk.AttachmentDescription{
+			attachments[0],
+			attachmentsNoClear[1],
+		}
+		var renderPassClearColorLoadDepth vk.RenderPass
+		result = vk.CreateRenderPass(t.handles.Device, &vk.RenderPassCreateInfo{
+			SType:           vk.StructureTypeRenderPassCreateInfo,
+			AttachmentCount: uint32(len(attachmentsClearColorLoadDepth)),
+			PAttachments:    attachmentsClearColorLoadDepth,
+			SubpassCount:    1,
+			PSubpasses: []vk.SubpassDescription{{
+				PipelineBindPoint:    vk.PipelineBindPointGraphics,
+				ColorAttachmentCount: 1,
+				PColorAttachments: []vk.AttachmentReference{{
+					Attachment: 0,
+					Layout:     vk.ImageLayoutColorAttachmentOptimal,
+				}},
+				PDepthStencilAttachment: depthAttachmentRef,
+			}},
+		}, nil, &renderPassClearColorLoadDepth)
+		if err := NewError(result); err != nil {
+			return nil, fmt.Errorf("vkCreateRenderPass (clear color load depth): %w", err)
+		}
+		fb.RenderPassClearColorLoadDepth = renderPassClearColorLoadDepth
+	}
 
 	// Create framebuffer.
 	views := []vk.ImageView{request.ImageView}

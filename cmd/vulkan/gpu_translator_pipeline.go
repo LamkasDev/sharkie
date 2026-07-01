@@ -6,20 +6,32 @@ import (
 
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/LamkasDev/sharkie/cmd/spirv"
+	spirvStructs "github.com/LamkasDev/sharkie/cmd/spirv/structs"
+	"github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/LamkasDev/sharkie/cmd/structs/gpu"
 	vk "github.com/goki/vulkan"
 	"github.com/gookit/color"
 )
 
 func (t *GpuTranslator) BindPipeline(frame uint64, commandBuffer vk.CommandBuffer, bind *gpu.LiverpoolBindPipeline) {
+	t.commandIndex++
 	if t.activePass != vk.NullRenderPass {
 		vk.CmdEndRenderPass(commandBuffer)
 		t.activePass = vk.NullRenderPass
 	}
-	rtAddress := uintptr(bind.RtBase) << 8
+	rtAddress := spirvStructs.GetPhysicalGpuAddress(uintptr(bind.RtBase) << 8)
 	if rtAddress == 0 {
 		return
 	}
+
+	structs.GlobalMemoryManager.RegisterFormat(rtAddress, structs.PageFormat{
+		DataFormat:  uint8(bind.RtFormat),
+		NumFormat:   uint8(bind.RtNumberType),
+		TilingIndex: uint8(bind.RtAttrib & 0x1F),
+		Pitch:       ((bind.RtPitch & 0x7FF) + 1) * 8,
+		Height:      1080,
+		IsSurface:   true,
+	})
 
 	// Get or create surface.
 	surface, err := t.GetSurface(SurfaceRequest{
@@ -37,13 +49,13 @@ func (t *GpuTranslator) BindPipeline(frame uint64, commandBuffer vk.CommandBuffe
 
 	// Handle depth surface.
 	var depthSurface *GpuSurface
-	dbAddress := uintptr(bind.DbZWriteBase) << 8
+	dbAddress := spirvStructs.GetPhysicalGpuAddress(uintptr(bind.DbZWriteBase) << 8)
 	if dbAddress != 0 {
 		depthSurface, err = t.GetSurface(SurfaceRequest{
 			SurfaceKey: SurfaceKey{
 				GpuAddress: dbAddress,
 			},
-			Format: TranslateGcnDepthFormat(bind.DbZFormat),
+			Format: t.TranslateGcnDepthFormat(bind.DbZFormat),
 			Width:  surface.Value.width,
 			Height: surface.Value.height,
 		})
@@ -127,6 +139,7 @@ func (t *GpuTranslator) BindPipeline(frame uint64, commandBuffer vk.CommandBuffe
 			VertexModuleAddress:   bind.VertexShader.Address,
 			FragmentModuleAddress: bind.PixelShader.Address,
 			RenderTargetAddress:   rtAddress,
+			DepthTargetAddress:    dbAddress,
 
 			Width:    surface.Value.width,
 			Height:   surface.Value.height,
@@ -169,21 +182,36 @@ func (t *GpuTranslator) BindPipeline(frame uint64, commandBuffer vk.CommandBuffe
 
 	// Select render pass and clear on first use in frame or if explicitly requested.
 	var clearValues []vk.ClearValue
-	renderPass := fb.RenderPassNoClear
-	if surface.FrameUsed < frame {
-		renderPass = fb.RenderPass
-		clearColor := vk.ClearValue{}
-		clearColorFloat := translateClearColor(bind.RtClearWord0, bind.RtClearWord1, bind.RtFormat, bind.RtNumberType, bind.RtCompSwap)
-		clearColor.SetColor(clearColorFloat)
-		clearValues = append(clearValues, clearColor)
-		surface.FrameUsed = frame
-		if depthSurface != nil {
-			clearDepth := vk.ClearValue{}
-			clearDepth.SetDepthStencil(math.Float32frombits(bind.DbDepthClearValue), bind.DbStencilClearValue)
-			clearValues = append(clearValues, clearDepth)
-			depthSurface.FrameUsed = frame
-		}
+	clearColor := vk.ClearValue{}
+	clearColorFloat := translateClearColor(bind.RtClearWord0, bind.RtClearWord1, bind.RtFormat, bind.RtNumberType, bind.RtCompSwap)
+	clearColor.SetColor(clearColorFloat)
+	clearValues = append(clearValues, clearColor)
+	if depthSurface != nil {
+		clearDepth := vk.ClearValue{}
+		clearDepth.SetDepthStencil(math.Float32frombits(bind.DbDepthClearValue), bind.DbStencilClearValue)
+		clearValues = append(clearValues, clearDepth)
 	}
+
+	// Clear on first use.
+	renderPass := fb.RenderPassNoClear
+	clearColorNeeded := !surface.ContentValid
+	clearDepthNeeded := depthSurface != nil && depthSurface.FrameUsed < frame
+	if clearColorNeeded && clearDepthNeeded {
+		renderPass = fb.RenderPass
+		surface.FrameUsed = frame
+		depthSurface.FrameUsed = frame
+	} else if clearColorNeeded && !clearDepthNeeded {
+		if depthSurface != nil {
+			renderPass = fb.RenderPassClearColorLoadDepth
+		} else {
+			renderPass = fb.RenderPass
+		}
+		surface.FrameUsed = frame
+	} else if !clearColorNeeded && clearDepthNeeded {
+		renderPass = fb.RenderPassLoadColorClearDepth
+		depthSurface.FrameUsed = frame
+	}
+	surface.ContentValid = true
 
 	// Start render pass.
 	vk.CmdBeginRenderPass(commandBuffer, &vk.RenderPassBeginInfo{
@@ -198,14 +226,16 @@ func (t *GpuTranslator) BindPipeline(frame uint64, commandBuffer vk.CommandBuffe
 	// Bind pipeline.
 	vk.CmdBindPipeline(commandBuffer, vk.PipelineBindPointGraphics, pipeline)
 	t.activePass = fb.RenderPass
+	t.activePassNoClear = fb.RenderPassNoClear
 	t.activeFramebuffer = fb.Framebuffer
 	t.activePipeline = pipeline
 
 	if logger.LogRenderer {
-		logger.Printf("[%s] Bound pipeline (vertex=%s, fragment=%s).\n",
+		logger.Printf("[%s] Bound pipeline (vertex=%s, fragment=%s, rtAddress=0x%X, rtPitch=%d, rtWidth=%d).\n",
 			color.Blue.Sprintf("Frame %d", frame),
 			color.Yellow.Sprintf("0x%X", bind.VertexShader.Address),
 			color.Yellow.Sprintf("0x%X", bind.PixelShader.Address),
+			rtAddress, bind.RtPitch, ((bind.RtPitch&0x7FF)+1)*8,
 		)
 	}
 }

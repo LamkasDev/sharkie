@@ -236,9 +236,10 @@ func (c *VulkanContext) Init(cfg ContextConfig) error {
 }
 
 func (c *VulkanContext) Destroy() {
-	if c.Device != nil {
-		vk.DeviceWaitIdle(c.Device)
+	if c.Device == nil {
+		return
 	}
+	vk.DeviceWaitIdle(c.Device)
 
 	for i := range c.ImageAcquiredSemaphores {
 		vk.DestroySemaphore(c.Device, c.ImageAcquiredSemaphores[i], nil)
@@ -520,6 +521,49 @@ func (c *VulkanContext) Prepare() {
 		orPanic(NewError(ret))
 		c.SwapchainImageResources[i].View = view
 	}
+
+	cmd := make([]vk.CommandBuffer, 1)
+	vk.AllocateCommandBuffers(c.Device, &vk.CommandBufferAllocateInfo{
+		SType:              vk.StructureTypeCommandBufferAllocateInfo,
+		CommandPool:        c.CmdPool,
+		Level:              vk.CommandBufferLevelPrimary,
+		CommandBufferCount: 1,
+	}, cmd)
+
+	vk.BeginCommandBuffer(cmd[0], &vk.CommandBufferBeginInfo{
+		SType: vk.StructureTypeCommandBufferBeginInfo,
+		Flags: vk.CommandBufferUsageFlags(vk.CommandBufferUsageOneTimeSubmitBit),
+	})
+
+	for i := 0; i < len(c.SwapchainImageResources); i++ {
+		vk.CmdPipelineBarrier(cmd[0], vk.PipelineStageFlags(vk.PipelineStageTopOfPipeBit), vk.PipelineStageFlags(vk.PipelineStageAllCommandsBit), 0, 0, nil, 0, nil, 1, []vk.ImageMemoryBarrier{{
+			SType:               vk.StructureTypeImageMemoryBarrier,
+			SrcAccessMask:       0,
+			DstAccessMask:       0,
+			OldLayout:           vk.ImageLayoutUndefined,
+			NewLayout:           vk.ImageLayoutPresentSrc,
+			SrcQueueFamilyIndex: vk.QueueFamilyIgnored,
+			DstQueueFamilyIndex: vk.QueueFamilyIgnored,
+			Image:               c.SwapchainImageResources[i].Image,
+			SubresourceRange: vk.ImageSubresourceRange{
+				AspectMask:     vk.ImageAspectFlags(vk.ImageAspectColorBit),
+				BaseMipLevel:   0,
+				LevelCount:     1,
+				BaseArrayLayer: 0,
+				LayerCount:     1,
+			},
+		}})
+	}
+
+	vk.EndCommandBuffer(cmd[0])
+
+	vk.QueueSubmit(c.GraphicsQueue, 1, []vk.SubmitInfo{{
+		SType:              vk.StructureTypeSubmitInfo,
+		CommandBufferCount: 1,
+		PCommandBuffers:    cmd,
+	}}, vk.NullFence)
+	vk.QueueWaitIdle(c.GraphicsQueue)
+	vk.FreeCommandBuffers(c.Device, c.CmdPool, 1, cmd)
 }
 
 func (c *VulkanContext) CurrentFrameFence() vk.Fence {

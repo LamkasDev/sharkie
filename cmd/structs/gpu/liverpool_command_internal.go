@@ -185,6 +185,7 @@ type LiverpoolDrawInternal struct {
 	IndexCount       uint32
 	IndexType        uint32
 	IndexBaseAddress uintptr
+	IndexOffset      uint32
 
 	// Shader resources.
 	VertexShRsrc1, VertexShRsrc2     uint32

@@ -13,6 +13,8 @@ import (
 )
 
 func (t *GpuTranslator) Dispatch(frame uint64, commandBuffer vk.CommandBuffer, dispatch *gpu.LiverpoolDispatch) {
+	t.ResearchLogDispatch(frame, dispatch)
+
 	if t.activePass != vk.NullRenderPass {
 		t.EndRenderPass(commandBuffer)
 	}

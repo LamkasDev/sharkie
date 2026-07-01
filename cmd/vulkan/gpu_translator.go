@@ -1,10 +1,13 @@
 package vulkan
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"runtime"
+	"runtime/pprof"
 	"sync"
+	"unsafe"
 
 	"github.com/LamkasDev/cimgui-go-vulkan/backend"
 	glfwvulkanbackend "github.com/LamkasDev/cimgui-go-vulkan/backend/glfwvulkan-backend"
@@ -42,6 +45,7 @@ type GpuTranslator struct {
 	discoveryImageSamplerMap   map[spirvStructs.ImageSamplerKey]uint32
 	discoveryImageNoSamplerMap map[spirvStructs.ImageNoSamplerKey]uint32
 	discoveryNextVulkanIndex   uint32
+	discoveryAddressIndexes    map[uintptr]uint32
 	missingResourceBuffer      vk.Buffer
 	missingResourceMem         vk.DeviceMemory
 
@@ -76,8 +80,6 @@ type GpuTranslator struct {
 	samplersMutex     sync.Mutex
 	samplers          map[uint64]vk.Sampler
 	defaultSampler    vk.Sampler
-	dumpedImagesMutex sync.Mutex
-	dumpedImages      map[uint64]bool
 
 	// Physical buffers for User Data snapshots.
 	userDataBuffersMutex  sync.Mutex
@@ -85,6 +87,10 @@ type GpuTranslator struct {
 	userDataBufferMem     vk.DeviceMemory
 	userDataBufferAddress uint64
 	userDataOffsets       map[uint32]uint32
+
+	// Static index buffer for QuadList drawing.
+	quadListIndexBuffer    vk.Buffer
+	quadListIndexBufferMem vk.DeviceMemory
 
 	// Command pool/buffer for this frame's GPU work.
 	pool        vk.CommandPool
@@ -94,12 +100,15 @@ type GpuTranslator struct {
 	QueueMutex  *sync.Mutex
 
 	// Active state for chronological stream processing.
-	activeSurface     *GpuSurface
-	activePass        vk.RenderPass
-	activeFramebuffer vk.Framebuffer
-	activePipeline    vk.Pipeline
-	activeVteControl  uint32
-	activeClipControl uint32
+	commandIndex       int // BindPipeline calls within the frame
+	activeSurface      *GpuSurface
+	activePass         vk.RenderPass
+	activePassNoClear  vk.RenderPass
+	activeFramebuffer  vk.Framebuffer
+	activePipeline     vk.Pipeline
+	activeVteControl   uint32
+	activeClipControl  uint32
+	activeDynamicState *gpu.LiverpoolSetDynamicState
 }
 
 // NewGpuTranslator creates a GpuTranslator, loads stub shaders and builds the stub pipeline layout.
@@ -130,6 +139,7 @@ func NewGpuTranslator(handles VulkanHandles, bknd backend.Backend[glfwvulkanback
 
 		discoveryImageSamplerMap:   map[spirvStructs.ImageSamplerKey]uint32{},
 		discoveryImageNoSamplerMap: map[spirvStructs.ImageNoSamplerKey]uint32{},
+		discoveryAddressIndexes:    map[uintptr]uint32{},
 		discoveryNextVulkanIndex:   1, // 0 is reserved for missing.
 
 		imagesMutex:       sync.Mutex{},
@@ -138,12 +148,8 @@ func NewGpuTranslator(handles VulkanHandles, bknd backend.Backend[glfwvulkanback
 		imageViews:        map[uint64]vk.ImageView{},
 		storageImageViews: map[uint64]vk.ImageView{},
 		imageDescriptors:  map[uint64]spirvStructs.ImageDescriptor{},
-
-		samplersMutex: sync.Mutex{},
-		samplers:      map[uint64]vk.Sampler{},
-
-		dumpedImagesMutex: sync.Mutex{},
-		dumpedImages:      map[uint64]bool{},
+		samplersMutex:     sync.Mutex{},
+		samplers:          map[uint64]vk.Sampler{},
 
 		userDataBuffersMutex: sync.Mutex{},
 		userDataOffsets:      map[uint32]uint32{},
@@ -217,8 +223,50 @@ func NewGpuTranslator(handles VulkanHandles, bknd backend.Backend[glfwvulkanback
 	if err = t.CreateDiscoveryBuffers(); err != nil {
 		return nil, fmt.Errorf("GpuTranslator: discovery buffers: %w", err)
 	}
+	t.commandIndex = 0
+	t.activePass = vk.NullRenderPass
+	t.activePipeline = vk.NullPipeline
+
+	// Allocate quad list index buffer.
+	const maxQuads = 16384
+	const quadListIndexCount = maxQuads * 6
+	quadListIndexBuffer, quadListIndexBufferMem, err := t.AllocBuffer(vk.DeviceSize(quadListIndexCount*2),
+		vk.BufferUsageFlags(vk.BufferUsageIndexBufferBit),
+		vk.MemoryPropertyFlags(vk.MemoryPropertyHostVisibleBit|vk.MemoryPropertyHostCoherentBit))
+	if err != nil {
+		return nil, fmt.Errorf("GpuTranslator: allocate quad list index buffer: %w", err)
+	}
+
+	// Map and fill quad list index buffer.
+	var indexData unsafe.Pointer
+	result := vk.MapMemory(handles.Device, quadListIndexBufferMem, 0, vk.DeviceSize(quadListIndexCount*2), 0, &indexData)
+	if err := NewError(result); err != nil {
+		vk.DestroyBuffer(handles.Device, quadListIndexBuffer, nil)
+		vk.FreeMemory(handles.Device, quadListIndexBufferMem, nil)
+		return nil, fmt.Errorf("GpuTranslator: map quad list index buffer: %w", err)
+	}
+
+	indices := (*[quadListIndexCount]uint16)(indexData)
+	for i := 0; i < maxQuads; i++ {
+		baseVertex := uint16(i * 4)
+		indices[i*6+0] = baseVertex + 0
+		indices[i*6+1] = baseVertex + 1
+		indices[i*6+2] = baseVertex + 2
+		indices[i*6+3] = baseVertex + 0
+		indices[i*6+4] = baseVertex + 2
+		indices[i*6+5] = baseVertex + 3
+	}
+	vk.UnmapMemory(handles.Device, quadListIndexBufferMem)
+
+	t.quadListIndexBuffer = quadListIndexBuffer
+	t.quadListIndexBufferMem = quadListIndexBufferMem
+
 	t.updateDiscoveryDescriptorSet()
 	t.createDummyTexture()
+
+	go pprof.Do(context.Background(), pprof.Labels("name", "MemorySyncWorker"), func(ctx context.Context) {
+		t.memorySyncWorker()
+	})
 
 	return t, nil
 }
@@ -250,6 +298,10 @@ func (t *GpuTranslator) Destroy() {
 		vk.FreeMemory(t.handles.Device, t.userDataBufferMem, nil)
 	}
 	t.userDataBuffersMutex.Unlock()
+	if t.quadListIndexBuffer != vk.NullBuffer {
+		vk.DestroyBuffer(t.handles.Device, t.quadListIndexBuffer, nil)
+		vk.FreeMemory(t.handles.Device, t.quadListIndexBufferMem, nil)
+	}
 	if t.discoveryMapBuffer != vk.NullBuffer {
 		vk.DestroyBuffer(t.handles.Device, t.discoveryMapBuffer, nil)
 		vk.FreeMemory(t.handles.Device, t.discoveryMapMem, nil)
@@ -282,11 +334,14 @@ func (t *GpuTranslator) Destroy() {
 
 func (t *GpuTranslator) ResetFrameState() {
 	t.activeSurface = nil
+	t.commandIndex = 0
 	t.activePass = vk.NullRenderPass
+	t.activePassNoClear = vk.NullRenderPass
 	t.activeFramebuffer = vk.NullFramebuffer
 	t.activePipeline = vk.NullPipeline
 	t.activeVteControl = 0
 	t.activeClipControl = 0
+	t.activeDynamicState = nil
 
 	t.surfacesMutex.Lock()
 	for _, surface := range t.surfaces {

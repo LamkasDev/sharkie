@@ -5,6 +5,8 @@ import (
 	"runtime"
 	"unsafe"
 
+	"github.com/LamkasDev/sharkie/cmd/logger"
+	"github.com/LamkasDev/sharkie/cmd/structs"
 	vk "github.com/goki/vulkan"
 )
 
@@ -19,6 +21,18 @@ type VulkanSurface struct {
 	height           uint32
 }
 
+func (s *VulkanSurface) DestroyViews(device vk.Device) {
+	if s.imageView != vk.NullImageView {
+		vk.DestroyImageView(device, s.imageView, nil)
+	}
+	if s.storageImageView != vk.NullImageView {
+		vk.DestroyImageView(device, s.storageImageView, nil)
+	}
+	if s.sampler != vk.NullSampler {
+		vk.DestroySampler(device, s.sampler, nil)
+	}
+}
+
 type SurfaceRequest struct {
 	SurfaceKey
 	Format vk.Format
@@ -31,6 +45,38 @@ type SurfaceKey struct {
 }
 
 func (t *GpuTranslator) createSurface(request SurfaceRequest) (VulkanSurface, error) {
+	// Reuse existing texture image if one exists at this address, so
+	// render-target writes are immediately visible when the same memory
+	// is sampled as a texture (unified surface/texture cache pattern).
+	if oldImage, ok := t.images[request.GpuAddress]; ok && !IsDepthFormat(request.Format) {
+		if logger.LogToFile {
+			logger.Printf("CREATESURFACE: reusing texture image at 0x%X\n", request.GpuAddress)
+		}
+		surface := VulkanSurface{
+			image:    oldImage,
+			imageMem: t.imageMems[request.GpuAddress],
+			format:   request.Format,
+			width:    request.Width,
+			height:   request.Height,
+		}
+
+		// Create image views from the shared image.
+		aspect := vk.ImageAspectFlags(vk.ImageAspectColorBit)
+		vk.CreateImageView(t.handles.Device, &vk.ImageViewCreateInfo{
+			SType: vk.StructureTypeImageViewCreateInfo, Image: surface.image,
+			ViewType: vk.ImageViewType2d, Format: request.Format,
+			SubresourceRange: vk.ImageSubresourceRange{AspectMask: aspect, LevelCount: 1, LayerCount: 1},
+		}, nil, &surface.imageView)
+		vk.CreateImageView(t.handles.Device, &vk.ImageViewCreateInfo{
+			SType: vk.StructureTypeImageViewCreateInfo, Image: surface.image,
+			ViewType: vk.ImageViewType2d, Format: request.Format,
+			SubresourceRange: vk.ImageSubresourceRange{AspectMask: aspect, LevelCount: 1, LayerCount: 1},
+		}, nil, &surface.storageImageView)
+		vk.CreateSampler(t.handles.Device, &vk.SamplerCreateInfo{SType: vk.StructureTypeSamplerCreateInfo}, nil, &surface.sampler)
+
+		return surface, nil
+	}
+
 	surface := VulkanSurface{
 		format: request.Format,
 		width:  request.Width,
@@ -40,8 +86,8 @@ func (t *GpuTranslator) createSurface(request SurfaceRequest) (VulkanSurface, er
 	// Create the render-target image.
 	imageUsage := vk.ImageUsageFlags(vk.ImageUsageColorAttachmentBit | vk.ImageUsageSampledBit | vk.ImageUsageStorageBit | vk.ImageUsageTransferSrcBit | vk.ImageUsageTransferDstBit)
 	aspectMask := vk.ImageAspectFlags(vk.ImageAspectColorBit)
-	dstLayout := vk.ImageLayoutShaderReadOnlyOptimal
-	dstAccess := vk.AccessFlags(vk.AccessShaderReadBit)
+	dstLayout := vk.ImageLayoutGeneral
+	dstAccess := vk.AccessFlags(vk.AccessShaderReadBit | vk.AccessShaderWriteBit | vk.AccessColorAttachmentReadBit | vk.AccessColorAttachmentWriteBit)
 	if IsDepthFormat(request.Format) {
 		imageUsage = vk.ImageUsageFlags(vk.ImageUsageDepthStencilAttachmentBit | vk.ImageUsageSampledBit | vk.ImageUsageTransferSrcBit | vk.ImageUsageTransferDstBit)
 		aspectMask = vk.ImageAspectFlags(vk.ImageAspectDepthBit | vk.ImageAspectStencilBit)
@@ -49,13 +95,28 @@ func (t *GpuTranslator) createSurface(request SurfaceRequest) (VulkanSurface, er
 		dstAccess = vk.AccessFlags(vk.AccessDepthStencilAttachmentReadBit | vk.AccessDepthStencilAttachmentWriteBit)
 	}
 
+	// Calculate max mip levels.
+	maxDim := request.Width
+	if request.Height > maxDim {
+		maxDim = request.Height
+	}
+	mipLevels := uint32(1)
+	for maxDim > 1 {
+		maxDim /= 2
+		mipLevels++
+	}
+	if mipLevels > 16 {
+		mipLevels = 16
+	}
+
 	var image vk.Image
 	result := vk.CreateImage(t.handles.Device, &vk.ImageCreateInfo{
 		SType:         vk.StructureTypeImageCreateInfo,
+		Flags:         vk.ImageCreateFlags(vk.ImageCreateMutableFormatBit),
 		ImageType:     vk.ImageType2d,
 		Format:        request.Format,
 		Extent:        vk.Extent3D{Width: request.Width, Height: request.Height, Depth: 1},
-		MipLevels:     1,
+		MipLevels:     mipLevels,
 		ArrayLayers:   1,
 		Samples:       vk.SampleCount1Bit,
 		Tiling:        vk.ImageTilingOptimal,
@@ -66,6 +127,7 @@ func (t *GpuTranslator) createSurface(request SurfaceRequest) (VulkanSurface, er
 	if err := NewError(result); err != nil {
 		return surface, fmt.Errorf("vkCreateImage: %w", err)
 	}
+	SetDebugUtilsObjectName(t.handles.Instance, t.handles.Device, vk.ObjectTypeImage, uint64(uintptr(unsafe.Pointer(image))), fmt.Sprintf("2D Surface Image 0x%X", request.GpuAddress))
 	surface.image = image
 
 	var memReqs vk.MemoryRequirements
@@ -84,6 +146,14 @@ func (t *GpuTranslator) createSurface(request SurfaceRequest) (VulkanSurface, er
 	}
 	surface.imageMem = imageMem
 	vk.BindImageMemory(t.handles.Device, surface.image, surface.imageMem, 0)
+	structs.GlobalMemoryManager.TrackRegion(request.GpuAddress, uintptr(memReqs.Size))
+
+	if !IsDepthFormat(request.Format) {
+		t.imagesMutex.Lock()
+		t.images[request.GpuAddress] = image
+		t.imageMems[request.GpuAddress] = imageMem
+		t.imagesMutex.Unlock()
+	}
 
 	var imageView vk.ImageView
 	result = vk.CreateImageView(t.handles.Device, &vk.ImageViewCreateInfo{

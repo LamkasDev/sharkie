@@ -4,6 +4,7 @@ import (
 	"sync/atomic"
 
 	"github.com/LamkasDev/sharkie/cmd/logger"
+	"github.com/LamkasDev/sharkie/cmd/spirv/structs"
 	"github.com/gookit/color"
 )
 
@@ -30,12 +31,12 @@ func (s *FrameSource) Submit(gpuAddress uintptr, flipArg uint64) {
 	}
 
 	select {
-	case s.Channel <- Frame{Number: s.Count, GpuAddress: gpuAddress, FlipArg: flipArg}:
+	case s.Channel <- Frame{Number: s.Count, GpuAddress: structs.GetPhysicalGpuAddress(gpuAddress), FlipArg: flipArg}:
 		if s.OnSubmit != nil {
 			s.OnSubmit()
 		}
-		logger.Printf("[%s] submitted to channel.\n",
-			color.Blue.Sprintf("Frame %d", s.Count),
+		logger.Printf("[%s] submitted to channel 0x%X.\n",
+			color.Blue.Sprintf("Frame %d", s.Count), gpuAddress,
 		)
 		s.Count++
 	default:
