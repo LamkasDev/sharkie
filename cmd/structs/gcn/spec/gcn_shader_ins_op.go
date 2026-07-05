@@ -36,3 +36,5 @@ const (
 	OpVgpr0         = 256
 	OpVgpr255       = 511
 )
+
+type GcnRegisters [256]uint32

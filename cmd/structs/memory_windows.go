@@ -74,16 +74,14 @@ func ProtectKernelMemory(addr uintptr, length uint64, prot int32) (uintptr, erro
 	return ret, nil
 }
 
-func MapVulkanMemory(addr uintptr, length uint64, handle uintptr) error {
-	ret, _, err := sys_struct.UnmapViewOfFile.Call(addr)
-	if ret == 0 {
-		return err
-	}
+func MapVulkanMemory(addr uintptr, length uint64, handle uintptr, backingOffset uint64) error {
+	ret, _, _ := sys_struct.UnmapViewOfFile.Call(addr)
+	_ = ret // unmapping an unmapped view is fine
 	allocatedAddr, _, err := sys_struct.MapViewOfFileEx.Call(
 		handle,
 		0xF001F, // FILE_MAP_ALL_ACCESS = 0xF001F (READ | WRITE | ...)
-		0,
-		0,
+		uintptr(backingOffset>>32),
+		uintptr(backingOffset&0xFFFFFFFF),
 		uintptr(length),
 		addr,
 	)

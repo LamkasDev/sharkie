@@ -1,14 +1,13 @@
 package structs
 
 const (
-	DescriptorSetSlotBindless  = 0
-	DescriptorSetSlotDiscovery = 1
+	DescriptorSetSlotStatic = 0
+)
 
-	// Bindings for DescriptorSetSlotBindless (Set 0)
-	BindlessBindingSampledImages = 0
-	BindlessBindingStorageImages = 1
+const (
+	// Bindings for DescriptorSetSlotStatic (Set 0)
+	StaticBindingSampledImages = 0
+	StaticBindingStorageImages = 1
 
-	// Bindings for DescriptorSetSlotDiscovery (Set 1)
-	DiscoveryBindingMap             = 0
-	DiscoveryBindingMissingResource = 1
+	MaxStaticBindings = 8
 )

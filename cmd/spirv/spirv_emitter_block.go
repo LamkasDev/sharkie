@@ -5,9 +5,9 @@ import (
 
 	. "github.com/LamkasDev/sharkie/cmd/spirv/common"
 	"github.com/LamkasDev/sharkie/cmd/spirv/spec"
+	"github.com/LamkasDev/sharkie/cmd/spirv/structs"
 	. "github.com/LamkasDev/sharkie/cmd/structs/gcn"
 	gcnSpec "github.com/LamkasDev/sharkie/cmd/structs/gcn/spec"
-	"github.com/LamkasDev/sharkie/cmd/structs/gpu"
 )
 
 // emitBlock emits the SPIR-V for a single block.
@@ -27,7 +27,7 @@ func emitBlock(b *SpvBuilder, block *GcnShaderCfgBlock, ctx *SpirvBlockContext) 
 
 		// Load 16 user data registers into s0-s15.
 		b.EmitString("load user data registers")
-		stageOffset := gpu.GcnStageToUserDataOffset[ctx.Stage]
+		stageOffset := structs.GcnStageToUserDataOffset[ctx.Stage]
 		for i := range uint32(16) {
 			ptr := b.EmitPtrAccessChain(idPtrPsbUint, ptrBase, ctx.GetConstId(SpirvId(stageOffset+i)))
 			value := b.EmitLoad(ctx.GetId(BlockContextIdTypeUint), ptr, spec.SpvMemoryAccessAligned, 4)

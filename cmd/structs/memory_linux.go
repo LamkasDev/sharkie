@@ -76,8 +76,8 @@ func ProtectKernelMemory(addr uintptr, length uint64, prot int32) (uintptr, erro
 	return 1, nil
 }
 
-func MapVulkanMemory(addr uintptr, length uint64, fd uintptr) error {
-	if _, _, err := syscall.Syscall(syscall.SYS_MUNMAP, addr, uintptr(length), 0); err != 0 {
+func MapVulkanMemory(addr uintptr, length uint64, fd uintptr, backingOffset uint64) error {
+	if _, _, err := syscall.Syscall(syscall.SYS_MUNMAP, addr, uintptr(length), 0); err != 0 && err != syscall.EINVAL {
 		return err
 	}
 	allocatedAddr, _, err := syscall.Syscall6(
@@ -87,7 +87,7 @@ func MapVulkanMemory(addr uintptr, length uint64, fd uintptr) error {
 		uintptr(syscall.PROT_READ|syscall.PROT_WRITE),
 		uintptr(syscall.MAP_SHARED|syscall.MAP_FIXED),
 		fd,
-		0,
+		uintptr(backingOffset),
 	)
 	if err != 0 {
 		return err

@@ -263,8 +263,13 @@ func (app *Application) VulkanDeviceCreateNext() unsafe.Pointer {
 		SubgroupSizeControl:  vk.True,
 		ComputeFullSubgroups: vk.True,
 	}
+	memoryPriorityFeatures := &vulkan.VkPhysicalDeviceMemoryPriorityFeaturesEXT{
+		SType:          vulkan.StructureTypePhysicalDeviceMemoryPriorityFeaturesExt,
+		PNext:          unsafe.Pointer(subgroupSizeControlFeatures),
+		MemoryPriority: vk.True,
+	}
 
-	return unsafe.Pointer(subgroupSizeControlFeatures)
+	return unsafe.Pointer(memoryPriorityFeatures)
 }
 
 func (app *Application) VulkanInstanceExtensions() []string {

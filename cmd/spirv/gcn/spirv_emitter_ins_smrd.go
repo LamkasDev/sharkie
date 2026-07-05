@@ -10,29 +10,31 @@ import (
 
 func EmitSMRD(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext) {
 	details := instr.Details.(*gcnSpec.SmrdDetails)
-	switch details.Op {
-	case gcnSpec.SmrdOpLoadDword:
-		emitSMRDLoadScalar(b, instr, ctx, 1)
-	case gcnSpec.SmrdOpLoadDwordx2:
-		emitSMRDLoadScalar(b, instr, ctx, 2)
-	case gcnSpec.SmrdOpLoadDwordx4:
-		emitSMRDLoadScalar(b, instr, ctx, 4)
-	case gcnSpec.SmrdOpLoadDwordx8:
-		emitSMRDLoadScalar(b, instr, ctx, 8)
-	case gcnSpec.SmrdOpLoadDwordx16:
-		emitSMRDLoadScalar(b, instr, ctx, 16)
-	case gcnSpec.SmrdOpBufferLoadDword:
-		emitSMRDLoadBuffer(b, instr, ctx, 1)
-	case gcnSpec.SmrdOpBufferLoadDwordx2:
-		emitSMRDLoadBuffer(b, instr, ctx, 2)
-	case gcnSpec.SmrdOpBufferLoadDwordx4:
-		emitSMRDLoadBuffer(b, instr, ctx, 4)
-	case gcnSpec.SmrdOpBufferLoadDwordx8:
-		emitSMRDLoadBuffer(b, instr, ctx, 8)
-	case gcnSpec.SmrdOpBufferLoadDwordx16:
-		emitSMRDLoadBuffer(b, instr, ctx, 16)
+	count := SmrdLoadDwordCount(details.Op)
+	switch {
+	case details.Op <= gcnSpec.SmrdOpLoadDwordx16:
+		emitSMRDLoadScalar(b, instr, ctx, count)
+	case details.Op <= gcnSpec.SmrdOpBufferLoadDwordx16:
+		emitSMRDLoadBuffer(b, instr, ctx, count)
 	default:
 		panic(fmt.Sprintf("unknown smrd op %s", gcnSpec.Mnemotics[gcnSpec.EncSMRD][details.Op]))
+	}
+}
+
+func SmrdLoadDwordCount(op uint32) uint32 {
+	switch op {
+	case gcnSpec.SmrdOpLoadDword, gcnSpec.SmrdOpBufferLoadDword:
+		return 1
+	case gcnSpec.SmrdOpLoadDwordx2, gcnSpec.SmrdOpBufferLoadDwordx2:
+		return 2
+	case gcnSpec.SmrdOpLoadDwordx4, gcnSpec.SmrdOpBufferLoadDwordx4:
+		return 4
+	case gcnSpec.SmrdOpLoadDwordx8, gcnSpec.SmrdOpBufferLoadDwordx8:
+		return 8
+	case gcnSpec.SmrdOpLoadDwordx16, gcnSpec.SmrdOpBufferLoadDwordx16:
+		return 16
+	default:
+		return 0
 	}
 }
 

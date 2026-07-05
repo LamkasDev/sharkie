@@ -1,4 +1,4 @@
-package vulkan
+package translation
 
 import (
 	"unsafe"
@@ -8,18 +8,26 @@ import (
 	spirvStructs "github.com/LamkasDev/sharkie/cmd/spirv/structs"
 	. "github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/LamkasDev/sharkie/cmd/structs/gpu"
+	"github.com/LamkasDev/sharkie/cmd/vulkan"
 	vk "github.com/goki/vulkan"
 	"github.com/gookit/color"
 )
 
-func (t *GpuTranslator) Dispatch(frame uint64, commandBuffer vk.CommandBuffer, dispatch *gpu.LiverpoolDispatch) {
-	t.ResearchLogDispatch(frame, dispatch)
+func (t *GpuTranslator) Dispatch(frame uint64, dispatch *gpu.LiverpoolDispatch) {
+	t.EndRenderPass()
 
-	if t.activePass != vk.NullRenderPass {
-		t.EndRenderPass(commandBuffer)
-	}
+	// Wait for all prior draw work before compute reads rendered attachments.
+	vk.CmdPipelineBarrier(t.commandBuffer,
+		vk.PipelineStageFlags(vk.PipelineStageAllGraphicsBit),
+		vk.PipelineStageFlags(vk.PipelineStageComputeShaderBit),
+		0, 1, []vk.MemoryBarrier{{
+			SType:         vk.StructureTypeMemoryBarrier,
+			SrcAccessMask: vk.AccessFlags(vk.AccessColorAttachmentWriteBit | vk.AccessDepthStencilAttachmentWriteBit | vk.AccessShaderWriteBit | vk.AccessIndirectCommandReadBit | vk.AccessIndexReadBit | vk.AccessVertexAttributeReadBit),
+			DstAccessMask: vk.AccessFlags(vk.AccessShaderReadBit | vk.AccessShaderWriteBit),
+		}}, 0, nil, 0, nil,
+	)
 
-	// Get shader module.
+	// Get scoped compute shader.
 	csSpirv := t.GetShaderWithContext(dispatch.ComputeShader, spirv.SpirvShaderContext{
 		ThreadX: dispatch.ThreadX,
 		ThreadY: dispatch.ThreadY,
@@ -27,34 +35,39 @@ func (t *GpuTranslator) Dispatch(frame uint64, commandBuffer vk.CommandBuffer, d
 	})
 	csModule, err := t.GetShaderModule(csSpirv)
 	if err != nil {
-		return
+		panic(err)
 	}
 
 	// Get pipeline for compute module.
-	request := ComputePipelineRequest{
+	pipeline, err := t.GetComputePipeline(vulkan.ComputePipelineRequest{
 		ComputeModule: csModule,
-		ComputePipelineKey: ComputePipelineKey{
+		ComputePipelineKey: vulkan.ComputePipelineKey{
 			ComputeModuleAddress: dispatch.ComputeShader.Address,
 		},
-	}
-	pipeline, err := t.GetComputePipeline(request)
+	})
 	if err != nil {
-		return
+		panic(err)
 	}
 
 	// Bind pipeline.
-	vk.CmdBindPipeline(commandBuffer, vk.PipelineBindPointCompute, pipeline)
-
-	// Bind bindless descriptor set.
-	vk.CmdBindDescriptorSets(commandBuffer, vk.PipelineBindPointCompute, t.pipelineLayout, spirvStructs.DescriptorSetSlotBindless, 1, []vk.DescriptorSet{t.bindlessDescriptorSet}, 0, nil)
-
-	// Bind discovery descriptor set.
-	vk.CmdBindDescriptorSets(commandBuffer, vk.PipelineBindPointCompute, t.pipelineLayout, spirvStructs.DescriptorSetSlotDiscovery, 1, []vk.DescriptorSet{t.discoveryDescriptorSet}, 0, nil)
+	vk.CmdBindPipeline(t.commandBuffer, vk.PipelineBindPointCompute, pipeline)
 
 	// Get buffer addresses.
 	t.userDataBuffersMutex.Lock()
 	userDataOffset := t.userDataOffsets[dispatch.UserDataHash]
+	userData, _ := gpu.GlobalUserDataSnapshots[dispatch.UserDataHash]
 	t.userDataBuffersMutex.Unlock()
+
+	// Bind resources.
+	staticSetToBind := t.staticDescriptorSet
+	storeTargets, activeStaticSet, err := t.BindResources(csSpirv, userData)
+	if err != nil {
+		panic(err)
+	}
+	if activeStaticSet != vk.NullDescriptorSet {
+		staticSetToBind = activeStaticSet
+	}
+	vk.CmdBindDescriptorSets(t.commandBuffer, vk.PipelineBindPointCompute, t.pipelineLayout, spirvStructs.DescriptorSetSlotStatic, 1, []vk.DescriptorSet{staticSetToBind}, 0, nil)
 
 	// Push constants to shader.
 	pushData := spirvStructs.PushConstants{
@@ -65,7 +78,7 @@ func (t *GpuTranslator) Dispatch(frame uint64, commandBuffer vk.CommandBuffer, d
 		ShaderRsrc2:             dispatch.ComputeShRsrc2,
 	}
 	vk.CmdPushConstants(
-		commandBuffer, t.pipelineLayout,
+		t.commandBuffer, t.pipelineLayout,
 		vk.ShaderStageFlags(vk.ShaderStageVertexBit|vk.ShaderStageComputeBit),
 		0, spirvStructs.PushConstantsSize,
 		unsafe.Pointer(&pushData),
@@ -81,10 +94,10 @@ func (t *GpuTranslator) Dispatch(frame uint64, commandBuffer vk.CommandBuffer, d
 		color.Yellow.Sprintf("0x%X", dispatch.UserDataHash),
 		color.Green.Sprint(pushData.UserSgprCount),
 	)
-	vk.CmdDispatch(commandBuffer, dispatch.DimX, dispatch.DimY, dispatch.DimZ)
+	vk.CmdDispatch(t.commandBuffer, dispatch.DimX, dispatch.DimY, dispatch.DimZ)
 
 	// Global memory barrier to make compute writes visible.
-	vk.CmdPipelineBarrier(commandBuffer,
+	vk.CmdPipelineBarrier(t.commandBuffer,
 		vk.PipelineStageFlags(vk.PipelineStageComputeShaderBit),
 		vk.PipelineStageFlags(vk.PipelineStageAllCommandsBit),
 		0, 1, []vk.MemoryBarrier{{
@@ -93,4 +106,12 @@ func (t *GpuTranslator) Dispatch(frame uint64, commandBuffer vk.CommandBuffer, d
 			DstAccessMask: vk.AccessFlags(vk.AccessShaderReadBit | vk.AccessTransferReadBit | vk.AccessTransferWriteBit),
 		}}, 0, nil, 0, nil,
 	)
+
+	// Mark storage-written addresses as GPU modified so CPU doesn't overwrite them.
+	for _, image := range storeTargets {
+		t.MarkGpuModified(image)
+	}
+
+	t.FlushPendingResourceBarriers(t.commandBuffer, 0)
+	t.pendingComputeBarrier = true
 }

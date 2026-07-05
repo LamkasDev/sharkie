@@ -177,8 +177,7 @@ func HudRow(label string, valueColor imgui.Vec4, value string) {
 func RingSlotText() string {
 	gpu.GlobalLiverpool.RingMutex.Lock()
 	defer gpu.GlobalLiverpool.RingMutex.Unlock()
-	return fmt.Sprintf("%d (%d & %d pending buffers)",
+	return fmt.Sprintf("%d (%d pending buffers)",
 		gc.GlobalGraphicsController.ActiveRingSlot,
-		len(gpu.GlobalLiverpool.ComputeRing.Pending),
-		len(gpu.GlobalLiverpool.GraphicsRing.Pending))
+		len(gpu.GlobalLiverpool.PendingOrdered))
 }

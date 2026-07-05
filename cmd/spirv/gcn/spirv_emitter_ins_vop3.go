@@ -10,6 +10,8 @@ import (
 
 func EmitVOP3(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext) {
 	details := instr.Details.(*gcnSpec.Vop3Details)
+	origDetails := instr.Details
+	defer func() { instr.Details = origDetails }()
 	switch {
 	case details.Op <= 0xFF: // VOPC
 		if details.Abs != 0 || details.Neg != 0 || details.OMod != 0 || details.Clamp {

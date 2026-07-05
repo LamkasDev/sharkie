@@ -14,7 +14,6 @@ package structs
 
 typedef struct {
     uintptr_t addr;
-    int is_dirty;
     int prot_state; // 0 = PROT_NONE, 1 = PROT_READ, 2 = PROT_READ|PROT_WRITE
 } TrackedPage;
 
@@ -30,53 +29,64 @@ static int sync_done = 0;
 
 static struct sigaction old_segv_sa;
 
+static int find_tracked_page(uintptr_t aligned_addr) {
+    for (int i = 0; i < num_tracked_pages; i++) {
+        if (tracked_pages[i].addr == aligned_addr) {
+            return i;
+        }
+    }
+    return -1;
+}
+
 static void segv_handler(int sig, siginfo_t* info, void* ctx) {
     uintptr_t fault_addr = (uintptr_t)info->si_addr;
     uintptr_t aligned_addr = fault_addr & ~(4096 - 1);
 
-    int handled = 0;
-    for (int i = 0; i < num_tracked_pages; i++) {
-        if (tracked_pages[i].addr == aligned_addr) {
-            if (tracked_pages[i].prot_state == 1) {
-                // If it was PROT_READ, this must be a CPU write!
-                // We do NOT need to sync GPU -> CPU, we just mark it dirty and unprotect it!
-                mprotect((void*)aligned_addr, 4096, PROT_READ | PROT_WRITE);
-                tracked_pages[i].is_dirty = 1;
-                tracked_pages[i].prot_state = 2; // PROT_READ | PROT_WRITE
-                handled = 1;
-                break;
-            }
-
-            // Otherwise, it was PROT_NONE, so we must fetch from GPU.
-            // Signal Go worker to perform Vulkan sync
-            pthread_mutex_lock(&sync_mutex);
-            pending_sync_addr = aligned_addr;
-            pending_sync_is_write = 0;
-            sync_done = 0;
-            pthread_cond_signal(&worker_cond);
-
-            while (!sync_done) {
-                pthread_cond_wait(&sync_cond, &sync_mutex);
-            }
-            pthread_mutex_unlock(&sync_mutex);
-
-            // Unprotect the page to PROT_READ so we can catch future writes!
-            mprotect((void*)aligned_addr, 4096, PROT_READ);
-            tracked_pages[i].prot_state = 1;
-            handled = 1;
-            break;
+    int page_idx = find_tracked_page(aligned_addr);
+    if (page_idx < 0) {
+        if (old_segv_sa.sa_sigaction != NULL) {
+            old_segv_sa.sa_sigaction(sig, info, ctx);
+        } else if (old_segv_sa.sa_handler != NULL) {
+            old_segv_sa.sa_handler(sig);
         }
+        return;
     }
 
-    if (handled) {
-        return; // Handled!
+    int is_write = 0;
+    if (tracked_pages[page_idx].prot_state == 1) {
+        // PROT_READ: CPU write fault.
+        is_write = 1;
+    } else if (tracked_pages[page_idx].prot_state != 0) {
+        // PROT_RW should not fault; forward.
+        if (old_segv_sa.sa_sigaction != NULL) {
+            old_segv_sa.sa_sigaction(sig, info, ctx);
+        } else if (old_segv_sa.sa_handler != NULL) {
+            old_segv_sa.sa_handler(sig);
+        }
+        return;
     }
 
-    // Not handled, forward to Go's original handler
-    if (old_segv_sa.sa_sigaction != NULL) {
-        old_segv_sa.sa_sigaction(sig, info, ctx);
-    } else if (old_segv_sa.sa_handler != NULL) {
-        old_segv_sa.sa_handler(sig);
+    pthread_mutex_lock(&sync_mutex);
+    pending_sync_addr = aligned_addr;
+    pending_sync_is_write = is_write;
+    sync_done = 0;
+    pthread_cond_signal(&worker_cond);
+
+    while (!sync_done) {
+        pthread_cond_wait(&sync_cond, &sync_mutex);
+    }
+    pthread_mutex_unlock(&sync_mutex);
+
+    // Re-lookup: the Go worker may have untracked this page (CPU invalidate).
+    page_idx = find_tracked_page(aligned_addr);
+    if (is_write || page_idx < 0) {
+        mprotect((void*)aligned_addr, 4096, PROT_READ | PROT_WRITE);
+        if (page_idx >= 0) {
+            tracked_pages[page_idx].prot_state = 2;
+        }
+    } else {
+        mprotect((void*)aligned_addr, 4096, PROT_READ);
+        tracked_pages[page_idx].prot_state = 1;
     }
 }
 
@@ -89,16 +99,16 @@ static void install_segv_handler() {
     sigaction(SIGSEGV, &sa, &old_segv_sa);
 }
 
-static void c_track_page(uintptr_t addr) {
+static void c_track_page(uintptr_t addr, int prot_state) {
     for (int i = 0; i < num_tracked_pages; i++) {
         if (tracked_pages[i].addr == addr) {
+            tracked_pages[i].prot_state = prot_state;
             return;
         }
     }
     if (num_tracked_pages < MAX_TRACKED_PAGES) {
         tracked_pages[num_tracked_pages].addr = addr;
-        tracked_pages[num_tracked_pages].is_dirty = 0;
-        tracked_pages[num_tracked_pages].prot_state = 0; // PROT_NONE
+        tracked_pages[num_tracked_pages].prot_state = prot_state;
         num_tracked_pages++;
     }
 }
@@ -113,12 +123,15 @@ static void c_untrack_page(uintptr_t addr) {
     }
 }
 
-static uintptr_t c_wait_for_sync_request() {
+static uintptr_t c_wait_for_sync_request(int* is_write_out) {
     pthread_mutex_lock(&sync_mutex);
     while (pending_sync_addr == 0) {
         pthread_cond_wait(&worker_cond, &sync_mutex);
     }
     uintptr_t addr = pending_sync_addr;
+    if (is_write_out) {
+        *is_write_out = pending_sync_is_write;
+    }
     pthread_mutex_unlock(&sync_mutex);
     return addr;
 }
@@ -130,51 +143,6 @@ static void c_complete_sync_request() {
     pthread_cond_signal(&sync_cond);
     pthread_mutex_unlock(&sync_mutex);
 }
-
-static int c_is_page_dirty(uintptr_t addr) {
-    for (int i = 0; i < num_tracked_pages; i++) {
-        if (tracked_pages[i].addr == addr) {
-            return tracked_pages[i].is_dirty;
-        }
-    }
-    return 0;
-}
-
-static int c_is_region_dirty(uintptr_t addr, uintptr_t size) {
-    uintptr_t aligned_addr = addr & ~(4096ULL - 1);
-    uintptr_t end = addr + size;
-    uintptr_t aligned_end = (end + 4095) & ~(4096ULL - 1);
-    for (int i = 0; i < num_tracked_pages; i++) {
-        if (tracked_pages[i].addr >= aligned_addr && tracked_pages[i].addr < aligned_end) {
-            if (tracked_pages[i].is_dirty) return 1;
-        }
-    }
-    return 0;
-}
-
-static void c_clear_region_dirty(uintptr_t addr, uintptr_t size) {
-    uintptr_t aligned_addr = addr & ~(4096ULL - 1);
-    uintptr_t end = addr + size;
-    uintptr_t aligned_end = (end + 4095) & ~(4096ULL - 1);
-    for (int i = 0; i < num_tracked_pages; i++) {
-        if (tracked_pages[i].addr >= aligned_addr && tracked_pages[i].addr < aligned_end) {
-            tracked_pages[i].is_dirty = 0;
-            tracked_pages[i].prot_state = 1; // back to PROT_READ
-            mprotect((void*)tracked_pages[i].addr, 4096, PROT_READ);
-        }
-    }
-}
-
-static void c_set_region_prot_state(uintptr_t addr, uintptr_t size, int state) {
-    uintptr_t aligned_addr = addr & ~(4096ULL - 1);
-    uintptr_t end = addr + size;
-    uintptr_t aligned_end = (end + 4095) & ~(4096ULL - 1);
-    for (int i = 0; i < num_tracked_pages; i++) {
-        if (tracked_pages[i].addr >= aligned_addr && tracked_pages[i].addr < aligned_end) {
-            tracked_pages[i].prot_state = state;
-        }
-    }
-}
 */
 import "C"
 
@@ -182,34 +150,34 @@ func SetupMemoryManagerSignalHandler() {
 	C.install_segv_handler()
 }
 
-func cTrackPage(addr uintptr) {
-	C.c_track_page(C.uintptr_t(addr))
+func cTrackPage(addr uintptr, protState int) {
+	C.c_track_page(C.uintptr_t(addr), C.int(protState))
 }
 
 func cUntrackPage(addr uintptr) {
 	C.c_untrack_page(C.uintptr_t(addr))
 }
 
-func WaitForSyncRequest() uintptr {
-	return uintptr(C.c_wait_for_sync_request())
+// SyncRequest is delivered by the SIGSEGV handler to the memory sync worker.
+type SyncRequest struct {
+	Addr    uintptr
+	IsWrite bool
+}
+
+func WaitForSyncRequest() SyncRequest {
+	var isWrite C.int
+	addr := uintptr(C.c_wait_for_sync_request(&isWrite))
+	return SyncRequest{Addr: addr, IsWrite: isWrite != 0}
 }
 
 func CompleteSyncRequest() {
 	C.c_complete_sync_request()
 }
 
-func IsPageDirty(addr uintptr) bool {
-	return C.c_is_page_dirty(C.uintptr_t(addr)) != 0
-}
-
 func IsRegionDirty(addr uintptr, size uintptr) bool {
-	return C.c_is_region_dirty(C.uintptr_t(addr), C.uintptr_t(size)) != 0
+	return GlobalMemoryManager.IsRegionCpuModified(addr, size)
 }
 
 func ClearRegionDirty(addr uintptr, size uintptr) {
-	C.c_clear_region_dirty(C.uintptr_t(addr), C.uintptr_t(size))
-}
-
-func SetRegionProtState(addr uintptr, size uintptr, state int) {
-	C.c_set_region_prot_state(C.uintptr_t(addr), C.uintptr_t(size), C.int(state))
+	GlobalMemoryManager.UnmarkRegionCpuModified(addr, size)
 }

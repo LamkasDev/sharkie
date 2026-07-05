@@ -29,6 +29,11 @@ func libKernel_sys_mprotect(addr uintptr, length uint64, prot int32) uintptr {
 	}
 
 	ret, err := ProtectKernelMemory(addr, length, prot)
+	if ret != 0 {
+		alignedAddr := addr & ^(SystemPageSize - 1)
+		alignedSize := (uintptr(length) + (addr - alignedAddr) + SystemPageSize - 1) & ^(SystemPageSize - 1)
+		GlobalMemoryManager.OnProtectGuest(alignedAddr, uintptr(alignedSize), prot)
+	}
 	if ret == 0 {
 		logger.Printf("%-132s %s failed changing protection: %s\n",
 			emu.GlobalModuleManager.GetCallSiteText(),

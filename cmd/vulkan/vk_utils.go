@@ -6,7 +6,6 @@ import (
 
 func FindRequiredMemoryType(props vk.PhysicalDeviceMemoryProperties,
 	deviceRequirements, hostRequirements vk.MemoryPropertyFlagBits) (uint32, bool) {
-
 	for i := uint32(0); i < vk.MaxMemoryTypes; i++ {
 		if deviceRequirements&(vk.MemoryPropertyFlagBits(1)<<i) != 0 {
 			props.MemoryTypes[i].Deref()
@@ -16,25 +15,21 @@ func FindRequiredMemoryType(props vk.PhysicalDeviceMemoryProperties,
 			}
 		}
 	}
+
 	return 0, false
 }
 
 func FindRequiredMemoryTypeFallback(props vk.PhysicalDeviceMemoryProperties,
 	deviceRequirements, hostRequirements vk.MemoryPropertyFlagBits) (uint32, bool) {
-
-	for i := uint32(0); i < vk.MaxMemoryTypes; i++ {
-		if deviceRequirements&(vk.MemoryPropertyFlagBits(1)<<i) != 0 {
-			props.MemoryTypes[i].Deref()
-			flags := props.MemoryTypes[i].PropertyFlags
-			if flags&vk.MemoryPropertyFlags(hostRequirements) != 0 {
-				return i, true
-			}
-		}
+	if i, ok := FindRequiredMemoryType(props, deviceRequirements, hostRequirements); ok {
+		return i, ok
 	}
+
 	// Fallback to the first one available.
 	if hostRequirements != 0 {
 		return FindRequiredMemoryType(props, deviceRequirements, 0)
 	}
+
 	return 0, false
 }
 
@@ -49,19 +44,20 @@ func checkExisting(actual, required []string) (existing []string, missing int) {
 		}
 	}
 	missing = len(required) - len(existing)
+
 	return existing, missing
 }
 
-var end = "\x00"
-var endChar byte = '\x00'
-
 func safeString(s string) string {
+	const end = "\x00"
+	const endChar = '\x00'
 	if len(s) == 0 {
 		return end
 	}
 	if s[len(s)-1] != endChar {
 		return s + end
 	}
+
 	return s
 }
 
@@ -69,6 +65,7 @@ func safeStrings(list []string) []string {
 	for i := range list {
 		list[i] = safeString(list[i])
 	}
+
 	return list
 }
 
@@ -86,6 +83,7 @@ func InstanceExtensions() (names []string, err error) {
 		ext.Deref()
 		names = append(names, vk.ToString(ext.ExtensionName[:]))
 	}
+
 	return names, err
 }
 
@@ -103,6 +101,7 @@ func DeviceExtensions(gpu vk.PhysicalDevice) (names []string, err error) {
 		ext.Deref()
 		names = append(names, vk.ToString(ext.ExtensionName[:]))
 	}
+
 	return names, err
 }
 
@@ -120,5 +119,6 @@ func ValidationLayers() (names []string, err error) {
 		layer.Deref()
 		names = append(names, vk.ToString(layer.LayerName[:]))
 	}
+
 	return names, err
 }

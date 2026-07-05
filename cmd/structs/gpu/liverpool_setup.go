@@ -1,9 +1,9 @@
 package gpu
 
 import (
-	"hash/adler32"
 	"unsafe"
 
+	spirvStructs "github.com/LamkasDev/sharkie/cmd/spirv/structs"
 	. "github.com/LamkasDev/sharkie/cmd/structs/gcn"
 )
 
@@ -19,6 +19,13 @@ type LiverpoolCommandRing struct {
 
 const LiverpoolCommandRingSize = unsafe.Sizeof(LiverpoolCommandRing{})
 
+// OrderedIndirectBuffer preserves DCB/CCB submission order from sceGnmSubmitCommandBuffers.
+// Each workload pair is submitted as CCB then DCB and must be walked in that sequence.
+type OrderedIndirectBuffer struct {
+	RingName string
+	Buffer   PM4IndirectBuffer
+}
+
 // LiverpoolRegisters mirrors register banks on the Liverpool GPU.
 type LiverpoolRegisters struct {
 	System     [GcnRegBankSize]uint32
@@ -28,43 +35,27 @@ type LiverpoolRegisters struct {
 	UserConfig [GcnRegBankSize]uint32
 }
 
-type UserData [96]uint32
-
-var GlobalUserDataSnapshots = map[uint32]UserData{}
-
-const (
-	UserDataOffsetVertex     = 0x0
-	UserDataOffsetHull       = 0x10
-	UserDataOffsetEvaluation = 0x20
-	UserDataOffsetGeometry   = 0x30
-	UserDataOffsetFragment   = 0x40
-	UserDataOffsetCompute    = 0x50
-)
-
-var GcnStageToUserDataOffset = map[GcnShaderStage]uint32{
-	GcnShaderStageVertex:     UserDataOffsetVertex,
-	GcnShaderStageHull:       UserDataOffsetHull,
-	GcnShaderStageEvaluation: UserDataOffsetEvaluation,
-	GcnShaderStageGeometry:   UserDataOffsetGeometry,
-	GcnShaderStageFragment:   UserDataOffsetFragment,
-	GcnShaderStageCompute:    UserDataOffsetCompute,
-}
+var GlobalUserDataSnapshots = map[uint32]spirvStructs.UserData{}
+var userDataDedup = map[spirvStructs.UserData]uint32{}
+var nextUserDataID uint32 = 1
 
 func (l *Liverpool) SnapshotUserData() uint32 {
-	var userData UserData
-	copy(userData[UserDataOffsetVertex:], l.Registers.Shader[GREG_MM_SPI_SHADER_USER_DATA_VS_0:GREG_MM_SPI_SHADER_USER_DATA_VS_15+1])
-	copy(userData[UserDataOffsetHull:], l.Registers.Shader[GREG_MM_SPI_SHADER_USER_DATA_HS_0:GREG_MM_SPI_SHADER_USER_DATA_HS_15+1])
-	copy(userData[UserDataOffsetEvaluation:], l.Registers.Shader[GREG_MM_SPI_SHADER_USER_DATA_ES_0:GREG_MM_SPI_SHADER_USER_DATA_ES_15+1])
-	copy(userData[UserDataOffsetGeometry:], l.Registers.Shader[GREG_MM_SPI_SHADER_USER_DATA_GS_0:GREG_MM_SPI_SHADER_USER_DATA_GS_15+1])
-	copy(userData[UserDataOffsetFragment:], l.Registers.Shader[GREG_MM_SPI_SHADER_USER_DATA_PS_0:GREG_MM_SPI_SHADER_USER_DATA_PS_15+1])
-	copy(userData[UserDataOffsetCompute:], l.Registers.Shader[GREG_MM_COMPUTE_USER_DATA_0:GREG_MM_COMPUTE_USER_DATA_15+1])
-	userDataBytes := unsafe.Slice((*byte)(unsafe.Pointer(&userData[0])), len(userData)*4)
-	hash := adler32.Checksum(userDataBytes)
-	if _, ok := GlobalUserDataSnapshots[hash]; !ok {
-		GlobalUserDataSnapshots[hash] = userData
+	var userData spirvStructs.UserData
+	copy(userData[spirvStructs.UserDataOffsetVertex:], l.Registers.Shader[GREG_MM_SPI_SHADER_USER_DATA_VS_0:GREG_MM_SPI_SHADER_USER_DATA_VS_15+1])
+	copy(userData[spirvStructs.UserDataOffsetHull:], l.Registers.Shader[GREG_MM_SPI_SHADER_USER_DATA_HS_0:GREG_MM_SPI_SHADER_USER_DATA_HS_15+1])
+	copy(userData[spirvStructs.UserDataOffsetEvaluation:], l.Registers.Shader[GREG_MM_SPI_SHADER_USER_DATA_ES_0:GREG_MM_SPI_SHADER_USER_DATA_ES_15+1])
+	copy(userData[spirvStructs.UserDataOffsetGeometry:], l.Registers.Shader[GREG_MM_SPI_SHADER_USER_DATA_GS_0:GREG_MM_SPI_SHADER_USER_DATA_GS_15+1])
+	copy(userData[spirvStructs.UserDataOffsetFragment:], l.Registers.Shader[GREG_MM_SPI_SHADER_USER_DATA_PS_0:GREG_MM_SPI_SHADER_USER_DATA_PS_15+1])
+	copy(userData[spirvStructs.UserDataOffsetCompute:], l.Registers.Shader[GREG_MM_COMPUTE_USER_DATA_0:GREG_MM_COMPUTE_USER_DATA_15+1])
+	if id, ok := userDataDedup[userData]; ok {
+		return id
 	}
 
-	return hash
+	id := nextUserDataID
+	nextUserDataID++
+	userDataDedup[userData] = id
+	GlobalUserDataSnapshots[id] = userData
+	return id
 }
 
 // LiverpoolDrawState tracks per-draw state decoded from non-register packets.

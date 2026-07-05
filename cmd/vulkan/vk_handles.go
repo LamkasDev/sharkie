@@ -2,6 +2,7 @@ package vulkan
 
 import (
 	"runtime"
+	"sync"
 	"unsafe"
 
 	vk "github.com/goki/vulkan"
@@ -21,11 +22,13 @@ type VulkanHandles struct {
 	SubgroupSizeProperties   VkPhysicalDeviceSubgroupSizeControlPropertiesEXT
 
 	// UploadPool is dedicated to our pre-render upload command buffers.
-	UploadPool vk.CommandPool
+	UploadPool  vk.CommandPool
+	WorkerFence vk.Fence
+	QueueMutex  *sync.Mutex
 }
 
 // NewVulkanHandles extracts handles from the vulkan context and creates our upload command pool.
-func NewVulkanHandles(context *VulkanContext) VulkanHandles {
+func NewVulkanHandles(context *VulkanContext, queueMutex *sync.Mutex) VulkanHandles {
 	vkh := VulkanHandles{
 		Context: context,
 		Device:  context.Device,
@@ -35,6 +38,7 @@ func NewVulkanHandles(context *VulkanContext) VulkanHandles {
 		GraphicsQueue:            context.GraphicsQueue,
 		GraphicsQueueFamilyIndex: context.GraphicsQueueIndex,
 		MemoryProperties:         context.MemoryProperties,
+		QueueMutex:               queueMutex,
 	}
 	vkh.MemoryProperties.Deref()
 
@@ -56,16 +60,12 @@ func NewVulkanHandles(context *VulkanContext) VulkanHandles {
 
 	GetPhysicalDeviceProperties2(vkh.Instance, vkh.PhysicalDevice, unsafe.Pointer(&props2))
 
-	var pool vk.CommandPool
-	result := vk.CreateCommandPool(vkh.Device, &vk.CommandPoolCreateInfo{
-		SType:            vk.StructureTypeCommandPoolCreateInfo,
-		QueueFamilyIndex: vkh.GraphicsQueueFamilyIndex,
-		Flags:            vk.CommandPoolCreateFlags(vk.CommandPoolCreateResetCommandBufferBit),
-	}, nil, &pool)
-	if err := NewError(result); err != nil {
+	pool, fence, err := CreateCommandPoolAndFence(&vkh)
+	if err != nil {
 		panic(err)
 	}
 	vkh.UploadPool = pool
+	vkh.WorkerFence = fence
 
 	return vkh
 }
@@ -87,16 +87,29 @@ func (vkh *VulkanHandles) FindMemoryType(typeFilter uint32, props vk.MemoryPrope
 	return 0
 }
 
-// AllocateCommandBuffer allocates a single primary command buffer from pool.
-func (vkh *VulkanHandles) AllocateCommandBuffer(pool vk.CommandPool) vk.CommandBuffer {
+// AllocateCommandBuffer allocates a single command buffer from pool.
+func (vkh *VulkanHandles) AllocateCommandBuffer() vk.CommandBuffer {
+	vkh.QueueMutex.Lock()
+	defer vkh.QueueMutex.Unlock()
 	buffers := make([]vk.CommandBuffer, 1)
-	vk.AllocateCommandBuffers(vkh.Device, &vk.CommandBufferAllocateInfo{
+	result := vk.AllocateCommandBuffers(vkh.Device, &vk.CommandBufferAllocateInfo{
 		SType:              vk.StructureTypeCommandBufferAllocateInfo,
-		CommandPool:        pool,
+		CommandPool:        vkh.UploadPool,
 		Level:              vk.CommandBufferLevelPrimary,
 		CommandBufferCount: 1,
 	}, buffers)
+	if err := NewError(result); err != nil {
+		panic(err)
+	}
+
 	return buffers[0]
+}
+
+// FreeCommandBuffer frees a command buffer from pool.
+func (vkh *VulkanHandles) FreeCommandBuffer(commandBuffer vk.CommandBuffer) {
+	vkh.QueueMutex.Lock()
+	defer vkh.QueueMutex.Unlock()
+	vk.FreeCommandBuffers(vkh.Device, vkh.UploadPool, 1, []vk.CommandBuffer{commandBuffer})
 }
 
 // MapMemory maps device memory and returns a Go byte slice over it.

@@ -24,6 +24,8 @@ type Liverpool struct {
 	RingMutex    sync.Mutex
 	GraphicsRing *LiverpoolCommandRing
 	ComputeRing  *LiverpoolCommandRing
+	// PendingOrdered retains CCB/DCB interleaving from the game's submit order.
+	PendingOrdered []OrderedIndirectBuffer
 
 	StateMutex sync.Mutex
 	Registers  LiverpoolRegisters
@@ -84,12 +86,20 @@ func (l *Liverpool) SubmitCommandBuffers(indirectBuffers []PM4IndirectBuffer) {
 	defer l.RingMutex.Unlock()
 	for _, indirectBuffer := range indirectBuffers {
 		opcode := (indirectBuffer.Header >> 8) & 0xFF
+		ringName := "GFX"
 		switch opcode {
 		case PM4_IT_INDIRECT_BUFFER:
 			l.GraphicsRing.Pending = append(l.GraphicsRing.Pending, indirectBuffer)
 		case PM4_IT_INDIRECT_BUFFER_CNST:
+			ringName = "COM"
 			l.ComputeRing.Pending = append(l.ComputeRing.Pending, indirectBuffer)
+		default:
+			continue
 		}
+		l.PendingOrdered = append(l.PendingOrdered, OrderedIndirectBuffer{
+			RingName: ringName,
+			Buffer:   indirectBuffer,
+		})
 	}
 }
 

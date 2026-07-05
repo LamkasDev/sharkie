@@ -12,6 +12,7 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/structs/gpu"
 	. "github.com/LamkasDev/sharkie/cmd/structs/video"
 	"github.com/LamkasDev/sharkie/cmd/vulkan"
+	"github.com/LamkasDev/sharkie/cmd/vulkan/translation"
 	vk "github.com/goki/vulkan"
 	"github.com/gookit/color"
 )
@@ -19,7 +20,7 @@ import (
 type Renderer struct {
 	Handles       vulkan.VulkanHandles
 	Backend       backend.Backend[glfwvulkanbackend.GLFWWindowFlags]
-	GpuTranslator *vulkan.GpuTranslator
+	GpuTranslator *translation.GpuTranslator
 	FrameSource   *FrameSource
 	Overlay       *ImguiOverlay
 
@@ -36,17 +37,17 @@ type Renderer struct {
 
 func NewRenderer(context *vulkan.VulkanContext, dimensions *backend.SwapchainDimensions) *Renderer {
 	r := &Renderer{
-		Handles:             vulkan.NewVulkanHandles(context),
 		SwapchainDimensions: dimensions,
 		FrameSource:         NewFrameSource(),
 		QueueMutex:          sync.Mutex{},
 	}
+	r.Handles = vulkan.NewVulkanHandles(context, &r.QueueMutex)
 
 	var err error
 	if r.Backend, err = backend.CreateBackend(glfwvulkanbackend.NewGLFWBackend()); err != nil {
 		panic(err)
 	}
-	if r.GpuTranslator, err = vulkan.NewGpuTranslator(r.Handles, r.Backend, &r.QueueMutex); err != nil {
+	if r.GpuTranslator, err = translation.NewGpuTranslator(r.Handles, r.Backend); err != nil {
 		panic(err)
 	}
 	r.FrameSource.OnSubmit = r.GpuTranslator.ResetFence
@@ -110,74 +111,52 @@ func (r *Renderer) ConsumeFrames(done chan struct{}) {
 		)
 		r.UpdateCounters()
 
+		// Fetch PM4 command stream.
 		gpu.GlobalLiverpool.FrameNumber = frame.Number
 		gpu.GlobalLiverpool.Walk()
 		stream := gpu.GlobalLiverpool.FlushStream()
-		if r.GpuTranslator != nil {
-			for {
-				r.GpuTranslator.ResetFrameState()
 
-				// Translate draw calls.
-				commandBuffer := r.GpuTranslator.Translate(frame.Number, &stream)
+		// Translate PM4 command stream into VkCommandBuffer.
+		r.GpuTranslator.ResetFrameState(frame.Number)
+		commandBuffer := r.GpuTranslator.Translate(frame.Number, &stream)
 
-				// Submit command buffer instantly.
-				commandBuffers := []vk.CommandBuffer{*commandBuffer}
-				submitInfos := []vk.SubmitInfo{{
-					SType:              vk.StructureTypeSubmitInfo,
-					CommandBufferCount: 1,
-					PCommandBuffers:    commandBuffers,
-				}}
+		// Submit command buffer.
+		r.GpuTranslator.ResetWorkerFence()
+		r.QueueMutex.Lock()
+		result := vk.QueueSubmit(r.Handles.GraphicsQueue, 1, []vk.SubmitInfo{{
+			SType:              vk.StructureTypeSubmitInfo,
+			CommandBufferCount: 1,
+			PCommandBuffers:    []vk.CommandBuffer{*commandBuffer},
+		}}, r.GpuTranslator.GetWorkerFence())
+		r.QueueMutex.Unlock()
+		if err := vulkan.NewError(result); err != nil {
+			panic(err)
+		}
 
-				pinner := &runtime.Pinner{}
-				pinner.Pin(&commandBuffers)
-				pinner.Pin(&submitInfos)
+		// Wait for it to finish.
+		r.GpuTranslator.WaitOnWorkerFence()
+		r.GpuTranslator.FlushDeferredDestruction()
+		r.Handles.FreeCommandBuffer(*commandBuffer)
 
-				r.GpuTranslator.ResetWorkerFence()
-				r.QueueMutex.Lock()
-				result := vk.QueueSubmit(r.Handles.GraphicsQueue, 1, submitInfos, r.GpuTranslator.GetWorkerFence())
-				r.QueueMutex.Unlock()
-				if err := vulkan.NewError(result); err != nil {
-					logger.Printf("[%s] QueueSubmit failed: %s\n",
-						color.Blue.Sprintf("Frame %d", frame.Number),
-						err.Error(),
-					)
-					pinner.Unpin()
-					break
-				}
-				r.GpuTranslator.WaitOnWorkerFence()
-				pinner.Unpin()
-
-				// Check for missing resources.
-				discoveredCount := r.GpuTranslator.FulfillResources(frame.Number)
-
-				// Free the command buffer.
-				r.GpuTranslator.FreeCommandBuffer(*commandBuffer)
-
-				// If resources were missing, we need to try again.
-				if discoveredCount > 0 {
-					logger.Printf("[%s] missed %s resources. re-executing...\n",
-						color.Blue.Sprintf("Frame %d", frame.Number),
-						color.Green.Sprint(discoveredCount),
-					)
-					continue
-				}
-
-				// Now the frame should be all good, let's get out.
-				r.GpuTranslator.ResearchDumpResources(frame.Number)
-				// r.GpuTranslator.DebugResources(frame.Number)
-				displaySurface := r.GpuTranslator.GetSurfaceByAddress(frame.GpuAddress)
-				if displaySurface != nil {
-					r.QueueMutex.Lock()
-					r.DisplayTextureId = r.GpuTranslator.GetSurfaceTexture(displaySurface)
-					r.QueueMutex.Unlock()
-				}
-				r.GpuTranslator.SignalFence()
-				select {
-				case r.FrameReady <- struct{}{}:
-				default:
-				}
-				break
+		// Transition surface and update texture ID for display.
+		surface := r.GpuTranslator.GetSurfaceByAddress(frame.GpuAddress)
+		if surface != nil {
+			err := vulkan.RunWithCommandBuffer(&r.Handles, r.GpuTranslator.GetWorkerFence(), func(commandBuffer vk.CommandBuffer) {
+				surface.ImageView.Image.BarrierGeneralShaderAccess(commandBuffer)
+			})
+			if err != nil {
+				panic(err)
 			}
+			r.QueueMutex.Lock()
+			r.DisplayTextureId = r.GpuTranslator.GetSurfaceTexture(surface)
+			r.QueueMutex.Unlock()
+		}
+		r.GpuTranslator.SignalFence()
+
+		// Wait on next frame.
+		select {
+		case r.FrameReady <- struct{}{}:
+		default:
 		}
 	}
 }
@@ -202,25 +181,11 @@ func (r *Renderer) WaitOnFence() {
 }
 
 func (r *Renderer) RegisterFramebuffer(address uintptr, attribute *VideoOutBufferAttribute) {
-	if r.GpuTranslator == nil {
-		return
-	}
-	surface, err := r.GpuTranslator.GetSurface(vulkan.SurfaceRequest{
-		SurfaceKey: vulkan.SurfaceKey{
-			GpuAddress: address,
-		},
-		Format: vk.FormatR8g8b8a8Unorm,
-		Width:  attribute.Width,
-		Height: attribute.Height,
-	})
-	if err != nil {
-		panic("renderer: could not register GPU surface: " + err.Error())
-	}
-	textureId := r.GpuTranslator.GetSurfaceTexture(surface)
-
-	if r.DisplayTextureId.CData == nil && textureId.CData != nil {
-		r.DisplayTextureId = textureId
-	}
+	// Video-out registration only records the guest display buffers.
+	// Surfaces are created on the first BindPipeline with CB_COLOR0_SLICE height
+	// (1088 for 1080p), not the 1080 reported by sceVideoOutSetBufferAttribute.
+	_ = address
+	_ = attribute
 }
 
 func (r *Renderer) prepareFramebuffers() {

@@ -119,8 +119,9 @@ const (
 	BlockContextIdParamIn30
 	BlockContextIdParamIn31
 	BlockContextIdZeroVec4
-	BlockContextIdBindlessTextures
-	BlockContextIdBindlessStorageTextures
+
+	BlockContextIdStaticTextures
+	BlockContextIdStaticStorageTextures
 	BlockContextIdPcVar
 	BlockContextIdGlsl
 	BlockContextIdSubgroupLocalInvocationId
@@ -128,8 +129,7 @@ const (
 	BlockContextIdInstanceIndex
 	BlockContextIdFragCoord
 	BlockContextIdTypeImageBuffer
-	BlockContextIdGlobalDescriptorMap
-	BlockContextIdMissingResourceBuffer
+
 	BlockContextIdWorkgroupId
 	BlockContextIdLocalInvocationId
 )

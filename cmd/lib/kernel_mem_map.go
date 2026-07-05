@@ -141,6 +141,13 @@ func libKernel_mmap_0(addr uintptr, length uint64, prot, flags int32, fd FileDes
 		}
 	}
 
+	vmaType := VMATypeAnon
+	if flags&MAP_SYSTEM != 0 {
+		vmaType = VMATypeFlexible
+	}
+	GlobalMemoryManager.Guest().MapAnonymous(allocatedAddr, allocatedLength, prot, vmaType)
+	GlobalMemoryManager.OnMapGuest(allocatedAddr, uintptr(allocatedLength))
+
 	logger.Printf("%-132s %s allocated %s bytes at %s (addr=%s, length=%s, prot=%s, flags=%s, fd=%s, offset=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("mmap_0"),
@@ -194,6 +201,8 @@ func libKernel_munmap(addr uintptr, length uint64) uintptr {
 		SetErrno(EINVAL)
 		return ERR_PTR
 	}
+
+	GlobalMemoryManager.OnUnmapGuest(addr, uintptr(length))
 
 	_, err := FreeKernelMemory(addr, length)
 	if err != nil {

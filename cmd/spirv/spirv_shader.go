@@ -22,14 +22,15 @@ type SpirvShaderContext struct {
 }
 
 type SpirvShader struct {
-	Stage     GcnShaderStage
-	Address   uintptr
-	Code      []uint32
-	Resources []SpirvShaderResource
+	GcnShader    *GcnShader
+	Code         []uint32
+	Resources    []SpirvShaderResource
+	StaticLayout []ShaderResourceBinding
 }
 
 func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, error) {
 	resources := AnalyzeResources(shader)
+	staticLayout := BuildStaticLayout(resources)
 	b := NewSpvBuilder()
 
 	// Capabilities.
@@ -79,14 +80,10 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 
 	typeImage2d := b.EmitTypeImage(typeFloat, 1, 0, 0, 0, 1, 0)
 	typeSampledImage2d := b.EmitTypeSampledImage(typeImage2d)
-	typeBindlessArray2d := b.EmitTypeRuntimeArray(typeSampledImage2d)
 	typePtrUniformSampledImage2d := b.EmitTypePointer(spec.SpvStorageUniformConstant, typeSampledImage2d)
-	typePtrUniformBindlessArray2d := b.EmitTypePointer(spec.SpvStorageUniformConstant, typeBindlessArray2d)
 
 	typeStorageImage2d := b.EmitTypeImage(typeFloat, 1, 0, 0, 0, 2, 0)
-	typeBindlessStorageArray2d := b.EmitTypeRuntimeArray(typeStorageImage2d)
 	typePtrUniformStorageImage2d := b.EmitTypePointer(spec.SpvStorageUniformConstant, typeStorageImage2d)
-	typePtrUniformBindlessStorageArray2d := b.EmitTypePointer(spec.SpvStorageUniformConstant, typeBindlessStorageArray2d)
 
 	// Built-ins.
 	idTrue := b.EmitConstantTrue(typeBool)
@@ -169,55 +166,20 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	b.EmitName(pcVar, "push_constants")
 	b.EmitDecorate(pcVar, spec.SpvDecorationAliasedPointer)
 
-	// Bindless textures.
-	typeBindlessTexturesVar := b.EmitVariable(typePtrUniformBindlessArray2d, spec.SpvStorageUniformConstant)
-	b.EmitName(typeBindlessTexturesVar, "bindless_textures")
-	b.EmitDecorate(typeBindlessTexturesVar, spec.SpvDecorationDescriptorSet, DescriptorSetSlotBindless)
-	b.EmitDecorate(typeBindlessTexturesVar, spec.SpvDecorationBinding, 0)
+	idStaticCount := b.EmitConstantUint(typeUint, MaxStaticBindings)
+	typeStaticSampledArray := b.EmitTypeArray(typeSampledImage2d, idStaticCount)
+	typePtrUniformStaticSampledArray := b.EmitTypePointer(spec.SpvStorageUniformConstant, typeStaticSampledArray)
+	typeStaticTexturesVar := b.EmitVariable(typePtrUniformStaticSampledArray, spec.SpvStorageUniformConstant)
+	b.EmitName(typeStaticTexturesVar, "static_textures")
+	b.EmitDecorate(typeStaticTexturesVar, spec.SpvDecorationDescriptorSet, DescriptorSetSlotStatic)
+	b.EmitDecorate(typeStaticTexturesVar, spec.SpvDecorationBinding, StaticBindingSampledImages)
 
-	// Bindless storage textures.
-	typeBindlessStorageTexturesVar := b.EmitVariable(typePtrUniformBindlessStorageArray2d, spec.SpvStorageUniformConstant)
-	b.EmitName(typeBindlessStorageTexturesVar, "bindless_storage_textures")
-	b.EmitDecorate(typeBindlessStorageTexturesVar, spec.SpvDecorationDescriptorSet, DescriptorSetSlotBindless)
-	b.EmitDecorate(typeBindlessStorageTexturesVar, spec.SpvDecorationBinding, 1)
-
-	// Global descriptor map.
-	typePtrStorageUint := b.EmitTypePointer(spec.SpvStorageStorageBuffer, typeUint)
-	typeDescriptorMapArray := b.EmitTypeRuntimeArray(typeUint)
-	b.EmitDecorate(typeDescriptorMapArray, spec.SpvDecorationArrayStride, 4)
-	typeDescriptorMap := b.EmitTypeStruct(typeDescriptorMapArray)
-	b.EmitDecorate(typeDescriptorMap, spec.SpvDecorationBlock)
-	b.EmitMemberDecorate(typeDescriptorMap, 0, spec.SpvDecorationOffset, 0)
-	typePtrStorageDescriptorMap := b.EmitTypePointer(spec.SpvStorageStorageBuffer, typeDescriptorMap)
-	idDescriptorMapVar := b.EmitVariable(typePtrStorageDescriptorMap, spec.SpvStorageStorageBuffer)
-	b.EmitName(idDescriptorMapVar, "global_descriptor_map")
-	b.EmitDecorate(idDescriptorMapVar, spec.SpvDecorationDescriptorSet, DescriptorSetSlotDiscovery)
-	b.EmitDecorate(idDescriptorMapVar, spec.SpvDecorationBinding, 0)
-	b.EmitDecorate(idDescriptorMapVar, spec.SpvDecorationCoherent)
-	b.EmitDecorate(idDescriptorMapVar, spec.SpvDecorationVolatile)
-
-	// Missing resource buffer.
-	typeMissingDescriptor := b.EmitTypeStruct(
-		typeUint, typeUint, typeUint, typeUint,
-		typeUint, typeUint, typeUint, typeUint,
-		typeUint, typeUint, typeUint, typeUint,
-	)
-	for i := range uint32(12) {
-		b.EmitMemberDecorate(typeMissingDescriptor, i, spec.SpvDecorationOffset, i*4)
-	}
-	typeMissingDescriptorsArray := b.EmitTypeRuntimeArray(typeMissingDescriptor)
-	b.EmitDecorate(typeMissingDescriptorsArray, spec.SpvDecorationArrayStride, 48)
-	typeMissingResourceBuffer := b.EmitTypeStruct(typeUint, typeMissingDescriptorsArray)
-	b.EmitDecorate(typeMissingResourceBuffer, spec.SpvDecorationBlock)
-	b.EmitMemberDecorate(typeMissingResourceBuffer, 0, spec.SpvDecorationOffset, 0)
-	b.EmitMemberDecorate(typeMissingResourceBuffer, 1, spec.SpvDecorationOffset, 16)
-	typePtrStorageMissingResourceBuffer := b.EmitTypePointer(spec.SpvStorageStorageBuffer, typeMissingResourceBuffer)
-	idMissingResourceBufferVar := b.EmitVariable(typePtrStorageMissingResourceBuffer, spec.SpvStorageStorageBuffer)
-	b.EmitName(idMissingResourceBufferVar, "missing_resource_buffer")
-	b.EmitDecorate(idMissingResourceBufferVar, spec.SpvDecorationDescriptorSet, DescriptorSetSlotDiscovery)
-	b.EmitDecorate(idMissingResourceBufferVar, spec.SpvDecorationBinding, 1)
-	b.EmitDecorate(idMissingResourceBufferVar, spec.SpvDecorationCoherent)
-	b.EmitDecorate(idMissingResourceBufferVar, spec.SpvDecorationVolatile)
+	typeStaticStorageArray := b.EmitTypeArray(typeStorageImage2d, idStaticCount)
+	typePtrUniformStaticStorageArray := b.EmitTypePointer(spec.SpvStorageUniformConstant, typeStaticStorageArray)
+	typeStaticStorageTexturesVar := b.EmitVariable(typePtrUniformStaticStorageArray, spec.SpvStorageUniformConstant)
+	b.EmitName(typeStaticStorageTexturesVar, "static_storage_textures")
+	b.EmitDecorate(typeStaticStorageTexturesVar, spec.SpvDecorationDescriptorSet, DescriptorSetSlotStatic)
+	b.EmitDecorate(typeStaticStorageTexturesVar, spec.SpvDecorationBinding, StaticBindingStorageImages)
 
 	idZeroF := b.EmitConstantFloat(typeFloat, 0.0)
 	idOneF := b.EmitConstantFloat(typeFloat, 1.0)
@@ -461,22 +423,20 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 		BlockContextIdPtrPsbV2Uint:              {Id: typePtrPsbV2Uint, Name: "ptr_pc_psb_v2_uint_t"},
 		BlockContextIdPtrPsbV3Uint:              {Id: typePtrPsbV3Uint, Name: "ptr_pc_psb_v3_uint_t"},
 		BlockContextIdPtrPsbV4Uint:              {Id: typePtrPsbV4Uint, Name: "ptr_pc_psb_v4_uint_t"},
-		BlockContextIdPtrStorageUint:            {Id: typePtrStorageUint, Name: "ptr_storage_uint_t"},
 		BlockContextIdPtrFnUint:                 {Id: typePtrFnUint, Name: "ptr_fn_uint_t"},
 		BlockContextIdPosOut:                    {Id: typePosOut, Name: "pos_out_t"},
 		BlockContextIdFragDepthOut:              {Id: typeFragDepthOut, Name: "frag_depth_out_t"},
 		BlockContextIdZeroVec4:                  {Id: typeZeroVec4, Name: "zero_vec4_t"},
-		BlockContextIdBindlessTextures:          {Id: typeBindlessTexturesVar, Name: "bindless_textures_var_t"},
-		BlockContextIdBindlessStorageTextures:   {Id: typeBindlessStorageTexturesVar, Name: "bindless_storage_textures_var_t"},
+		BlockContextIdStaticTextures:            {Id: typeStaticTexturesVar, Name: "static_textures_var_t"},
+		BlockContextIdStaticStorageTextures:     {Id: typeStaticStorageTexturesVar, Name: "static_storage_textures_var_t"},
 		BlockContextIdPcVar:                     {Id: pcVar, Name: "pc_var_t"},
 		BlockContextIdGlsl:                      {Id: typeGLSL, Name: "glsl_t"},
 		BlockContextIdSubgroupLocalInvocationId: {Id: typeSubgroupLocalInvocationId, Name: "subgroup_local_invocation_id_t"},
 		BlockContextIdVertexIndex:               {Id: typeVertexIndex, Name: "vertex_index_t"},
 		BlockContextIdInstanceIndex:             {Id: typeInstanceIndex, Name: "instance_index_t"},
-		BlockContextIdGlobalDescriptorMap:       {Id: idDescriptorMapVar, Name: "global_descriptor_map_t"},
-		BlockContextIdMissingResourceBuffer:     {Id: idMissingResourceBufferVar, Name: "missing_resource_buffer_t"},
-		BlockContextIdWorkgroupId:               {Id: idWorkgroupId, Name: "workgroup_id_t"},
-		BlockContextIdLocalInvocationId:         {Id: idLocalInvocationId, Name: "local_invocation_id"},
+
+		BlockContextIdWorkgroupId:       {Id: idWorkgroupId, Name: "workgroup_id_t"},
+		BlockContextIdLocalInvocationId: {Id: idLocalInvocationId, Name: "local_invocation_id"},
 	}
 	for i, id := range idColorOuts {
 		ids[BlockContextIdColorOut0+SpirvId(i)] = SpirvUsedId{Id: id, Name: fmt.Sprintf("color_out_%d", i)}
@@ -508,6 +468,7 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 		GcnSpecialIds:   gcnSpecialIds,
 		GcnConstIds:     gcnConstIds,
 		Resources:       resources,
+		StaticLayout:    staticLayout,
 		PsInputControls: ctx.PsInputControls,
 	}
 
@@ -576,9 +537,9 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	b.EmitFunctionEnd()
 
 	return &SpirvShader{
-		Address:   shader.Address,
-		Stage:     shader.Stage,
-		Code:      b.Assemble(),
-		Resources: resources,
+		GcnShader:    shader,
+		Code:         b.Assemble(),
+		Resources:    resources,
+		StaticLayout: staticLayout,
 	}, nil
 }

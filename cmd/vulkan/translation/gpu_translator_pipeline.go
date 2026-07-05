@@ -1,4 +1,4 @@
-package vulkan
+package translation
 
 import (
 	"fmt"
@@ -7,77 +7,78 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/LamkasDev/sharkie/cmd/spirv"
 	spirvStructs "github.com/LamkasDev/sharkie/cmd/spirv/structs"
-	"github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/LamkasDev/sharkie/cmd/structs/gpu"
+	"github.com/LamkasDev/sharkie/cmd/vulkan"
 	vk "github.com/goki/vulkan"
 	"github.com/gookit/color"
 )
 
-func (t *GpuTranslator) BindPipeline(frame uint64, commandBuffer vk.CommandBuffer, bind *gpu.LiverpoolBindPipeline) {
-	t.commandIndex++
-	if t.activePass != vk.NullRenderPass {
-		vk.CmdEndRenderPass(commandBuffer)
-		t.activePass = vk.NullRenderPass
-	}
+func (t *GpuTranslator) BindPipeline(frame uint64, bind *gpu.LiverpoolBindPipeline) {
+	t.EndRenderPass()
 	rtAddress := spirvStructs.GetPhysicalGpuAddress(uintptr(bind.RtBase) << 8)
 	if rtAddress == 0 {
 		return
 	}
 
-	structs.GlobalMemoryManager.RegisterFormat(rtAddress, structs.PageFormat{
-		DataFormat:  uint8(bind.RtFormat),
-		NumFormat:   uint8(bind.RtNumberType),
-		TilingIndex: uint8(bind.RtAttrib & 0x1F),
-		Pitch:       ((bind.RtPitch & 0x7FF) + 1) * 8,
-		Height:      1080,
-		IsSurface:   true,
-	})
+	rtWidth := ((bind.RtPitch & 0x7FF) + 1) * 8
+	rtHeight := colorBufferHeight(bind.RtPitch, bind.RtSlice)
 
 	// Get or create surface.
-	surface, err := t.GetSurface(SurfaceRequest{
-		SurfaceKey: SurfaceKey{
-			GpuAddress: rtAddress,
-		},
-		Format: translateColorFormat(bind.RtFormat, bind.RtNumberType, bind.RtCompSwap),
-		Width:  ((bind.RtPitch & 0x7FF) + 1) * 8,
-		Height: 1080,
-	})
+	surface, err := t.GetSurface(spirvStructs.ImageDescriptor{
+		BaseAddress: rtAddress,
+		Width:       uint16(rtWidth), Height: uint16(rtHeight),
+		DataFormat: 10, NumFormat: 0,
+		DstSelX: 4, DstSelY: 5, DstSelZ: 6, DstSelW: 7,
+		Depth: 1, Pitch: uint16(rtWidth),
+	}, translateColorFormat(bind.RtFormat, bind.RtNumberType, bind.RtCompSwap))
 	if err != nil {
 		return
 	}
 	t.activeSurface = surface
 
+	// The game keeps one depth buffer (DB_Z_WRITE_BASE) while ping-ponging CB_COLOR0.
+	// Stale depth from a previous color target corrupts compositing on the next one.
+	if t.lastColorRtAddress != 0 && t.lastColorRtAddress != rtAddress {
+		t.surfacesMutex.Lock()
+		depthSurface := t.surfaces[spirvStructs.GetPhysicalGpuAddress(uintptr(bind.DbZWriteBase)<<8)]
+		t.surfacesMutex.Unlock()
+		if depthSurface != nil {
+			depthSurface.FrameUsed = 0
+		}
+	}
+	t.lastColorRtAddress = rtAddress
+
 	// Handle depth surface.
-	var depthSurface *GpuSurface
+	var depthSurface *vulkan.VulkanSurface
 	dbAddress := spirvStructs.GetPhysicalGpuAddress(uintptr(bind.DbZWriteBase) << 8)
 	if dbAddress != 0 {
-		depthSurface, err = t.GetSurface(SurfaceRequest{
-			SurfaceKey: SurfaceKey{
-				GpuAddress: dbAddress,
-			},
-			Format: t.TranslateGcnDepthFormat(bind.DbZFormat),
-			Width:  surface.Value.width,
-			Height: surface.Value.height,
-		})
+		depthSurface, err = t.GetSurface(spirvStructs.ImageDescriptor{
+			BaseAddress: dbAddress,
+			Width:       uint16(surface.ImageView.Image.FirstDescriptor.Width),
+			Height:      uint16(surface.ImageView.Image.FirstDescriptor.Height),
+			DataFormat:  10, NumFormat: 0,
+			DstSelX: 4, DstSelY: 5, DstSelZ: 6, DstSelW: 7,
+			Depth: 1, Pitch: surface.ImageView.Image.FirstDescriptor.Width,
+		}, t.TranslateGcnDepthFormat(bind.DbZFormat))
 		if err != nil {
 			return
 		}
 	}
 
 	// Get or create framebuffer.
-	fbRequest := FramebufferRequest{
-		ImageView: surface.Value.imageView,
-		FramebufferKey: FramebufferKey{
+	fbRequest := vulkan.FramebufferRequest{
+		ImageView: surface.ImageView,
+		FramebufferKey: vulkan.FramebufferKey{
 			GpuAddress:      rtAddress,
 			DepthGpuAddress: dbAddress,
-			Format:          surface.Value.format,
-			Width:           surface.Value.width,
-			Height:          surface.Value.height,
+			Format:          surface.ImageView.Image.ImageFormat,
+			Width:           uint32(surface.ImageView.Image.FirstDescriptor.Width),
+			Height:          uint32(surface.ImageView.Image.FirstDescriptor.Height),
 		},
 	}
 	if depthSurface != nil {
-		fbRequest.DepthFormat = depthSurface.Value.format
-		fbRequest.DepthImageView = depthSurface.Value.imageView
+		fbRequest.DepthFormat = depthSurface.ImageView.Image.ImageFormat
+		fbRequest.DepthImageView = depthSurface.ImageView
 	}
 	fb, err := t.GetFramebuffer(fbRequest)
 	if err != nil {
@@ -94,14 +95,19 @@ func (t *GpuTranslator) BindPipeline(frame uint64, commandBuffer vk.CommandBuffe
 		PsInputAddress:  bind.PsInputAddress,
 		PsInputControls: bind.PsInputControls,
 	})
+	t.activeFragmentShader = psSpirv
 	psModule, err := t.GetShaderModule(psSpirv)
 	if err != nil {
 		return
 	}
 
-	var gsModule vk.ShaderModule
+	var tcsModule, tesModule, gsModule vk.ShaderModule
 	if bind.PrimType == 17 { // RECTLIST
-		gsModule, err = t.GetRectlistShader()
+		tcsModule, err = t.GetRectlistTcsShader()
+		if err != nil {
+			return
+		}
+		tesModule, err = t.GetRectlistTesShader()
 		if err != nil {
 			return
 		}
@@ -130,19 +136,21 @@ func (t *GpuTranslator) BindPipeline(frame uint64, commandBuffer vk.CommandBuffe
 	}
 
 	// Get pipeline.
-	pipeline, err := t.GetPipeline(GraphicsPipelineRequest{
-		VertexModule:   vsModule,
-		GeometryModule: gsModule,
-		FragmentModule: psModule,
-		RenderPass:     fb.RenderPass,
-		GraphicsPipelineKey: GraphicsPipelineKey{
+	pipeline, err := t.GetPipeline(vulkan.GraphicsPipelineRequest{
+		VertexModule:      vsModule,
+		TessControlModule: tcsModule,
+		TessEvalModule:    tesModule,
+		GeometryModule:    gsModule,
+		FragmentModule:    psModule,
+		RenderPass:        fb.RenderPass,
+		GraphicsPipelineKey: vulkan.GraphicsPipelineKey{
 			VertexModuleAddress:   bind.VertexShader.Address,
 			FragmentModuleAddress: bind.PixelShader.Address,
 			RenderTargetAddress:   rtAddress,
 			DepthTargetAddress:    dbAddress,
 
-			Width:    surface.Value.width,
-			Height:   surface.Value.height,
+			Width:    uint32(surface.ImageView.Image.FirstDescriptor.Width),
+			Height:   uint32(surface.ImageView.Image.FirstDescriptor.Height),
 			PrimType: bind.PrimType,
 
 			CullFront:             bind.CullFront,
@@ -192,9 +200,9 @@ func (t *GpuTranslator) BindPipeline(frame uint64, commandBuffer vk.CommandBuffe
 		clearValues = append(clearValues, clearDepth)
 	}
 
-	// Clear on first use.
+	// Clear on first use within this guest frame.
 	renderPass := fb.RenderPassNoClear
-	clearColorNeeded := !surface.ContentValid
+	clearColorNeeded := surface.FrameUsed < frame
 	clearDepthNeeded := depthSurface != nil && depthSurface.FrameUsed < frame
 	if clearColorNeeded && clearDepthNeeded {
 		renderPass = fb.RenderPass
@@ -211,41 +219,33 @@ func (t *GpuTranslator) BindPipeline(frame uint64, commandBuffer vk.CommandBuffe
 		renderPass = fb.RenderPassLoadColorClearDepth
 		depthSurface.FrameUsed = frame
 	}
-	surface.ContentValid = true
+	t.EndRenderPass()
+	surface.ImageView.Image.BarrierColorAttachment(t.commandBuffer)
 
-	// Start render pass.
-	vk.CmdBeginRenderPass(commandBuffer, &vk.RenderPassBeginInfo{
-		SType:           vk.StructureTypeRenderPassBeginInfo,
-		RenderPass:      renderPass,
-		Framebuffer:     fb.Framebuffer,
-		RenderArea:      vk.Rect2D{Extent: vk.Extent2D{Width: surface.Value.width, Height: surface.Value.height}},
-		ClearValueCount: uint32(len(clearValues)),
-		PClearValues:    clearValues,
-	}, vk.SubpassContentsInline)
+	if renderPass == fb.RenderPassNoClear {
+		clearValues = nil
+	} else if renderPass == fb.RenderPassClearColorLoadDepth {
+		clearValues = clearValues[:1]
+	} else if renderPass == fb.RenderPassLoadColorClearDepth {
+		// Needs both elements because depth is index 1.
+		// Color clear value is ignored since loadOp is LOAD, but must be present.
+	}
 
-	// Bind pipeline.
-	vk.CmdBindPipeline(commandBuffer, vk.PipelineBindPointGraphics, pipeline)
-	t.activePass = fb.RenderPass
-	t.activePassNoClear = fb.RenderPassNoClear
-	t.activeFramebuffer = fb.Framebuffer
-	t.activePipeline = pipeline
+	t.StartRenderPass(renderPass, fb.RenderPassNoClear, fb.Framebuffer, pipeline, clearValues,
+		uint32(surface.ImageView.Image.FirstDescriptor.Width),
+		uint32(surface.ImageView.Image.FirstDescriptor.Height), rtAddress)
 
 	if logger.LogRenderer {
-		logger.Printf("[%s] Bound pipeline (vertex=%s, fragment=%s, rtAddress=0x%X, rtPitch=%d, rtWidth=%d).\n",
+		logger.Printf("[%s] Bound pipeline (vertex=%s, fragment=%s, rtAddress=0x%X, rtPitch=%d, rtSize=%dx%d).\n",
 			color.Blue.Sprintf("Frame %d", frame),
 			color.Yellow.Sprintf("0x%X", bind.VertexShader.Address),
 			color.Yellow.Sprintf("0x%X", bind.PixelShader.Address),
-			rtAddress, bind.RtPitch, ((bind.RtPitch&0x7FF)+1)*8,
+			rtAddress, bind.RtPitch, rtWidth, rtHeight,
 		)
 	}
 }
 
-func (t *GpuTranslator) EndRenderPass(commandBuffer vk.CommandBuffer) {
-	vk.CmdEndRenderPass(commandBuffer)
-	t.activePass = vk.NullRenderPass
-}
-
-func (t *GpuTranslator) GetPipeline(request GraphicsPipelineRequest) (vk.Pipeline, error) {
+func (t *GpuTranslator) GetPipeline(request vulkan.GraphicsPipelineRequest) (vk.Pipeline, error) {
 	// Get already created pipeline.
 	t.pipelinesMutex.Lock()
 	pipeline, ok := t.pipelines[request.GraphicsPipelineKey]
@@ -255,7 +255,7 @@ func (t *GpuTranslator) GetPipeline(request GraphicsPipelineRequest) (vk.Pipelin
 	}
 
 	// Create the pipeline.
-	pipeline, err := t.createGraphicsPipeline(request)
+	pipeline, err := vulkan.CreateGraphicsPipeline(&t.handles, request, request.RenderPass, t.pipelineLayout, vk.NullPipelineCache)
 	if err != nil {
 		return vk.NullPipeline, fmt.Errorf("createGraphicsPipeline: %w", err)
 	}
@@ -266,7 +266,7 @@ func (t *GpuTranslator) GetPipeline(request GraphicsPipelineRequest) (vk.Pipelin
 	return pipeline, nil
 }
 
-func (t *GpuTranslator) GetComputePipeline(request ComputePipelineRequest) (vk.Pipeline, error) {
+func (t *GpuTranslator) GetComputePipeline(request vulkan.ComputePipelineRequest) (vk.Pipeline, error) {
 	// Get already created pipeline.
 	t.computePipelinesMutex.Lock()
 	pipeline, ok := t.computePipelines[request.ComputePipelineKey]
@@ -276,7 +276,7 @@ func (t *GpuTranslator) GetComputePipeline(request ComputePipelineRequest) (vk.P
 	}
 
 	// Create the pipeline.
-	pipeline, err := t.createComputePipeline(request)
+	pipeline, err := vulkan.CreateComputePipeline(&t.handles, request, t.pipelineLayout, vk.NullPipelineCache)
 	if err != nil {
 		return vk.NullPipeline, fmt.Errorf("createComputePipeline: %w", err)
 	}

@@ -1,6 +1,6 @@
 package structs
 
-import ()
+import "github.com/LamkasDev/sharkie/cmd/spirv/structs"
 
 // Texture metadata for swizzling
 type TextureInfo struct {
@@ -31,24 +31,24 @@ func GetBytesPerPixel(format uint8) uint32 {
 }
 
 // SwizzleTexture takes a linear pixel buffer and swizzles it into the PS4 tiled layout.
-func SwizzleTexture(linearData []byte, info TextureInfo) []byte {
+func SwizzleTexture(linearData []byte, descriptor structs.ImageDescriptor) []byte {
 	// If it's linear (TilingIndex 0), no swizzling needed.
-	if info.TilingIndex == 0 {
+	if descriptor.TilingIndex == 0 {
 		result := make([]byte, len(linearData))
 		copy(result, linearData)
 		return result
 	}
 
-	bpp := info.BytesPerPixel
-	swizzledData := make([]byte, info.Pitch*info.Height*bpp)
+	bpp := GetBytesPerPixel(descriptor.DataFormat)
+	swizzledData := make([]byte, uint32(descriptor.Pitch*descriptor.Height)*bpp)
 
 	// Stub for Tiling logic
 	// In the next refinement we will add Morton order (Z-order) curve translation.
 	// For now, we will perform a direct linear copy to verify the framework works.
-	for y := uint32(0); y < info.Height; y++ {
-		for x := uint32(0); x < info.Width; x++ {
-			linearOffset := (y*info.Width + x) * bpp
-			swizzledOffset := (y*info.Pitch + x) * bpp
+	for y := uint32(0); y < uint32(descriptor.Height); y++ {
+		for x := uint32(0); x < uint32(descriptor.Width); x++ {
+			linearOffset := (y*uint32(descriptor.Width) + x) * bpp
+			swizzledOffset := (y*uint32(descriptor.Pitch) + x) * bpp
 
 			if linearOffset+bpp <= uint32(len(linearData)) && swizzledOffset+bpp <= uint32(len(swizzledData)) {
 				copy(swizzledData[swizzledOffset:swizzledOffset+bpp], linearData[linearOffset:linearOffset+bpp])
@@ -60,20 +60,20 @@ func SwizzleTexture(linearData []byte, info TextureInfo) []byte {
 }
 
 // DeswizzleTexture takes a swizzled PS4 tiled buffer and converts it to linear layout.
-func DeswizzleTexture(swizzledData []byte, info TextureInfo) []byte {
-	if info.TilingIndex == 0 {
+func DeswizzleTexture(swizzledData []byte, descriptor structs.ImageDescriptor) []byte {
+	if descriptor.TilingIndex == 0 {
 		result := make([]byte, len(swizzledData))
 		copy(result, swizzledData)
 		return result
 	}
 
-	bpp := info.BytesPerPixel
-	linearData := make([]byte, info.Width*info.Height*bpp)
+	bpp := GetBytesPerPixel(descriptor.DataFormat)
+	linearData := make([]byte, uint32(descriptor.Width)*uint32(descriptor.Height)*bpp)
 
-	for y := uint32(0); y < info.Height; y++ {
-		for x := uint32(0); x < info.Width; x++ {
-			linearOffset := (y*info.Width + x) * bpp
-			swizzledOffset := (y*info.Pitch + x) * bpp
+	for y := uint32(0); y < uint32(descriptor.Height); y++ {
+		for x := uint32(0); x < uint32(descriptor.Width); x++ {
+			linearOffset := (y*uint32(descriptor.Width) + x) * bpp
+			swizzledOffset := (y*uint32(descriptor.Pitch) + x) * bpp
 
 			if linearOffset+bpp <= uint32(len(linearData)) && swizzledOffset+bpp <= uint32(len(swizzledData)) {
 				copy(linearData[linearOffset:linearOffset+bpp], swizzledData[swizzledOffset:swizzledOffset+bpp])

@@ -1,11 +1,24 @@
 package vulkan
 
 import (
+	spirvStructs "github.com/LamkasDev/sharkie/cmd/spirv/structs"
+	"github.com/LamkasDev/sharkie/cmd/structs"
 	vk "github.com/goki/vulkan"
 )
 
-func translateBorderColorType(borderColor uint8) vk.BorderColor {
-	switch borderColor {
+func DescriptorRegionSize(descriptor spirvStructs.ImageDescriptor) uintptr {
+	bpp := structs.GetBytesPerPixel(descriptor.DataFormat)
+	layouts := computeMipLayouts(descriptor, mipLevelCount(descriptor))
+	if len(layouts) > 0 {
+		last := layouts[len(layouts)-1]
+		return uintptr(last.Offset + last.Size)
+	}
+
+	return uintptr(descriptor.Pitch) * uintptr(descriptor.Height) * uintptr(bpp)
+}
+
+func TranslateBorderColorType(colorType uint8) vk.BorderColor {
+	switch colorType {
 	case 0: // opaque-black
 		return vk.BorderColorIntOpaqueBlack
 	case 1: // transparent-black
@@ -19,7 +32,7 @@ func translateBorderColorType(borderColor uint8) vk.BorderColor {
 	}
 }
 
-func translateClampMode(mode uint8) vk.SamplerAddressMode {
+func TranslateClampMode(mode uint8) vk.SamplerAddressMode {
 	switch mode {
 	case 0: // wrap
 		return vk.SamplerAddressModeRepeat
@@ -36,7 +49,7 @@ func translateClampMode(mode uint8) vk.SamplerAddressMode {
 	}
 }
 
-func translateFilter(mode uint8) vk.Filter {
+func TranslateFilter(mode uint8) vk.Filter {
 	switch mode {
 	case 0: // point
 		return vk.FilterNearest
@@ -47,7 +60,7 @@ func translateFilter(mode uint8) vk.Filter {
 	}
 }
 
-func translateMipmapMode(mode uint8) vk.SamplerMipmapMode {
+func TranslateMipmapMode(mode uint8) vk.SamplerMipmapMode {
 	switch mode {
 	case 0: // none
 		return vk.SamplerMipmapModeNearest
@@ -57,6 +70,25 @@ func translateMipmapMode(mode uint8) vk.SamplerMipmapMode {
 		return vk.SamplerMipmapModeLinear
 	default:
 		return vk.SamplerMipmapModeNearest
+	}
+}
+
+func translateDstSelToVkSwizzle(sel uint8) vk.ComponentSwizzle {
+	switch sel {
+	case 0:
+		return vk.ComponentSwizzleZero
+	case 1:
+		return vk.ComponentSwizzleOne
+	case 4:
+		return vk.ComponentSwizzleR
+	case 5:
+		return vk.ComponentSwizzleG
+	case 6:
+		return vk.ComponentSwizzleB
+	case 7:
+		return vk.ComponentSwizzleA
+	default:
+		return vk.ComponentSwizzleIdentity
 	}
 }
 

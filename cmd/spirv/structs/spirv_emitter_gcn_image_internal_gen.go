@@ -10,8 +10,8 @@ import (
 func (z *ImageDescriptor) MarshalHash() (o []byte, err error) {
 	var b []byte
 	o = hsp.Require(b, z.Msgsize())
-	// map header, size 24
-	o = append(o, 0xde, 0x0, 0x18)
+	// map header, size 25
+	o = append(o, 0xde, 0x0, 0x19)
 	o = hsp.AppendBool(o, z.Atc)
 	o = hsp.AppendUint64(o, uint64(z.BaseAddress))
 	o = hsp.AppendUint16(o, z.BaseArray)
@@ -22,6 +22,10 @@ func (z *ImageDescriptor) MarshalHash() (o []byte, err error) {
 	o = hsp.AppendUint8(o, z.DstSelX)
 	o = hsp.AppendUint8(o, z.DstSelY)
 	o = hsp.AppendUint8(o, z.DstSelZ)
+	o = hsp.AppendArrayHeader(o, uint32(8))
+	for za0001 := range z.Dwords {
+		o = hsp.AppendUint32(o, z.Dwords[za0001])
+	}
 	o = hsp.AppendUint16(o, z.Height)
 	o = hsp.AppendBool(o, z.Interlaced)
 	o = hsp.AppendUint16(o, z.LastArray)
@@ -41,6 +45,6 @@ func (z *ImageDescriptor) MarshalHash() (o []byte, err error) {
 
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
 func (z *ImageDescriptor) Msgsize() (s int) {
-	s = 3 + 4 + hsp.BoolSize + hsp.Uint64Size + 10 + hsp.Uint16Size + 10 + hsp.Uint8Size + 11 + hsp.Uint8Size + 6 + hsp.Uint16Size + 8 + hsp.Uint8Size + 8 + hsp.Uint8Size + 8 + hsp.Uint8Size + 8 + hsp.Uint8Size + 7 + hsp.Uint16Size + 11 + hsp.BoolSize + 10 + hsp.Uint16Size + 10 + hsp.Uint8Size + 6 + hsp.Uint8Size + 7 + hsp.Uint16Size + 11 + hsp.Uint16Size + 10 + hsp.Uint8Size + 15 + hsp.Uint8Size + 6 + hsp.Uint16Size + 8 + hsp.BoolSize + 12 + hsp.Uint8Size + 5 + hsp.Uint8Size + 6 + hsp.Uint16Size
+	s = 3 + 4 + hsp.BoolSize + hsp.Uint64Size + 10 + hsp.Uint16Size + 10 + hsp.Uint8Size + 11 + hsp.Uint8Size + 6 + hsp.Uint16Size + 8 + hsp.Uint8Size + 8 + hsp.Uint8Size + 8 + hsp.Uint8Size + 8 + hsp.Uint8Size + 7 + hsp.ArrayHeaderSize + (int(8) * (hsp.Uint32Size)) + 7 + hsp.Uint16Size + 11 + hsp.BoolSize + 10 + hsp.Uint16Size + 10 + hsp.Uint8Size + 6 + hsp.Uint8Size + 7 + hsp.Uint16Size + 11 + hsp.Uint16Size + 10 + hsp.Uint8Size + 15 + hsp.Uint8Size + 6 + hsp.Uint16Size + 8 + hsp.BoolSize + 12 + hsp.Uint8Size + 5 + hsp.Uint8Size + 6 + hsp.Uint16Size
 	return
 }

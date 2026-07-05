@@ -8,10 +8,12 @@ import (
 )
 
 type GraphicsPipelineRequest struct {
-	VertexModule   vk.ShaderModule
-	GeometryModule vk.ShaderModule
-	FragmentModule vk.ShaderModule
-	RenderPass     vk.RenderPass
+	VertexModule      vk.ShaderModule
+	TessControlModule vk.ShaderModule
+	TessEvalModule    vk.ShaderModule
+	GeometryModule    vk.ShaderModule
+	FragmentModule    vk.ShaderModule
+	RenderPass        vk.RenderPass
 
 	GraphicsPipelineKey
 }
@@ -75,15 +77,15 @@ type ComputePipelineKey struct {
 	ComputeModuleAddress uintptr
 }
 
-func (t *GpuTranslator) createGraphicsPipeline(request GraphicsPipelineRequest) (vk.Pipeline, error) {
+func CreateGraphicsPipeline(handles *VulkanHandles, request GraphicsPipelineRequest, renderPass vk.RenderPass, layout vk.PipelineLayout, cache vk.PipelineCache) (vk.Pipeline, error) {
 	// Setup stages.
 	subgroupSizeVs := &VkPipelineShaderStageRequiredSubgroupSizeCreateInfoEXT{
 		SType:                StructureTypePipelineShaderStageRequiredSubgroupSizeCreateInfoExt,
-		RequiredSubgroupSize: t.handles.SubgroupSizeProperties.MaxSubgroupSize,
+		RequiredSubgroupSize: handles.SubgroupSizeProperties.MaxSubgroupSize,
 	}
 	subgroupSizeFs := &VkPipelineShaderStageRequiredSubgroupSizeCreateInfoEXT{
 		SType:                StructureTypePipelineShaderStageRequiredSubgroupSizeCreateInfoExt,
-		RequiredSubgroupSize: t.handles.SubgroupSizeProperties.MaxSubgroupSize,
+		RequiredSubgroupSize: handles.SubgroupSizeProperties.MaxSubgroupSize,
 	}
 	stages := []vk.PipelineShaderStageCreateInfo{
 		{
@@ -93,13 +95,22 @@ func (t *GpuTranslator) createGraphicsPipeline(request GraphicsPipelineRequest) 
 			PName:  "main\x00",
 			PNext:  unsafe.Pointer(subgroupSizeVs),
 		},
-		{
+	}
+	if request.TessControlModule != vk.NullShaderModule {
+		stages = append(stages, vk.PipelineShaderStageCreateInfo{
 			SType:  vk.StructureTypePipelineShaderStageCreateInfo,
-			Stage:  vk.ShaderStageFragmentBit,
-			Module: request.FragmentModule,
+			Stage:  vk.ShaderStageTessellationControlBit,
+			Module: request.TessControlModule,
 			PName:  "main\x00",
-			PNext:  unsafe.Pointer(subgroupSizeFs),
-		},
+		})
+	}
+	if request.TessEvalModule != vk.NullShaderModule {
+		stages = append(stages, vk.PipelineShaderStageCreateInfo{
+			SType:  vk.StructureTypePipelineShaderStageCreateInfo,
+			Stage:  vk.ShaderStageTessellationEvaluationBit,
+			Module: request.TessEvalModule,
+			PName:  "main\x00",
+		})
 	}
 	if request.GeometryModule != vk.NullShaderModule {
 		stages = append(stages, vk.PipelineShaderStageCreateInfo{
@@ -107,9 +118,15 @@ func (t *GpuTranslator) createGraphicsPipeline(request GraphicsPipelineRequest) 
 			Stage:  vk.ShaderStageGeometryBit,
 			Module: request.GeometryModule,
 			PName:  "main\x00",
-			PNext:  nil,
 		})
 	}
+	stages = append(stages, vk.PipelineShaderStageCreateInfo{
+		SType:  vk.StructureTypePipelineShaderStageCreateInfo,
+		Stage:  vk.ShaderStageFragmentBit,
+		Module: request.FragmentModule,
+		PName:  "main\x00",
+		PNext:  unsafe.Pointer(subgroupSizeFs),
+	})
 
 	topology := translateTopology(request.PrimType)
 
@@ -124,8 +141,18 @@ func (t *GpuTranslator) createGraphicsPipeline(request GraphicsPipelineRequest) 
 			nstd.Btoi(request.MultiPrimIbResetEnable &&
 				(topology == vk.PrimitiveTopologyLineStrip ||
 					topology == vk.PrimitiveTopologyTriangleStrip ||
-					topology == vk.PrimitiveTopologyTriangleFan)),
+					topology == vk.PrimitiveTopologyTriangleFan ||
+					topology == vk.PrimitiveTopologyPatchList)),
 		),
+	}
+
+	var tessellationState *vk.PipelineTessellationStateCreateInfo
+	if request.PrimType == 17 { // RECTLIST
+		patchPoints := uint32(3)
+		tessellationState = &vk.PipelineTessellationStateCreateInfo{
+			SType:              vk.StructureTypePipelineTessellationStateCreateInfo,
+			PatchControlPoints: patchPoints,
+		}
 	}
 
 	// Viewport and scissor are dynamic so they match each draw call without rebuilding the pipeline.
@@ -148,30 +175,24 @@ func (t *GpuTranslator) createGraphicsPipeline(request GraphicsPipelineRequest) 
 		}},
 	}
 
-	// Setup rasterization.
-	cullMode := vk.CullModeNone
-	switch {
-	case request.CullFront && request.CullBack:
-		cullMode = vk.CullModeFrontAndBack
-	case request.CullFront:
-		cullMode = vk.CullModeFrontBit
-	case request.CullBack:
-		cullMode = vk.CullModeBackBit
-	}
-
+	// Setup rasterizer.
 	frontFace := vk.FrontFaceCounterClockwise
 	if request.Face {
 		frontFace = vk.FrontFaceClockwise
 	}
-
+	cullMode := vk.CullModeNone
+	if request.CullFront {
+		cullMode |= vk.CullModeFrontBit
+	}
+	if request.CullBack {
+		cullMode |= vk.CullModeBackBit
+	}
 	polygonMode := vk.PolygonModeFill
-	if request.PolyMode == 1 {
+	switch request.PolyMode {
+	case 1:
+		polygonMode = vk.PolygonModeLine
+	case 2:
 		polygonMode = vk.PolygonModePoint
-		if request.PolyModeFrontPtype == 1 {
-			polygonMode = vk.PolygonModeLine
-		} else if request.PolyModeFrontPtype == 2 {
-			polygonMode = vk.PolygonModeFill
-		}
 	}
 
 	provokingVertex := vk.PipelineRasterizationProvokingVertexStateCreateInfo{
@@ -209,33 +230,45 @@ func (t *GpuTranslator) createGraphicsPipeline(request GraphicsPipelineRequest) 
 		AlphaToOneEnable:      vk.False,
 	}
 
+	blendAttachments := make([]vk.PipelineColorBlendAttachmentState, 8)
+	blendAttachments[0] = request.BlendAttachment
+	for i := 1; i < 8; i++ {
+		blendAttachments[i] = request.BlendAttachment
+		blendAttachments[i].ColorWriteMask = 0
+	}
+
 	// Setup blending.
 	blend := vk.PipelineColorBlendStateCreateInfo{
 		SType:           vk.StructureTypePipelineColorBlendStateCreateInfo,
 		LogicOpEnable:   request.LogicOpEnable,
 		LogicOp:         request.LogicOp,
-		AttachmentCount: 1,
-		PAttachments:    []vk.PipelineColorBlendAttachmentState{request.BlendAttachment},
+		AttachmentCount: 8,
+		PAttachments:    blendAttachments,
 	}
 
 	// Create pipeline.
+	pipelineInfo := vk.GraphicsPipelineCreateInfo{
+		SType:               vk.StructureTypeGraphicsPipelineCreateInfo,
+		StageCount:          uint32(len(stages)),
+		PStages:             stages,
+		PVertexInputState:   &vertexInput,
+		PInputAssemblyState: &inputAssembly,
+		PViewportState:      &viewportState,
+		PRasterizationState: &raster,
+		PMultisampleState:   &multisample,
+		PDepthStencilState:  &depthStencil,
+		PColorBlendState:    &blend,
+		PDynamicState:       &dynamicState,
+		Layout:              layout,
+		RenderPass:          renderPass,
+	}
+	if tessellationState != nil {
+		pipelineInfo.PTessellationState = tessellationState
+	}
+
 	pipelines := make([]vk.Pipeline, 1)
-	result := vk.CreateGraphicsPipelines(t.handles.Device, vk.NullPipelineCache, 1,
-		[]vk.GraphicsPipelineCreateInfo{{
-			SType:               vk.StructureTypeGraphicsPipelineCreateInfo,
-			StageCount:          uint32(len(stages)),
-			PStages:             stages,
-			PVertexInputState:   &vertexInput,
-			PInputAssemblyState: &inputAssembly,
-			PViewportState:      &viewportState,
-			PRasterizationState: &raster,
-			PMultisampleState:   &multisample,
-			PDepthStencilState:  &depthStencil,
-			PColorBlendState:    &blend,
-			PDynamicState:       &dynamicState,
-			Layout:              t.pipelineLayout,
-			RenderPass:          request.RenderPass,
-		}},
+	result := vk.CreateGraphicsPipelines(handles.Device, cache, 1,
+		[]vk.GraphicsPipelineCreateInfo{pipelineInfo},
 		nil, pipelines)
 	if err := NewError(result); err != nil {
 		return vk.NullPipeline, err
@@ -244,11 +277,11 @@ func (t *GpuTranslator) createGraphicsPipeline(request GraphicsPipelineRequest) 
 	return pipelines[0], nil
 }
 
-func (t *GpuTranslator) createComputePipeline(request ComputePipelineRequest) (vk.Pipeline, error) {
+func CreateComputePipeline(handles *VulkanHandles, request ComputePipelineRequest, layout vk.PipelineLayout, cache vk.PipelineCache) (vk.Pipeline, error) {
 	// Setup stages.
 	/* subgroupSizeCs := &VkPipelineShaderStageRequiredSubgroupSizeCreateInfoEXT{
 		SType:                StructureTypePipelineShaderStageRequiredSubgroupSizeCreateInfoExt,
-		RequiredSubgroupSize: t.handles.SubgroupSizeProperties.MaxSubgroupSize,
+		RequiredSubgroupSize: handles.SubgroupSizeProperties.MaxSubgroupSize,
 	} */
 	stage := vk.PipelineShaderStageCreateInfo{
 		SType:  vk.StructureTypePipelineShaderStageCreateInfo,
@@ -260,11 +293,11 @@ func (t *GpuTranslator) createComputePipeline(request ComputePipelineRequest) (v
 
 	// Create pipeline.
 	pipelines := make([]vk.Pipeline, 1)
-	result := vk.CreateComputePipelines(t.handles.Device, vk.NullPipelineCache, 1,
+	result := vk.CreateComputePipelines(handles.Device, cache, 1,
 		[]vk.ComputePipelineCreateInfo{{
 			SType:  vk.StructureTypeComputePipelineCreateInfo,
 			Stage:  stage,
-			Layout: t.pipelineLayout,
+			Layout: layout,
 		}},
 		nil, pipelines)
 	if err := NewError(result); err != nil {

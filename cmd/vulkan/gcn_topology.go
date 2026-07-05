@@ -16,8 +16,8 @@ func translateTopology(primType uint32) vk.PrimitiveTopology {
 		return vk.PrimitiveTopologyTriangleFan
 	case 6: // TRISTRIP
 		return vk.PrimitiveTopologyTriangleStrip
-	case 17: // RECTLIST
-		return vk.PrimitiveTopologyTriangleList
+	case 17: // RECTLIST - emulated via tessellation (3 patch verts -> quad)
+		return vk.PrimitiveTopologyPatchList
 	default:
 		return vk.PrimitiveTopologyTriangleList
 	}

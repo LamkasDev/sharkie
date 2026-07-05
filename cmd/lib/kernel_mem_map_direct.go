@@ -91,6 +91,9 @@ func libKernel_sys_sceKernelMapDirectMemory(addrPtr uintptr, length uint64, prot
 		return ERR_PTR
 	}
 
+	GlobalMemoryManager.Guest().MapDirect(offset, length, prot)
+	GlobalMemoryManager.OnMapGuest(offset, uintptr(length))
+
 	// Write back offset.
 	WriteAddress(addrPtr, offset)
 

@@ -7,12 +7,10 @@ import (
 	vk "github.com/goki/vulkan"
 )
 
-const BindlessTextureCapacity = 8192
-
-func (t *GpuTranslator) createStubPipelineLayout() error {
-	// Create descriptor set layout for bindless textures.
-	var stubLayout vk.DescriptorSetLayout
-	stubBindingFlags := vk.DescriptorSetLayoutBindingFlagsCreateInfo{
+func CreateStubPipelineLayout(handles *VulkanHandles) (vk.PipelineLayout, vk.DescriptorSetLayout, error) {
+	// Create descriptor set layout for statically-bound resources (Set 2).
+	var staticLayout vk.DescriptorSetLayout
+	staticBindingFlags := vk.DescriptorSetLayoutBindingFlagsCreateInfo{
 		SType: vk.StructureTypeDescriptorSetLayoutBindingFlagsCreateInfo,
 		PBindingFlags: []vk.DescriptorBindingFlags{
 			vk.DescriptorBindingFlags(vk.DescriptorBindingUpdateAfterBindBit | vk.DescriptorBindingPartiallyBoundBit),
@@ -20,63 +18,34 @@ func (t *GpuTranslator) createStubPipelineLayout() error {
 		},
 		BindingCount: 2,
 	}
-	result := vk.CreateDescriptorSetLayout(t.handles.Device, &vk.DescriptorSetLayoutCreateInfo{
+	result := vk.CreateDescriptorSetLayout(handles.Device, &vk.DescriptorSetLayoutCreateInfo{
 		SType: vk.StructureTypeDescriptorSetLayoutCreateInfo,
-		PNext: unsafe.Pointer(&stubBindingFlags),
+		PNext: unsafe.Pointer(&staticBindingFlags),
 		PBindings: []vk.DescriptorSetLayoutBinding{
 			{
-				Binding:            spirvStructs.BindlessBindingSampledImages,
+				Binding:            spirvStructs.StaticBindingSampledImages,
 				DescriptorType:     vk.DescriptorTypeCombinedImageSampler,
-				DescriptorCount:    BindlessTextureCapacity,
+				DescriptorCount:    spirvStructs.MaxStaticBindings,
 				StageFlags:         vk.ShaderStageFlags(vk.ShaderStageAllGraphics | vk.ShaderStageComputeBit),
 				PImmutableSamplers: nil,
 			},
 			{
-				Binding:            spirvStructs.BindlessBindingStorageImages,
+				Binding:            spirvStructs.StaticBindingStorageImages,
 				DescriptorType:     vk.DescriptorTypeStorageImage,
-				DescriptorCount:    BindlessTextureCapacity,
+				DescriptorCount:    spirvStructs.MaxStaticBindings,
 				StageFlags:         vk.ShaderStageFlags(vk.ShaderStageAllGraphics | vk.ShaderStageComputeBit),
 				PImmutableSamplers: nil,
 			},
 		},
 		BindingCount: 2,
 		Flags:        vk.DescriptorSetLayoutCreateFlags(vk.DescriptorSetLayoutCreateUpdateAfterBindPoolBit),
-	}, nil, &stubLayout)
+	}, nil, &staticLayout)
 	if err := NewError(result); err != nil {
-		return err
+		return vk.NullPipelineLayout, vk.NullDescriptorSetLayout, err
 	}
-	t.bindlessDescriptorSetLayout = stubLayout
-
-	// Create descriptor set layout for discovery.
-	var discoveryLayout vk.DescriptorSetLayout
-	discoveryBindings := []vk.DescriptorSetLayoutBinding{
-		{
-			Binding:            spirvStructs.DiscoveryBindingMap,
-			DescriptorType:     vk.DescriptorTypeStorageBuffer,
-			DescriptorCount:    1,
-			StageFlags:         vk.ShaderStageFlags(vk.ShaderStageAllGraphics | vk.ShaderStageComputeBit),
-			PImmutableSamplers: nil,
-		},
-		{
-			Binding:            spirvStructs.DiscoveryBindingMissingResource,
-			DescriptorType:     vk.DescriptorTypeStorageBuffer,
-			DescriptorCount:    1,
-			StageFlags:         vk.ShaderStageFlags(vk.ShaderStageAllGraphics | vk.ShaderStageComputeBit),
-			PImmutableSamplers: nil,
-		},
-	}
-	result = vk.CreateDescriptorSetLayout(t.handles.Device, &vk.DescriptorSetLayoutCreateInfo{
-		SType:        vk.StructureTypeDescriptorSetLayoutCreateInfo,
-		PBindings:    discoveryBindings,
-		BindingCount: uint32(len(discoveryBindings)),
-	}, nil, &discoveryLayout)
-	if err := NewError(result); err != nil {
-		return err
-	}
-	t.discoveryDescriptorSetLayout = discoveryLayout
 
 	var layout vk.PipelineLayout
-	result = vk.CreatePipelineLayout(t.handles.Device, &vk.PipelineLayoutCreateInfo{
+	result = vk.CreatePipelineLayout(handles.Device, &vk.PipelineLayoutCreateInfo{
 		SType: vk.StructureTypePipelineLayoutCreateInfo,
 		PPushConstantRanges: []vk.PushConstantRange{
 			{
@@ -91,16 +60,12 @@ func (t *GpuTranslator) createStubPipelineLayout() error {
 			},
 		},
 		PushConstantRangeCount: 2,
-		PSetLayouts: []vk.DescriptorSetLayout{
-			spirvStructs.DescriptorSetSlotBindless:  t.bindlessDescriptorSetLayout,
-			spirvStructs.DescriptorSetSlotDiscovery: t.discoveryDescriptorSetLayout,
-		},
-		SetLayoutCount: 2,
+		PSetLayouts:            []vk.DescriptorSetLayout{staticLayout},
+		SetLayoutCount:         1,
 	}, nil, &layout)
 	if err := NewError(result); err != nil {
-		return err
+		return vk.NullPipelineLayout, vk.NullDescriptorSetLayout, err
 	}
-	t.pipelineLayout = layout
 
-	return nil
+	return layout, staticLayout, nil
 }

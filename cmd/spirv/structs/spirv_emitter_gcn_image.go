@@ -8,6 +8,7 @@ type ImageSamplerKey [12]uint32
 func NewImageDescriptor(dwords []uint32) ImageDescriptor {
 	baseAddress := GetPhysicalGpuAddress(((uintptr(dwords[0]) | (uintptr(dwords[1]&0xFF) << 32)) << 8) & 0xFFFFFFFFFF)
 	return ImageDescriptor{
+		Dwords:         [8]uint32(dwords),
 		BaseAddress:    baseAddress,
 		MinLod:         uint16((dwords[1] >> 8) & 0xFFF),
 		DataFormat:     uint8((dwords[1] >> 20) & 0x3F),
@@ -42,5 +43,5 @@ func (z *ImageDescriptor) Hash() uint64 {
 }
 
 func GetPhysicalGpuAddress(virtualAddress uintptr) uintptr {
-	return virtualAddress /* & ^uintptr(0x02000000) // Temporary. */
+	return virtualAddress & ^uintptr(0x02000000) // Temporary. */
 }

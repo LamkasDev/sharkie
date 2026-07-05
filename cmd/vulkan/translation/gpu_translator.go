@@ -1,4 +1,4 @@
-package vulkan
+package translation
 
 import (
 	"context"
@@ -13,73 +13,66 @@ import (
 	glfwvulkanbackend "github.com/LamkasDev/cimgui-go-vulkan/backend/glfwvulkan-backend"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/LamkasDev/sharkie/cmd/spirv"
-	spirvStructs "github.com/LamkasDev/sharkie/cmd/spirv/structs"
 	. "github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/LamkasDev/sharkie/cmd/structs/gpu"
+	"github.com/LamkasDev/sharkie/cmd/vulkan"
 	vk "github.com/goki/vulkan"
 	"github.com/gookit/color"
 )
 
 // GpuTranslator converts decoded DrawCalls into Vulkan commands.
 type GpuTranslator struct {
-	handles VulkanHandles
+	handles vulkan.VulkanHandles
 	backend backend.Backend[glfwvulkanbackend.GLFWWindowFlags]
 
 	// Vulkan surfaces mirroring guest framebuffers.
 	surfacesMutex sync.Mutex
-	surfaces      map[SurfaceKey]*GpuSurface
+	surfaces      map[uintptr]*vulkan.VulkanSurface
 
 	// Pipeline shared across all draws.
-	bindlessDescriptorSetLayout  vk.DescriptorSetLayout
-	discoveryDescriptorSetLayout vk.DescriptorSetLayout
-	pipelineLayout               vk.PipelineLayout
+	staticDescriptorSetLayout vk.DescriptorSetLayout
+	pipelineLayout            vk.PipelineLayout
 
 	// Descriptor sets.
 	descriptorPool         vk.DescriptorPool
-	discoveryDescriptorSet vk.DescriptorSet
-	bindlessDescriptorSet  vk.DescriptorSet
-
-	// Discovery buffers.
-	discoveryMapBuffer         vk.Buffer
-	discoveryMapMem            vk.DeviceMemory
-	discoveryImageSamplerMap   map[spirvStructs.ImageSamplerKey]uint32
-	discoveryImageNoSamplerMap map[spirvStructs.ImageNoSamplerKey]uint32
-	discoveryNextVulkanIndex   uint32
-	discoveryAddressIndexes    map[uintptr]uint32
-	missingResourceBuffer      vk.Buffer
-	missingResourceMem         vk.DeviceMemory
+	staticDescriptorSet    vk.DescriptorSet
+	staticDescriptorSets   []vk.DescriptorSet
+	staticDescriptorSetIdx int
 
 	// Recompiled SPIR-V shaders mirroring Liverpool.LoadedShaders.
 	shadersMutex sync.Mutex
 	shaders      map[SpirvShaderKey]*spirv.SpirvShader
 
 	// VkShaderModules created from SPIR-V shaders.
-	shaderModulesMutex   sync.Mutex
-	shaderModules        map[uintptr]vk.ShaderModule
-	rectlistShaderModule vk.ShaderModule
+	shaderModulesMutex      sync.Mutex
+	shaderModules           map[uintptr]vk.ShaderModule
+	rectlistTcsShaderModule vk.ShaderModule
+	rectlistTesShaderModule vk.ShaderModule
 
 	// Per-draw compiled pipelines.
 	pipelinesMutex sync.Mutex
-	pipelines      map[GraphicsPipelineKey]vk.Pipeline
+	pipelines      map[vulkan.GraphicsPipelineKey]vk.Pipeline
 
 	// Per-dispatch compiled compute pipelines.
 	computePipelinesMutex sync.Mutex
-	computePipelines      map[ComputePipelineKey]vk.Pipeline
+	computePipelines      map[vulkan.ComputePipelineKey]vk.Pipeline
 
 	// Per-draw framebuffers.
 	framebuffersMutex sync.Mutex
-	framebuffers      map[FramebufferRequest]*VulkanFramebuffer
+	framebuffers      map[vulkan.FramebufferRequest]*vulkan.VulkanFramebuffer
+
+	// Resources destroyed after the current frame's command buffer completes.
+	deferredDestroyMutex sync.Mutex
+	deferredDestroy      deferredDestroyQueue
 
 	// Caches for images, image views and samplers.
-	imagesMutex       sync.Mutex
-	images            map[uintptr]vk.Image
-	imageMems         map[uintptr]vk.DeviceMemory
-	imageViews        map[uint64]vk.ImageView
-	storageImageViews map[uint64]vk.ImageView
-	imageDescriptors  map[uint64]spirvStructs.ImageDescriptor
-	samplersMutex     sync.Mutex
-	samplers          map[uint64]vk.Sampler
-	defaultSampler    vk.Sampler
+	imagesMutex    sync.Mutex
+	imagePages     map[uintptr]map[uintptr]struct{}
+	images         map[uintptr]*vulkan.VulkanImage
+	imageViews     map[uint64]*vulkan.VulkanImageView
+	samplersMutex  sync.Mutex
+	samplers       map[uint64]vk.Sampler
+	defaultSampler vk.Sampler
 
 	// Physical buffers for User Data snapshots.
 	userDataBuffersMutex  sync.Mutex
@@ -93,26 +86,33 @@ type GpuTranslator struct {
 	quadListIndexBufferMem vk.DeviceMemory
 
 	// Command pool/buffer for this frame's GPU work.
-	pool        vk.CommandPool
-	fenceChan   chan struct{}
-	fenceMutex  sync.Mutex
-	workerFence vk.Fence
-	QueueMutex  *sync.Mutex
+	pool          vk.CommandPool
+	commandBuffer vk.CommandBuffer
+	fenceChan     chan struct{}
+	fenceMutex    sync.Mutex
 
 	// Active state for chronological stream processing.
-	commandIndex       int // BindPipeline calls within the frame
-	activeSurface      *GpuSurface
-	activePass         vk.RenderPass
-	activePassNoClear  vk.RenderPass
-	activeFramebuffer  vk.Framebuffer
-	activePipeline     vk.Pipeline
-	activeVteControl   uint32
-	activeClipControl  uint32
-	activeDynamicState *gpu.LiverpoolSetDynamicState
+	lastColorRtAddress   uintptr
+	activeSurface        *vulkan.VulkanSurface
+	activePass           vk.RenderPass
+	activePassNoClear    vk.RenderPass
+	activeFramebuffer    vk.Framebuffer
+	activePipeline       vk.Pipeline
+	activeFragmentShader *spirv.SpirvShader
+	activeVteControl     uint32
+	activeClipControl    uint32
+	activeDynamicState   *gpu.LiverpoolSetDynamicState
+
+	// lastProcessedFrame tracks which guest frame surface lifetime state belongs to.
+	lastProcessedFrame uint64
+	currentGuestFrame  uint64
+
+	// pendingComputeBarrier is set after a compute dispatch; the next draw waits for it.
+	pendingComputeBarrier bool
 }
 
 // NewGpuTranslator creates a GpuTranslator, loads stub shaders and builds the stub pipeline layout.
-func NewGpuTranslator(handles VulkanHandles, bknd backend.Backend[glfwvulkanbackend.GLFWWindowFlags], queueMutex *sync.Mutex) (*GpuTranslator, error) {
+func NewGpuTranslator(handles vulkan.VulkanHandles, bknd backend.Backend[glfwvulkanbackend.GLFWWindowFlags]) (*GpuTranslator, error) {
 	if err := os.MkdirAll("temp/shaders", 0777); err != nil {
 		return nil, fmt.Errorf("GpuTranslator: create temp/shaders directory: %w", err)
 	}
@@ -121,47 +121,42 @@ func NewGpuTranslator(handles VulkanHandles, bknd backend.Backend[glfwvulkanback
 		handles: handles,
 		backend: bknd,
 
-		surfacesMutex:      sync.Mutex{},
-		surfaces:           map[SurfaceKey]*GpuSurface{},
-		shadersMutex:       sync.Mutex{},
-		shaders:            map[SpirvShaderKey]*spirv.SpirvShader{},
-		shaderModulesMutex: sync.Mutex{},
-		shaderModules:      map[uintptr]vk.ShaderModule{},
+		surfacesMutex: sync.Mutex{},
+		surfaces:      map[uintptr]*vulkan.VulkanSurface{},
+
+		deferredDestroyMutex: sync.Mutex{},
+		shadersMutex:         sync.Mutex{},
+		shaders:              map[SpirvShaderKey]*spirv.SpirvShader{},
+		shaderModulesMutex:   sync.Mutex{},
+		shaderModules:        map[uintptr]vk.ShaderModule{},
 
 		pipelinesMutex: sync.Mutex{},
-		pipelines:      map[GraphicsPipelineKey]vk.Pipeline{},
+		pipelines:      map[vulkan.GraphicsPipelineKey]vk.Pipeline{},
 
 		computePipelinesMutex: sync.Mutex{},
-		computePipelines:      map[ComputePipelineKey]vk.Pipeline{},
+		computePipelines:      map[vulkan.ComputePipelineKey]vk.Pipeline{},
 
 		framebuffersMutex: sync.Mutex{},
-		framebuffers:      map[FramebufferRequest]*VulkanFramebuffer{},
+		framebuffers:      map[vulkan.FramebufferRequest]*vulkan.VulkanFramebuffer{},
 
-		discoveryImageSamplerMap:   map[spirvStructs.ImageSamplerKey]uint32{},
-		discoveryImageNoSamplerMap: map[spirvStructs.ImageNoSamplerKey]uint32{},
-		discoveryAddressIndexes:    map[uintptr]uint32{},
-		discoveryNextVulkanIndex:   1, // 0 is reserved for missing.
+		imagePages: map[uintptr]map[uintptr]struct{}{},
 
-		imagesMutex:       sync.Mutex{},
-		images:            map[uintptr]vk.Image{},
-		imageMems:         map[uintptr]vk.DeviceMemory{},
-		imageViews:        map[uint64]vk.ImageView{},
-		storageImageViews: map[uint64]vk.ImageView{},
-		imageDescriptors:  map[uint64]spirvStructs.ImageDescriptor{},
-		samplersMutex:     sync.Mutex{},
-		samplers:          map[uint64]vk.Sampler{},
+		imagesMutex:   sync.Mutex{},
+		images:        map[uintptr]*vulkan.VulkanImage{},
+		imageViews:    map[uint64]*vulkan.VulkanImageView{},
+		samplersMutex: sync.Mutex{},
+		samplers:      map[uint64]vk.Sampler{},
 
 		userDataBuffersMutex: sync.Mutex{},
 		userDataOffsets:      map[uint32]uint32{},
 
 		fenceChan:  make(chan struct{}),
 		fenceMutex: sync.Mutex{},
-		QueueMutex: queueMutex,
 	}
 	close(t.fenceChan)
 
 	// Allocate user data buffer.
-	userDataBuffer, userDataBufferMem, err := t.AllocBuffer(vk.DeviceSize(UserDataBufferSize),
+	userDataBuffer, userDataBufferMem, err := vulkan.AllocateBuffer(&t.handles, vk.DeviceSize(UserDataBufferSize),
 		vk.BufferUsageFlags(vk.BufferUsageShaderDeviceAddressBit|vk.BufferUsageUniformBufferBit),
 		vk.MemoryPropertyFlags(vk.MemoryPropertyHostVisibleBit|vk.MemoryPropertyHostCoherentBit))
 	if err != nil {
@@ -171,8 +166,9 @@ func NewGpuTranslator(handles VulkanHandles, bknd backend.Backend[glfwvulkanback
 	t.userDataBufferMem = userDataBufferMem
 	t.userDataBufferAddress = t.GetBufferAddress(userDataBuffer)
 
-	// Allocate memory buffers.
-	onionBuffer, onionMemory, err := t.AllocExternalBuffer(vk.DeviceSize(GlobalAllocator.Size),
+	// Onion and garlic use separate device allocations - Linux dma-buf cannot be mmap'd
+	// twice from one fd into two fixed guest VA windows.
+	onionBuffer, onionMemory, err := vulkan.AllocateExternalBuffer(&t.handles, vk.DeviceSize(GlobalAllocator.Size),
 		vk.BufferUsageFlags(vk.BufferUsageShaderDeviceAddressBit|vk.BufferUsageStorageBufferBit|vk.BufferUsageVertexBufferBit|vk.BufferUsageIndexBufferBit|vk.BufferUsageTransferSrcBit|vk.BufferUsageTransferDstBit),
 		vk.MemoryPropertyFlags(vk.MemoryPropertyHostVisibleBit|vk.MemoryPropertyHostCoherentBit|vk.MemoryPropertyHostCachedBit))
 	if err != nil {
@@ -180,8 +176,11 @@ func NewGpuTranslator(handles VulkanHandles, bknd backend.Backend[glfwvulkanback
 	}
 	GlobalAllocator.Buffer = onionBuffer
 	GlobalAllocator.DeviceAddress = t.GetBufferAddress(onionBuffer)
+	GuestBacking.Buffer = onionBuffer
+	GuestBacking.Memory = onionMemory
+	GuestBacking.DeviceAddress = GlobalAllocator.DeviceAddress
 
-	garlicBuffer, garlicMemory, err := t.AllocExternalBuffer(vk.DeviceSize(GlobalGpuAllocator.Size),
+	garlicBuffer, garlicMemory, err := vulkan.AllocateExternalBuffer(&t.handles, vk.DeviceSize(GlobalGpuAllocator.Size),
 		vk.BufferUsageFlags(vk.BufferUsageShaderDeviceAddressBit|vk.BufferUsageStorageBufferBit|vk.BufferUsageVertexBufferBit|vk.BufferUsageIndexBufferBit|vk.BufferUsageTransferSrcBit|vk.BufferUsageTransferDstBit),
 		vk.MemoryPropertyFlags(vk.MemoryPropertyHostVisibleBit|vk.MemoryPropertyHostCoherentBit))
 	if err != nil {
@@ -190,47 +189,40 @@ func NewGpuTranslator(handles VulkanHandles, bknd backend.Backend[glfwvulkanback
 	GlobalGpuAllocator.Buffer = garlicBuffer
 	GlobalGpuAllocator.DeviceAddress = t.GetBufferAddress(garlicBuffer)
 
-	// Map memory buffers.
 	if runtime.GOOS == "windows" {
-		err = MapVulkanMemory(GlobalAllocator.Base, GlobalAllocator.Size, GetMemoryWin32Handle(t.handles.Instance, t.handles.Device, onionMemory))
+		err = MapVulkanMemory(GlobalAllocator.Base, GlobalAllocator.Size, vulkan.GetMemoryWin32Handle(t.handles.Instance, t.handles.Device, onionMemory), 0)
 		if err != nil {
 			return nil, fmt.Errorf("GpuTranslator: map onion buffer: %w", err)
 		}
-		err = MapVulkanMemory(GlobalGpuAllocator.Base, GlobalGpuAllocator.Size, GetMemoryWin32Handle(t.handles.Instance, t.handles.Device, garlicMemory))
+		err = MapVulkanMemory(GlobalGpuAllocator.Base, GlobalGpuAllocator.Size, vulkan.GetMemoryWin32Handle(t.handles.Instance, t.handles.Device, garlicMemory), 0)
 		if err != nil {
 			return nil, fmt.Errorf("GpuTranslator: map garlic buffer: %w", err)
 		}
 	} else {
-		err = MapVulkanMemory(GlobalAllocator.Base, GlobalAllocator.Size, uintptr(GetMemoryFd(t.handles.Instance, t.handles.Device, onionMemory)))
+		err = MapVulkanMemory(GlobalAllocator.Base, GlobalAllocator.Size, uintptr(vulkan.GetMemoryFd(t.handles.Instance, t.handles.Device, onionMemory)), 0)
 		if err != nil {
 			return nil, fmt.Errorf("GpuTranslator: map onion buffer: %w", err)
 		}
-		err = MapVulkanMemory(GlobalGpuAllocator.Base, GlobalGpuAllocator.Size, uintptr(GetMemoryFd(t.handles.Instance, t.handles.Device, garlicMemory)))
+		err = MapVulkanMemory(GlobalGpuAllocator.Base, GlobalGpuAllocator.Size, uintptr(vulkan.GetMemoryFd(t.handles.Instance, t.handles.Device, garlicMemory)), 0)
 		if err != nil {
 			return nil, fmt.Errorf("GpuTranslator: map garlic buffer: %w", err)
 		}
 	}
-
-	if err = t.createCommandPoolAndFence(); err != nil {
-		return nil, fmt.Errorf("GpuTranslator: command pool: %w", err)
-	}
-	if err = t.createStubPipelineLayout(); err != nil {
+	t.pipelineLayout, t.staticDescriptorSetLayout, err = vulkan.CreateStubPipelineLayout(&t.handles)
+	if err != nil {
 		return nil, fmt.Errorf("GpuTranslator: pipeline layout: %w", err)
 	}
-	if err = t.createDescriptorPool(); err != nil {
+	t.descriptorPool, t.staticDescriptorSet, err = vulkan.CreateDescriptorPool(&t.handles, t.staticDescriptorSetLayout)
+	if err != nil {
 		return nil, fmt.Errorf("GpuTranslator: descriptor pool: %w", err)
 	}
-	if err = t.CreateDiscoveryBuffers(); err != nil {
-		return nil, fmt.Errorf("GpuTranslator: discovery buffers: %w", err)
-	}
-	t.commandIndex = 0
 	t.activePass = vk.NullRenderPass
 	t.activePipeline = vk.NullPipeline
 
 	// Allocate quad list index buffer.
 	const maxQuads = 16384
 	const quadListIndexCount = maxQuads * 6
-	quadListIndexBuffer, quadListIndexBufferMem, err := t.AllocBuffer(vk.DeviceSize(quadListIndexCount*2),
+	quadListIndexBuffer, quadListIndexBufferMem, err := vulkan.AllocateBuffer(&t.handles, vk.DeviceSize(quadListIndexCount*2),
 		vk.BufferUsageFlags(vk.BufferUsageIndexBufferBit),
 		vk.MemoryPropertyFlags(vk.MemoryPropertyHostVisibleBit|vk.MemoryPropertyHostCoherentBit))
 	if err != nil {
@@ -240,7 +232,7 @@ func NewGpuTranslator(handles VulkanHandles, bknd backend.Backend[glfwvulkanback
 	// Map and fill quad list index buffer.
 	var indexData unsafe.Pointer
 	result := vk.MapMemory(handles.Device, quadListIndexBufferMem, 0, vk.DeviceSize(quadListIndexCount*2), 0, &indexData)
-	if err := NewError(result); err != nil {
+	if err := vulkan.NewError(result); err != nil {
 		vk.DestroyBuffer(handles.Device, quadListIndexBuffer, nil)
 		vk.FreeMemory(handles.Device, quadListIndexBufferMem, nil)
 		return nil, fmt.Errorf("GpuTranslator: map quad list index buffer: %w", err)
@@ -261,8 +253,10 @@ func NewGpuTranslator(handles VulkanHandles, bknd backend.Backend[glfwvulkanback
 	t.quadListIndexBuffer = quadListIndexBuffer
 	t.quadListIndexBufferMem = quadListIndexBufferMem
 
-	t.updateDiscoveryDescriptorSet()
-	t.createDummyTexture()
+	GlobalMemoryManager.SetRasterizer(t)
+	GlobalMemoryManager.Guest().RegisterPreMapped()
+	GlobalMemoryManager.OnMapGuest(GlobalAllocator.Base, uintptr(GlobalAllocator.Size))
+	GlobalMemoryManager.OnMapGuest(GlobalGpuAllocator.Base, uintptr(GlobalGpuAllocator.Size))
 
 	go pprof.Do(context.Background(), pprof.Labels("name", "MemorySyncWorker"), func(ctx context.Context) {
 		t.memorySyncWorker()
@@ -277,11 +271,17 @@ func (t *GpuTranslator) Destroy() {
 	if t.descriptorPool != vk.NullDescriptorPool {
 		vk.DestroyDescriptorPool(t.handles.Device, t.descriptorPool, nil)
 	}
+	t.FlushDeferredDestruction()
 	t.surfacesMutex.Lock()
 	for _, s := range t.surfaces {
 		s.Destroy(t.handles.Device)
 	}
 	t.surfacesMutex.Unlock()
+	t.framebuffersMutex.Lock()
+	for _, fb := range t.framebuffers {
+		fb.Destroy(t.handles.Device)
+	}
+	t.framebuffersMutex.Unlock()
 	t.pipelinesMutex.Lock()
 	for _, p := range t.pipelines {
 		vk.DestroyPipeline(t.handles.Device, p, nil)
@@ -302,14 +302,6 @@ func (t *GpuTranslator) Destroy() {
 		vk.DestroyBuffer(t.handles.Device, t.quadListIndexBuffer, nil)
 		vk.FreeMemory(t.handles.Device, t.quadListIndexBufferMem, nil)
 	}
-	if t.discoveryMapBuffer != vk.NullBuffer {
-		vk.DestroyBuffer(t.handles.Device, t.discoveryMapBuffer, nil)
-		vk.FreeMemory(t.handles.Device, t.discoveryMapMem, nil)
-	}
-	if t.missingResourceBuffer != vk.NullBuffer {
-		vk.DestroyBuffer(t.handles.Device, t.missingResourceBuffer, nil)
-		vk.FreeMemory(t.handles.Device, t.missingResourceMem, nil)
-	}
 	t.shaderModulesMutex.Lock()
 	for _, m := range t.shaderModules {
 		vk.DestroyShaderModule(t.handles.Device, m, nil)
@@ -318,23 +310,22 @@ func (t *GpuTranslator) Destroy() {
 	if t.pipelineLayout != vk.NullPipelineLayout {
 		vk.DestroyPipelineLayout(t.handles.Device, t.pipelineLayout, nil)
 	}
-	if t.discoveryDescriptorSetLayout != vk.NullDescriptorSetLayout {
-		vk.DestroyDescriptorSetLayout(t.handles.Device, t.discoveryDescriptorSetLayout, nil)
-	}
-	if t.bindlessDescriptorSetLayout != vk.NullDescriptorSetLayout {
-		vk.DestroyDescriptorSetLayout(t.handles.Device, t.bindlessDescriptorSetLayout, nil)
+
+	if t.staticDescriptorSetLayout != vk.NullDescriptorSetLayout {
+		vk.DestroyDescriptorSetLayout(t.handles.Device, t.staticDescriptorSetLayout, nil)
 	}
 	if t.pool != vk.NullCommandPool {
 		vk.DestroyCommandPool(t.handles.Device, t.pool, nil)
 	}
-	if t.workerFence != vk.NullFence {
-		vk.DestroyFence(t.handles.Device, t.workerFence, nil)
+	if t.handles.WorkerFence != vk.NullFence {
+		vk.DestroyFence(t.handles.Device, t.handles.WorkerFence, nil)
 	}
 }
 
-func (t *GpuTranslator) ResetFrameState() {
+func (t *GpuTranslator) ResetFrameState(frame uint64) {
+	t.currentGuestFrame = frame
 	t.activeSurface = nil
-	t.commandIndex = 0
+	t.lastColorRtAddress = 0
 	t.activePass = vk.NullRenderPass
 	t.activePassNoClear = vk.NullRenderPass
 	t.activeFramebuffer = vk.NullFramebuffer
@@ -342,12 +333,16 @@ func (t *GpuTranslator) ResetFrameState() {
 	t.activeVteControl = 0
 	t.activeClipControl = 0
 	t.activeDynamicState = nil
+	t.pendingComputeBarrier = false
 
-	t.surfacesMutex.Lock()
-	for _, surface := range t.surfaces {
-		surface.FrameUsed = 0
+	if frame != t.lastProcessedFrame {
+		t.surfacesMutex.Lock()
+		for _, surface := range t.surfaces {
+			surface.FrameUsed = 0
+		}
+		t.surfacesMutex.Unlock()
+		t.lastProcessedFrame = frame
 	}
-	t.surfacesMutex.Unlock()
 }
 
 // Translate translates Liverpool draw/compute commands into Vulkan commands and returns the command buffer.
@@ -355,12 +350,18 @@ func (t *GpuTranslator) Translate(frame uint64, stream *gpu.LiverpoolCommandStre
 	// Update buffers holding user data.
 	t.UpdateUserDataBuffers(stream)
 
+	// Reset per-frame descriptor sets.
+	t.staticDescriptorSetIdx = 0
+
 	// Begin recording.
-	commandBuffer := t.handles.AllocateCommandBuffer(t.pool)
-	vk.BeginCommandBuffer(commandBuffer, &vk.CommandBufferBeginInfo{
+	t.commandBuffer = t.handles.AllocateCommandBuffer()
+	vk.BeginCommandBuffer(t.commandBuffer, &vk.CommandBufferBeginInfo{
 		SType: vk.StructureTypeCommandBufferBeginInfo,
 		Flags: vk.CommandBufferUsageFlags(vk.CommandBufferUsageOneTimeSubmitBit),
 	})
+	if frame == 0 {
+		t.createDummyTexture()
+	}
 
 	// Process command stream.
 	logger.Printf("[%s] processing %s commands in stream.\n",
@@ -370,25 +371,23 @@ func (t *GpuTranslator) Translate(frame uint64, stream *gpu.LiverpoolCommandStre
 	for _, command := range stream.Commands {
 		switch command.Type {
 		case gpu.LiverpoolCommandTypeDraw:
-			t.Draw(frame, commandBuffer, &stream.Draws[command.Index])
+			t.Draw(frame, &stream.Draws[command.Index])
 		case gpu.LiverpoolCommandTypeDispatch:
-			t.Dispatch(frame, commandBuffer, &stream.Dispatches[command.Index])
+			t.Dispatch(frame, &stream.Dispatches[command.Index])
 		case gpu.LiverpoolCommandTypeDmaCopy:
-			t.DmaCopy(frame, commandBuffer, &stream.DmaCopies[command.Index])
+			t.DmaCopy(frame, &stream.DmaCopies[command.Index])
 		case gpu.LiverpoolCommandTypeBindPipeline:
-			t.BindPipeline(frame, commandBuffer, &stream.Pipelines[command.Index])
+			t.BindPipeline(frame, &stream.Pipelines[command.Index])
 		case gpu.LiverpoolCommandTypeSetDynamicState:
-			t.SetDynamicState(commandBuffer, &stream.DynamicStates[command.Index])
+			t.SetDynamicState(&stream.DynamicStates[command.Index])
 		}
-	}
-	if t.activePass != vk.NullRenderPass {
-		t.EndRenderPass(commandBuffer)
 	}
 
 	// Finish.
-	vk.EndCommandBuffer(commandBuffer)
+	t.EndRenderPass()
+	vk.EndCommandBuffer(t.commandBuffer)
 
-	return &commandBuffer
+	return &t.commandBuffer
 }
 
 func (t *GpuTranslator) WaitOnFence() {
@@ -419,34 +418,86 @@ func (t *GpuTranslator) ResetFence() {
 }
 
 func (t *GpuTranslator) GetWorkerFence() vk.Fence {
-	return t.workerFence
+	return t.handles.WorkerFence
 }
 
 func (t *GpuTranslator) WaitOnWorkerFence() {
-	vk.WaitForFences(t.handles.Device, 1, []vk.Fence{t.workerFence}, vk.True, ^uint64(0))
+	vk.WaitForFences(t.handles.Device, 1, []vk.Fence{t.handles.WorkerFence}, vk.True, ^uint64(0))
 }
 
 func (t *GpuTranslator) ResetWorkerFence() {
-	t.QueueMutex.Lock()
-	defer t.QueueMutex.Unlock()
-	status := vk.GetFenceStatus(t.handles.Device, t.workerFence)
+	t.handles.QueueMutex.Lock()
+	defer t.handles.QueueMutex.Unlock()
+	status := vk.GetFenceStatus(t.handles.Device, t.handles.WorkerFence)
 	if status == vk.Success {
-		vk.ResetFences(t.handles.Device, 1, []vk.Fence{t.workerFence})
+		vk.ResetFences(t.handles.Device, 1, []vk.Fence{t.handles.WorkerFence})
 	}
 }
 
-func (t *GpuTranslator) AllocateCommandBuffer() vk.CommandBuffer {
-	t.QueueMutex.Lock()
-	defer t.QueueMutex.Unlock()
-	return t.handles.AllocateCommandBuffer(t.pool)
-}
-
-func (t *GpuTranslator) FreeCommandBuffer(commandBuffer vk.CommandBuffer) {
-	t.QueueMutex.Lock()
-	defer t.QueueMutex.Unlock()
-	vk.FreeCommandBuffers(t.handles.Device, t.pool, 1, []vk.CommandBuffer{commandBuffer})
-}
-
 func (t *GpuTranslator) GetBufferAddress(buffer vk.Buffer) uint64 {
-	return uint64(GetBufferDeviceAddress(t.handles.Instance, t.handles.Device, buffer))
+	return vulkan.GetBufferDeviceAddress(t.handles.Instance, t.handles.Device, buffer)
+}
+
+func (t *GpuTranslator) GetLinearBuffer(address uintptr) (vk.Buffer, uintptr, error) {
+	if address >= GlobalGpuAllocator.Base && address < GlobalGpuAllocator.Base+uintptr(GlobalGpuAllocator.Size) {
+		return GlobalGpuAllocator.Buffer, address - GlobalGpuAllocator.Base, nil
+	}
+	if address >= GlobalAllocator.Base && address < GlobalAllocator.Base+uintptr(GlobalAllocator.Size) {
+		return GlobalAllocator.Buffer, address - GlobalAllocator.Base, nil
+	}
+	return vk.NullBuffer, 0, fmt.Errorf("address 0x%X not in any known allocator", address)
+}
+
+func (t *GpuTranslator) GetSurfaceByAddress(address uintptr) *vulkan.VulkanSurface {
+	t.surfacesMutex.Lock()
+	defer t.surfacesMutex.Unlock()
+	return t.surfaces[address]
+}
+
+func regionsOverlap(addressA, sizeA, addressB, sizeB uintptr) bool {
+	if addressA == 0 || addressB == 0 || sizeA == 0 || sizeB == 0 {
+		return false
+	}
+	endA := addressA + sizeA
+	endB := addressB + sizeB
+
+	return addressA < endB && addressB < endA
+}
+
+func (t *GpuTranslator) CollectGpuResourcesInRange(address, size uintptr) []*vulkan.VulkanImage {
+	seen := map[uintptr]struct{}{}
+	var images []*vulkan.VulkanImage
+	for _, image := range t.images {
+		if !regionsOverlap(address, size, image.Address, image.GuestSize) {
+			continue
+		}
+		if _, ok := seen[image.Address]; ok {
+			continue
+		}
+		seen[image.Address] = struct{}{}
+		images = append(images, image)
+	}
+
+	return images
+}
+
+func (t *GpuTranslator) DownloadRegionVkImages(address, size uintptr) error {
+	for _, image := range t.CollectGpuResourcesInRange(address, size) {
+		if err := image.DownloadFromVkImage(&t.handles); err != nil {
+			return err
+		}
+		recordSyncDownload()
+	}
+
+	return nil
+}
+
+func (t *GpuTranslator) UploadRegionVkImages(address, size uintptr) error {
+	for _, image := range t.CollectGpuResourcesInRange(address, size) {
+		if err := image.UploadToVkImage(&t.handles, t.GetLinearBuffer); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

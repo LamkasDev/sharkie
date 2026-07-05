@@ -17,6 +17,7 @@ func RegisterStubs() {
 	RegisterVideoOutStubs()
 	RegisterAudioOutStubs()
 	RegisterNetworkStubs()
+	RegisterSystemServiceStubs()
 
 	RegisterMinecraftStubs()
 }
@@ -42,7 +43,11 @@ func GenericStub() uintptr {
 }
 
 func StackChkFail() uintptr {
-	color.Red.Sprint("Stack Corruption Detected!\n")
+	logger.Printf(
+		"%-132s %s\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Red.Sprintf("stack check failed :("),
+	)
 	logger.CleanupAndExit()
 
 	return 0

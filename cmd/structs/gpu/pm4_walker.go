@@ -1,10 +1,6 @@
 package gpu
 
 import (
-	"context"
-	"os"
-	"runtime/pprof"
-	"sync"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/asm"
@@ -46,45 +42,30 @@ func (l *Liverpool) SetupPM4Handlers() {
 
 // Walk drains both the graphics and compute rings, decoding every PM4 packet and updating GPU register state.
 func (l *Liverpool) Walk() {
-	if l.FrameNumber == 600 {
-		_ = os.Remove("temp/pm4_commands_dump.txt")
-	}
-
 	asm.GCFence.Store(true)
 
 	l.RingMutex.Lock()
-	defer l.RingMutex.Unlock()
+	pending := l.PendingOrdered
+	l.PendingOrdered = l.PendingOrdered[:0]
+	l.GraphicsRing.Pending = l.GraphicsRing.Pending[:0]
+	l.ComputeRing.Pending = l.ComputeRing.Pending[:0]
+	l.RingMutex.Unlock()
 
-	var wg sync.WaitGroup
-	wg.Add(2)
-	go pprof.Do(context.Background(), pprof.Labels("name", "WalkGraphicsBuffer"), func(ctx context.Context) {
-		for i, buffer := range l.GraphicsRing.Pending {
-			logger.Printf("[%s] walking graphics pm4 buffer %s (length=%s).\n",
-				color.Green.Sprint("PM4"),
-				color.Green.Sprintf("%d", i),
-				color.Green.Sprintf("%d", buffer.SizeDW),
-			)
-			l.walkIndirectBuffer("GFX", buffer)
-		}
-		l.GraphicsRing.Pending = l.GraphicsRing.Pending[:0]
-		wg.Done()
-	})
-	go pprof.Do(context.Background(), pprof.Labels("name", "WalkComputeBuffer"), func(ctx context.Context) {
-		for i, buffer := range l.ComputeRing.Pending {
-			logger.Printf("[%s] walking compute pm4 buffer %s (length=%s).\n",
-				color.Green.Sprint("PM4"),
-				color.Green.Sprintf("%d", i),
-				color.Green.Sprintf("%d", buffer.SizeDW),
-			)
-			l.walkIndirectBuffer("COM", buffer)
-		}
-		l.ComputeRing.Pending = l.ComputeRing.Pending[:0]
-		wg.Done()
-	})
-	wg.Wait()
+	// Walk in submission order (CCB before its paired DCB). Parallel walks reorder
+	// compute blur dispatches relative to the graphics draws that depend on them.
+	for i, entry := range pending {
+		logger.Printf("[%s] walking %s pm4 buffer %s (length=%s).\n",
+			color.Green.Sprint("PM4"),
+			color.Green.Sprint(entry.RingName),
+			color.Green.Sprintf("%d", i),
+			color.Green.Sprintf("%d", entry.Buffer.SizeDW),
+		)
+		l.walkIndirectBuffer(entry.RingName, entry.Buffer)
+	}
 	logger.Printf(
-		"[%s] finished walking pm4 buffers.\n",
+		"[%s] finished walking %s pm4 buffers.\n",
 		color.Green.Sprint("PM4"),
+		color.Green.Sprintf("%d", len(pending)),
 	)
 
 	asm.GCFence.Store(false)

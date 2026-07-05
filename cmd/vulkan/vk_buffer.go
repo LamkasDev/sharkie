@@ -9,14 +9,14 @@ import (
 	vk "github.com/goki/vulkan"
 )
 
-func (t *GpuTranslator) AllocExternalBuffer(size vk.DeviceSize, usage vk.BufferUsageFlags, props vk.MemoryPropertyFlags) (vk.Buffer, vk.DeviceMemory, error) {
+func AllocateExternalBuffer(handles *VulkanHandles, size vk.DeviceSize, usage vk.BufferUsageFlags, props vk.MemoryPropertyFlags) (vk.Buffer, vk.DeviceMemory, error) {
 	handleType := vk.ExternalMemoryHandleTypeDmaBufBit
 	if runtime.GOOS == "windows" {
 		handleType = vk.ExternalMemoryHandleTypeOpaqueWin32Bit
 	}
 
 	var buffer vk.Buffer
-	result := vk.CreateBuffer(t.handles.Device, &vk.BufferCreateInfo{
+	result := vk.CreateBuffer(handles.Device, &vk.BufferCreateInfo{
 		SType: vk.StructureTypeBufferCreateInfo,
 		PNext: unsafe.Pointer(&vk.ExternalMemoryBufferCreateInfo{
 			SType:       vk.StructureTypeExternalMemoryBufferCreateInfo,
@@ -30,34 +30,35 @@ func (t *GpuTranslator) AllocExternalBuffer(size vk.DeviceSize, usage vk.BufferU
 	}
 
 	var memReqs vk.MemoryRequirements
-	vk.GetBufferMemoryRequirements(t.handles.Device, buffer, &memReqs)
+	vk.GetBufferMemoryRequirements(handles.Device, buffer, &memReqs)
 	memReqs.Deref()
 
 	var mem vk.DeviceMemory
-	result = vk.AllocateMemory(t.handles.Device, &vk.MemoryAllocateInfo{
+	priorityInfo := NewPriorityInfo(usage, 1.0)
+	result = vk.AllocateMemory(handles.Device, &vk.MemoryAllocateInfo{
 		SType: vk.StructureTypeMemoryAllocateInfo,
 		PNext: unsafe.Pointer(&vk.ExportMemoryAllocateInfo{
 			SType:       vk.StructureTypeExportMemoryAllocateInfo,
-			PNext:       unsafe.Pointer(new(NewPriorityInfo(usage, 1))),
+			PNext:       unsafe.Pointer(&priorityInfo),
 			HandleTypes: vk.ExternalMemoryHandleTypeFlags(handleType),
 		}),
 		AllocationSize:  memReqs.Size,
-		MemoryTypeIndex: t.handles.FindMemoryType(memReqs.MemoryTypeBits, vk.MemoryPropertyFlagBits(props)),
+		MemoryTypeIndex: handles.FindMemoryType(memReqs.MemoryTypeBits, vk.MemoryPropertyFlagBits(props)),
 	}, nil, &mem)
 	if err := NewError(result); err != nil {
-		vk.DestroyBuffer(t.handles.Device, buffer, nil)
+		vk.DestroyBuffer(handles.Device, buffer, nil)
 		return vk.NullBuffer, vk.NullDeviceMemory, fmt.Errorf("vkAllocateMemory: %w", err)
 	}
 
-	vk.BindBufferMemory(t.handles.Device, buffer, mem, 0)
-	SetDeviceMemoryPriority(t.handles.Instance, t.handles.Device, mem, 1.0)
+	SetDeviceMemoryPriority(handles.Instance, handles.Device, mem, 1.0)
+	vk.BindBufferMemory(handles.Device, buffer, mem, 0)
 
 	return buffer, mem, nil
 }
 
-func (t *GpuTranslator) AllocBuffer(size vk.DeviceSize, usage vk.BufferUsageFlags, props vk.MemoryPropertyFlags) (vk.Buffer, vk.DeviceMemory, error) {
+func AllocateBuffer(handles *VulkanHandles, size vk.DeviceSize, usage vk.BufferUsageFlags, props vk.MemoryPropertyFlags) (vk.Buffer, vk.DeviceMemory, error) {
 	var buffer vk.Buffer
-	result := vk.CreateBuffer(t.handles.Device, &vk.BufferCreateInfo{
+	result := vk.CreateBuffer(handles.Device, &vk.BufferCreateInfo{
 		SType: vk.StructureTypeBufferCreateInfo,
 		Size:  size,
 		Usage: usage,
@@ -67,23 +68,24 @@ func (t *GpuTranslator) AllocBuffer(size vk.DeviceSize, usage vk.BufferUsageFlag
 	}
 
 	var memReqs vk.MemoryRequirements
-	vk.GetBufferMemoryRequirements(t.handles.Device, buffer, &memReqs)
+	vk.GetBufferMemoryRequirements(handles.Device, buffer, &memReqs)
 	memReqs.Deref()
 
 	var mem vk.DeviceMemory
-	result = vk.AllocateMemory(t.handles.Device, &vk.MemoryAllocateInfo{
+	priorityInfo := NewPriorityInfo(usage, 1.0)
+	result = vk.AllocateMemory(handles.Device, &vk.MemoryAllocateInfo{
 		SType:           vk.StructureTypeMemoryAllocateInfo,
-		PNext:           unsafe.Pointer(new(NewPriorityInfo(usage, 1))),
+		PNext:           unsafe.Pointer(&priorityInfo),
 		AllocationSize:  memReqs.Size,
-		MemoryTypeIndex: t.handles.FindMemoryType(memReqs.MemoryTypeBits, vk.MemoryPropertyFlagBits(props)),
+		MemoryTypeIndex: handles.FindMemoryType(memReqs.MemoryTypeBits, vk.MemoryPropertyFlagBits(props)),
 	}, nil, &mem)
 	if err := NewError(result); err != nil {
-		vk.DestroyBuffer(t.handles.Device, buffer, nil)
+		vk.DestroyBuffer(handles.Device, buffer, nil)
 		return vk.NullBuffer, vk.NullDeviceMemory, fmt.Errorf("vkAllocateMemory: %w", err)
 	}
 
-	vk.BindBufferMemory(t.handles.Device, buffer, mem, 0)
-	SetDeviceMemoryPriority(t.handles.Instance, t.handles.Device, mem, 1.0)
+	SetDeviceMemoryPriority(handles.Instance, handles.Device, mem, 1.0)
+	vk.BindBufferMemory(handles.Device, buffer, mem, 0)
 
 	return buffer, mem, nil
 }

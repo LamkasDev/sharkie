@@ -22,6 +22,8 @@ func NewSamplerDescriptor(dwords []uint32) *SamplerDescriptor {
 		rawLodBiasSec |= ^0x1F
 	}
 	return &SamplerDescriptor{
+		Dwords: [4]uint32(dwords),
+
 		ClampX:            uint8(dwords[0] & 0x7),
 		ClampY:            uint8((dwords[0] >> 3) & 0x7),
 		ClampZ:            uint8((dwords[0] >> 6) & 0x7),

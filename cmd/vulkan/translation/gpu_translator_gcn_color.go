@@ -1,4 +1,4 @@
-package vulkan
+package translation
 
 import (
 	vk "github.com/goki/vulkan"
@@ -232,4 +232,17 @@ func translateClearColor(word0 uint32, word1 uint32, format uint32, numberType u
 	}
 
 	return []float32{r, g, b, a}
+}
+
+func colorBufferHeight(pitch, slice uint32) uint32 {
+	width := ((pitch & 0x7FF) + 1) * 8
+	if width == 0 {
+		return 1080
+	}
+	height := ((slice & 0x3FFFFF) + 1) * 64 / width
+	if height < 16 {
+		return 1080
+	}
+
+	return height
 }

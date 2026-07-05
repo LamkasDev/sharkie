@@ -1,4 +1,4 @@
-package vulkan
+package translation
 
 import (
 	vk "github.com/goki/vulkan"
@@ -129,13 +129,4 @@ func (t *GpuTranslator) TranslateGcnDepthFormat(format uint32) vk.Format {
 
 	// Fallback to D32_SFLOAT_S8_UINT which is universally supported by all Vulkan implementations supporting stencil.
 	return vk.FormatD32SfloatS8Uint
-}
-
-func IsDepthFormat(format vk.Format) bool {
-	switch format {
-	case vk.FormatD16Unorm, vk.FormatD16UnormS8Uint, vk.FormatD24UnormS8Uint, vk.FormatD32Sfloat, vk.FormatD32SfloatS8Uint:
-		return true
-	default:
-		return false
-	}
 }

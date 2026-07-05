@@ -676,6 +676,19 @@ func dbgCallbackFunc(flags vk.DebugReportFlags, objectType vk.DebugReportObjectT
 	object uint64, location uint64, messageCode int32, pLayerPrefix string,
 	pMessage string, pUserData unsafe.Pointer) vk.Bool32 {
 
+	if uint32(messageCode) == 0xf35d019f { // BestPractices-ImageBarrierAccessLayout (ImGui bug, 0xf35d019f)
+		return vk.Bool32(vk.False)
+	}
+	if uint32(messageCode) == 0x1248c6a4 { // BestPractices-PushConstants (Compute dispatch without setting fragment push constants)
+		return vk.Bool32(vk.False)
+	}
+	if uint32(messageCode) == 0x2f778890 { // BestPractices-DrawState-ClearCmdBeforeDraw (Dynamic clear commands in emulator)
+		return vk.Bool32(vk.False)
+	}
+	if uint32(messageCode) == 0xf00e92a8 { // BestPractices-NVIDIA-CreateImage-Depth32Format (PS4 requires 32-bit depth)
+		return vk.Bool32(vk.False)
+	}
+
 	switch {
 	case flags&vk.DebugReportFlags(vk.DebugReportInformationBit) != 0:
 		log.Printf("INFORMATION: [%s] Code %d : %s", pLayerPrefix, messageCode, pMessage)

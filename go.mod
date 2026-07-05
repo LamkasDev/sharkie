@@ -4,7 +4,7 @@ go 1.26.1
 
 require (
 	github.com/CovenantSQL/HashStablePack v2.0.0+incompatible
-	github.com/LamkasDev/cimgui-go-vulkan v0.0.0-20260410221204-bd4ebb3a4cf0
+	github.com/LamkasDev/cimgui-go-vulkan v0.0.0-20260707145319-90e11755ff1b
 	github.com/bpfsnoop/gapstone v0.0.0-20250326154852-7e3bee2c2f09
 	github.com/cespare/xxhash v1.1.0
 	github.com/elokore/glfw/v3.4/glfw v0.0.0-20251221231958-c1dc85df2170

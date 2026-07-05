@@ -1,4 +1,4 @@
-package vulkan
+package translation
 
 import (
 	"fmt"
@@ -10,6 +10,7 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/spirv"
 	"github.com/LamkasDev/sharkie/cmd/spirv/common"
 	"github.com/LamkasDev/sharkie/cmd/structs/gcn"
+	"github.com/LamkasDev/sharkie/cmd/vulkan"
 	vk "github.com/goki/vulkan"
 )
 
@@ -25,6 +26,18 @@ type SpirvShaderKey struct {
 
 func (t *GpuTranslator) GetShader(gcnShader *gcn.GcnShader) *spirv.SpirvShader {
 	return t.GetShaderWithContext(gcnShader, spirv.SpirvShaderContext{})
+}
+
+func (t *GpuTranslator) GetShaderAt(address uintptr) *spirv.SpirvShader {
+	t.shadersMutex.Lock()
+	defer t.shadersMutex.Unlock()
+	for key, shader := range t.shaders {
+		if key.Address == address {
+			return shader
+		}
+	}
+
+	return nil
 }
 
 func (t *GpuTranslator) GetShaderWithContext(gcnShader *gcn.GcnShader, context spirv.SpirvShaderContext) *spirv.SpirvShader {
@@ -68,10 +81,10 @@ func (t *GpuTranslator) GetShaderModuleFromBytes(bytecode []uint32, name string)
 		CodeSize: uint64(len(bytecode) * 4),
 		PCode:    bytecode,
 	}, nil, &module)
-	if err := NewError(result); err != nil {
+	if err := vulkan.NewError(result); err != nil {
 		return vk.NullShaderModule, err
 	}
-	SetDebugUtilsObjectName(t.handles.Instance, t.handles.Device, vk.ObjectTypeShaderModule, uint64(uintptr(unsafe.Pointer(module))), name)
+	vulkan.SetDebugUtilsObjectName(t.handles.Instance, t.handles.Device, vk.ObjectTypeShaderModule, uint64(uintptr(unsafe.Pointer(module))), name)
 
 	return module, nil
 }
@@ -79,7 +92,7 @@ func (t *GpuTranslator) GetShaderModuleFromBytes(bytecode []uint32, name string)
 func (t *GpuTranslator) GetShaderModule(spirvShader *spirv.SpirvShader) (vk.ShaderModule, error) {
 	// Get already created shader module.
 	t.shaderModulesMutex.Lock()
-	mod, ok := t.shaderModules[spirvShader.Address]
+	mod, ok := t.shaderModules[spirvShader.GcnShader.Address]
 	t.shaderModulesMutex.Unlock()
 	if ok {
 		return mod, nil
@@ -92,35 +105,43 @@ func (t *GpuTranslator) GetShaderModule(spirvShader *spirv.SpirvShader) (vk.Shad
 		CodeSize: uint64(len(spirvShader.Code) * 4),
 		PCode:    spirvShader.Code,
 	}, nil, &module)
-	if err := NewError(result); err != nil {
-		return vk.NullShaderModule, fmt.Errorf("vkCreateShaderModule 0x%X: %w", spirvShader.Address, err)
+	if err := vulkan.NewError(result); err != nil {
+		return vk.NullShaderModule, fmt.Errorf("vkCreateShaderModule 0x%X: %w", spirvShader.GcnShader.Address, err)
 	}
-	SetDebugUtilsObjectName(t.handles.Instance, t.handles.Device, vk.ObjectTypeShaderModule, uint64(uintptr(unsafe.Pointer(module))), fmt.Sprintf("Shader 0x%X", spirvShader.Address))
+	vulkan.SetDebugUtilsObjectName(t.handles.Instance, t.handles.Device, vk.ObjectTypeShaderModule, uint64(uintptr(unsafe.Pointer(module))), fmt.Sprintf("Shader 0x%X", spirvShader.GcnShader.Address))
 	t.shaderModulesMutex.Lock()
-	t.shaderModules[spirvShader.Address] = module
+	t.shaderModules[spirvShader.GcnShader.Address] = module
 	t.shaderModulesMutex.Unlock()
 
 	return module, nil
 }
 
-func (t *GpuTranslator) GetRectlistShader() (vk.ShaderModule, error) {
+func (t *GpuTranslator) getAuxShaderModule(path, name string, cache *vk.ShaderModule) (vk.ShaderModule, error) {
 	t.shaderModulesMutex.Lock()
 	defer t.shaderModulesMutex.Unlock()
-	if t.rectlistShaderModule != vk.NullShaderModule {
-		return t.rectlistShaderModule, nil
+	if *cache != vk.NullShaderModule {
+		return *cache, nil
 	}
 
-	bytes, err := os.ReadFile("temp/shaders/shader_rectlist.spv")
+	bytes, err := os.ReadFile(path)
 	if err != nil {
 		return vk.NullShaderModule, err
 	}
-	module, err := t.GetShaderModuleFromBytes(common.SpvBytesToWords(bytes), "Rectlist Shader")
+	module, err := t.GetShaderModuleFromBytes(common.SpvBytesToWords(bytes), name)
 	if err != nil {
 		return vk.NullShaderModule, err
 	}
-	t.rectlistShaderModule = module
+	*cache = module
 
 	return module, nil
+}
+
+func (t *GpuTranslator) GetRectlistTcsShader() (vk.ShaderModule, error) {
+	return t.getAuxShaderModule("temp/shaders/shader_rectlist_tcs.spv", "Rectlist TCS", &t.rectlistTcsShaderModule)
+}
+
+func (t *GpuTranslator) GetRectlistTesShader() (vk.ShaderModule, error) {
+	return t.getAuxShaderModule("temp/shaders/shader_rectlist_tes.spv", "Rectlist TES", &t.rectlistTesShaderModule)
 }
 
 // DumpShaderOnce prints shader byte-code to a file.
@@ -132,7 +153,7 @@ func (t *GpuTranslator) DumpShaderOnce(spirvShader *spirv.SpirvShader) error {
 	}
 
 	// Dump the recompiled shader.
-	textFilename := path.Join("temp", "shaders", fmt.Sprintf("shader_0x%X_%s.spv", spirvShader.Address, spirvShader.Stage))
+	textFilename := path.Join("temp", "shaders", fmt.Sprintf("shader_0x%X_%s.spv", spirvShader.GcnShader.Address, spirvShader.GcnShader.Stage))
 	if err := os.WriteFile(textFilename, common.SpvWordsToBytes(spirvShader.Code), 0777); err != nil {
 		return err
 	}

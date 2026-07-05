@@ -2,6 +2,8 @@ github.com/CovenantSQL/HashStablePack v2.0.0+incompatible h1:gV5qy4uU6X8gF3BEoIY
 github.com/CovenantSQL/HashStablePack v2.0.0+incompatible/go.mod h1:j3/ZR//Y2JLhvJrwzE0TUe4Jx2L80N7r8xh6gfQkkUg=
 github.com/LamkasDev/cimgui-go-vulkan v0.0.0-20260410221204-bd4ebb3a4cf0 h1:nlRO2DArCjr2eWC2rszw8tq8eYD3SFq/yrK8TVTVL2o=
 github.com/LamkasDev/cimgui-go-vulkan v0.0.0-20260410221204-bd4ebb3a4cf0/go.mod h1:3UZhIOFtx4MR0q7oL/2rRPHMzXZSGewCoZgu/pbqF5g=
+github.com/LamkasDev/cimgui-go-vulkan v0.0.0-20260707145319-90e11755ff1b h1:hu4/HyIirBeUIcIqzm5K3m70K87MGhmzV23zJ1qGQQk=
+github.com/LamkasDev/cimgui-go-vulkan v0.0.0-20260707145319-90e11755ff1b/go.mod h1:3UZhIOFtx4MR0q7oL/2rRPHMzXZSGewCoZgu/pbqF5g=
 github.com/OneOfOne/xxhash v1.2.2 h1:KMrpdQIwFcEqXDklaen+P1axHaj9BSKzvpUUfnHldSE=
 github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAElWljhcU=
 github.com/bpfsnoop/gapstone v0.0.0-20250326154852-7e3bee2c2f09 h1:TPzMoLxK2lYzfEewH2/3h1c+8W9mMkJ/9QyiAiaKR58=

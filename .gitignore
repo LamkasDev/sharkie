@@ -4,3 +4,6 @@
 /.idea
 sharkie.prof
 sharkie.log
+research/*.txt
+research/*_images/
+temp/shaders/*_feed.txt

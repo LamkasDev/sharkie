@@ -3,13 +3,12 @@ package vulkan
 import (
 	"fmt"
 
-	spirvStructs "github.com/LamkasDev/sharkie/cmd/spirv/structs"
 	vk "github.com/goki/vulkan"
 )
 
-func (t *GpuTranslator) createDescriptorPool() error {
+func CreateDescriptorPool(handles *VulkanHandles, staticLayout vk.DescriptorSetLayout) (vk.DescriptorPool, vk.DescriptorSet, error) {
 	var pool vk.DescriptorPool
-	result := vk.CreateDescriptorPool(t.handles.Device, &vk.DescriptorPoolCreateInfo{
+	result := vk.CreateDescriptorPool(handles.Device, &vk.DescriptorPoolCreateInfo{
 		SType: vk.StructureTypeDescriptorPoolCreateInfo,
 		PPoolSizes: []vk.DescriptorPoolSize{
 			{
@@ -30,64 +29,19 @@ func (t *GpuTranslator) createDescriptorPool() error {
 		Flags:         vk.DescriptorPoolCreateFlags(vk.DescriptorPoolCreateFreeDescriptorSetBit | vk.DescriptorPoolCreateUpdateAfterBindBit),
 	}, nil, &pool)
 	if err := NewError(result); err != nil {
-		return fmt.Errorf("create descriptor pool: %w", err)
+		return vk.NullDescriptorPool, vk.NullDescriptorSet, fmt.Errorf("create descriptor pool: %w", err)
 	}
-	t.descriptorPool = pool
 
-	// Allocate discovery descriptor set.
-	var discoverySet vk.DescriptorSet
-	result = vk.AllocateDescriptorSets(t.handles.Device, &vk.DescriptorSetAllocateInfo{
+	var staticSet vk.DescriptorSet
+	result = vk.AllocateDescriptorSets(handles.Device, &vk.DescriptorSetAllocateInfo{
 		SType:              vk.StructureTypeDescriptorSetAllocateInfo,
-		DescriptorPool:     t.descriptorPool,
+		DescriptorPool:     pool,
 		DescriptorSetCount: 1,
-		PSetLayouts:        []vk.DescriptorSetLayout{t.discoveryDescriptorSetLayout},
-	}, &discoverySet)
+		PSetLayouts:        []vk.DescriptorSetLayout{staticLayout},
+	}, &staticSet)
 	if err := NewError(result); err != nil {
-		return fmt.Errorf("allocate discovery descriptor set: %w", err)
+		return vk.NullDescriptorPool, vk.NullDescriptorSet, fmt.Errorf("allocate static descriptor set: %w", err)
 	}
-	t.discoveryDescriptorSet = discoverySet
 
-	// Allocate bindless descriptor set.
-	var bindlessSet vk.DescriptorSet
-	result = vk.AllocateDescriptorSets(t.handles.Device, &vk.DescriptorSetAllocateInfo{
-		SType:              vk.StructureTypeDescriptorSetAllocateInfo,
-		DescriptorPool:     t.descriptorPool,
-		DescriptorSetCount: 1,
-		PSetLayouts:        []vk.DescriptorSetLayout{t.bindlessDescriptorSetLayout},
-	}, &bindlessSet)
-	if err := NewError(result); err != nil {
-		return fmt.Errorf("allocate bindless descriptor set: %w", err)
-	}
-	t.bindlessDescriptorSet = bindlessSet
-
-	return nil
-}
-
-func (t *GpuTranslator) updateDiscoveryDescriptorSet() {
-	vk.UpdateDescriptorSets(t.handles.Device, 2, []vk.WriteDescriptorSet{
-		{
-			SType:           vk.StructureTypeWriteDescriptorSet,
-			DstSet:          t.discoveryDescriptorSet,
-			DstBinding:      spirvStructs.DiscoveryBindingMap,
-			DescriptorCount: 1,
-			DescriptorType:  vk.DescriptorTypeStorageBuffer,
-			PBufferInfo: []vk.DescriptorBufferInfo{{
-				Buffer: t.discoveryMapBuffer,
-				Offset: 0,
-				Range:  vk.DeviceSize(vk.WholeSize),
-			}},
-		},
-		{
-			SType:           vk.StructureTypeWriteDescriptorSet,
-			DstSet:          t.discoveryDescriptorSet,
-			DstBinding:      spirvStructs.DiscoveryBindingMissingResource,
-			DescriptorCount: 1,
-			DescriptorType:  vk.DescriptorTypeStorageBuffer,
-			PBufferInfo: []vk.DescriptorBufferInfo{{
-				Buffer: t.missingResourceBuffer,
-				Offset: 0,
-				Range:  vk.DeviceSize(vk.WholeSize),
-			}},
-		},
-	}, 0, nil)
+	return pool, staticSet, nil
 }

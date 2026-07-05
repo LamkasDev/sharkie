@@ -1,8 +1,6 @@
 package gpu
 
 import (
-	"fmt"
-	"os"
 	"runtime"
 	"slices"
 	"unsafe"
@@ -101,21 +99,6 @@ func (l *Liverpool) handleSetRegs(ringName string, bank []uint32, bankName strin
 		bankIndex := int(offset) + index
 		if bankIndex < len(bank) {
 			bank[bankIndex] = value
-			if l.FrameNumber == 600 {
-				f, err := os.OpenFile("temp/pm4_commands_dump.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-				if err == nil {
-					regName := bankRegNames[uint32(bankIndex)]
-					if regName == "" {
-						regName = fmt.Sprintf("0x%X", bankIndex)
-					}
-					isImpl := true
-					if bankName == "context" {
-						isImpl = slices.Contains(ImplementedContextRegisters, regName)
-					}
-					fmt.Fprintf(f, "SET_REG: Ring=%s Bank=%s Reg=%s (Val=0x%08X) Implemented=%t\n", ringName, bankName, regName, value, isImpl)
-					f.Close()
-				}
-			}
 			if false && bankName == "context" && !slices.Contains(ImplementedContextRegisters, bankRegNames[uint32(bankIndex)]) {
 				logger.Printf("[%s] set %s/%s to %s.\n",
 					color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),

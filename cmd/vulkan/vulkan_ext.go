@@ -12,6 +12,7 @@ const (
 	StructureTypePhysicalDeviceSubgroupSizeControlFeaturesExt         vk.StructureType = 1000225002
 	StructureTypeMemoryPriorityAllocateInfoExt                        vk.StructureType = 1000238001
 	StructureTypePhysicalDevicePageableDeviceLocalMemoryFeaturesExt   vk.StructureType = 1000412000
+	StructureTypePhysicalDeviceMemoryPriorityFeaturesExt              vk.StructureType = 1000238000
 )
 
 type VkPhysicalDeviceSubgroupSizeControlPropertiesEXT struct {
@@ -46,4 +47,10 @@ type VkPhysicalDevicePageableDeviceLocalMemoryFeaturesEXT struct {
 	SType                     vk.StructureType
 	PNext                     unsafe.Pointer
 	PageableDeviceLocalMemory uint32
+}
+
+type VkPhysicalDeviceMemoryPriorityFeaturesEXT struct {
+	SType          vk.StructureType
+	PNext          unsafe.Pointer
+	MemoryPriority vk.Bool32
 }

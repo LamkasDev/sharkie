@@ -1,0 +1,52 @@
+package translation
+
+import (
+	"fmt"
+
+	spirvStructs "github.com/LamkasDev/sharkie/cmd/spirv/structs"
+	"github.com/LamkasDev/sharkie/cmd/vulkan"
+	vk "github.com/goki/vulkan"
+)
+
+func (t *GpuTranslator) GetImageView(descriptor spirvStructs.ImageDescriptor) (*vulkan.VulkanImageView, error, bool) {
+	hash := descriptor.Hash()
+	format, _ := vulkan.TranslateGcnFormat(descriptor.DataFormat, descriptor.NumFormat)
+	if format == vk.FormatUndefined {
+		return nil, fmt.Errorf("invalid format"), false
+	}
+
+	image, err, created := t.GetImage(descriptor, format, false)
+	if err != nil {
+		return nil, err, false
+	}
+
+	t.imagesMutex.Lock()
+	view, ok := t.imageViews[hash]
+	if ok && view.Image == image && view.Image.Generation == image.Generation {
+		t.imagesMutex.Unlock()
+		t.RefreshImageFromGuest(image)
+
+		return view, nil, false
+	}
+	recreated := created || ok
+	if ok && !t.isOwnedSurfaceImageView(view) {
+		view.Destroy(t.handles.Device)
+	}
+	if ok {
+		delete(t.imageViews, hash)
+	}
+	t.imagesMutex.Unlock()
+
+	view, err = vulkan.CreateImageView(&t.handles, vulkan.VulkanImageViewRequest{
+		Image:      image,
+		Descriptor: descriptor,
+	})
+	if err != nil {
+		return nil, err, false
+	}
+	t.imagesMutex.Lock()
+	t.imageViews[hash] = view
+	t.imagesMutex.Unlock()
+
+	return view, nil, recreated
+}

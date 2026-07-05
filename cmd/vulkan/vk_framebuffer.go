@@ -15,8 +15,8 @@ type VulkanFramebuffer struct {
 }
 
 type FramebufferRequest struct {
-	ImageView      vk.ImageView
-	DepthImageView vk.ImageView
+	ImageView      *VulkanImageView
+	DepthImageView *VulkanImageView
 
 	FramebufferKey
 }
@@ -31,7 +31,7 @@ type FramebufferKey struct {
 	Height      uint32
 }
 
-func (t *GpuTranslator) createFramebuffer(request FramebufferRequest) (*VulkanFramebuffer, error) {
+func CreateFramebuffer(handles *VulkanHandles, request FramebufferRequest) (*VulkanFramebuffer, error) {
 	fb := &VulkanFramebuffer{}
 
 	// Attachments.
@@ -66,7 +66,7 @@ func (t *GpuTranslator) createFramebuffer(request FramebufferRequest) (*VulkanFr
 			StencilLoadOp:  vk.AttachmentLoadOpClear,
 			StencilStoreOp: vk.AttachmentStoreOpStore,
 			InitialLayout:  vk.ImageLayoutUndefined,
-			FinalLayout:    vk.ImageLayoutGeneral,
+			FinalLayout:    vk.ImageLayoutDepthStencilAttachmentOptimal,
 		}
 		depthAttachmentNoClear := vk.AttachmentDescription{
 			Format:         request.DepthFormat,
@@ -75,8 +75,8 @@ func (t *GpuTranslator) createFramebuffer(request FramebufferRequest) (*VulkanFr
 			StoreOp:        vk.AttachmentStoreOpStore,
 			StencilLoadOp:  vk.AttachmentLoadOpLoad,
 			StencilStoreOp: vk.AttachmentStoreOpStore,
-			InitialLayout:  vk.ImageLayoutGeneral,
-			FinalLayout:    vk.ImageLayoutGeneral,
+			InitialLayout:  vk.ImageLayoutDepthStencilAttachmentOptimal,
+			FinalLayout:    vk.ImageLayoutDepthStencilAttachmentOptimal,
 		}
 		depthAttachmentRef = &vk.AttachmentReference{
 			Attachment: uint32(len(attachments)),
@@ -86,20 +86,29 @@ func (t *GpuTranslator) createFramebuffer(request FramebufferRequest) (*VulkanFr
 		attachmentsNoClear = append(attachmentsNoClear, depthAttachmentNoClear)
 	}
 
+	colorAttachments := make([]vk.AttachmentReference, 8)
+	colorAttachments[0] = vk.AttachmentReference{
+		Attachment: 0,
+		Layout:     vk.ImageLayoutColorAttachmentOptimal,
+	}
+	for i := 1; i < 8; i++ {
+		colorAttachments[i] = vk.AttachmentReference{
+			Attachment: vk.AttachmentUnused,
+			Layout:     vk.ImageLayoutUndefined,
+		}
+	}
+
 	// Create render pass with clear.
 	var renderPass vk.RenderPass
-	result := vk.CreateRenderPass(t.handles.Device, &vk.RenderPassCreateInfo{
+	result := vk.CreateRenderPass(handles.Device, &vk.RenderPassCreateInfo{
 		SType:           vk.StructureTypeRenderPassCreateInfo,
 		AttachmentCount: uint32(len(attachments)),
 		PAttachments:    attachments,
 		SubpassCount:    1,
 		PSubpasses: []vk.SubpassDescription{{
-			PipelineBindPoint:    vk.PipelineBindPointGraphics,
-			ColorAttachmentCount: 1,
-			PColorAttachments: []vk.AttachmentReference{{
-				Attachment: 0,
-				Layout:     vk.ImageLayoutColorAttachmentOptimal,
-			}},
+			PipelineBindPoint:       vk.PipelineBindPointGraphics,
+			ColorAttachmentCount:    8,
+			PColorAttachments:       colorAttachments,
 			PDepthStencilAttachment: depthAttachmentRef,
 		}},
 	}, nil, &renderPass)
@@ -110,18 +119,15 @@ func (t *GpuTranslator) createFramebuffer(request FramebufferRequest) (*VulkanFr
 
 	// Create render pass without clear.
 	var renderPassNoClear vk.RenderPass
-	result = vk.CreateRenderPass(t.handles.Device, &vk.RenderPassCreateInfo{
+	result = vk.CreateRenderPass(handles.Device, &vk.RenderPassCreateInfo{
 		SType:           vk.StructureTypeRenderPassCreateInfo,
 		AttachmentCount: uint32(len(attachmentsNoClear)),
 		PAttachments:    attachmentsNoClear,
 		SubpassCount:    1,
 		PSubpasses: []vk.SubpassDescription{{
-			PipelineBindPoint:    vk.PipelineBindPointGraphics,
-			ColorAttachmentCount: 1,
-			PColorAttachments: []vk.AttachmentReference{{
-				Attachment: 0,
-				Layout:     vk.ImageLayoutColorAttachmentOptimal,
-			}},
+			PipelineBindPoint:       vk.PipelineBindPointGraphics,
+			ColorAttachmentCount:    8,
+			PColorAttachments:       colorAttachments,
 			PDepthStencilAttachment: depthAttachmentRef,
 		}},
 	}, nil, &renderPassNoClear)
@@ -136,18 +142,15 @@ func (t *GpuTranslator) createFramebuffer(request FramebufferRequest) (*VulkanFr
 			attachments[1],
 		}
 		var renderPassLoadColorClearDepth vk.RenderPass
-		result = vk.CreateRenderPass(t.handles.Device, &vk.RenderPassCreateInfo{
+		result = vk.CreateRenderPass(handles.Device, &vk.RenderPassCreateInfo{
 			SType:           vk.StructureTypeRenderPassCreateInfo,
 			AttachmentCount: uint32(len(attachmentsLoadColorClearDepth)),
 			PAttachments:    attachmentsLoadColorClearDepth,
 			SubpassCount:    1,
 			PSubpasses: []vk.SubpassDescription{{
-				PipelineBindPoint:    vk.PipelineBindPointGraphics,
-				ColorAttachmentCount: 1,
-				PColorAttachments: []vk.AttachmentReference{{
-					Attachment: 0,
-					Layout:     vk.ImageLayoutColorAttachmentOptimal,
-				}},
+				PipelineBindPoint:       vk.PipelineBindPointGraphics,
+				ColorAttachmentCount:    8,
+				PColorAttachments:       colorAttachments,
 				PDepthStencilAttachment: depthAttachmentRef,
 			}},
 		}, nil, &renderPassLoadColorClearDepth)
@@ -161,18 +164,15 @@ func (t *GpuTranslator) createFramebuffer(request FramebufferRequest) (*VulkanFr
 			attachmentsNoClear[1],
 		}
 		var renderPassClearColorLoadDepth vk.RenderPass
-		result = vk.CreateRenderPass(t.handles.Device, &vk.RenderPassCreateInfo{
+		result = vk.CreateRenderPass(handles.Device, &vk.RenderPassCreateInfo{
 			SType:           vk.StructureTypeRenderPassCreateInfo,
 			AttachmentCount: uint32(len(attachmentsClearColorLoadDepth)),
 			PAttachments:    attachmentsClearColorLoadDepth,
 			SubpassCount:    1,
 			PSubpasses: []vk.SubpassDescription{{
-				PipelineBindPoint:    vk.PipelineBindPointGraphics,
-				ColorAttachmentCount: 1,
-				PColorAttachments: []vk.AttachmentReference{{
-					Attachment: 0,
-					Layout:     vk.ImageLayoutColorAttachmentOptimal,
-				}},
+				PipelineBindPoint:       vk.PipelineBindPointGraphics,
+				ColorAttachmentCount:    8,
+				PColorAttachments:       colorAttachments,
 				PDepthStencilAttachment: depthAttachmentRef,
 			}},
 		}, nil, &renderPassClearColorLoadDepth)
@@ -183,12 +183,12 @@ func (t *GpuTranslator) createFramebuffer(request FramebufferRequest) (*VulkanFr
 	}
 
 	// Create framebuffer.
-	views := []vk.ImageView{request.ImageView}
-	if request.DepthImageView != vk.NullImageView {
-		views = append(views, request.DepthImageView)
+	views := []vk.ImageView{request.ImageView.ImageView}
+	if request.DepthImageView != nil {
+		views = append(views, request.DepthImageView.ImageView)
 	}
 	var framebuffer vk.Framebuffer
-	result = vk.CreateFramebuffer(t.handles.Device, &vk.FramebufferCreateInfo{
+	result = vk.CreateFramebuffer(handles.Device, &vk.FramebufferCreateInfo{
 		SType:           vk.StructureTypeFramebufferCreateInfo,
 		RenderPass:      fb.RenderPass,
 		AttachmentCount: uint32(len(views)),
@@ -203,4 +203,23 @@ func (t *GpuTranslator) createFramebuffer(request FramebufferRequest) (*VulkanFr
 	fb.Framebuffer = framebuffer
 
 	return fb, nil
+}
+
+func (fb *VulkanFramebuffer) Destroy(device vk.Device) {
+	if fb == nil {
+		return
+	}
+	if fb.Framebuffer != vk.NullFramebuffer {
+		vk.DestroyFramebuffer(device, fb.Framebuffer, nil)
+		fb.Framebuffer = vk.NullFramebuffer
+	}
+	destroyRenderPass := func(rp vk.RenderPass) {
+		if rp != vk.NullRenderPass {
+			vk.DestroyRenderPass(device, rp, nil)
+		}
+	}
+	destroyRenderPass(fb.RenderPass)
+	destroyRenderPass(fb.RenderPassNoClear)
+	destroyRenderPass(fb.RenderPassLoadColorClearDepth)
+	destroyRenderPass(fb.RenderPassClearColorLoadDepth)
 }

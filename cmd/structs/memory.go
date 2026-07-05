@@ -16,6 +16,18 @@ var GlobalAllocator *Allocator
 // GlobalGpuAllocator should be used for GPU-memory allocations.
 var GlobalGpuAllocator *Allocator
 
+// GuestBacking holds the unified Vulkan device memory backing direct (onion+garlic) regions.
+type GuestBackingStore struct {
+	Buffer        vulkan.Buffer
+	Memory        vulkan.DeviceMemory
+	DeviceAddress uint64
+	TotalSize     uint64
+	OnionOffset   uintptr
+	GarlicOffset  uintptr
+}
+
+var GuestBacking GuestBackingStore
+
 // GlobalGoAllocator should be used for implicit allocations (inside init stubs, etc.)
 var GlobalGoAllocator *GoAllocator
 
@@ -78,6 +90,9 @@ func SetupAllocator() {
 	GlobalAllocator = NewAllocator(0x400000000, DirectMemoryDefaultSize)
 	GlobalGpuAllocator = NewAllocator(0xFE0000000, GpuMemoryDefaultSize)
 	GlobalGoAllocator = NewGoAllocator()
+	GuestBacking.OnionOffset = 0
+	GuestBacking.GarlicOffset = uintptr(DirectMemoryDefaultSize)
+	GuestBacking.TotalSize = DirectMemoryDefaultSize + GpuMemoryDefaultSize
 }
 
 // NewAllocator creates a new instance of Allocator.
