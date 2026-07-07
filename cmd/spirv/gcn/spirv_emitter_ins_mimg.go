@@ -3,10 +3,10 @@ package gcn
 import (
 	"fmt"
 
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/gcn"
+	gcnSpec "github.com/LamkasDev/sharkie/cmd/lib_structs/gcn/spec"
 	. "github.com/LamkasDev/sharkie/cmd/spirv/common"
 	"github.com/LamkasDev/sharkie/cmd/spirv/spec"
-	"github.com/LamkasDev/sharkie/cmd/structs/gcn"
-	gcnSpec "github.com/LamkasDev/sharkie/cmd/structs/gcn/spec"
 )
 
 const (

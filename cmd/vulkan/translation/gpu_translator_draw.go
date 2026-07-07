@@ -5,10 +5,10 @@ import (
 	"time"
 	"unsafe"
 
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/gpu"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	spirvStructs "github.com/LamkasDev/sharkie/cmd/spirv/structs"
-	. "github.com/LamkasDev/sharkie/cmd/structs"
-	"github.com/LamkasDev/sharkie/cmd/structs/gpu"
 	vk "github.com/goki/vulkan"
 	"github.com/gookit/color"
 )

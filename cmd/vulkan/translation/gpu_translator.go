@@ -11,10 +11,12 @@ import (
 
 	"github.com/LamkasDev/cimgui-go-vulkan/backend"
 	glfwvulkanbackend "github.com/LamkasDev/cimgui-go-vulkan/backend/glfwvulkan-backend"
+	"github.com/LamkasDev/sharkie/cmd/lib_structs"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/gpu"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/LamkasDev/sharkie/cmd/spirv"
-	. "github.com/LamkasDev/sharkie/cmd/structs"
-	"github.com/LamkasDev/sharkie/cmd/structs/gpu"
+	"github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/LamkasDev/sharkie/cmd/vulkan"
 	vk "github.com/goki/vulkan"
 	"github.com/gookit/color"
@@ -253,10 +255,10 @@ func NewGpuTranslator(handles vulkan.VulkanHandles, bknd backend.Backend[glfwvul
 	t.quadListIndexBuffer = quadListIndexBuffer
 	t.quadListIndexBufferMem = quadListIndexBufferMem
 
-	GlobalMemoryManager.SetRasterizer(t)
-	GlobalMemoryManager.Guest().RegisterPreMapped()
-	GlobalMemoryManager.OnMapGuest(GlobalAllocator.Base, uintptr(GlobalAllocator.Size))
-	GlobalMemoryManager.OnMapGuest(GlobalGpuAllocator.Base, uintptr(GlobalGpuAllocator.Size))
+	structs.GlobalMemoryManager.SetRasterizer(t)
+	structs.GlobalMemoryManager.Guest().RegisterPreMapped()
+	structs.GlobalMemoryManager.OnMapGuest(lib_structs.GlobalAllocator.Base, uintptr(lib_structs.GlobalAllocator.Size))
+	structs.GlobalMemoryManager.OnMapGuest(lib_structs.GlobalGpuAllocator.Base, uintptr(lib_structs.GlobalGpuAllocator.Size))
 
 	go pprof.Do(context.Background(), pprof.Labels("name", "MemorySyncWorker"), func(ctx context.Context) {
 		t.memorySyncWorker()

@@ -3,8 +3,8 @@ package translation
 import (
 	"unsafe"
 
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/gpu"
 	"github.com/LamkasDev/sharkie/cmd/logger"
-	"github.com/LamkasDev/sharkie/cmd/structs/gpu"
 	vk "github.com/goki/vulkan"
 	"github.com/gookit/color"
 )

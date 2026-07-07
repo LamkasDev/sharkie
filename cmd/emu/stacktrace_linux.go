@@ -5,7 +5,7 @@ package emu
 import (
 	"unsafe"
 
-	"github.com/LamkasDev/sharkie/cmd/structs"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
 	"github.com/LamkasDev/sharkie/cmd/sys_struct"
 )
 
@@ -19,7 +19,7 @@ func SprintStackTrace(ctx *sys_struct.SIGNAL_CONTEXT) (result string) {
 	if ctx.GetRegister(sys_struct.REG_RSP) <= 0x1000 {
 		return result
 	}
-	stackTop := thread.Stack.Address + structs.StackDefaultSize
+	stackTop := thread.Stack.Address + StackDefaultSize
 	for i := 0; i < 40; i++ {
 		if stackPtr >= stackTop {
 			break

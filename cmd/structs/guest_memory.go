@@ -1,15 +1,9 @@
 package structs
 
-import "sync"
+import (
+	"sync"
 
-// VMAType classifies how a guest virtual range was established.
-type VMAType uint8
-
-const (
-	VMATypeFree VMAType = iota
-	VMATypeDirect
-	VMATypeFlexible
-	VMATypeAnon
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
 )
 
 // GuestVMA tracks one contiguous guest virtual mapping.

@@ -9,15 +9,17 @@ import (
 	symbol "github.com/LamkasDev/sharkie/cmd/elf_symbol"
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	"github.com/LamkasDev/sharkie/cmd/lib"
+	"github.com/LamkasDev/sharkie/cmd/lib/libc"
+	"github.com/LamkasDev/sharkie/cmd/lib_structs"
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/audio"
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/dce"
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/fs"
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/gc"
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/gpu"
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/ipmi"
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/rng"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/LamkasDev/sharkie/cmd/structs"
-	"github.com/LamkasDev/sharkie/cmd/structs/audio"
-	"github.com/LamkasDev/sharkie/cmd/structs/dce"
-	"github.com/LamkasDev/sharkie/cmd/structs/fs"
-	"github.com/LamkasDev/sharkie/cmd/structs/gc"
-	"github.com/LamkasDev/sharkie/cmd/structs/gpu"
-	"github.com/LamkasDev/sharkie/cmd/structs/ipmi"
-	"github.com/LamkasDev/sharkie/cmd/structs/rng"
 	"github.com/gookit/color"
 )
 
@@ -43,15 +45,15 @@ func main() {
 	asm.AllocTlsSlots()
 	emu.SetupSignalHandler()
 	structs.SetupMemoryManagerSignalHandler()
-	structs.SetupAllocator()
+	lib_structs.SetupAllocator()
 	if err := app.SetupApplication(); err != nil {
 		panic(err)
 	}
 
 	// Setup guest stuff.
-	lib.SetupMspaceAllocator()
-	structs.SetupSemaphores()
-	structs.SetupEventFlags()
+	libc.SetupMspaceAllocator()
+	lib_structs.SetupSemaphores()
+	lib_structs.SetupEventFlags()
 	fs.SetupFilesystem()
 	rng.SetupRngDevice()
 	ipmi.SetupImpiManager()

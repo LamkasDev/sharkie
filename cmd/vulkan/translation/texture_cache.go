@@ -1,6 +1,7 @@
 package translation
 
 import (
+	"github.com/LamkasDev/sharkie/cmd/lib_structs"
 	"github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/LamkasDev/sharkie/cmd/vulkan"
 )
@@ -19,7 +20,7 @@ func (t *GpuTranslator) registerImage(image *vulkan.VulkanImage) {
 
 func (t *GpuTranslator) indexImagePages(addr, size uintptr) {
 	end := addr + size
-	for page := addr >> structs.SystemPageShift; (page << structs.SystemPageShift) < end; page++ {
+	for page := addr >> lib_structs.SystemPageShift; (page << lib_structs.SystemPageShift) < end; page++ {
 		set := t.imagePages[page]
 		if set == nil {
 			set = map[uintptr]struct{}{}
@@ -31,7 +32,7 @@ func (t *GpuTranslator) indexImagePages(addr, size uintptr) {
 
 func (t *GpuTranslator) unindexImagePages(address, size uintptr) {
 	end := address + size
-	for page := address >> structs.SystemPageShift; (page << structs.SystemPageShift) < end; page++ {
+	for page := address >> lib_structs.SystemPageShift; (page << lib_structs.SystemPageShift) < end; page++ {
 		if set, ok := t.imagePages[page]; ok {
 			delete(set, address)
 			if len(set) == 0 {
@@ -44,7 +45,7 @@ func (t *GpuTranslator) unindexImagePages(address, size uintptr) {
 func (t *GpuTranslator) forEachOverlap(address, size uintptr, fn func(*vulkan.VulkanImage)) {
 	seen := map[uintptr]struct{}{}
 	end := address + size
-	for page := address >> structs.SystemPageShift; (page << structs.SystemPageShift) < end; page++ {
+	for page := address >> lib_structs.SystemPageShift; (page << lib_structs.SystemPageShift) < end; page++ {
 		for imageAddr := range t.imagePages[page] {
 			if _, ok := seen[imageAddr]; ok {
 				continue

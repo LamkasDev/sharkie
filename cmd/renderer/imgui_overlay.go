@@ -10,8 +10,8 @@ import (
 	"github.com/LamkasDev/cimgui-go-vulkan/backend"
 	glfwvulkanbackend "github.com/LamkasDev/cimgui-go-vulkan/backend/glfwvulkan-backend"
 	"github.com/LamkasDev/cimgui-go-vulkan/imgui"
-	"github.com/LamkasDev/sharkie/cmd/structs/gc"
-	"github.com/LamkasDev/sharkie/cmd/structs/gpu"
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/gc"
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/gpu"
 	atomicc "go.uber.org/atomic"
 )
 

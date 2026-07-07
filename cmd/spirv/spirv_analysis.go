@@ -1,10 +1,10 @@
 package spirv
 
 import (
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/gcn"
+	gcnSpec "github.com/LamkasDev/sharkie/cmd/lib_structs/gcn/spec"
 	. "github.com/LamkasDev/sharkie/cmd/spirv/common"
 	"github.com/LamkasDev/sharkie/cmd/spirv/structs"
-	. "github.com/LamkasDev/sharkie/cmd/structs/gcn"
-	gcnSpec "github.com/LamkasDev/sharkie/cmd/structs/gcn/spec"
 )
 
 func AnalyzeResources(shader *GcnShader) []SpirvShaderResource {

@@ -1,8 +1,8 @@
 package common
 
 import (
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/gcn"
 	"github.com/LamkasDev/sharkie/cmd/spirv/spec"
-	. "github.com/LamkasDev/sharkie/cmd/structs/gcn"
 )
 
 // EmitBranch emits OpBranch.

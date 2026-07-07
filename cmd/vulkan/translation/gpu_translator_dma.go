@@ -1,7 +1,7 @@
 package translation
 
 import (
-	"github.com/LamkasDev/sharkie/cmd/structs/gpu"
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/gpu"
 	vk "github.com/goki/vulkan"
 )
 

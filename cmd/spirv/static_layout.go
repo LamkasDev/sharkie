@@ -1,8 +1,8 @@
 package spirv
 
 import (
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/gcn"
 	. "github.com/LamkasDev/sharkie/cmd/spirv/common"
-	"github.com/LamkasDev/sharkie/cmd/structs/gcn"
 )
 
 // BuildStaticLayout assigns Set-2 array indices per access kind (sampled and storage

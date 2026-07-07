@@ -1,6 +1,10 @@
 package structs
 
-import "sync"
+import (
+	"sync"
+
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
+)
 
 // MemoryRasterizer handles guest CPU faults and map/unmap notifications.
 type MemoryRasterizer interface {
@@ -27,13 +31,19 @@ var GlobalMemoryManager = &MemoryManager{
 	guest:       newGuestMemory(),
 }
 
-const SystemPageShift = 12
-const SystemPageSize = uintptr(1 << SystemPageShift)
+func init() {
+	HookRegisterDirectAllocation = GlobalMemoryManager.Guest().RegisterDirectAllocation
+	HookMapAnonymous = GlobalMemoryManager.Guest().MapAnonymous
+	HookMapDirect = GlobalMemoryManager.Guest().MapDirect
+	HookOnMapGuest = GlobalMemoryManager.OnMapGuest
+	HookOnUnmapGuest = GlobalMemoryManager.OnUnmapGuest
+	HookOnProtectGuest = GlobalMemoryManager.OnProtectGuest
+}
 
 func alignPageRange(address, size uintptr) (start, end uintptr) {
-	start = address & ^(SystemPageSize - 1)
+	start = address & ^(uintptr(0x1000) - 1)
 	end = address + size
-	end = (end + SystemPageSize - 1) & ^(SystemPageSize - 1)
+	end = (end + uintptr(0x1000) - 1) & ^(uintptr(0x1000) - 1)
 
 	return start, end
 }

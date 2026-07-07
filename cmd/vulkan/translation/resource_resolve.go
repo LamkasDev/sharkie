@@ -3,11 +3,11 @@ package translation
 import (
 	"unsafe"
 
+	gcnSpec "github.com/LamkasDev/sharkie/cmd/lib_structs/gcn/spec"
 	"github.com/LamkasDev/sharkie/cmd/spirv"
 	. "github.com/LamkasDev/sharkie/cmd/spirv/common"
 	spirvGcn "github.com/LamkasDev/sharkie/cmd/spirv/gcn"
 	spirvStructs "github.com/LamkasDev/sharkie/cmd/spirv/structs"
-	gcnSpec "github.com/LamkasDev/sharkie/cmd/structs/gcn/spec"
 	"github.com/LamkasDev/sharkie/cmd/vulkan"
 	"go101.org/nstd"
 )

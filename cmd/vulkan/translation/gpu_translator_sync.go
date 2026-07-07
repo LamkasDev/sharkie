@@ -5,6 +5,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/LamkasDev/sharkie/cmd/lib_structs"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/LamkasDev/sharkie/cmd/structs"
 )
@@ -37,11 +38,11 @@ func (t *GpuTranslator) memorySyncWorker() {
 
 		if req.IsWrite {
 			syncWriteFaults.Add(1)
-			t.InvalidateMemory(req.Addr, structs.SystemPageSize)
+			t.InvalidateMemory(req.Addr, lib_structs.SystemPageSize)
 		} else {
 			syncReadFaults.Add(1)
 			before := syncDownloads.Load()
-			t.ReadMemory(req.Addr, structs.SystemPageSize)
+			t.ReadMemory(req.Addr, lib_structs.SystemPageSize)
 			if syncDownloads.Load() > before {
 				// downloadVkImageToGuest increments via recordDownload
 			}

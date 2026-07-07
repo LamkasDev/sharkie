@@ -1,9 +1,9 @@
 package structs
 
 import (
+	gcnSpec "github.com/LamkasDev/sharkie/cmd/lib_structs/gcn/spec"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	. "github.com/LamkasDev/sharkie/cmd/spirv/common"
-	gcnSpec "github.com/LamkasDev/sharkie/cmd/structs/gcn/spec"
 	"github.com/gookit/color"
 	"go101.org/nstd"
 )

@@ -3,9 +3,9 @@ package gcn
 import (
 	"fmt"
 
+	gcnSpec "github.com/LamkasDev/sharkie/cmd/lib_structs/gcn/spec"
 	. "github.com/LamkasDev/sharkie/cmd/spirv/common"
 	"github.com/LamkasDev/sharkie/cmd/spirv/spec"
-	gcnSpec "github.com/LamkasDev/sharkie/cmd/structs/gcn/spec"
 )
 
 func EmitEXP(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext) {

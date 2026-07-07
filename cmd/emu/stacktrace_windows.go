@@ -5,7 +5,7 @@ package emu
 import (
 	"unsafe"
 
-	"github.com/LamkasDev/sharkie/cmd/structs"
+	"github.com/LamkasDev/sharkie/cmd/lib_structs"
 	"github.com/LamkasDev/sharkie/cmd/sys_struct"
 )
 

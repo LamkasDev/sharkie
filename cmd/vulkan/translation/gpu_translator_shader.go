@@ -7,9 +7,9 @@ import (
 	"path"
 	"unsafe"
 
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/gcn"
 	"github.com/LamkasDev/sharkie/cmd/spirv"
 	"github.com/LamkasDev/sharkie/cmd/spirv/common"
-	"github.com/LamkasDev/sharkie/cmd/structs/gcn"
 	"github.com/LamkasDev/sharkie/cmd/vulkan"
 	vk "github.com/goki/vulkan"
 )

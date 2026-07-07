@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"math"
 
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/gcn"
+	gcnSpec "github.com/LamkasDev/sharkie/cmd/lib_structs/gcn/spec"
 	. "github.com/LamkasDev/sharkie/cmd/spirv/common"
 	"github.com/LamkasDev/sharkie/cmd/spirv/spec"
 	. "github.com/LamkasDev/sharkie/cmd/spirv/structs"
-	. "github.com/LamkasDev/sharkie/cmd/structs"
-	. "github.com/LamkasDev/sharkie/cmd/structs/gcn"
-	gcnSpec "github.com/LamkasDev/sharkie/cmd/structs/gcn/spec"
 )
 
 type SpirvShaderContext struct {

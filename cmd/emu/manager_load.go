@@ -8,10 +8,10 @@ import (
 	"strings"
 
 	"github.com/LamkasDev/sharkie/cmd/elf"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
 	"github.com/LamkasDev/sharkie/cmd/linker"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/LamkasDev/sharkie/cmd/patcher"
-	"github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/gookit/color"
 )
 
@@ -187,7 +187,7 @@ func (m *ModuleManager) RunModule(name string) {
 		"Running module %s...\n",
 		color.Blue.Sprint(name),
 	)
-	m.MainThread = CreateThread("MainThread", structs.StackDefaultSize)
+	m.MainThread = CreateThread("MainThread", StackDefaultSize)
 	m.MainThread.Setup()
 
 	visited := make(map[string]bool)

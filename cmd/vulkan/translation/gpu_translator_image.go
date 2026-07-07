@@ -1,6 +1,7 @@
 package translation
 
 import (
+	"github.com/LamkasDev/sharkie/cmd/lib_structs"
 	spirvStructs "github.com/LamkasDev/sharkie/cmd/spirv/structs"
 	"github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/LamkasDev/sharkie/cmd/vulkan"
@@ -117,7 +118,7 @@ func (t *GpuTranslator) MarkGpuModified(image *vulkan.VulkanImage) {
 		image.SetSync(vulkan.ImageSyncGuestUploaded)
 		image.ClearSync(vulkan.ImageSyncCpuDirty)
 		structs.ClearRegionDirty(image.Address, vulkan.DescriptorRegionSize(image.FirstDescriptor))
-		size = structs.SystemPageSize
+		size = lib_structs.SystemPageSize
 	}
 	t.imagesMutex.Lock()
 	t.markGpuModifiedRegion(image.Address, size)

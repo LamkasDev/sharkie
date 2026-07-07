@@ -3,11 +3,11 @@ package translation
 import (
 	"unsafe"
 
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/gpu"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/LamkasDev/sharkie/cmd/spirv"
 	spirvStructs "github.com/LamkasDev/sharkie/cmd/spirv/structs"
-	. "github.com/LamkasDev/sharkie/cmd/structs"
-	"github.com/LamkasDev/sharkie/cmd/structs/gpu"
 	"github.com/LamkasDev/sharkie/cmd/vulkan"
 	vk "github.com/goki/vulkan"
 	"github.com/gookit/color"

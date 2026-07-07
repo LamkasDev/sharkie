@@ -6,8 +6,8 @@ import (
 
 	"github.com/LamkasDev/sharkie/cmd/asm"
 	"github.com/LamkasDev/sharkie/cmd/elf"
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/tcb"
 	"github.com/LamkasDev/sharkie/cmd/logger"
-	"github.com/LamkasDev/sharkie/cmd/structs/tcb"
 	"github.com/gookit/color"
 )
 

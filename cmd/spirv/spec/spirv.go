@@ -1,6 +1,6 @@
 package spec
 
-import . "github.com/LamkasDev/sharkie/cmd/structs/gcn"
+import . "github.com/LamkasDev/sharkie/cmd/lib_structs/gcn"
 
 // Magic and version.
 const (

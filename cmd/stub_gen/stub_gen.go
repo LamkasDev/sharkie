@@ -413,8 +413,8 @@ import (
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/asm"
-	. "github.com/LamkasDev/sharkie/cmd/structs"
-	"github.com/LamkasDev/sharkie/cmd/structs/fs"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/fs"
 )
 
 func CreateDispatcher(goFn any) asm.StubDispatcher {

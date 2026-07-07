@@ -1,9 +1,9 @@
 package structs
 
 import (
+	gcnSpec "github.com/LamkasDev/sharkie/cmd/lib_structs/gcn/spec"
 	. "github.com/LamkasDev/sharkie/cmd/spirv/common"
 	"github.com/LamkasDev/sharkie/cmd/spirv/spec"
-	gcnSpec "github.com/LamkasDev/sharkie/cmd/structs/gcn/spec"
 )
 
 func EmitFormatUnpackHelper(b *SpvBuilder, ctx *SpirvBlockContext, baseAddress, byteOffset, dw3 SpirvId, op uint32) SpirvId {

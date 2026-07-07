@@ -5,6 +5,7 @@ import (
 	"syscall"
 	"unsafe"
 
+	"github.com/LamkasDev/sharkie/cmd/lib_structs"
 	spirvStructs "github.com/LamkasDev/sharkie/cmd/spirv/structs"
 	"github.com/LamkasDev/sharkie/cmd/structs"
 	vk "github.com/goki/vulkan"
@@ -12,14 +13,14 @@ import (
 
 func (t *GpuTranslator) createDummyTexture() {
 	// Setup space for dummy texture.
-	data, err := syscall.Mmap(-1, 0, int(structs.SystemPageSize), syscall.PROT_READ|syscall.PROT_WRITE, syscall.MAP_ANON|syscall.MAP_PRIVATE)
+	data, err := syscall.Mmap(-1, 0, int(lib_structs.SystemPageSize), syscall.PROT_READ|syscall.PROT_WRITE, syscall.MAP_ANON|syscall.MAP_PRIVATE)
 	if err != nil {
 		fmt.Printf("failed to map dummy texture memory: %v\n", err)
 		return
 	}
 	baseAddress := uintptr(unsafe.Pointer(&data[0]))
-	structs.GlobalMemoryManager.Guest().MapAnonymous(baseAddress, uint64(structs.SystemPageSize), structs.PROT_READ|structs.PROT_WRITE|structs.PROT_GPU_READ, structs.VMATypeAnon)
-	structs.GlobalMemoryManager.OnMapGuest(baseAddress, structs.SystemPageSize)
+	structs.GlobalMemoryManager.Guest().MapAnonymous(baseAddress, uint64(lib_structs.SystemPageSize), lib_structs.PROT_READ|lib_structs.PROT_WRITE|lib_structs.PROT_GPU_READ, lib_structs.VMATypeAnon)
+	structs.GlobalMemoryManager.OnMapGuest(baseAddress, lib_structs.SystemPageSize)
 	*(*uint32)(unsafe.Pointer(baseAddress)) = 0xFFFF00FF // magenta
 
 	surface, err := t.GetSurface(spirvStructs.ImageDescriptor{

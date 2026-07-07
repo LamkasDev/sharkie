@@ -4,6 +4,7 @@ import (
 	"sync"
 	"unsafe"
 
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
 	"golang.org/x/sys/unix"
 )
 

@@ -11,11 +11,11 @@ import (
 
 	"github.com/LamkasDev/sharkie/cmd/asm"
 	"github.com/LamkasDev/sharkie/cmd/elf"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/pthread"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/tcb"
 	"github.com/LamkasDev/sharkie/cmd/linker"
 	"github.com/LamkasDev/sharkie/cmd/logger"
-	. "github.com/LamkasDev/sharkie/cmd/structs"
-	. "github.com/LamkasDev/sharkie/cmd/structs/pthread"
-	. "github.com/LamkasDev/sharkie/cmd/structs/tcb"
 	"github.com/LamkasDev/sharkie/cmd/sys_struct"
 	"github.com/gookit/color"
 )

@@ -5,6 +5,7 @@ import (
 	"syscall"
 	"unsafe"
 
+	"github.com/LamkasDev/sharkie/cmd/lib_structs"
 	spirvStructs "github.com/LamkasDev/sharkie/cmd/spirv/structs"
 	"github.com/LamkasDev/sharkie/cmd/structs"
 	vk "github.com/goki/vulkan"
@@ -299,7 +300,7 @@ func (image *VulkanImage) DownloadFromVkImage(handles *VulkanHandles) error {
 	defer vk.UnmapMemory(handles.Device, bufferMem)
 
 	// Restore fault handlers.
-	pageMask := uintptr(structs.SystemPageSize - 1)
+	pageMask := uintptr(lib_structs.SystemPageSize - 1)
 	alignedAddress := image.Address &^ pageMask
 	alignedSize := (guestBytes + (image.Address - alignedAddress) + pageMask) &^ pageMask
 

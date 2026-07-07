@@ -1,8 +1,8 @@
 package gcn
 
 import (
+	gcnSpec "github.com/LamkasDev/sharkie/cmd/lib_structs/gcn/spec"
 	. "github.com/LamkasDev/sharkie/cmd/spirv/common"
-	gcnSpec "github.com/LamkasDev/sharkie/cmd/structs/gcn/spec"
 )
 
 func EmitVINTRP(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext) {
