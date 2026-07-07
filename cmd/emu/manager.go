@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"strings"
 	"sync"
 	"unsafe"
 
@@ -14,9 +15,7 @@ import (
 	"github.com/gookit/color"
 )
 
-var GlobalModuleManager = NewModuleManager(
-	[]string{"fs", path.Join("fs", "lib")},
-)
+var GlobalModuleManager = NewModuleManager()
 
 // ModuleManager keeps track of loaded modules.
 type ModuleManager struct {
@@ -31,9 +30,9 @@ type ModuleManager struct {
 }
 
 // NewModuleManager creates a new instance of ModuleManager.
-func NewModuleManager(linkPaths []string) *ModuleManager {
+func NewModuleManager() *ModuleManager {
 	mm := &ModuleManager{
-		LinkPaths:   linkPaths,
+		LinkPaths:   []string{},
 		Modules:     make([]*elf.Elf, 1),
 		ModulesMap:  map[string]*elf.Elf{},
 		ModulesLock: sync.RWMutex{},
@@ -44,10 +43,25 @@ func NewModuleManager(linkPaths []string) *ModuleManager {
 
 // GetModulePath returns the first valid path for a module name.
 func (m *ModuleManager) GetModulePath(name string) *string {
+	var possibleNames []string
+	if strings.HasSuffix(name, ".prx") {
+		possibleNames = append(possibleNames, strings.Replace(name, ".prx", ".elf", 1))
+		possibleNames = append(possibleNames, name)
+		possibleNames = append(possibleNames, strings.Replace(name, ".prx", ".sprx", 1))
+	} else if strings.HasSuffix(name, ".sprx") {
+		possibleNames = append(possibleNames, strings.Replace(name, ".sprx", ".elf", 1))
+		possibleNames = append(possibleNames, name)
+		possibleNames = append(possibleNames, strings.Replace(name, ".sprx", ".prx", 1))
+	} else {
+		possibleNames = []string{name}
+	}
+
 	for _, linkPath := range m.LinkPaths {
-		modulePath := path.Join(linkPath, name)
-		if _, err := os.Stat(modulePath); err == nil {
-			return &modulePath
+		for _, possibleName := range possibleNames {
+			modulePath := path.Join(linkPath, possibleName)
+			if _, err := os.Stat(modulePath); err == nil {
+				return &modulePath
+			}
 		}
 	}
 

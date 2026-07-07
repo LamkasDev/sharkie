@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"sync"
 
+	"github.com/LamkasDev/sharkie/cmd/config"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
@@ -102,6 +103,18 @@ func (shFs *SharkieFilesystem) Write(path string, data []byte) (int, error) {
 	defer file.Close()
 
 	return file.Write(data)
+}
+
+func (shFs *SharkieFilesystem) MapHostFile(path string, hostPath string, size int64) error {
+	if _, isDevice := shFs.Devices[path]; isDevice {
+		return errors.New("cannot map host file to device")
+	}
+
+	if err := shFs.Fs.MkdirAll(filepath.ToSlash(filepath.Dir(path)), 0777); err != nil {
+		return err
+	}
+
+	return shFs.Fs.MapHostFile(path, hostPath, size, 0777)
 }
 
 func (shFs *SharkieFilesystem) WriteFd(fd FileDescriptor, data []byte) (int, error) {
@@ -250,28 +263,33 @@ func (shFs *SharkieFilesystem) InitializeSystemFiles() error {
 }
 
 func (shFs *SharkieFilesystem) InitializeAppFiles() error {
-	err := filepath.WalkDir(filepath.Join("fs", "app0"), func(path string, d fs.DirEntry, err error) error {
+	image0Path := filepath.Join(config.GameDirectory, "Image0")
+	err := filepath.WalkDir(image0Path, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
 		if d.IsDir() {
 			return nil
 		}
-		data, err := os.ReadFile(path)
+		info, err := d.Info()
 		if err != nil {
 			return err
 		}
-		fsPath, err := filepath.Rel("fs", path)
+
+		relPath, err := filepath.Rel(image0Path, path)
 		if err != nil {
 			return err
 		}
-		fsPath = GetUsablePath(filepath.ToSlash(fsPath))
-		written, err := shFs.Write(fsPath, data)
+		fsPath := GetUsablePath(filepath.ToSlash(filepath.Join("app0", relPath)))
+		err = shFs.MapHostFile(fsPath, path, info.Size())
 		if err != nil {
 			return err
 		}
 		logger.Printf(
-			"Loaded file %s as %s (size=%s).\n",
+			"Mapped file %s to %s (size=%s).\n",
 			color.Blue.Sprint(path),
 			color.Blue.Sprint(fsPath),
-			color.Yellow.Sprintf("0x%X", written),
+			color.Yellow.Sprintf("0x%X", info.Size()),
 		)
 
 		return nil

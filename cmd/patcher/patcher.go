@@ -4,10 +4,11 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"path"
 	"path/filepath"
 	"strconv"
+	"strings"
 
+	"github.com/LamkasDev/sharkie/cmd/config"
 	"github.com/LamkasDev/sharkie/cmd/elf"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/bpfsnoop/gapstone"
@@ -22,16 +23,13 @@ type Patcher struct {
 	DetailedDisassembler       gapstone.Engine
 	NeededTcbAccessTrampolines []gapstone.Instruction
 
-	ForceGenerate    bool
-	PatchesDirectory string
+	ForceGenerate bool
 }
 
 // NewPatcher creates a new instance of Patcher.
 func NewPatcher() *Patcher {
 	var err error
-	p := &Patcher{
-		PatchesDirectory: path.Join("data", "patches"),
-	}
+	p := &Patcher{}
 	p.FastDisassembler, err = gapstone.New(gapstone.CS_ARCH_X86, gapstone.CS_MODE_64)
 	if err != nil {
 		panic(err)
@@ -50,13 +48,20 @@ func NewPatcher() *Patcher {
 // Patch patches the ELF file.
 func (p *Patcher) Patch(e *elf.Elf) error {
 	p.NeededTcbAccessTrampolines = []gapstone.Instruction{}
-	patchPath := filepath.Join(p.PatchesDirectory, fmt.Sprintf("%s.patch", e.Name))
+
+	var patchDir string
+	if strings.HasPrefix(e.Path, config.GetLibDir()) {
+		cachePath, _ := config.AppScope.CacheDir()
+		patchDir = filepath.Join(cachePath, "patches")
+	} else {
+		patchDir = filepath.Join(config.GetGameCacheDir(), "patches")
+	}
+	patchPath := filepath.Join(patchDir, fmt.Sprintf("%s.patch", e.Name))
+
 	if !p.ForceGenerate {
-		if _, err := os.Stat(patchPath); err != nil {
-			logger.Print(color.Gray.Sprintf("Didn't patch any instructions...\n"))
-			return nil
+		if _, err := os.Stat(patchPath); err == nil {
+			return p.PatchFast(e, patchPath)
 		}
-		return p.PatchFast(e, patchPath)
 	}
 
 	return p.PatchSlow(e, patchPath)
@@ -103,10 +108,15 @@ func (p *Patcher) PatchFast(e *elf.Elf, patchPath string) error {
 		p.CreateTcbAccessTrampoline(e, inst)
 	}
 
-	logger.Printf(
-		"Patched %s instructions.\n",
-		color.Green.Sprintf("%d", patchCount),
-	)
+	if patchCount == 0 {
+		logger.Print(color.Gray.Sprintf("Didn't patch any instructions...\n"))
+	} else {
+		logger.Printf(
+			"Patched %s instructions.\n",
+			color.Green.Sprintf("%d", patchCount),
+		)
+	}
+
 	return nil
 }
 
@@ -163,15 +173,15 @@ func (p *Patcher) PatchSlow(e *elf.Elf, patchPath string) error {
 
 	if len(patchOffsets) == 0 {
 		logger.Print(color.Gray.Sprintf("Didn't patch any instructions...\n"))
-		return nil
+	} else {
+		logger.Printf(
+			"Patched %s instructions.\n",
+			color.Green.Sprintf("%d", len(patchOffsets)),
+		)
 	}
-	logger.Printf(
-		"Patched %s instructions.\n",
-		color.Green.Sprintf("%d", len(patchOffsets)),
-	)
 
 	// Save patches to a file.
-	if err := os.MkdirAll(p.PatchesDirectory, 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(patchPath), 0755); err != nil {
 		return err
 	}
 	file, err := os.Create(patchPath)

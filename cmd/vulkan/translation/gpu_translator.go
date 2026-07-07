@@ -3,7 +3,6 @@ package translation
 import (
 	"context"
 	"fmt"
-	"os"
 	"runtime"
 	"runtime/pprof"
 	"sync"
@@ -115,10 +114,6 @@ type GpuTranslator struct {
 
 // NewGpuTranslator creates a GpuTranslator, loads stub shaders and builds the stub pipeline layout.
 func NewGpuTranslator(handles vulkan.VulkanHandles, bknd backend.Backend[glfwvulkanbackend.GLFWWindowFlags]) (*GpuTranslator, error) {
-	if err := os.MkdirAll("temp/shaders", 0777); err != nil {
-		return nil, fmt.Errorf("GpuTranslator: create temp/shaders directory: %w", err)
-	}
-
 	t := &GpuTranslator{
 		handles: handles,
 		backend: bknd,

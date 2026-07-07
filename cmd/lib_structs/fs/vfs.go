@@ -18,13 +18,23 @@ type FS struct {
 
 // Node represents a file or directory in memory.
 type Node struct {
-	name     string
-	isDir    bool
-	mode     fs.FileMode
-	modTime  time.Time
-	data     []byte
-	children map[string]*Node
-	mu       sync.RWMutex
+	name      string
+	isDir     bool
+	mode      fs.FileMode
+	modTime   time.Time
+	data      []byte
+	hostPath  string
+	size      int64
+	openCount int
+	children  map[string]*Node
+	mu        sync.RWMutex
+}
+
+func (node *Node) getSize() int64 {
+	if node.data != nil {
+		return int64(len(node.data))
+	}
+	return node.size
 }
 
 // NewFS creates a new in-memory file system.
@@ -143,17 +153,67 @@ func (fsys *FS) OpenFile(name string, flag int, perm os.FileMode) (*File, error)
 		}
 		if flag&os.O_TRUNC != 0 {
 			node.mu.Lock()
-			node.data = node.data[:0]
+			node.data = make([]byte, 0)
+			node.size = 0
 			node.modTime = time.Now()
 			node.mu.Unlock()
+		} else if node.hostPath != "" && node.data == nil {
+			node.mu.Lock()
+			data, err := os.ReadFile(node.hostPath)
+			if err == nil {
+				node.data = data
+			}
+			node.mu.Unlock()
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 
+	node.mu.Lock()
+	node.openCount++
+	node.mu.Unlock()
+
 	f := &File{node: node, flag: flag}
 	if flag&os.O_APPEND != 0 {
-		f.offset = int64(len(node.data))
+		f.offset = node.getSize()
 	}
 	return f, nil
+}
+
+// MapHostFile creates a node that points to a file on the host OS.
+func (fsys *FS) MapHostFile(name string, hostPath string, size int64, perm os.FileMode) error {
+	fsys.mu.Lock()
+	defer fsys.mu.Unlock()
+
+	name = strings.TrimLeft(name, "/")
+	dirPath, baseName := ".", name
+	if idx := strings.LastIndex(name, "/"); idx >= 0 {
+		dirPath = name[:idx]
+		baseName = name[idx+1:]
+	}
+
+	dir, err := fsys.resolveDir(dirPath)
+	if err != nil {
+		return err
+	}
+
+	dir.mu.Lock()
+	defer dir.mu.Unlock()
+
+	if _, exists := dir.children[baseName]; exists {
+		return fs.ErrExist
+	}
+
+	dir.children[baseName] = &Node{
+		name:     baseName,
+		isDir:    false,
+		mode:     perm,
+		modTime:  time.Now(),
+		hostPath: hostPath,
+		size:     size,
+	}
+	return nil
 }
 
 // Open is a convenience wrapper for io/fs compatibility.
@@ -318,7 +378,7 @@ func (f *File) Stat() (fs.FileInfo, error) {
 	defer f.node.mu.RUnlock()
 	return &fileInfo{
 		name:    f.node.name,
-		size:    int64(len(f.node.data)),
+		size:    f.node.getSize(),
 		modTime: f.node.modTime,
 		mode:    f.node.mode,
 	}, nil
@@ -327,7 +387,19 @@ func (f *File) Stat() (fs.FileInfo, error) {
 func (f *File) Close() error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if f.closed {
+		return nil
+	}
 	f.closed = true
+
+	f.node.mu.Lock()
+	defer f.node.mu.Unlock()
+	f.node.openCount--
+	if f.node.openCount == 0 && f.node.hostPath != "" {
+		f.node.size = int64(len(f.node.data))
+		f.node.data = nil
+	}
+
 	return nil
 }
 

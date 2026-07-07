@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 
+	"github.com/LamkasDev/sharkie/cmd/config"
 	"github.com/LamkasDev/sharkie/cmd/elf"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
 	"github.com/LamkasDev/sharkie/cmd/linker"
@@ -74,23 +76,40 @@ func (m *ModuleManager) _RecursiveLoadModule(name string) error {
 		return err
 	}
 
+	if len(data) >= 4 && string(data[0:4]) == "\x4f\x15\x3d\x1d" {
+		logger.Printf("converting to .elf using ps4_unfself.py...\n")
+		err = config.RunTool("ps4_unfself.py", *modulePath)
+		if err != nil {
+			return fmt.Errorf("failed to convert FSELF: %v", err)
+		}
+
+		elfPath := strings.TrimSuffix(*modulePath, filepath.Ext(*modulePath)) + ".elf"
+		data, err = os.ReadFile(elfPath)
+		if err != nil {
+			return fmt.Errorf("failed to read generated ELF: %v", err)
+		}
+		*modulePath = elfPath
+	}
+
 	module := elf.NewElf(data)
 	module.ModuleIndex = moduleIndex
 	module.Path = *modulePath
 	GlobalModuleManager.ModulesLock.Lock()
 	m.Modules = append(m.Modules, module)
 	m.ModulesMap[name] = module
+	if module.Name != "" && module.Name != name {
+		m.ModulesMap[module.Name] = module
+	}
 	GlobalModuleManager.ModulesLock.Unlock()
-	if module.Name == "libSceFios2.sprx" {
-		RegisterFiosStubs()
+	if module.Name == "libSceFios2.sprx" || module.Name == "libSceFios2.prx" {
+		RegisterFiosStubs(module)
 	}
 	logger.Println()
 
 	for _, needed := range module.DynamicInfo.Needed {
-		needed = strings.ReplaceAll(needed, ".prx", ".sprx")
-		if needed == "libSceGnmDriver_padebug.sprx" ||
-			needed == "libSceDbgAddressSanitizer.sprx" ||
-			needed == "libSceDipsw.sprx" {
+		if strings.HasPrefix(needed, "libSceGnmDriver_padebug") ||
+			strings.HasPrefix(needed, "libSceDbgAddressSanitizer") ||
+			strings.HasPrefix(needed, "libSceDipsw") {
 			continue
 		}
 		if err = m._RecursiveLoadModule(needed); err != nil {
@@ -109,10 +128,9 @@ func (m *ModuleManager) RunModuleInitializers(module *elf.Elf, visited map[strin
 	visited[module.Name] = true
 
 	for _, needed := range module.DynamicInfo.Needed {
-		needed = strings.ReplaceAll(needed, ".prx", ".sprx")
-		if needed == "libSceGnmDriver_padebug.sprx" ||
-			needed == "libSceDbgAddressSanitizer.sprx" ||
-			needed == "libSceDipsw.sprx" {
+		if strings.HasPrefix(needed, "libSceGnmDriver_padebug") ||
+			strings.HasPrefix(needed, "libSceDbgAddressSanitizer") ||
+			strings.HasPrefix(needed, "libSceDipsw") {
 			continue
 		}
 		if dependency := m.ModulesMap[needed]; dependency != nil {

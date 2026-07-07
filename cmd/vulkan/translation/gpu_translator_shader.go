@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path"
+	"path/filepath"
 	"unsafe"
 
+	"github.com/LamkasDev/sharkie/cmd/config"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/gcn"
 	"github.com/LamkasDev/sharkie/cmd/spirv"
 	"github.com/LamkasDev/sharkie/cmd/spirv/common"
@@ -137,11 +138,11 @@ func (t *GpuTranslator) getAuxShaderModule(path, name string, cache *vk.ShaderMo
 }
 
 func (t *GpuTranslator) GetRectlistTcsShader() (vk.ShaderModule, error) {
-	return t.getAuxShaderModule("temp/shaders/shader_rectlist_tcs.spv", "Rectlist TCS", &t.rectlistTcsShaderModule)
+	return t.getAuxShaderModule("data/shaders/shader_rectlist_tcs.spv", "Rectlist TCS", &t.rectlistTcsShaderModule)
 }
 
 func (t *GpuTranslator) GetRectlistTesShader() (vk.ShaderModule, error) {
-	return t.getAuxShaderModule("temp/shaders/shader_rectlist_tes.spv", "Rectlist TES", &t.rectlistTesShaderModule)
+	return t.getAuxShaderModule("data/shaders/shader_rectlist_tes.spv", "Rectlist TES", &t.rectlistTesShaderModule)
 }
 
 // DumpShaderOnce prints shader byte-code to a file.
@@ -153,7 +154,11 @@ func (t *GpuTranslator) DumpShaderOnce(spirvShader *spirv.SpirvShader) error {
 	}
 
 	// Dump the recompiled shader.
-	textFilename := path.Join("temp", "shaders", fmt.Sprintf("shader_0x%X_%s.spv", spirvShader.GcnShader.Address, spirvShader.GcnShader.Stage))
+	shaderDir := filepath.Join(config.GetGameCacheDir(), "shaders")
+	if err := os.MkdirAll(shaderDir, 0755); err != nil {
+		return err
+	}
+	textFilename := filepath.Join(shaderDir, fmt.Sprintf("shader_0x%X_%s.spv", spirvShader.GcnShader.Address, spirvShader.GcnShader.Stage))
 	if err := os.WriteFile(textFilename, common.SpvWordsToBytes(spirvShader.Code), 0777); err != nil {
 		return err
 	}

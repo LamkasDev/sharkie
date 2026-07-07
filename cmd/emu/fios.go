@@ -8,8 +8,7 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/sys_struct"
 )
 
-func RegisterFiosStubs() {
-	fiosModule := GlobalModuleManager.ModulesMap["libSceFios2.sprx"]
+func RegisterFiosStubs(fiosModule *elf.Elf) {
 	originalSymbol := fiosModule.SymbolTable.SymbolsMap[elf.GetSymbolHashIndex("libSceFios2", "sceFiosInitialize")]
 	originalAddress := fiosModule.BaseAddress + originalSymbol.Address
 

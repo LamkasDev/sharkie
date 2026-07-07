@@ -3,9 +3,10 @@ package gpu
 import (
 	"fmt"
 	"os"
-	"path"
+	"path/filepath"
 	"strings"
 
+	"github.com/LamkasDev/sharkie/cmd/config"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/gcn"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
@@ -66,7 +67,11 @@ func (l *Liverpool) DumpShaderOnce(shader *GcnShader) error {
 	logger.Print(sb.String())
 
 	// Dump the disassembled shader.
-	textFilename := path.Join("temp", "shaders", fmt.Sprintf("shader_0x%X_%s.txt", shader.Address, shader.Stage))
+	shaderDir := filepath.Join(config.GetGameCacheDir(), "shaders")
+	if err := os.MkdirAll(shaderDir, 0755); err != nil {
+		return err
+	}
+	textFilename := filepath.Join(shaderDir, fmt.Sprintf("shader_0x%X_%s.txt", shader.Address, shader.Stage))
 	if err := os.WriteFile(textFilename, []byte(sb.String()), 0777); err != nil {
 		return err
 	}

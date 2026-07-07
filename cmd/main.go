@@ -1,10 +1,14 @@
 package main
 
 import (
+	"fmt"
+	"os"
+	"path/filepath"
 	"runtime"
 
 	"github.com/LamkasDev/sharkie/cmd/app"
 	"github.com/LamkasDev/sharkie/cmd/asm"
+	"github.com/LamkasDev/sharkie/cmd/config"
 	"github.com/LamkasDev/sharkie/cmd/elf"
 	symbol "github.com/LamkasDev/sharkie/cmd/elf_symbol"
 	"github.com/LamkasDev/sharkie/cmd/emu"
@@ -34,8 +38,37 @@ func main() {
 	logger.StartLogging()
 	// logger.StartProfiling()
 
-	// Setup host stuff.
+	// Load config and game paths.
+	if err := config.LoadConfig(); err != nil {
+		fmt.Printf("Failed to load config: %v\n", err)
+		os.Exit(1)
+	}
+	if len(os.Args) < 2 {
+		fmt.Println("Usage: sharkie <game name or path>")
+		os.Exit(1)
+	}
+	if err := config.ResolveGame(os.Args[1]); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	// Add game directories to module linker paths.
+	emu.GlobalModuleManager.LinkPaths = append(
+		emu.GlobalModuleManager.LinkPaths,
+		config.GetLibDir(),
+		filepath.Join(config.GameDirectory, "Image0"),
+		filepath.Join(config.GameDirectory, "Image0", "sce_module"),
+	)
+
+	// Log any interesting info.
 	logger.Printf("hi from %s :3\n", color.Blue.Sprint("sharkie"))
+	cachePath, _ := config.AppScope.CacheDir()
+	logger.Printf("cache path: %s\n", cachePath)
+	dataPath, _ := config.AppScope.DataPath("")
+	logger.Printf("data path: %s\n", dataPath)
+	logger.Printf("launched game name/path: %s\n", config.GameDirectory)
+
+	// Setup host stuff.
 	asm.ExceptionHandler = emu.ExceptionHandlerGo
 	elf.GetSymbolAddress = emu.GetSymbolAddress
 	elf.GetDefiningModule = emu.GetDefiningModule
@@ -80,11 +113,23 @@ func main() {
 	symbol.LoadSymbolMap("data/aerolib.csv")
 	lib.RegisterStubs()
 
+	// Convert eboot.bin to eboot.elf, if necessary.
+	ebootElfPath := filepath.Join(config.GameDirectory, "Image0", "eboot.elf")
+	ebootBinPath := filepath.Join(config.GameDirectory, "Image0", "eboot.bin")
+	if _, err := os.Stat(ebootElfPath); err != nil {
+		logger.Printf("converting to eboot.elf using ps4_unfself.py...\n")
+		err = config.RunTool("ps4_unfself.py", ebootBinPath)
+		if err != nil {
+			logger.Printf("failed to convert eboot.bin to eboot.elf: %v\n", err)
+			os.Exit(1)
+		}
+	}
+
 	// Run main executable.
-	if err := emu.GlobalModuleManager.LoadModule("eboot.bin"); err != nil {
+	if err := emu.GlobalModuleManager.LoadModule("eboot.elf"); err != nil {
 		panic(err)
 	}
-	emu.GlobalModuleManager.RunModule("eboot.bin")
+	emu.GlobalModuleManager.RunModule("eboot.elf")
 
 	// Render stuff.
 	if err := app.RunApplication(); err != nil {
