@@ -2,6 +2,8 @@
 package audio
 
 import (
+	"sync"
+
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/fs"
 )
@@ -12,13 +14,27 @@ var GlobalAudioEngine *AudioEngine
 type AudioEngine struct {
 	Handles    map[uint32]*AudioOutHandle
 	NextHandle uint32
+	Lock       sync.Mutex
 }
 
 func NewAudioEngine() *AudioEngine {
 	return &AudioEngine{
 		Handles:    map[uint32]*AudioOutHandle{},
 		NextHandle: 0x20000001,
+		Lock:       sync.Mutex{},
 	}
+}
+
+func (ae *AudioEngine) CreateHandle() *AudioOutHandle {
+	ae.Lock.Lock()
+	defer ae.Lock.Unlock()
+	handle := &AudioOutHandle{
+		Id: ae.NextHandle,
+	}
+	ae.Handles[handle.Id] = handle
+	ae.NextHandle++
+
+	return handle
 }
 
 func SetupAudioEngine() {

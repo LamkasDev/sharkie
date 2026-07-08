@@ -96,6 +96,10 @@ func CreateDispatcher(goFn any) asm.StubDispatcher {
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn(ctx.DI, ctx.SI))
 		}
+	case func(int32, uintptr, uintptr) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(int32(ctx.DI), ctx.SI, ctx.DX))
+		}
 	case func(uint32, uint32, uintptr) int64:
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn(uint32(ctx.DI), uint32(ctx.SI), ctx.DX))

@@ -21,11 +21,7 @@ func libScePad_scePadInit() uintptr {
 // 0x0000000000000580
 // __int64 __fastcall scePadOpen(unsigned int, unsigned int, unsigned int, __m128)
 func libScePad_scePadOpen(userId, padType, index, param uintptr) uintptr {
-	handle := &PadHandle{
-		Id: GlobalPadEngine.NextHandle,
-	}
-	GlobalPadEngine.Handles[handle.Id] = handle
-	GlobalPadEngine.NextHandle++
+	handle := GlobalPadEngine.CreateHandle()
 
 	logger.Printf("%-132s %s returned %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
@@ -57,7 +53,7 @@ func libScePad_scePadRead(handleId, dataPtr, count uintptr) uintptr {
 		window := app.GlobalApplication.Window
 		if window.GetKey(glfw.KeyEnter) == glfw.Press {
 			buttons |= OrbisPadButtonCross
-			logger.Printf("pressed enter")
+			logger.Printf("pressed enter\n")
 		}
 		if window.GetKey(glfw.KeyEscape) == glfw.Press {
 			buttons |= OrbisPadButtonCircle

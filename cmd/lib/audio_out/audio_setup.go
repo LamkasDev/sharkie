@@ -10,11 +10,7 @@ import (
 // 0x0000000000000420
 // __int64 __fastcall sceAudioOutOpen(unsigned int, int, unsigned int, unsigned int, unsigned int, unsigned int)
 func libSceAudioOut_sceAudioOutOpen() uintptr {
-	handle := &AudioOutHandle{
-		Id: GlobalAudioEngine.NextHandle,
-	}
-	GlobalAudioEngine.Handles[handle.Id] = handle
-	GlobalAudioEngine.NextHandle++
+	handle := GlobalAudioEngine.CreateHandle()
 
 	logger.Printf("%-132s %s returned %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),

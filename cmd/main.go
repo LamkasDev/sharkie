@@ -23,6 +23,8 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/ipmi"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/pad"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/rng"
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/save_data"
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/user"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/gookit/color"
@@ -95,6 +97,8 @@ func main() {
 	dce.SetupDisplayCoreEngine()
 	audio.SetupAudioEngine()
 	pad.SetupPadEngine()
+	user.SetupUserManager()
+	save_data.SetupSaveDataManager()
 	gpu.SetupLiverpool()
 
 	// Hook functions.

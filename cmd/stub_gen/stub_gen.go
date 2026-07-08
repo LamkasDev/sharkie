@@ -94,6 +94,11 @@ var signatures = []Signature{
 	}},
 
 	// 3 arguments.
+	{FuncType: "func(int32, uintptr, uintptr) uintptr", Params: []Param{
+		{Name: "DI", Type: "int32"},
+		{Name: "SI", Type: "uintptr"},
+		{Name: "DX", Type: "uintptr"},
+	}},
 	{FuncType: "func(uint32, uint32, uintptr) int64", Params: []Param{
 		{Name: "DI", Type: "uint32"},
 		{Name: "SI", Type: "uint32"},

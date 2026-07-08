@@ -38,6 +38,7 @@ func libKernel_truncate_0(pathPtr Cstring, length int64) int32 {
 
 	path := GetUsablePath(GoString(pathPtr))
 	fd, err := GlobalFilesystem.Open(path, 0, 0)
+	defer GlobalFilesystem.Close(fd)
 	if err != nil {
 		logger.Printf("%-132s %s failed due to open error on %s (%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
