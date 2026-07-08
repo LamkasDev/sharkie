@@ -69,6 +69,7 @@ type LiverpoolBindPipelineInternal struct {
 	DbConservativeZExport        uint32
 
 	// Pixel shader input controls.
+	PsInControl     uint32
 	PsInputAddress  uint32
 	PsInputControls [32]uint32
 

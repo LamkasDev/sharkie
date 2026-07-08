@@ -60,7 +60,7 @@ func (t *GpuTranslator) Dispatch(frame uint64, dispatch *gpu.LiverpoolDispatch) 
 
 	// Bind resources.
 	staticSetToBind := t.staticDescriptorSet
-	storeTargets, activeStaticSet, err := t.BindResources(csSpirv, userData)
+	storeTargets, activeStaticSet, err := t.BindResources([]*spirv.SpirvShader{csSpirv}, userData)
 	if err != nil {
 		panic(err)
 	}
@@ -85,15 +85,17 @@ func (t *GpuTranslator) Dispatch(frame uint64, dispatch *gpu.LiverpoolDispatch) 
 	)
 
 	// Dispatch.
-	logger.Printf("[%s] Dispatching %s/%s/%s (compute=%s, userData=%s, userReg=%s).\n",
-		color.Blue.Sprintf("Frame %d", frame),
-		color.Yellow.Sprintf("0x%X", dispatch.DimX),
-		color.Yellow.Sprintf("0x%X", dispatch.DimY),
-		color.Yellow.Sprintf("0x%X", dispatch.DimZ),
-		color.Yellow.Sprintf("0x%X", dispatch.ComputeShader.Address),
-		color.Yellow.Sprintf("0x%X", dispatch.UserDataHash),
-		color.Green.Sprint(pushData.UserSgprCount),
-	)
+	if logger.LogRenderer {
+		logger.Printf("[%s] Dispatching %s/%s/%s (compute=%s, userData=%s, userReg=%s).\n",
+			color.Blue.Sprintf("Frame %d", frame),
+			color.Yellow.Sprintf("0x%X", dispatch.DimX),
+			color.Yellow.Sprintf("0x%X", dispatch.DimY),
+			color.Yellow.Sprintf("0x%X", dispatch.DimZ),
+			color.Yellow.Sprintf("0x%X", dispatch.ComputeShader.Address),
+			color.Yellow.Sprintf("0x%X", dispatch.UserDataHash),
+			color.Green.Sprint(pushData.UserSgprCount),
+		)
+	}
 	vk.CmdDispatch(t.commandBuffer, dispatch.DimX, dispatch.DimY, dispatch.DimZ)
 
 	// Global memory barrier to make compute writes visible.

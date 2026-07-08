@@ -7,8 +7,12 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/lib/gnm_driver"
 	"github.com/LamkasDev/sharkie/cmd/lib/kernel"
 	"github.com/LamkasDev/sharkie/cmd/lib/libc"
+	"github.com/LamkasDev/sharkie/cmd/lib/msg_dialog"
 	"github.com/LamkasDev/sharkie/cmd/lib/net_ctl"
+	"github.com/LamkasDev/sharkie/cmd/lib/pad"
+	"github.com/LamkasDev/sharkie/cmd/lib/save_data"
 	"github.com/LamkasDev/sharkie/cmd/lib/system_service"
+	"github.com/LamkasDev/sharkie/cmd/lib/user_service"
 	"github.com/LamkasDev/sharkie/cmd/lib/video_out"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
@@ -25,6 +29,10 @@ func RegisterStubs() {
 	audio_out.RegisterAudioOutStubs()
 	net_ctl.RegisterNetCtlStubs()
 	system_service.RegisterSystemServiceStubs()
+	pad.RegisterPadStubs()
+	msg_dialog.RegisterMsgDialogStubs()
+	save_data.RegisterSaveDataStubs()
+	user_service.RegisterUserServiceStubs()
 
 	RegisterMinecraftStubs()
 }

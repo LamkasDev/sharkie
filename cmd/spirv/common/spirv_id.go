@@ -184,8 +184,9 @@ const (
 	ConstIdFloat05                 = SpirvId(272)
 	ConstIdFloat1                  = SpirvId(273)
 	ConstIdFloat2                  = SpirvId(274)
-	ConstIdFloat255                = SpirvId(275)
-	ConstIdFloat65535              = SpirvId(276)
+	ConstIdFloat4                  = SpirvId(275)
+	ConstIdFloat255                = SpirvId(276)
+	ConstIdFloat65535              = SpirvId(277)
 )
 
 const (

@@ -19,7 +19,7 @@ func libSceSystemService_sceSystemServiceParamGetInt(paramId, valuePtr uintptr) 
 	var value uint32
 	switch paramId {
 	case 1: // Language.
-		value = 16 // English.
+		value = 1 // English.
 	case 2: // Date format.
 		value = 1 // DDMMYYYY.
 	case 3: // Time format.

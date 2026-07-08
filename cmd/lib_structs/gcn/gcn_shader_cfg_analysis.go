@@ -185,6 +185,53 @@ func (cfg *GcnShaderCfg) computeMergeBlocks(immDom []int) {
 			}
 		}
 	}
+
+	// SPIR-V requires that a merge block can only be a merge block for one header.
+	// We iterate through headers and inject dummy merge blocks for any shared merge blocks.
+	mergeToHeader := make(map[int]int)
+	for _, blockId := range cfg.ReversePostOrder() {
+		block := &cfg.Blocks[blockId]
+		m := block.MergeBlockId
+		if m == -1 {
+			continue
+		}
+		if _, exists := mergeToHeader[m]; !exists {
+			mergeToHeader[m] = blockId
+			continue
+		}
+
+		// This merge block is shared, we must create a unique dummy merge block.
+		newBlockId := len(cfg.Blocks)
+		dummyBlock := GcnShaderCfgBlock{
+			Id:              newBlockId,
+			Term:            TermBranch,
+			Successors:      []int{m},
+			MergeBlockId:    -1,
+			ContinueBlockId: -1,
+		}
+		cfg.Blocks = append(cfg.Blocks, dummyBlock)
+
+		// Redirect any branches from within this construct that targeted `m` to target `newBlockId` instead.
+		for i := range cfg.Blocks {
+			// Skip newly added dummy blocks.
+			if i >= newBlockId {
+				continue
+			}
+			if !cfg.dominates(immDom, blockId, i) {
+				continue
+			}
+
+			b := &cfg.Blocks[i]
+			for j, succ := range b.Successors {
+				if succ == m {
+					b.Successors[j] = newBlockId
+				}
+			}
+		}
+
+		// Update the header's merge block.
+		cfg.Blocks[blockId].MergeBlockId = newBlockId
+	}
 }
 
 type PostGcnShaderCfg struct {

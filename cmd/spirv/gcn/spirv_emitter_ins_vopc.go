@@ -13,16 +13,24 @@ func EmitVOPC(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 	var cond SpirvId
 	switch details.Op {
 	case gcnSpec.VopcOpCmpEqF32:
-		val0 := ctx.GetOperandFloatValue(b, details.Src0, instr.Literal)
-		val1 := ctx.GetOperandFloatValue(b, details.Src1, 0)
+		val0 := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
+		val1 := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src1, 0, 1)
 		cond = b.EmitFOrdEqual(typeBool, val0, val1)
 	case gcnSpec.VopcOpCmpNeqF32:
-		val0 := ctx.GetOperandFloatValue(b, details.Src0, instr.Literal)
-		val1 := ctx.GetOperandFloatValue(b, details.Src1, 0)
+		val0 := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
+		val1 := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src1, 0, 1)
 		cond = b.EmitFUnordNotEqual(typeBool, val0, val1)
+	case gcnSpec.VopcOpCmpLtF32:
+		val0 := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
+		val1 := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src1, 0, 1)
+		cond = b.EmitFOrdLessThan(typeBool, val0, val1)
+	case gcnSpec.VopcOpCmpGtF32:
+		val0 := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
+		val1 := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src1, 0, 1)
+		cond = b.EmitFOrdGreaterThan(typeBool, val0, val1)
 	case gcnSpec.VopcOpCmpGtU32:
-		val0 := ctx.GetOperandUintValue(b, details.Src0, instr.Literal)
-		val1 := ctx.GetOperandUintValue(b, details.Src1, 0)
+		val0 := GetOperandUintValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
+		val1 := GetOperandUintValueModified(b, ctx, details.Abs, details.Neg, details.Src1, 0, 1)
 		cond = b.EmitUGreaterThan(typeBool, val0, val1)
 	default:
 		panic(fmt.Sprintf("unknown vopc op %s", gcnSpec.Mnemotics[gcnSpec.EncVOPC][details.Op]))

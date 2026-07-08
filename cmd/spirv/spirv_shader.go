@@ -17,6 +17,7 @@ type SpirvShaderContext struct {
 	ThreadY uint32
 	ThreadZ uint32
 
+	PsInControl     uint32
 	PsInputAddress  uint32
 	PsInputControls [32]uint32
 }
@@ -30,7 +31,7 @@ type SpirvShader struct {
 
 func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, error) {
 	resources := AnalyzeResources(shader)
-	staticLayout := BuildStaticLayout(resources)
+	staticLayout := BuildStaticLayout(resources, shader)
 	b := NewSpvBuilder()
 
 	// Capabilities.
@@ -216,27 +217,30 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 			interfaceIds = append(interfaceIds, idColorOuts[i])
 		}
 
-		// Use PsInputAddress to determine which parameters to declare.
+		// Use PsInControl.NUM_INTERP to determine which parameters to declare.
+		// Bits 5:0 specify the number of parameters to interpolate (0-32).
+		numInterp := ctx.PsInControl & 0x3F
 		var usedParamTypes []uint8
-		for i := 0; i < 32; i++ {
-			if (ctx.PsInputAddress>>i)&1 != 0 {
+		for i := uint32(0); i < numInterp; i++ {
+			control := ctx.PsInputControls[i]
+			if (control & 0x3F) != 0x20 { // 0x20 means no match
 				usedParamTypes = append(usedParamTypes, uint8(i))
 			}
 		}
 
-		for i := range usedParamTypes {
-			control := ctx.PsInputControls[i]
+		for _, paramIdx := range usedParamTypes {
+			control := ctx.PsInputControls[paramIdx]
 			offset := control & 0x3F
 			if match := offset&0x20 == 0; match {
 				// Vertex shader match found.
 				location := offset & 0x1F
-				idParamIns[i] = b.EmitVariable(b.EmitTypePointer(spec.SpvStorageInput, typeV4Float), spec.SpvStorageInput)
-				b.EmitName(idParamIns[i], fmt.Sprintf("param_in_%d", i))
-				b.EmitDecorate(idParamIns[i], spec.SpvDecorationLocation, location)
+				idParamIns[paramIdx] = b.EmitVariable(b.EmitTypePointer(spec.SpvStorageInput, typeV4Float), spec.SpvStorageInput)
+				b.EmitName(idParamIns[paramIdx], fmt.Sprintf("param_in_%d", paramIdx))
+				b.EmitDecorate(idParamIns[paramIdx], spec.SpvDecorationLocation, location)
 				if flat := (control>>10)&1 == 1; flat {
-					b.EmitDecorate(idParamIns[i], spec.SpvDecorationFlat)
+					b.EmitDecorate(idParamIns[paramIdx], spec.SpvDecorationFlat)
 				}
-				interfaceIds = append(interfaceIds, idParamIns[i])
+				interfaceIds = append(interfaceIds, idParamIns[paramIdx])
 			}
 		}
 
@@ -386,6 +390,7 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	constIds[ConstIdFloat05] = SpirvUsedId{Id: b.AllocId(), Value: math.Float32bits(0.5), Name: "0.5"}
 	constIds[ConstIdFloat1] = SpirvUsedId{Id: b.AllocId(), Value: math.Float32bits(1.0), Name: "1.0"}
 	constIds[ConstIdFloat2] = SpirvUsedId{Id: b.AllocId(), Value: math.Float32bits(2.0), Name: "2.0"}
+	constIds[ConstIdFloat4] = SpirvUsedId{Id: b.AllocId(), Value: math.Float32bits(4.0), Name: "4.0"}
 	constIds[ConstIdFloat255] = SpirvUsedId{Id: b.AllocId(), Value: math.Float32bits(255.0), Name: "255.0"}
 	constIds[ConstIdFloat65535] = SpirvUsedId{Id: b.AllocId(), Value: math.Float32bits(65535.0), Name: "65535.0"}
 

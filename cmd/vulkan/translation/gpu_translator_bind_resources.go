@@ -12,22 +12,28 @@ import (
 )
 
 // BindResources resolves compute operands, prepares VkImages, updates bindless and/or set 2.
-func (t *GpuTranslator) BindResources(shader *spirv.SpirvShader, userData spirvStructs.UserData) ([]*vulkan.VulkanImage, vk.DescriptorSet, error) {
-	// Resolve resources accessed by the shader.
-	resources := spirv.StaticResources(shader.StaticLayout)
-	accesses := ResolveImageResources(resources, shader, userData[:])
-	if len(accesses) == 0 {
+func (t *GpuTranslator) BindResources(shaders []*spirv.SpirvShader, userData spirvStructs.UserData) ([]*vulkan.VulkanImage, vk.DescriptorSet, error) {
+	// Resolve resources accessed by the shaders.
+	var allAccesses []ResolvedImageAccess
+	var allLayouts []spirvCommon.ShaderResourceBinding
+	for _, shader := range shaders {
+		resources := spirv.StaticResources(shader.StaticLayout)
+		accesses := ResolveImageResources(resources, shader, userData[:])
+		allAccesses = append(allAccesses, accesses...)
+		allLayouts = append(allLayouts, shader.StaticLayout...)
+	}
+	if len(allAccesses) == 0 {
 		return nil, vk.NullDescriptorSet, nil
 	}
-	accessByOffset := make(map[uintptr]ResolvedImageAccess, len(accesses))
-	for _, access := range accesses {
+	accessByOffset := make(map[uintptr]ResolvedImageAccess, len(allAccesses))
+	for _, access := range allAccesses {
 		accessByOffset[access.InstructionOffset] = access
 	}
 
 	// Allocate a static set, bind resources to slots.
 	activeStaticSet := t.allocateStaticDescriptorSet()
 	boundText := fmt.Sprintf("[Frame %d] Bound slot", t.currentGuestFrame)
-	for _, binding := range shader.StaticLayout {
+	for _, binding := range allLayouts {
 		access := accessByOffset[binding.InstructionOffset]
 
 		// Get image view and sampler.
@@ -57,12 +63,12 @@ func (t *GpuTranslator) BindResources(shader *spirv.SpirvShader, userData spirvS
 		boundText += fmt.Sprintf(" %s %d (0x%X/%dx%d)", binding.Access, binding.BindingIndex, access.Descriptor.BaseAddress, access.Descriptor.Width, access.Descriptor.Height)
 	}
 	boundText += ".\n"
-	if len(shader.StaticLayout) > 0 {
+	if len(allLayouts) > 0 && logger.LogRenderer {
 		logger.Print(boundText)
 	}
 
 	// Find out which resources were written to.
-	storeTargets, err := t.StoreTargets(accesses)
+	storeTargets, err := t.StoreTargets(allAccesses)
 	if err != nil {
 		return nil, vk.NullDescriptorSet, err
 	}

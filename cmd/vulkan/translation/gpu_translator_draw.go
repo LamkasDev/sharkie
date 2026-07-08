@@ -8,6 +8,7 @@ import (
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/gpu"
 	"github.com/LamkasDev/sharkie/cmd/logger"
+	"github.com/LamkasDev/sharkie/cmd/spirv"
 	spirvStructs "github.com/LamkasDev/sharkie/cmd/spirv/structs"
 	vk "github.com/goki/vulkan"
 	"github.com/gookit/color"
@@ -33,7 +34,7 @@ func (t *GpuTranslator) Draw(frame uint64, draw *gpu.LiverpoolDraw) {
 
 	// Bind resources.
 	staticSetToBind := t.staticDescriptorSet
-	_, activeStaticSet, err := t.BindResources(t.activeFragmentShader, userData)
+	_, activeStaticSet, err := t.BindResources([]*spirv.SpirvShader{t.activeVertexShader, t.activeFragmentShader}, userData)
 	if err != nil {
 		panic(err)
 	}

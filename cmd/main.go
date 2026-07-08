@@ -21,6 +21,7 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/gc"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/gpu"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/ipmi"
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/pad"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/rng"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/LamkasDev/sharkie/cmd/structs"
@@ -93,6 +94,7 @@ func main() {
 	gc.SetupGraphicsController()
 	dce.SetupDisplayCoreEngine()
 	audio.SetupAudioEngine()
+	pad.SetupPadEngine()
 	gpu.SetupLiverpool()
 
 	// Hook functions.

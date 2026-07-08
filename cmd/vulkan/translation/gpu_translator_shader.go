@@ -21,6 +21,7 @@ type SpirvShaderKey struct {
 	ThreadY uint32
 	ThreadZ uint32
 
+	PsInControl     uint32
 	PsInputAddress  uint32
 	PsInputControls [32]uint32
 }
@@ -48,6 +49,7 @@ func (t *GpuTranslator) GetShaderWithContext(gcnShader *gcn.GcnShader, context s
 		ThreadY: context.ThreadY,
 		ThreadZ: context.ThreadZ,
 
+		PsInControl:     context.PsInControl,
 		PsInputAddress:  context.PsInputAddress,
 		PsInputControls: context.PsInputControls,
 	}

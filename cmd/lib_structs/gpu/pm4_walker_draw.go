@@ -141,6 +141,7 @@ func (l *Liverpool) recordDraw(ringName string, count uint32, isIndexed bool, in
 			MsaaEnable:          (l.Registers.Context[GREG_MM_PA_SC_MODE_CNTL_0]>>0)&1 == 1,
 			MsaaSampleLocations: l.Registers.Context[GREG_MM_PA_SC_AA_CONFIG] & 0x7,
 
+			PsInControl:    l.Registers.Context[GREG_MM_SPI_PS_IN_CONTROL],
 			PsInputAddress: l.Registers.Context[GREG_MM_SPI_PS_INPUT_ADDR],
 
 			MultiPrimIbResetEnable: l.Registers.Context[GREG_MM_VGT_MULTI_PRIM_IB_RESET_EN]&1 == 1,

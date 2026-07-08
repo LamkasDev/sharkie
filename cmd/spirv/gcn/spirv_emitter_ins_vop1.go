@@ -12,18 +12,28 @@ func EmitVOP1(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 	details := instr.Details.(*gcnSpec.VectorDetails)
 	switch details.Op {
 	case gcnSpec.Vop1OpMovB32:
-		val := ctx.GetOperandValue(b, details.Src0, instr.Literal)
-		ctx.StoreRegisterPointerMasked(b, details.Vdst+gcnSpec.OpVgpr0, val)
+		val := GetOperandUintValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
+		StoreRegisterPointerMaskedModified(b, ctx, details.Clamp, details.OMod, details.Vdst+gcnSpec.OpVgpr0, val, false)
+	case gcnSpec.Vop1OpCvtF32I32:
+		valInt := GetOperandIntValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
+		resF := b.EmitConvertSToF(ctx.GetId(BlockContextIdTypeFloat), valInt)
+		StoreRegisterPointerMaskedModified(b, ctx, details.Clamp, details.OMod, details.Vdst+gcnSpec.OpVgpr0, resF, true)
+	case gcnSpec.Vop1OpExpF32:
+		val := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
+		resF := b.EmitExtInst(ctx.GetId(BlockContextIdTypeFloat), ctx.GetId(BlockContextIdGlsl), spec.SpvGlslOpExp2, val)
+		StoreRegisterPointerMaskedModified(b, ctx, details.Clamp, details.OMod, details.Vdst+gcnSpec.OpVgpr0, resF, true)
+	case gcnSpec.Vop1OpFractF32:
+		val := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
+		resF := b.EmitExtInst(ctx.GetId(BlockContextIdTypeFloat), ctx.GetId(BlockContextIdGlsl), spec.SpvGlslOpFract, val)
+		StoreRegisterPointerMaskedModified(b, ctx, details.Clamp, details.OMod, details.Vdst+gcnSpec.OpVgpr0, resF, true)
 	case gcnSpec.Vop1OpSqrtF32:
-		val := ctx.GetOperandFloatValue(b, details.Src0, instr.Literal)
+		val := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
 		resF := b.EmitExtInst(ctx.GetId(BlockContextIdTypeFloat), ctx.GetId(BlockContextIdGlsl), spec.SpvGlslOpSqrt, val)
-		ctx.StoreRegisterPointerMasked(b, details.Vdst+gcnSpec.OpVgpr0, b.EmitBitcast(ctx.GetId(BlockContextIdTypeUint), resF))
+		StoreRegisterPointerMaskedModified(b, ctx, details.Clamp, details.OMod, details.Vdst+gcnSpec.OpVgpr0, resF, true)
 	case gcnSpec.Vop1OpRcpF32:
-		typeFloat := ctx.GetId(BlockContextIdTypeFloat)
-
-		val := ctx.GetOperandFloatValue(b, details.Src0, instr.Literal)
-		resF := b.EmitFDiv(typeFloat, ctx.GetConstId(ConstIdFloat1), val)
-		ctx.StoreRegisterPointerMasked(b, details.Vdst+gcnSpec.OpVgpr0, b.EmitBitcast(ctx.GetId(BlockContextIdTypeUint), resF))
+		val := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
+		resF := b.EmitFDiv(ctx.GetId(BlockContextIdTypeFloat), ctx.GetConstId(ConstIdFloat1), val)
+		StoreRegisterPointerMaskedModified(b, ctx, details.Clamp, details.OMod, details.Vdst+gcnSpec.OpVgpr0, resF, true)
 	default:
 		panic(fmt.Sprintf("unknown vop1 op %s", gcnSpec.Mnemotics[gcnSpec.EncVOP1][details.Op]))
 	}

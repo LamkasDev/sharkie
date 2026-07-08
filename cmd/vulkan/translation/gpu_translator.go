@@ -100,6 +100,7 @@ type GpuTranslator struct {
 	activeFramebuffer    vk.Framebuffer
 	activePipeline       vk.Pipeline
 	activeFragmentShader *spirv.SpirvShader
+	activeVertexShader   *spirv.SpirvShader
 	activeVteControl     uint32
 	activeClipControl    uint32
 	activeDynamicState   *gpu.LiverpoolSetDynamicState
@@ -361,10 +362,12 @@ func (t *GpuTranslator) Translate(frame uint64, stream *gpu.LiverpoolCommandStre
 	}
 
 	// Process command stream.
-	logger.Printf("[%s] processing %s commands in stream.\n",
-		color.Blue.Sprintf("Frame %d", frame),
-		color.Blue.Sprint(len(stream.Commands)),
-	)
+	if logger.LogRenderer {
+		logger.Printf("[%s] processing %s commands in stream.\n",
+			color.Blue.Sprintf("Frame %d", frame),
+			color.Blue.Sprint(len(stream.Commands)),
+		)
+	}
 	for _, command := range stream.Commands {
 		switch command.Type {
 		case gpu.LiverpoolCommandTypeDraw:

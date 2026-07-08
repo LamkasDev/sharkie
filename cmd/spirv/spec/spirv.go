@@ -213,6 +213,7 @@ const (
 	SpvOpULessThan              = uint32(176)
 	SpvOpFOrdEqual              = uint32(180)
 	SpvOpFUnordNotEqual         = uint32(183)
+	SpvOpFOrdLessThan           = uint32(184)
 	SpvOpFOrdGreaterThan        = uint32(186)
 	SpvOpShiftRightLogical      = uint32(194)
 	SpvOpShiftRightArithmetic   = uint32(195)

@@ -5,11 +5,16 @@ import (
 	. "github.com/LamkasDev/sharkie/cmd/spirv/common"
 )
 
-// BuildStaticLayout assigns Set-2 array indices per access kind (sampled and storage
-// each have their own binding in the pipeline layout).
-func BuildStaticLayout(resources []SpirvShaderResource) []ShaderResourceBinding {
+func BuildStaticLayout(resources []SpirvShaderResource, shader *gcn.GcnShader) []ShaderResourceBinding {
 	var layout []ShaderResourceBinding
 	var sampledIndex, storageIndex uint32
+
+	// Offset bindings for vertex shaders so they don't overlap with fragment shaders.
+	if shader.Stage == gcn.GcnShaderStageVertex {
+		sampledIndex = 16
+		storageIndex = 16
+	}
+
 	for _, resource := range resources {
 		access, ok := resource.Kind.Access()
 		if !ok {
@@ -33,18 +38,6 @@ func BuildStaticLayout(resources []SpirvShaderResource) []ShaderResourceBinding 
 	}
 
 	return layout
-}
-
-// SupportsStaticBindings determines if a shader supports static bindings (we can resolve descriptors at runtime).
-func SupportsStaticBindings(shader *gcn.GcnShader, layout []ShaderResourceBinding) bool {
-	switch shader.Address {
-	case 0xFE6DD1100, 0xFE6DD1400: // Compute
-		return true
-	case 0xFE6DC9A00, 0xFE6DC9700, 0xFE6DCA000, 0xFE6DCCE00, 0xFE6DD0200: // Fragment
-		return true
-	default:
-		return false
-	}
 }
 
 func StaticResources(layout []ShaderResourceBinding) []SpirvShaderResource {

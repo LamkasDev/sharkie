@@ -4,6 +4,7 @@ package spec
 const (
 	SpvGlslOpFAbs           = uint32(4)
 	SpvGlslOpFract          = uint32(10)
+	SpvGlslOpExp2           = uint32(29)
 	SpvGlslOpSqrt           = uint32(31)
 	SpvGlslOpFMin           = uint32(37)
 	SpvGlslOpUMin           = uint32(38)

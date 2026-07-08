@@ -18,6 +18,18 @@ func EmitSOP1(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 		valLo, valHi := ctx.GetOperand64Value(b, details.Src0, instr.Literal)
 		ctx.StoreRegisterPointer(b, details.Dst, valLo)
 		ctx.StoreRegisterPointer(b, details.Dst+1, valHi)
+	case gcnSpec.Sop1OpSwappcB64:
+		typeUint := ctx.GetId(BlockContextIdTypeUint)
+
+		// The PC in GCN is usually the absolute byte address. S_SWAPPC is a 32-bit instruction,
+		// so PC+4 is the byte address of the next instruction.
+		nextPc := uint64(ctx.Address) + uint64(instr.DwordOffset*4) + 4
+
+		pcLo := b.EmitConstantUint(typeUint, uint32(nextPc&0xFFFFFFFF))
+		pcHi := b.EmitConstantUint(typeUint, uint32(nextPc>>32))
+
+		ctx.StoreRegisterPointer(b, details.Dst, pcLo)
+		ctx.StoreRegisterPointer(b, details.Dst+1, pcHi)
 	/* case gcnSpec.Sop1OpNotB64:
 	valLo, valHi := ctx.GetOperand64Value(b, details.Src0, instr.Literal)
 	resLo := b.EmitNot(ctx.GetId(BlockContextIdTypeUint), valLo)

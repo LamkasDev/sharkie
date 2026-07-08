@@ -226,6 +226,13 @@ func (b *SpvBuilder) EmitFUnordNotEqual(resultType, op1, op2 SpirvId) SpirvId {
 	return id
 }
 
+// EmitFOrdLessThan emits OpFOrdLessThan and returns the result ID.
+func (b *SpvBuilder) EmitFOrdLessThan(resultType, op1, op2 SpirvId) SpirvId {
+	id := b.AllocId()
+	b.instr(&b.code, spec.SpvOpFOrdLessThan, uint32(resultType), uint32(id), uint32(op1), uint32(op2))
+	return id
+}
+
 // EmitFOrdGreaterThan emits OpFOrdGreaterThan and returns the result ID.
 func (b *SpvBuilder) EmitFOrdGreaterThan(resultType, op1, op2 SpirvId) SpirvId {
 	id := b.AllocId()

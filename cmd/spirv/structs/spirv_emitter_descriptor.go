@@ -9,5 +9,5 @@ const (
 	StaticBindingSampledImages = 0
 	StaticBindingStorageImages = 1
 
-	MaxStaticBindings = 8
+	MaxStaticBindings = 32
 )

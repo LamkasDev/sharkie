@@ -87,11 +87,13 @@ func (t *GpuTranslator) BindPipeline(frame uint64, bind *gpu.LiverpoolBindPipeli
 
 	// Get shader modules.
 	vsSpirv := t.GetShader(bind.VertexShader)
+	t.activeVertexShader = vsSpirv
 	vsModule, err := t.GetShaderModule(vsSpirv)
 	if err != nil {
 		return
 	}
 	psSpirv := t.GetShaderWithContext(bind.PixelShader, spirv.SpirvShaderContext{
+		PsInControl:     bind.PsInControl,
 		PsInputAddress:  bind.PsInputAddress,
 		PsInputControls: bind.PsInputControls,
 	})

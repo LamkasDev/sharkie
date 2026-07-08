@@ -33,6 +33,12 @@ type VectorDetails struct {
 	Src0 uint32
 	Src1 uint32
 	Sdst uint32 // VCC for most instructions, SDST for VOP3b.
+
+	// Details for redirected VOP3 instructions.
+	Abs   uint8
+	Neg   uint8
+	OMod  uint8
+	Clamp bool
 }
 
 func (details *VectorDetails) IsVopcCmpx() bool {
