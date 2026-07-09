@@ -10,6 +10,7 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/lib/msg_dialog"
 	"github.com/LamkasDev/sharkie/cmd/lib/net_ctl"
 	"github.com/LamkasDev/sharkie/cmd/lib/pad"
+	"github.com/LamkasDev/sharkie/cmd/lib/rtc"
 	"github.com/LamkasDev/sharkie/cmd/lib/save_data"
 	"github.com/LamkasDev/sharkie/cmd/lib/system_service"
 	"github.com/LamkasDev/sharkie/cmd/lib/user_service"
@@ -33,6 +34,7 @@ func RegisterStubs() {
 	msg_dialog.RegisterMsgDialogStubs()
 	save_data.RegisterSaveDataStubs()
 	user_service.RegisterUserServiceStubs()
+	rtc.RegisterRtcStubs()
 
 	RegisterMinecraftStubs()
 }

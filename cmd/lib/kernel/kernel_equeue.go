@@ -7,6 +7,7 @@ import (
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/time"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
 )
@@ -90,8 +91,8 @@ func libKernel_sceKernelWaitEqueue(handle, eventPtr, num, resultPtr, timeoutPtr 
 	if timeoutPtr != 0 {
 		timeout := (*Timeout)(unsafe.Pointer(timeoutPtr))
 		timestamp := Timestamp{
-			Seconds:     uint64(timeout.Microseconds / 1_000_000),
-			Nanoseconds: uint64((timeout.Microseconds % 1_000_000) * 1000),
+			Seconds:     int64(timeout.Microseconds / 1_000_000),
+			Nanoseconds: int64((timeout.Microseconds % 1_000_000) * 1000),
 		}
 		timestampPtr = uintptr(unsafe.Pointer(&timestamp))
 	}

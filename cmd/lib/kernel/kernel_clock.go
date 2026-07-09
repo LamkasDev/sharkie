@@ -1,14 +1,12 @@
 package kernel
 
 import (
-	"time"
-	"unsafe"
-
-	"github.com/LamkasDev/sharkie/cmd/emu"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
-	"github.com/LamkasDev/sharkie/cmd/logger"
-	"github.com/gookit/color"
 )
+
+func SceKernelClockGettime(clockId uint32, timestampPtr uintptr) uintptr {
+	return libKernel_sceKernelClockGettime(clockId, timestampPtr)
+}
 
 // 0x0000000000014CB0
 // __int64 __fastcall sceKernelClockGettime(__int64, __int64)
@@ -21,44 +19,17 @@ func libKernel_sceKernelClockGettime(clockId uint32, timestampPtr uintptr) uintp
 	return 0
 }
 
-// 0x0000000000014D50
-// __int64 sceKernelGetProcessTime()
-func libKernel_sceKernelGetProcessTime() uintptr {
-	elapsed := time.Since(TscStartTime)
-	micros := uintptr(elapsed.Microseconds())
-
-	if logger.LogMisc {
-		logger.Printf("%-132s %s returned %s.\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("sceKernelGetProcessTime"),
-			color.Yellow.Sprintf("0x%X", micros),
-		)
-	}
-	return 0
+func SceKernelClockGettimezone(timezonePtr uintptr) uintptr {
+	return libKernel_sceKernelClockGettimezone(timezonePtr)
 }
 
-// 0x0000000000014CE0
-// __int64 __fastcall sceKernelGettimeofday(__int64)
-func libKernel_sceKernelGettimeofday(timevaluePtr uintptr) uintptr {
-	if timevaluePtr == 0 {
-		logger.Printf("%-132s %s failed due to invalid time pointer.\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("sceKernelGettimeofday"),
-		)
-		return SCE_KERNEL_ERROR_EINVAL
+// 0x0000000000014D20
+// __int64 __fastcall sceKernelGettimezone(__int64)
+func libKernel_sceKernelClockGettimezone(timezonePtr uintptr) uintptr {
+	err := libKernel_clock_gettimeofday(0, timezonePtr)
+	if err != 0 {
+		return GetErrno() - SonyErrorOffset
 	}
 
-	now := time.Now()
-	timevalue := (*Timevalue)(unsafe.Pointer(timevaluePtr))
-	timevalue.Seconds = uint64(now.Unix())
-	timevalue.Microseconds = uint64(now.Nanosecond() / 1000)
-
-	if logger.LogMisc {
-		logger.Printf("%-132s %s returned %s.\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("sceKernelGettimeofday"),
-			color.Yellow.Sprintf("0x%X", timevalue.Seconds),
-		)
-	}
 	return 0
 }

@@ -1,6 +1,6 @@
 package fs
 
-import . "github.com/LamkasDev/sharkie/cmd/lib_structs"
+import . "github.com/LamkasDev/sharkie/cmd/lib_structs/time"
 
 type FileStat struct {
 	Device                uint32    // st_dev

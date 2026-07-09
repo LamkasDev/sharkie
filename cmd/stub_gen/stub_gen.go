@@ -44,6 +44,10 @@ var signatures = []Signature{
 	}},
 
 	// 2 arguments.
+	{FuncType: "func(int, int) uintptr", Params: []Param{
+		{Name: "DI", Type: "int"},
+		{Name: "SI", Type: "int"},
+	}},
 	{FuncType: "func(uintptr, Cstring) uintptr", Params: []Param{
 		{Name: "DI", Type: "uintptr"},
 		{Name: "SI", Type: "Cstring"},
@@ -94,6 +98,11 @@ var signatures = []Signature{
 	}},
 
 	// 3 arguments.
+	{FuncType: "func(int, int, int) uintptr", Params: []Param{
+		{Name: "DI", Type: "int"},
+		{Name: "SI", Type: "int"},
+		{Name: "DX", Type: "int"},
+	}},
 	{FuncType: "func(int32, uintptr, uintptr) uintptr", Params: []Param{
 		{Name: "DI", Type: "int32"},
 		{Name: "SI", Type: "uintptr"},
@@ -133,6 +142,11 @@ var signatures = []Signature{
 		{Name: "DI", Type: "uintptr"},
 		{Name: "SI", Type: "uintptr"},
 		{Name: "DX", Type: "uintptr"},
+	}},
+	{FuncType: "func(uintptr, uintptr, int64) uintptr", Params: []Param{
+		{Name: "DI", Type: "uintptr"},
+		{Name: "SI", Type: "uintptr"},
+		{Name: "DX", Type: "int64"},
 	}},
 
 	// 4 arguments.

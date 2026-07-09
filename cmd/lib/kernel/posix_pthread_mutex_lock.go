@@ -10,6 +10,7 @@ import (
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/mutex"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/pthread"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/time"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
 )
