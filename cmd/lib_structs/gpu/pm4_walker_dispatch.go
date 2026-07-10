@@ -6,15 +6,15 @@ import (
 	"github.com/gookit/color"
 )
 
-func (l *Liverpool) handleDispatchDirect(ringName string, payload []uint32) {
+func (l *Liverpool) handleDispatchDirect(stream *LiverpoolCommandStream, payload []uint32) {
 	if len(payload) < 3 {
 		logger.Printf("[%s] failed dispatch direct payload too short.\n",
-			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
+			color.Green.Sprintf("PM4-%s/%d", stream.Name, len(payload)),
 		)
 		return
 	}
 
-	// End render pass.
+	// Lock registers.
 	l.StateMutex.Lock()
 	defer l.StateMutex.Unlock()
 
@@ -36,12 +36,12 @@ func (l *Liverpool) handleDispatchDirect(ringName string, payload []uint32) {
 	dispatch.ComputeShaderAddress = dispatch.ComputeShader.Address
 
 	// Add to command stream.
-	l.Stream.Dispatches = append(l.Stream.Dispatches, dispatch)
-	l.Stream.Commands = append(l.Stream.Commands, LiverpoolCommand{Type: LiverpoolCommandTypeDispatch, Index: uint32(len(l.Stream.Dispatches) - 1)})
+	stream.Dispatches = append(stream.Dispatches, dispatch)
+	stream.Commands = append(stream.Commands, LiverpoolCommand{Type: LiverpoolCommandTypeDispatch, Index: uint32(len(stream.Dispatches) - 1)})
 
 	if LogPM4Packets {
 		logger.Printf("[%s] dispatch direct (dimX=%s, dimY=%s, dimZ=%s).\n",
-			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
+			color.Green.Sprintf("PM4-%s/%d", stream.Name, len(payload)),
 			color.Yellow.Sprintf("0x%X", dispatch.DimX),
 			color.Yellow.Sprintf("0x%X", dispatch.DimY),
 			color.Yellow.Sprintf("0x%X", dispatch.DimZ),

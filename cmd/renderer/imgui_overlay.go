@@ -10,8 +10,6 @@ import (
 	"github.com/LamkasDev/cimgui-go-vulkan/backend"
 	glfwvulkanbackend "github.com/LamkasDev/cimgui-go-vulkan/backend/glfwvulkan-backend"
 	"github.com/LamkasDev/cimgui-go-vulkan/imgui"
-	"github.com/LamkasDev/sharkie/cmd/lib_structs/gc"
-	"github.com/LamkasDev/sharkie/cmd/lib_structs/gpu"
 	atomicc "go.uber.org/atomic"
 )
 
@@ -151,12 +149,6 @@ func (overlay *ImguiOverlay) DrawHud(frameCount uint64) {
 		HudRow("frames", colGreen, fmt.Sprint(frameCount))
 		HudRow("fps", colGreen, fmt.Sprintf("%.1f", overlay.Framerate.Load()))
 
-		// Graphics card info.
-		imgui.Spacing()
-		imgui.Separator()
-		imgui.Spacing()
-		HudRow("ring slot", colGreen, RingSlotText())
-
 		imgui.PopStyleVar()
 		imgui.End()
 	}
@@ -172,12 +164,4 @@ func HudRow(label string, valueColor imgui.Vec4, value string) {
 	imgui.PushStyleColorVec4(imgui.ColText, valueColor)
 	imgui.Text(value)
 	imgui.PopStyleColor()
-}
-
-func RingSlotText() string {
-	gpu.GlobalLiverpool.RingMutex.Lock()
-	defer gpu.GlobalLiverpool.RingMutex.Unlock()
-	return fmt.Sprintf("%d (%d pending buffers)",
-		gc.GlobalGraphicsController.ActiveRingSlot,
-		len(gpu.GlobalLiverpool.PendingOrdered))
 }

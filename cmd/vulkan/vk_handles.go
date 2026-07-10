@@ -23,6 +23,7 @@ type VulkanHandles struct {
 
 	// UploadPool is dedicated to our pre-render upload command buffers.
 	UploadPool  vk.CommandPool
+	MainFence   vk.Fence
 	WorkerFence vk.Fence
 	QueueMutex  *sync.Mutex
 }
@@ -60,12 +61,22 @@ func NewVulkanHandles(context *VulkanContext, queueMutex *sync.Mutex) VulkanHand
 
 	GetPhysicalDeviceProperties2(vkh.Instance, vkh.PhysicalDevice, unsafe.Pointer(&props2))
 
-	pool, fence, err := CreateCommandPoolAndFence(&vkh)
+	pool, err := CreateCommandPool(&vkh)
 	if err != nil {
 		panic(err)
 	}
 	vkh.UploadPool = pool
-	vkh.WorkerFence = fence
+
+	mainFence, err := CreateFence(&vkh)
+	if err != nil {
+		panic(err)
+	}
+	vkh.MainFence = mainFence
+	workerFence, err := CreateFence(&vkh)
+	if err != nil {
+		panic(err)
+	}
+	vkh.WorkerFence = workerFence
 
 	return vkh
 }

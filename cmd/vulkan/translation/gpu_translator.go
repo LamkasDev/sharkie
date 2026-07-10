@@ -68,7 +68,6 @@ type GpuTranslator struct {
 
 	// Caches for images, image views and samplers.
 	imagesMutex    sync.Mutex
-	imagePages     map[uintptr]map[uintptr]struct{}
 	images         map[uintptr]*vulkan.VulkanImage
 	imageViews     map[uint64]*vulkan.VulkanImageView
 	samplersMutex  sync.Mutex
@@ -136,8 +135,6 @@ func NewGpuTranslator(handles vulkan.VulkanHandles, bknd backend.Backend[glfwvul
 
 		framebuffersMutex: sync.Mutex{},
 		framebuffers:      map[vulkan.FramebufferRequest]*vulkan.VulkanFramebuffer{},
-
-		imagePages: map[uintptr]map[uintptr]struct{}{},
 
 		imagesMutex:   sync.Mutex{},
 		images:        map[uintptr]*vulkan.VulkanImage{},
@@ -251,10 +248,8 @@ func NewGpuTranslator(handles vulkan.VulkanHandles, bknd backend.Backend[glfwvul
 	t.quadListIndexBuffer = quadListIndexBuffer
 	t.quadListIndexBufferMem = quadListIndexBufferMem
 
-	structs.GlobalMemoryManager.SetRasterizer(t)
-	structs.GlobalMemoryManager.Guest().RegisterPreMapped()
-	structs.GlobalMemoryManager.OnMapGuest(lib_structs.GlobalAllocator.Base, uintptr(lib_structs.GlobalAllocator.Size))
-	structs.GlobalMemoryManager.OnMapGuest(lib_structs.GlobalGpuAllocator.Base, uintptr(lib_structs.GlobalGpuAllocator.Size))
+	structs.GlobalMemoryManager.Map(lib_structs.GlobalAllocator.Base, uintptr(lib_structs.GlobalAllocator.Size))
+	structs.GlobalMemoryManager.Map(lib_structs.GlobalGpuAllocator.Base, uintptr(lib_structs.GlobalGpuAllocator.Size))
 
 	go pprof.Do(context.Background(), pprof.Labels("name", "MemorySyncWorker"), func(ctx context.Context) {
 		t.memorySyncWorker()
@@ -315,6 +310,9 @@ func (t *GpuTranslator) Destroy() {
 	if t.pool != vk.NullCommandPool {
 		vk.DestroyCommandPool(t.handles.Device, t.pool, nil)
 	}
+	if t.handles.MainFence != vk.NullFence {
+		vk.DestroyFence(t.handles.Device, t.handles.MainFence, nil)
+	}
 	if t.handles.WorkerFence != vk.NullFence {
 		vk.DestroyFence(t.handles.Device, t.handles.WorkerFence, nil)
 	}
@@ -344,31 +342,22 @@ func (t *GpuTranslator) ResetFrameState(frame uint64) {
 }
 
 // Translate translates Liverpool draw/compute commands into Vulkan commands and returns the command buffer.
-func (t *GpuTranslator) Translate(frame uint64, stream *gpu.LiverpoolCommandStream) *vk.CommandBuffer {
-	// Update buffers holding user data.
-	t.UpdateUserDataBuffers(stream)
-
-	// Reset per-frame descriptor sets.
-	t.staticDescriptorSetIdx = 0
-
-	// Begin recording.
-	t.commandBuffer = t.handles.AllocateCommandBuffer()
-	vk.BeginCommandBuffer(t.commandBuffer, &vk.CommandBufferBeginInfo{
-		SType: vk.StructureTypeCommandBufferBeginInfo,
-		Flags: vk.CommandBufferUsageFlags(vk.CommandBufferUsageOneTimeSubmitBit),
-	})
-	if frame == 0 {
-		t.createDummyTexture()
+func (t *GpuTranslator) Translate(frame uint64, stream *gpu.LiverpoolCommandStream) bool {
+	remaining := len(stream.Commands) - stream.CommandIndex
+	if remaining == 0 {
+		return true
 	}
 
 	// Process command stream.
 	if logger.LogRenderer {
-		logger.Printf("[%s] processing %s commands in stream.\n",
+		logger.Printf("[%s] processing %s remaining commands in %s stream.\n",
 			color.Blue.Sprintf("Frame %d", frame),
-			color.Blue.Sprint(len(stream.Commands)),
+			color.Green.Sprint(remaining),
+			color.Blue.Sprint(stream.Name),
 		)
 	}
-	for _, command := range stream.Commands {
+	for stream.CommandIndex < len(stream.Commands) {
+		command := stream.Commands[stream.CommandIndex]
 		switch command.Type {
 		case gpu.LiverpoolCommandTypeDraw:
 			t.Draw(frame, &stream.Draws[command.Index])
@@ -380,14 +369,52 @@ func (t *GpuTranslator) Translate(frame uint64, stream *gpu.LiverpoolCommandStre
 			t.BindPipeline(frame, &stream.Pipelines[command.Index])
 		case gpu.LiverpoolCommandTypeSetDynamicState:
 			t.SetDynamicState(&stream.DynamicStates[command.Index])
+		case gpu.LiverpoolCommandTypeWriteData:
+			t.WriteData(&stream.WriteDatas[command.Index])
+		case gpu.LiverpoolCommandTypeWaitRegMemory:
+			ok := t.WaitRegMemory(&stream.WaitRegMems[command.Index])
+			if !ok {
+				return false
+			}
 		}
+		stream.CommandIndex++
 	}
 
-	// Finish.
+	return true
+}
+
+func (t *GpuTranslator) StartCommandBuffer() {
+	t.commandBuffer = t.handles.AllocateCommandBuffer()
+	vk.BeginCommandBuffer(t.commandBuffer, &vk.CommandBufferBeginInfo{
+		SType: vk.StructureTypeCommandBufferBeginInfo,
+		Flags: vk.CommandBufferUsageFlags(vk.CommandBufferUsageOneTimeSubmitBit),
+	})
+	if t.currentGuestFrame == 0 {
+		t.createDummyTexture()
+	}
+	t.staticDescriptorSetIdx = 0
+}
+
+func (t *GpuTranslator) SubmitCommandBuffer() {
 	t.EndRenderPass()
 	vk.EndCommandBuffer(t.commandBuffer)
 
-	return &t.commandBuffer
+	status := vk.GetFenceStatus(t.handles.Device, t.handles.MainFence)
+	if status == vk.Success {
+		vk.ResetFences(t.handles.Device, 1, []vk.Fence{t.handles.MainFence})
+	}
+	t.handles.QueueMutex.Lock()
+	result := vk.QueueSubmit(t.handles.GraphicsQueue, 1, []vk.SubmitInfo{{
+		SType:              vk.StructureTypeSubmitInfo,
+		CommandBufferCount: 1,
+		PCommandBuffers:    []vk.CommandBuffer{t.commandBuffer},
+	}}, t.handles.MainFence)
+	t.handles.QueueMutex.Unlock()
+	if err := vulkan.NewError(result); err != nil {
+		panic(err)
+	}
+	vk.WaitForFences(t.handles.Device, 1, []vk.Fence{t.handles.MainFence}, vk.True, vk.MaxUint64)
+	t.handles.FreeCommandBuffer(t.commandBuffer)
 }
 
 func (t *GpuTranslator) WaitOnFence() {
@@ -414,23 +441,6 @@ func (t *GpuTranslator) ResetFence() {
 	case <-t.fenceChan:
 		t.fenceChan = make(chan struct{})
 	default:
-	}
-}
-
-func (t *GpuTranslator) GetWorkerFence() vk.Fence {
-	return t.handles.WorkerFence
-}
-
-func (t *GpuTranslator) WaitOnWorkerFence() {
-	vk.WaitForFences(t.handles.Device, 1, []vk.Fence{t.handles.WorkerFence}, vk.True, ^uint64(0))
-}
-
-func (t *GpuTranslator) ResetWorkerFence() {
-	t.handles.QueueMutex.Lock()
-	defer t.handles.QueueMutex.Unlock()
-	status := vk.GetFenceStatus(t.handles.Device, t.handles.WorkerFence)
-	if status == vk.Success {
-		vk.ResetFences(t.handles.Device, 1, []vk.Fence{t.handles.WorkerFence})
 	}
 }
 
@@ -465,28 +475,34 @@ func regionsOverlap(addressA, sizeA, addressB, sizeB uintptr) bool {
 }
 
 func (t *GpuTranslator) CollectGpuResourcesInRange(address, size uintptr) []*vulkan.VulkanImage {
-	seen := map[uintptr]struct{}{}
 	var images []*vulkan.VulkanImage
-	for _, image := range t.images {
-		if !regionsOverlap(address, size, image.Address, image.GuestSize) {
-			continue
+	end := address + size
+	seen := map[*vulkan.VulkanImage]struct{}{}
+
+	t.imagesMutex.Lock()
+	for addr := address >> lib_structs.SystemPageShift; (addr << lib_structs.SystemPageShift) < end; addr++ {
+		if page, ok := structs.GlobalMemoryManager.Pages[addr]; ok {
+			if image, ok := page.Resource.(*vulkan.VulkanImage); ok && image != nil {
+				if _, ok := seen[image]; !ok {
+					images = append(images, image)
+					seen[image] = struct{}{}
+				}
+			}
 		}
-		if _, ok := seen[image.Address]; ok {
-			continue
-		}
-		seen[image.Address] = struct{}{}
-		images = append(images, image)
 	}
+	t.imagesMutex.Unlock()
 
 	return images
 }
 
 func (t *GpuTranslator) DownloadRegionVkImages(address, size uintptr) error {
 	for _, image := range t.CollectGpuResourcesInRange(address, size) {
+		if !image.ShouldDownloadFromVkImage() {
+			continue
+		}
 		if err := image.DownloadFromVkImage(&t.handles); err != nil {
 			return err
 		}
-		recordSyncDownload()
 	}
 
 	return nil
@@ -494,6 +510,9 @@ func (t *GpuTranslator) DownloadRegionVkImages(address, size uintptr) error {
 
 func (t *GpuTranslator) UploadRegionVkImages(address, size uintptr) error {
 	for _, image := range t.CollectGpuResourcesInRange(address, size) {
+		if !image.ShouldUploadToVkImage() {
+			continue
+		}
 		if err := image.UploadToVkImage(&t.handles, t.GetLinearBuffer); err != nil {
 			return err
 		}

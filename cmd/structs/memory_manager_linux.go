@@ -113,6 +113,15 @@ static void c_track_page(uintptr_t addr, int prot_state) {
     }
 }
 
+static void c_set_prot_state(uintptr_t addr, int prot_state) {
+    for (int i = 0; i < num_tracked_pages; i++) {
+        if (tracked_pages[i].addr == addr) {
+            tracked_pages[i].prot_state = prot_state;
+            return;
+        }
+    }
+}
+
 static void c_untrack_page(uintptr_t addr) {
     for (int i = 0; i < num_tracked_pages; i++) {
         if (tracked_pages[i].addr == addr) {
@@ -154,6 +163,10 @@ func cTrackPage(addr uintptr, protState int) {
 	C.c_track_page(C.uintptr_t(addr), C.int(protState))
 }
 
+func cSetProtState(addr uintptr, protState int) {
+	C.c_set_prot_state(C.uintptr_t(addr), C.int(protState))
+}
+
 func cUntrackPage(addr uintptr) {
 	C.c_untrack_page(C.uintptr_t(addr))
 }
@@ -172,12 +185,4 @@ func WaitForSyncRequest() SyncRequest {
 
 func CompleteSyncRequest() {
 	C.c_complete_sync_request()
-}
-
-func IsRegionDirty(addr uintptr, size uintptr) bool {
-	return GlobalMemoryManager.IsRegionCpuModified(addr, size)
-}
-
-func ClearRegionDirty(addr uintptr, size uintptr) {
-	GlobalMemoryManager.UnmarkRegionCpuModified(addr, size)
 }

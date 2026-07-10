@@ -111,37 +111,45 @@ func (r *Renderer) ConsumeFrames(done chan struct{}) {
 		)
 		r.UpdateCounters()
 
-		// Fetch PM4 command stream.
+		// Fetch PM4 command streams.
 		gpu.GlobalLiverpool.FrameNumber = frame.Number
-		gpu.GlobalLiverpool.Walk()
-		stream := gpu.GlobalLiverpool.FlushStream()
+		streams := gpu.GlobalLiverpool.Walk()
 
-		// Translate PM4 command stream into VkCommandBuffer.
+		// Start command buffer.
 		r.GpuTranslator.ResetFrameState(frame.Number)
-		commandBuffer := r.GpuTranslator.Translate(frame.Number, &stream)
-
-		// Submit command buffer.
-		r.GpuTranslator.ResetWorkerFence()
-		r.QueueMutex.Lock()
-		result := vk.QueueSubmit(r.Handles.GraphicsQueue, 1, []vk.SubmitInfo{{
-			SType:              vk.StructureTypeSubmitInfo,
-			CommandBufferCount: 1,
-			PCommandBuffers:    []vk.CommandBuffer{*commandBuffer},
-		}}, r.GpuTranslator.GetWorkerFence())
-		r.QueueMutex.Unlock()
-		if err := vulkan.NewError(result); err != nil {
-			panic(err)
+		r.GpuTranslator.StartCommandBuffer()
+		for _, stream := range streams {
+			r.GpuTranslator.UpdateUserDataBuffers(stream)
 		}
 
-		// Wait for it to finish.
-		r.GpuTranslator.WaitOnWorkerFence()
+		// Iterate streams and make them fight out dependencies.
+		activeStreams := make([]*gpu.LiverpoolCommandStream, len(streams))
+		copy(activeStreams, streams)
+		for len(activeStreams) > 0 {
+			progressed := false
+			for i := 0; i < len(activeStreams); i++ {
+				stream := activeStreams[i]
+				ok := r.GpuTranslator.Translate(frame.Number, stream)
+				if ok {
+					activeStreams = append(activeStreams[:i], activeStreams[i+1:]...)
+					i--
+					progressed = true
+				}
+			}
+			if !progressed {
+				// This shouldn't happen.
+				runtime.Gosched()
+			}
+		}
+
+		// Submit command buffer.
+		r.GpuTranslator.SubmitCommandBuffer()
 		r.GpuTranslator.FlushDeferredDestruction()
-		r.Handles.FreeCommandBuffer(*commandBuffer)
 
 		// Transition surface and update texture ID for display.
 		surface := r.GpuTranslator.GetSurfaceByAddress(frame.GpuAddress)
 		if surface != nil {
-			err := vulkan.RunWithCommandBuffer(&r.Handles, r.GpuTranslator.GetWorkerFence(), func(commandBuffer vk.CommandBuffer) {
+			err := vulkan.RunWithCommandBuffer(&r.Handles, func(commandBuffer vk.CommandBuffer) {
 				surface.ImageView.Image.BarrierGeneralShaderAccess(commandBuffer)
 			})
 			if err != nil {

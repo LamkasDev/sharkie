@@ -1,6 +1,8 @@
 package emu
 
 import (
+	"strings"
+
 	"github.com/LamkasDev/sharkie/cmd/asm"
 	"github.com/LamkasDev/sharkie/cmd/elf"
 	"github.com/LamkasDev/sharkie/cmd/logger"
@@ -19,7 +21,8 @@ func GetSymbolAddress(s *elf.ElfSymbol) (uintptr, bool) {
 	}
 
 	// Let's use a generic stub for now, so we know which functions to patch.
-	if s.LibraryName == "libkernel" && s.Type == elf.STT_FUNC && elf.CanStubFunctionName(s.ReadableName) {
+	if (s.LibraryName == "libkernel" || s.LibraryName == "libSceNpManager" || s.LibraryName == "libSceNpTus" || strings.Contains(s.LibraryName, "dialog")) &&
+		s.Type == elf.STT_FUNC && elf.CanStubFunctionName(s.ReadableName) {
 		return asm.Stubs[elf.GetSymbolHashIndex("", "__sharkie_generic_stub")].Address, true
 	}
 

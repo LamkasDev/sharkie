@@ -1,12 +1,10 @@
 package vulkan
 
 import (
-	"runtime"
-
 	vk "github.com/goki/vulkan"
 )
 
-func CreateCommandPoolAndFence(handles *VulkanHandles) (vk.CommandPool, vk.Fence, error) {
+func CreateCommandPool(handles *VulkanHandles) (vk.CommandPool, error) {
 	var pool vk.CommandPool
 	result := vk.CreateCommandPool(handles.Device, &vk.CommandPoolCreateInfo{
 		SType:            vk.StructureTypeCommandPoolCreateInfo,
@@ -14,20 +12,14 @@ func CreateCommandPoolAndFence(handles *VulkanHandles) (vk.CommandPool, vk.Fence
 		Flags:            vk.CommandPoolCreateFlags(vk.CommandPoolCreateResetCommandBufferBit),
 	}, nil, &pool)
 	if err := NewError(result); err != nil {
-		return vk.NullCommandPool, vk.NullFence, err
+		return vk.NullCommandPool, err
 	}
 
-	var workerFence vk.Fence
-	vk.CreateFence(handles.Device, &vk.FenceCreateInfo{
-		SType: vk.StructureTypeFenceCreateInfo,
-		Flags: vk.FenceCreateFlags(vk.FenceCreateSignaledBit),
-	}, nil, &workerFence)
-
-	return pool, workerFence, nil
+	return pool, nil
 }
 
 // RunWithCommandBuffer records GPU work into a one-off command buffer and waits (image creation / readback).
-func RunWithCommandBuffer(handles *VulkanHandles, workerFence vk.Fence, fn func(buffer vk.CommandBuffer)) error {
+func RunWithCommandBuffer(handles *VulkanHandles, fn func(buffer vk.CommandBuffer)) error {
 	commandBuffer := handles.AllocateCommandBuffer()
 	vk.BeginCommandBuffer(commandBuffer, &vk.CommandBufferBeginInfo{
 		SType: vk.StructureTypeCommandBufferBeginInfo,
@@ -36,30 +28,21 @@ func RunWithCommandBuffer(handles *VulkanHandles, workerFence vk.Fence, fn func(
 	fn(commandBuffer)
 	vk.EndCommandBuffer(commandBuffer)
 
-	commandBuffers := []vk.CommandBuffer{commandBuffer}
-	submitInfos := []vk.SubmitInfo{{
+	status := vk.GetFenceStatus(handles.Device, handles.WorkerFence)
+	if status == vk.Success {
+		vk.ResetFences(handles.Device, 1, []vk.Fence{handles.WorkerFence})
+	}
+	handles.QueueMutex.Lock()
+	result := vk.QueueSubmit(handles.GraphicsQueue, 1, []vk.SubmitInfo{{
 		SType:              vk.StructureTypeSubmitInfo,
 		CommandBufferCount: 1,
-		PCommandBuffers:    commandBuffers,
-	}}
-
-	pinner := &runtime.Pinner{}
-	pinner.Pin(&commandBuffers)
-	pinner.Pin(&submitInfos)
-	defer pinner.Unpin()
-
-	handles.QueueMutex.Lock()
-	status := vk.GetFenceStatus(handles.Device, workerFence)
-	if status == vk.Success {
-		vk.ResetFences(handles.Device, 1, []vk.Fence{workerFence})
-	}
-	result := vk.QueueSubmit(handles.GraphicsQueue, 1, submitInfos, workerFence)
+		PCommandBuffers:    []vk.CommandBuffer{commandBuffer},
+	}}, handles.WorkerFence)
 	handles.QueueMutex.Unlock()
-	err := NewError(result)
-	if err == nil {
-		vk.WaitForFences(handles.Device, 1, []vk.Fence{workerFence}, vk.True, vk.MaxUint64)
+	if err := NewError(result); err != nil {
 	}
+	vk.WaitForFences(handles.Device, 1, []vk.Fence{handles.WorkerFence}, vk.True, vk.MaxUint64)
 	vk.FreeCommandBuffers(handles.Device, handles.UploadPool, 1, []vk.CommandBuffer{commandBuffer})
 
-	return err
+	return nil
 }

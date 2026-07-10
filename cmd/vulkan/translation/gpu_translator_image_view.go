@@ -24,7 +24,9 @@ func (t *GpuTranslator) GetImageView(descriptor spirvStructs.ImageDescriptor) (*
 	view, ok := t.imageViews[hash]
 	if ok && view.Image == image && view.Image.Generation == image.Generation {
 		t.imagesMutex.Unlock()
-		t.RefreshImageFromGuest(image)
+		if image.ShouldUploadToVkImage() {
+			_ = image.UploadToVkImage(&t.handles, t.GetLinearBuffer)
+		}
 
 		return view, nil, false
 	}

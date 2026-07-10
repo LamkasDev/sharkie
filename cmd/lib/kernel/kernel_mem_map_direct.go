@@ -92,8 +92,7 @@ func libKernel_sys_sceKernelMapDirectMemory(addrPtr uintptr, length uint64, prot
 		return ERR_PTR
 	}
 
-	lib_structs.HookMapDirect(offset, length, prot)
-	lib_structs.HookOnMapGuest(offset, uintptr(length))
+	lib_structs.HookMap(offset, length, prot)
 
 	// Write back offset.
 	WriteAddress(addrPtr, offset)

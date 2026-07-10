@@ -8,23 +8,23 @@ import (
 	"github.com/gookit/color"
 )
 
-func (l *Liverpool) handleDrawIndexAuto(ringName string, payload []uint32) {
+func (l *Liverpool) handleDrawIndexAuto(stream *LiverpoolCommandStream, payload []uint32) {
 	if len(payload) < 2 {
 		logger.Printf("[%s] failed draw index auto payload too short.\n",
-			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
+			color.Green.Sprintf("PM4-%s/%d", stream.Name, len(payload)),
 		)
 		return
 	}
 
 	// Record draw.
 	count := payload[0]
-	l.recordDraw(ringName, count, false, 0)
+	l.recordDraw(stream, count, false, 0)
 }
 
-func (l *Liverpool) handleDrawIndex2(ringName string, payload []uint32) {
+func (l *Liverpool) handleDrawIndex2(stream *LiverpoolCommandStream, payload []uint32) {
 	if len(payload) < 5 {
 		logger.Printf("[%s] failed draw index 2 payload too short.\n",
-			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
+			color.Green.Sprintf("PM4-%s/%d", stream.Name, len(payload)),
 		)
 		return
 	}
@@ -33,25 +33,11 @@ func (l *Liverpool) handleDrawIndex2(ringName string, payload []uint32) {
 	l.DrawState.IndexBase = uintptr(uint64(payload[1]) | uint64(payload[2])<<32)
 	l.DrawState.IndexBufferSize = payload[0]
 	count := payload[3]
-	l.recordDraw(ringName, count, true, 0)
+	l.recordDraw(stream, count, true, 0)
 }
 
-func (l *Liverpool) handleDrawIndexOffset2(ringName string, payload []uint32) {
-	if len(payload) < 4 {
-		logger.Printf("[%s] failed draw index offset 2 payload too short.\n",
-			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
-		)
-		return
-	}
-
-	// Record draw.
-	l.DrawState.IndexBufferSize = payload[0]
-	indexOffset := payload[1]
-	count := payload[2]
-	l.recordDraw(ringName, count, true, indexOffset)
-}
-
-func (l *Liverpool) recordDraw(ringName string, count uint32, isIndexed bool, indexOffset uint32) {
+func (l *Liverpool) recordDraw(stream *LiverpoolCommandStream, count uint32, isIndexed bool, indexOffset uint32) {
+	// Lock registers.
 	l.StateMutex.Lock()
 	defer l.StateMutex.Unlock()
 
@@ -166,13 +152,13 @@ func (l *Liverpool) recordDraw(ringName string, count uint32, isIndexed bool, in
 
 	// Add to command stream.
 	bindHash := bindPipeline.Hash()
-	bindIndex, ok := l.Stream.PipelinesMap[bindHash]
+	bindIndex, ok := stream.PipelinesMap[bindHash]
 	if !ok {
-		bindIndex = uint32(len(l.Stream.Pipelines))
-		l.Stream.Pipelines = append(l.Stream.Pipelines, bindPipeline)
-		l.Stream.PipelinesMap[bindHash] = bindIndex
+		bindIndex = uint32(len(stream.Pipelines))
+		stream.Pipelines = append(stream.Pipelines, bindPipeline)
+		stream.PipelinesMap[bindHash] = bindIndex
 	}
-	l.Stream.Commands = append(l.Stream.Commands, LiverpoolCommand{Type: LiverpoolCommandTypeBindPipeline, Index: bindIndex})
+	stream.Commands = append(stream.Commands, LiverpoolCommand{Type: LiverpoolCommandTypeBindPipeline, Index: bindIndex})
 
 	// Construct dynamic state.
 	setDynamicState := LiverpoolSetDynamicState{
@@ -232,13 +218,13 @@ func (l *Liverpool) recordDraw(ringName string, count uint32, isIndexed bool, in
 
 	// Add to command stream.
 	dynHash := setDynamicState.Hash()
-	dynIndex, ok := l.Stream.DynamicStatesMap[dynHash]
+	dynIndex, ok := stream.DynamicStatesMap[dynHash]
 	if !ok {
-		dynIndex = uint32(len(l.Stream.DynamicStates))
-		l.Stream.DynamicStates = append(l.Stream.DynamicStates, setDynamicState)
-		l.Stream.DynamicStatesMap[dynHash] = dynIndex
+		dynIndex = uint32(len(stream.DynamicStates))
+		stream.DynamicStates = append(stream.DynamicStates, setDynamicState)
+		stream.DynamicStatesMap[dynHash] = dynIndex
 	}
-	l.Stream.Commands = append(l.Stream.Commands, LiverpoolCommand{Type: LiverpoolCommandTypeSetDynamicState, Index: dynIndex})
+	stream.Commands = append(stream.Commands, LiverpoolCommand{Type: LiverpoolCommandTypeSetDynamicState, Index: dynIndex})
 
 	// Construct draw.
 	draw := LiverpoolDraw{
@@ -274,13 +260,13 @@ func (l *Liverpool) recordDraw(ringName string, count uint32, isIndexed bool, in
 	}
 
 	// Add to command stream.
-	l.Stream.Draws = append(l.Stream.Draws, draw)
-	l.Stream.Commands = append(l.Stream.Commands, LiverpoolCommand{Type: LiverpoolCommandTypeDraw, Index: uint32(len(l.Stream.Draws) - 1)})
+	stream.Draws = append(stream.Draws, draw)
+	stream.Commands = append(stream.Commands, LiverpoolCommand{Type: LiverpoolCommandTypeDraw, Index: uint32(len(stream.Draws) - 1)})
 
 	if LogPM4Packets {
 		if isIndexed {
 			logger.Printf("[%s] draw index 2 (index_count=%s, max_size=%s, index_base=%s, prim=%s, rt=%s, vs=%s, ps=%s).\n",
-				color.Green.Sprintf("PM4-%s", ringName),
+				color.Green.Sprintf("PM4-%s", stream.Name),
 				color.Green.Sprintf("%d", count),
 				color.Green.Sprintf("%d", l.DrawState.IndexBufferSize),
 				color.Yellow.Sprintf("0x%X", draw.IndexBaseAddress),
@@ -291,7 +277,7 @@ func (l *Liverpool) recordDraw(ringName string, count uint32, isIndexed bool, in
 			)
 		} else {
 			logger.Printf("[%s] draw index auto (vertex=%s, prim=%s, rt=%s, vs=%s, ps=%s).\n",
-				color.Green.Sprintf("PM4-%s", ringName),
+				color.Green.Sprintf("PM4-%s", stream.Name),
 				color.Green.Sprintf("%d", count),
 				color.Green.Sprintf("%d", draw.PrimType),
 				color.Yellow.Sprintf("0x%X", bindPipeline.RtBase),

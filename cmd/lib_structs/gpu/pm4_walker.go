@@ -8,7 +8,7 @@ import (
 	"github.com/gookit/color"
 )
 
-type PM4Handler func(ringName string, payload []uint32)
+type PM4Handler func(stream *LiverpoolCommandStream, payload []uint32)
 
 const LogPM4Packets = false
 
@@ -26,7 +26,6 @@ func (l *Liverpool) SetupPM4Handlers() {
 
 	l.PM4Handlers[PM4_IT_DRAW_INDEX_AUTO] = l.handleDrawIndexAuto
 	l.PM4Handlers[PM4_IT_DRAW_INDEX_2] = l.handleDrawIndex2
-	l.PM4Handlers[PM4_IT_DRAW_INDEX_OFFSET_2] = l.handleDrawIndexOffset2
 
 	l.PM4Handlers[PM4_IT_CONTEXT_CONTROL] = l.handleContextControl
 	l.PM4Handlers[PM4_IT_CLEAR_STATE] = l.handleClearState
@@ -41,46 +40,54 @@ func (l *Liverpool) SetupPM4Handlers() {
 }
 
 // Walk drains both the graphics and compute rings, decoding every PM4 packet and updating GPU register state.
-func (l *Liverpool) Walk() {
+func (l *Liverpool) Walk() []*LiverpoolCommandStream {
 	asm.GCFence.Store(true)
 
 	l.RingMutex.Lock()
-	pending := l.PendingOrdered
-	l.PendingOrdered = l.PendingOrdered[:0]
+	pendingGraphics := l.GraphicsRing.Pending
 	l.GraphicsRing.Pending = l.GraphicsRing.Pending[:0]
+	pendingCompute := l.ComputeRing.Pending
 	l.ComputeRing.Pending = l.ComputeRing.Pending[:0]
 	l.RingMutex.Unlock()
 
-	// Walk in submission order (CCB before its paired DCB). Parallel walks reorder
-	// compute blur dispatches relative to the graphics draws that depend on them.
-	for i, entry := range pending {
-		logger.Printf("[%s] walking %s pm4 buffer %s (length=%s).\n",
+	graphicsStream := NewLiverpoolCommandStream("GFX")
+	for i, buffer := range pendingGraphics {
+		logger.Printf("[%s] walking GFX pm4 buffer %s (length=%s).\n",
 			color.Green.Sprint("PM4"),
-			color.Green.Sprint(entry.RingName),
 			color.Green.Sprintf("%d", i),
-			color.Green.Sprintf("%d", entry.Buffer.SizeDW),
+			color.Green.Sprintf("%d", buffer.SizeDW),
 		)
-		l.walkIndirectBuffer(entry.RingName, entry.Buffer)
+		l.walkIndirectBuffer(graphicsStream, buffer)
+	}
+	computeStream := NewLiverpoolCommandStream("COM")
+	for i, buffer := range pendingCompute {
+		logger.Printf("[%s] walking COM pm4 buffer %s (length=%s).\n",
+			color.Green.Sprint("PM4"),
+			color.Green.Sprintf("%d", i),
+			color.Green.Sprintf("%d", buffer.SizeDW),
+		)
+		l.walkIndirectBuffer(computeStream, buffer)
 	}
 	logger.Printf(
-		"[%s] finished walking %s pm4 buffers.\n",
+		"[%s] finished walking pm4 buffers.\n",
 		color.Green.Sprint("PM4"),
-		color.Green.Sprintf("%d", len(pending)),
 	)
 
 	asm.GCFence.Store(false)
+
+	return []*LiverpoolCommandStream{computeStream, graphicsStream}
 }
 
-func (l *Liverpool) walkIndirectBuffer(ringName string, buffer PM4IndirectBuffer) {
+func (l *Liverpool) walkIndirectBuffer(stream *LiverpoolCommandStream, buffer PM4IndirectBuffer) {
 	if buffer.Address == 0 || buffer.SizeDW == 0 {
 		return
 	}
 
 	dwords := unsafe.Slice((*uint32)(unsafe.Pointer(buffer.Address)), int(buffer.SizeDW))
-	l.walkStream(ringName, dwords)
+	l.walkStream(stream, dwords)
 }
 
-func (l *Liverpool) walkStream(ringName string, dwords []uint32) {
+func (l *Liverpool) walkStream(stream *LiverpoolCommandStream, dwords []uint32) {
 	i := 0
 	for i < len(dwords) {
 		// Type-2 is the single DWORD NOP padding.
@@ -99,7 +106,7 @@ func (l *Liverpool) walkStream(ringName string, dwords []uint32) {
 		// Check if the packet is truncated.
 		if end > len(dwords) {
 			logger.Printf("[%s] truncated %s-pm4 opcode %s (expected=%s, got=%s).\n",
-				color.Green.Sprintf("PM4-%s", ringName),
+				color.Green.Sprintf("PM4-%s", stream.Name),
 				color.Green.Sprintf("%d", headerType),
 				color.Yellow.Sprintf("0x%X", opcode),
 				color.Green.Sprintf("%d", count),
@@ -111,33 +118,33 @@ func (l *Liverpool) walkStream(ringName string, dwords []uint32) {
 		switch headerType {
 		case PM4_TYPE_0:
 			regOffset := header & 0xFFFF
-			l.handleSetRegsRaw(ringName, regOffset, dwords[i+1:end])
+			l.handleSetRegsRaw(stream, regOffset, dwords[i+1:end])
 		case PM4_TYPE_3:
-			l.dispatchType3Packet(ringName, opcode, dwords[i+1:end])
+			l.dispatchType3Packet(stream, opcode, dwords[i+1:end])
 		}
 
 		i = end
 	}
 }
 
-func (l *Liverpool) dispatchType3Packet(ringName string, opcode uint8, payload []uint32) {
+func (l *Liverpool) dispatchType3Packet(stream *LiverpoolCommandStream, opcode uint8, payload []uint32) {
 	if handler, ok := l.PM4Handlers[opcode]; ok {
-		handler(ringName, payload)
+		handler(stream, payload)
 		return
 	}
 
 	logger.Printf("[%s] unknown pm4 opcode %s.\n",
-		color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
+		color.Green.Sprintf("PM4-%s/%d", stream.Name, len(payload)),
 		color.Yellow.Sprintf("0x%X", opcode),
 	)
 }
 
-func (l *Liverpool) handleNop(ringName string, payload []uint32) {}
+func (l *Liverpool) handleNop(stream *LiverpoolCommandStream, payload []uint32) {}
 
-func (l *Liverpool) handleContextControl(ringName string, payload []uint32) {
+func (l *Liverpool) handleContextControl(stream *LiverpoolCommandStream, payload []uint32) {
 	if len(payload) < 2 {
 		logger.Printf("[%s] failed context control payload too short.\n",
-			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
+			color.Green.Sprintf("PM4-%s/%d", stream.Name, len(payload)),
 		)
 		return
 	}
@@ -145,14 +152,14 @@ func (l *Liverpool) handleContextControl(ringName string, payload []uint32) {
 	shadowControl := payload[1]
 	if LogPM4Packets {
 		logger.Printf("[%s] attempted context switch (load=%s, shadow=%s).\n",
-			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
+			color.Green.Sprintf("PM4-%s/%d", stream.Name, len(payload)),
 			color.Yellow.Sprintf("0x%X", loadControl),
 			color.Yellow.Sprintf("0x%X", shadowControl),
 		)
 	}
 }
 
-func (l *Liverpool) handleClearState(ringName string, payload []uint32) {
+func (l *Liverpool) handleClearState(stream *LiverpoolCommandStream, payload []uint32) {
 	l.StateMutex.Lock()
 	for i := range l.Registers.Context {
 		l.Registers.Context[i] = 0
@@ -164,21 +171,21 @@ func (l *Liverpool) handleClearState(ringName string, payload []uint32) {
 	l.StateMutex.Unlock()
 	if LogPM4Packets {
 		logger.Printf("[%s] cleared state.\n",
-			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
+			color.Green.Sprintf("PM4-%s/%d", stream.Name, len(payload)),
 		)
 	}
 }
 
-func (l *Liverpool) handleAcquireMem(ringName string, payload []uint32) {
+func (l *Liverpool) handleAcquireMem(stream *LiverpoolCommandStream, payload []uint32) {
 	if len(payload) < 6 {
 		logger.Printf("[%s] failed acquire mem payload too short.\n",
-			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
+			color.Green.Sprintf("PM4-%s/%d", stream.Name, len(payload)),
 		)
 		return
 	}
 	if LogPM4Packets {
 		logger.Printf("[%s] attempted acquire mem (payload[0]=%s, payload[1]=%s, payload[2]=%s, payload[3]=%s, payload[4]=%s, payload[5]=%s).\n",
-			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
+			color.Green.Sprintf("PM4-%s/%d", stream.Name, len(payload)),
 			color.Yellow.Sprintf("0x%X", payload[0]),
 			color.Yellow.Sprintf("0x%X", payload[1]),
 			color.Yellow.Sprintf("0x%X", payload[2]),
@@ -189,26 +196,26 @@ func (l *Liverpool) handleAcquireMem(ringName string, payload []uint32) {
 	}
 }
 
-func (l *Liverpool) handleNumInstances(ringName string, payload []uint32) {
+func (l *Liverpool) handleNumInstances(stream *LiverpoolCommandStream, payload []uint32) {
 	if len(payload) < 1 {
 		logger.Printf("[%s] failed num instances payload too short.\n",
-			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
+			color.Green.Sprintf("PM4-%s/%d", stream.Name, len(payload)),
 		)
 		return
 	}
 	l.DrawState.InstanceCount = payload[0]
 	if LogPM4Packets {
 		logger.Printf("[%s] set num instances to %s.\n",
-			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
+			color.Green.Sprintf("PM4-%s/%d", stream.Name, len(payload)),
 			color.Yellow.Sprintf("0x%X", l.DrawState.InstanceCount),
 		)
 	}
 }
 
-func (l *Liverpool) handleIndexType(ringName string, payload []uint32) {
+func (l *Liverpool) handleIndexType(stream *LiverpoolCommandStream, payload []uint32) {
 	if len(payload) < 1 {
 		logger.Printf("[%s] failed index type payload too short.\n",
-			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
+			color.Green.Sprintf("PM4-%s/%d", stream.Name, len(payload)),
 		)
 		return
 	}
@@ -216,33 +223,33 @@ func (l *Liverpool) handleIndexType(ringName string, payload []uint32) {
 	if LogPM4Packets {
 		switch l.DrawState.IndexType {
 		case 0:
-			logger.Printf("[%s] set index type to 16-bit.\n", color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)))
+			logger.Printf("[%s] set index type to 16-bit.\n", color.Green.Sprintf("PM4-%s/%d", stream.Name, len(payload)))
 		case 1:
-			logger.Printf("[%s] set index type to 32-bit.\n", color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)))
+			logger.Printf("[%s] set index type to 32-bit.\n", color.Green.Sprintf("PM4-%s/%d", stream.Name, len(payload)))
 		}
 	}
 }
 
-func (l *Liverpool) handleIndexBufferSize(ringName string, payload []uint32) {
+func (l *Liverpool) handleIndexBufferSize(stream *LiverpoolCommandStream, payload []uint32) {
 	if len(payload) < 1 {
 		logger.Printf("[%s] failed index buffer size payload too short.\n",
-			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
+			color.Green.Sprintf("PM4-%s/%d", stream.Name, len(payload)),
 		)
 		return
 	}
 	l.DrawState.IndexBufferSize = payload[0]
 	if LogPM4Packets {
 		logger.Printf("[%s] set index buffer size to %s.\n",
-			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
+			color.Green.Sprintf("PM4-%s/%d", stream.Name, len(payload)),
 			color.Yellow.Sprintf("0x%X", l.DrawState.IndexBufferSize),
 		)
 	}
 }
 
-func (l *Liverpool) handleEventWriteEop(ringName string, payload []uint32) {
+func (l *Liverpool) handleEventWriteEop(stream *LiverpoolCommandStream, payload []uint32) {
 	if len(payload) < 4 {
 		logger.Printf("[%s] failed event write eop payload too short.\n",
-			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
+			color.Green.Sprintf("PM4-%s/%d", stream.Name, len(payload)),
 		)
 		return
 	}
@@ -250,27 +257,27 @@ func (l *Liverpool) handleEventWriteEop(ringName string, payload []uint32) {
 	if len(payload) >= 5 {
 		dataHigh = payload[4]
 	}
-	l.handleEventWriteEopEos(ringName, "eop", payload[1], payload[2], payload[3], dataHigh)
+	l.handleEventWriteEopEos(stream, "eop", payload[1], payload[2], payload[3], dataHigh)
 }
 
-func (l *Liverpool) handleEventWriteEos(ringName string, payload []uint32) {
+func (l *Liverpool) handleEventWriteEos(stream *LiverpoolCommandStream, payload []uint32) {
 	if len(payload) < 4 {
 		logger.Printf("[%s] failed event write eos payload too short.\n",
-			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
+			color.Green.Sprintf("PM4-%s/%d", stream.Name, len(payload)),
 		)
 		return
 	}
-	l.handleEventWriteEopEos(ringName, "eos", payload[1], payload[2], payload[3], 0)
+	l.handleEventWriteEopEos(stream, "eos", payload[1], payload[2], payload[3], 0)
 }
 
-func (l *Liverpool) handleEventWriteEopEos(ringName, kind string, addrLow, addrHighAndSel, dataLow, dataHigh uint32) {
+func (l *Liverpool) handleEventWriteEopEos(stream *LiverpoolCommandStream, kind string, addrLow, addrHighAndSel, dataLow, dataHigh uint32) {
 	// Get address of destination.
 	addressLow := uint64(addrLow)
 	addressHigh := uint64(addrHighAndSel & 0xFFFF)
 	address := uintptr(addressLow | (addressHigh << 32))
 	if address == 0 {
 		logger.Printf("[%s] failed write %s data invalid address.\n",
-			color.Green.Sprintf("PM4-%s", ringName),
+			color.Green.Sprintf("PM4-%s", stream.Name),
 			color.Blue.Sprint(kind),
 		)
 		return
@@ -278,52 +285,41 @@ func (l *Liverpool) handleEventWriteEopEos(ringName, kind string, addrLow, addrH
 
 	// Write data.
 	dataSelection := (addrHighAndSel >> 29) & 0x7
+	var data []uint32
 	switch dataSelection {
 	case 0: // No write.
-		if LogPM4Packets {
-			logger.Printf("[%s] skipped %s write to %s.\n",
-				color.Green.Sprintf("PM4-%s", ringName),
-				color.Blue.Sprint(kind),
-				color.Yellow.Sprintf("0x%X", address),
-			)
-		}
+		return
 	case 1: // 32-bit value.
-		*(*uint32)(unsafe.Pointer(address)) = dataLow
-		if LogPM4Packets {
-			logger.Printf("[%s] wrote %s 32-bit %s to %s.\n",
-				color.Green.Sprintf("PM4-%s", ringName),
-				color.Blue.Sprint(kind),
-				color.Yellow.Sprintf("0x%X", dataLow),
-				color.Yellow.Sprintf("0x%X", address),
-			)
-		}
+		data = []uint32{dataLow}
 	case 2: // 64-bit value.
-		value := uint64(dataLow) | uint64(dataHigh)<<32
-		*(*uint64)(unsafe.Pointer(address)) = value
-		if LogPM4Packets {
-			logger.Printf("[%s] wrote %s 64-bit %s to %s.\n",
-				color.Green.Sprintf("PM4-%s", ringName),
-				color.Blue.Sprint(kind),
-				color.Yellow.Sprintf("0x%X", value),
-				color.Yellow.Sprintf("0x%X", address),
-			)
-		}
+		data = []uint32{dataLow, dataHigh}
 	case 3: // GPU timestamp.
-		if LogPM4Packets {
-			logger.Printf("[%s] wrote %s GPU timestamp to %s.\n",
-				color.Green.Sprintf("PM4-%s", ringName),
-				color.Blue.Sprint(kind),
-				color.Yellow.Sprintf("0x%X", address),
-			)
-		}
-		*(*uint64)(unsafe.Pointer(address)) = 0
+		data = []uint32{0, 0}
+	}
+
+	// Construct write data.
+	writeData := LiverpoolWriteData{
+		Address: address,
+		Data:    data,
+	}
+
+	// Add to command stream.
+	stream.WriteDatas = append(stream.WriteDatas, writeData)
+	stream.Commands = append(stream.Commands, LiverpoolCommand{Type: LiverpoolCommandTypeWriteData, Index: uint32(len(stream.WriteDatas) - 1)})
+
+	if LogPM4Packets {
+		logger.Printf("[%s] deferred writing %s data to %s.\n",
+			color.Green.Sprintf("PM4-%s", stream.Name),
+			color.Blue.Sprint(kind),
+			color.Yellow.Sprintf("0x%X", address),
+		)
 	}
 }
 
-func (l *Liverpool) handleWaitOnDeCounterDiff(ringName string, payload []uint32) {
+func (l *Liverpool) handleWaitOnDeCounterDiff(stream *LiverpoolCommandStream, payload []uint32) {
 	if len(payload) < 1 {
 		logger.Printf("[%s] failed wait on de counter payload too short.\n",
-			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
+			color.Green.Sprintf("PM4-%s/%d", stream.Name, len(payload)),
 		)
 		return
 	}

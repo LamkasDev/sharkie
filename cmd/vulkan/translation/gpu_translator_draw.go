@@ -134,7 +134,7 @@ func (t *GpuTranslator) Draw(frame uint64, draw *gpu.LiverpoolDraw) {
 
 	// Mark surface as modified.
 	t.activeSurface.ContentValid = true
-	t.MarkGpuModified(t.activeSurface.ImageView.Image)
+	t.activeSurface.ImageView.Image.MarkGpuModified()
 }
 
 func (t *GpuTranslator) SetDynamicState(dynamicState *gpu.LiverpoolSetDynamicState) {

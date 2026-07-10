@@ -2,10 +2,9 @@ package vulkan
 
 import (
 	"fmt"
-	"syscall"
 	"unsafe"
 
-	"github.com/LamkasDev/sharkie/cmd/lib_structs"
+	"github.com/LamkasDev/sharkie/cmd/logger"
 	spirvStructs "github.com/LamkasDev/sharkie/cmd/spirv/structs"
 	"github.com/LamkasDev/sharkie/cmd/structs"
 	vk "github.com/goki/vulkan"
@@ -15,8 +14,7 @@ type ImageSyncFlags uint8
 
 const (
 	ImageSyncGpuModified      ImageSyncFlags = 1 << 0
-	ImageSyncCpuDirty         ImageSyncFlags = 1 << 1
-	ImageSyncGuestUploaded    ImageSyncFlags = 1 << 2
+	ImageSyncCpuModified      ImageSyncFlags = 1 << 1
 	ImageSyncNeedsReadBarrier ImageSyncFlags = 1 << 3
 )
 
@@ -32,27 +30,50 @@ func (image *VulkanImage) ClearSync(flag ImageSyncFlags) {
 	image.SyncFlags &^= flag
 }
 
+func (image *VulkanImage) MarkCpuModified() {
+	if image.HasSync(ImageSyncCpuModified) {
+		return
+	}
+	image.SetSync(ImageSyncCpuModified)
+	image.ClearSync(ImageSyncGpuModified)
+	// structs.GlobalMemoryManager.UpdateTraps(image.Address, image.GuestSize, 2) // PROT_READ|PROT_WRITE
+}
+
+func (image *VulkanImage) MarkGpuModified() {
+	if image.HasSync(ImageSyncGpuModified) {
+		image.SetSync(ImageSyncNeedsReadBarrier)
+		return
+	}
+	image.SetSync(ImageSyncGpuModified | ImageSyncNeedsReadBarrier)
+	image.ClearSync(ImageSyncCpuModified)
+	// structs.GlobalMemoryManager.UpdateTraps(image.Address, image.GuestSize, 0) // PROT_NONE
+}
+
+func (image *VulkanImage) MarkSynced() {
+	if !image.HasSync(ImageSyncCpuModified) && !image.HasSync(ImageSyncGpuModified) {
+		return
+	}
+	image.ClearSync(ImageSyncCpuModified | ImageSyncGpuModified)
+	// structs.GlobalMemoryManager.UpdateTraps(image.Address, image.GuestSize, 1) // PROT_READ
+}
+
 type VulkanImage struct {
 	Address  uintptr
 	Image    vk.Image
-	imageMem vk.DeviceMemory
+	ImageMem vk.DeviceMemory
 
 	FirstDescriptor spirvStructs.ImageDescriptor
 	ImageFormat     vk.Format
-	imageAspect     vk.ImageAspectFlags
+	ImageAspect     vk.ImageAspectFlags
 
-	imageLayout vk.ImageLayout
-	imageAccess vk.AccessFlags
-	imageStage  vk.PipelineStageFlags
+	ImageLayout vk.ImageLayout
+	ImageAccess vk.AccessFlags
+	ImageStage  vk.PipelineStageFlags
 
-	IsSurface    bool
-	SyncFlags    ImageSyncFlags
-	MirrorSynced bool
-	Generation   uint32
-
-	GuestSize       uintptr
-	SyncMarkedFrame uint64
-	FrameTouched    uint64
+	IsSurface  bool
+	SyncFlags  ImageSyncFlags
+	Generation uint32
+	GuestSize  uintptr
 }
 
 type VulkanImageRequest struct {
@@ -81,10 +102,10 @@ func CreateImage(handles *VulkanHandles, request VulkanImageRequest, commandBuff
 		Address:         request.Descriptor.BaseAddress,
 		FirstDescriptor: request.Descriptor,
 		ImageFormat:     request.Format,
-		imageLayout:     vk.ImageLayoutUndefined,
-		imageAspect:     aspectMask,
-		imageAccess:     vk.AccessFlags(vk.AccessNone),
-		imageStage:      vk.PipelineStageFlags(vk.PipelineStageTopOfPipeBit),
+		ImageLayout:     vk.ImageLayoutUndefined,
+		ImageAspect:     aspectMask,
+		ImageAccess:     vk.AccessFlags(vk.AccessNone),
+		ImageStage:      vk.PipelineStageFlags(vk.PipelineStageTopOfPipeBit),
 		IsSurface:       request.IsSurface,
 		Generation:      1,
 	}
@@ -128,15 +149,15 @@ func CreateImage(handles *VulkanHandles, request VulkanImageRequest, commandBuff
 		PNext:           priorityInfo,
 		AllocationSize:  memReqs.Size,
 		MemoryTypeIndex: handles.FindMemoryType(memReqs.MemoryTypeBits, vk.MemoryPropertyDeviceLocalBit),
-	}, nil, &image.imageMem)
+	}, nil, &image.ImageMem)
 	if err := NewError(result); err != nil {
 		return nil, err
 	}
-	SetDeviceMemoryPriority(handles.Instance, handles.Device, image.imageMem, 1.0)
-	vk.BindImageMemory(handles.Device, image.Image, image.imageMem, 0)
+	SetDeviceMemoryPriority(handles.Instance, handles.Device, image.ImageMem, 1.0)
+	vk.BindImageMemory(handles.Device, image.Image, image.ImageMem, 0)
 
 	// Transition image.
-	err := RunWithCommandBuffer(handles, handles.WorkerFence, func(commandBuffer vk.CommandBuffer) {
+	err := RunWithCommandBuffer(handles, func(commandBuffer vk.CommandBuffer) {
 		ImageBarrier(commandBuffer, image, dstLayout, dstAccess, vk.PipelineStageFlags(vk.PipelineStageAllCommandsBit), aspectMask)
 	})
 	if err != nil {
@@ -152,8 +173,8 @@ func (image *VulkanImage) Destroy(device vk.Device) {
 	}
 	vk.DestroyImage(device, image.Image, nil)
 	image.Image = vk.NullImage
-	vk.FreeMemory(device, image.imageMem, nil)
-	image.imageMem = vk.NullDeviceMemory
+	vk.FreeMemory(device, image.ImageMem, nil)
+	image.ImageMem = vk.NullDeviceMemory
 }
 
 func (image *VulkanImage) BarrierShaderRead(commandBuffer vk.CommandBuffer) {
@@ -180,7 +201,7 @@ func (image *VulkanImage) BarrierColorAttachment(commandBuffer vk.CommandBuffer)
 	if IsDepthFormat(image.ImageFormat) {
 		return
 	}
-	if image.imageLayout != vk.ImageLayoutGeneral {
+	if image.ImageLayout != vk.ImageLayoutGeneral {
 		ImageBarrier(commandBuffer, image,
 			vk.ImageLayoutGeneral,
 			vk.AccessFlags(vk.AccessColorAttachmentReadBit|vk.AccessColorAttachmentWriteBit),
@@ -201,7 +222,7 @@ func (image *VulkanImage) BarrierColorAttachment(commandBuffer vk.CommandBuffer)
 }
 
 func (image *VulkanImage) BarrierSampledRead(commandBuffer vk.CommandBuffer) {
-	if image.imageLayout == vk.ImageLayoutGeneral {
+	if image.ImageLayout == vk.ImageLayoutGeneral {
 		return
 	}
 	ImageBarrier(commandBuffer, image,
@@ -213,7 +234,7 @@ func (image *VulkanImage) BarrierSampledRead(commandBuffer vk.CommandBuffer) {
 }
 
 func (image *VulkanImage) BarrierComputeStorageWrite(commandBuffer vk.CommandBuffer) {
-	if image.imageLayout == vk.ImageLayoutGeneral {
+	if image.ImageLayout == vk.ImageLayoutGeneral {
 		return
 	}
 	ImageBarrier(commandBuffer, image,
@@ -252,19 +273,6 @@ func (image *VulkanImage) BarrierGeneralShaderAccess(commandBuffer vk.CommandBuf
 }
 
 func (image *VulkanImage) DownloadFromVkImage(handles *VulkanHandles) error {
-	// Downloading modified surfaces is too expensive.
-	if image.IsSurface {
-		image.MirrorSynced = true
-		return nil
-	}
-	if IsDepthFormat(image.ImageFormat) {
-		image.MirrorSynced = true
-		return nil
-	}
-	if image.MirrorSynced {
-		return nil
-	}
-
 	// Prepare download parameters.
 	width := uint32(image.FirstDescriptor.Width)
 	height := uint32(image.FirstDescriptor.Height)
@@ -283,7 +291,7 @@ func (image *VulkanImage) DownloadFromVkImage(handles *VulkanHandles) error {
 	defer vk.FreeMemory(handles.Device, bufferMem, nil)
 
 	// Copy image to staging buffer.
-	err = RunWithCommandBuffer(handles, handles.WorkerFence, func(commandBuffer vk.CommandBuffer) {
+	err = RunWithCommandBuffer(handles, func(commandBuffer vk.CommandBuffer) {
 		image.BarrierTransferSrc(commandBuffer)
 		bufferCopies := []vk.BufferImageCopy{{
 			ImageSubresource: vk.ImageSubresourceLayers{AspectMask: GetFormatAspectFlags(image.ImageFormat), LayerCount: 1},
@@ -299,14 +307,6 @@ func (image *VulkanImage) DownloadFromVkImage(handles *VulkanHandles) error {
 	memPtr := handles.MapMemory(bufferMem, copyBytes)
 	defer vk.UnmapMemory(handles.Device, bufferMem)
 
-	// Restore fault handlers.
-	pageMask := uintptr(lib_structs.SystemPageSize - 1)
-	alignedAddress := image.Address &^ pageMask
-	alignedSize := (guestBytes + (image.Address - alignedAddress) + pageMask) &^ pageMask
-
-	mprotectSlice := unsafe.Slice((*byte)(unsafe.Pointer(alignedAddress)), alignedSize)
-	_ = syscall.Mprotect(mprotectSlice, syscall.PROT_READ|syscall.PROT_WRITE)
-
 	// Copy staging buffer to RAM.
 	cpuSlice := unsafe.Slice((*byte)(unsafe.Pointer(image.Address)), guestBytes)
 	swizzled := structs.SwizzleTexture(memPtr, image.FirstDescriptor)
@@ -315,20 +315,16 @@ func (image *VulkanImage) DownloadFromVkImage(handles *VulkanHandles) error {
 	} else {
 		copy(cpuSlice, swizzled[:len(cpuSlice)])
 	}
-	image.MirrorSynced = true
+
+	image.MarkSynced()
+	logger.Printf("downloaded image 0x%X (%dx%d) to RAM.\n",
+		image.Address, image.FirstDescriptor.Width, image.FirstDescriptor.Height,
+	)
 
 	return nil
 }
 
 func (image *VulkanImage) UploadToVkImage(handles *VulkanHandles, getLinearBuffer func(uintptr) (vk.Buffer, uintptr, error)) error {
-	// Uploading surfaces is too expensive.
-	if image.IsSurface {
-		return nil
-	}
-	if IsDepthFormat(image.ImageFormat) {
-		return nil
-	}
-
 	var srcBuffer vk.Buffer
 	var srcOffset vk.DeviceSize
 	var rowPitch uint32
@@ -374,7 +370,7 @@ func (image *VulkanImage) UploadToVkImage(handles *VulkanHandles, getLinearBuffe
 	}
 
 	// Copy staging buffer to GPU.
-	err := RunWithCommandBuffer(handles, handles.WorkerFence, func(commandBuffer vk.CommandBuffer) {
+	err := RunWithCommandBuffer(handles, func(commandBuffer vk.CommandBuffer) {
 		image.BarrierTransferWrite(commandBuffer)
 		vk.CmdCopyBufferToImage(commandBuffer, srcBuffer, image.Image, vk.ImageLayoutGeneral, 1, []vk.BufferImageCopy{{
 			BufferOffset:      srcOffset,
@@ -394,11 +390,16 @@ func (image *VulkanImage) UploadToVkImage(handles *VulkanHandles, getLinearBuffe
 		return err
 	}
 
+	image.MarkSynced()
+	logger.Printf("uploaded image 0x%X (%dx%d) to VRAM.\n",
+		image.Address, image.FirstDescriptor.Width, image.FirstDescriptor.Height,
+	)
+
 	return nil
 }
 
 func (image *VulkanImage) CopyToImage(handles *VulkanHandles, dst *VulkanImage) error {
-	err := RunWithCommandBuffer(handles, handles.WorkerFence, func(commandBuffer vk.CommandBuffer) {
+	err := RunWithCommandBuffer(handles, func(commandBuffer vk.CommandBuffer) {
 		ImageBarrier(commandBuffer, image,
 			vk.ImageLayoutTransferSrcOptimal,
 			vk.AccessFlags(vk.AccessTransferReadBit),
@@ -437,8 +438,17 @@ func (image *VulkanImage) CopyToImage(handles *VulkanHandles, dst *VulkanImage) 
 		}
 		ImageBarrier(commandBuffer, dst, dstLayout, dstAccess, vk.PipelineStageFlags(vk.PipelineStageAllCommandsBit), vk.ImageAspectFlags(GetFormatAspectFlags(dst.ImageFormat)))
 	})
+	if err != nil {
+		return err
+	}
 
-	return err
+	// TODO: flags?
+	logger.Printf("copied image 0x%X (%dx%d) to 0x%X (%dx%d).\n",
+		image.Address, image.FirstDescriptor.Width, image.FirstDescriptor.Height,
+		dst.Address, dst.FirstDescriptor.Width, dst.FirstDescriptor.Height,
+	)
+
+	return nil
 }
 
 func (image *VulkanImage) NeedsRecreate(descriptor spirvStructs.ImageDescriptor, format vk.Format, requestIsSurface bool) bool {
@@ -461,30 +471,23 @@ func (image *VulkanImage) NeedsRecreate(descriptor spirvStructs.ImageDescriptor,
 
 func (image *VulkanImage) ShouldUploadToVkImage() bool {
 	// Uploading surfaces is too expensive.
-	if image.IsSurface {
+	if image.IsSurface || IsDepthFormat(image.ImageFormat) {
 		return false
 	}
-	regionSize := DescriptorRegionSize(image.FirstDescriptor)
-	if regionSize == 0 {
-		bpp := structs.GetBytesPerPixel(image.FirstDescriptor.DataFormat)
-		regionSize = uintptr(image.FirstDescriptor.Pitch*image.FirstDescriptor.Height) * uintptr(bpp)
+	if image.HasSync(ImageSyncCpuModified) {
+		return true
 	}
 
-	// Check dirty flags.
-	if image.HasSync(ImageSyncCpuDirty) {
-		return true
-	}
-	if structs.GlobalMemoryManager.IsRegionCpuModified(image.Address, regionSize) {
-		return true
-	}
-	if image.HasSync(ImageSyncGpuModified) && !image.HasSync(ImageSyncGuestUploaded) {
+	return false
+}
+
+func (image *VulkanImage) ShouldDownloadFromVkImage() bool {
+	// Uploading surfaces is too expensive.
+	if image.IsSurface || IsDepthFormat(image.ImageFormat) {
 		return false
-	}
-	if !image.HasSync(ImageSyncGuestUploaded) {
-		return true
 	}
 	if image.HasSync(ImageSyncGpuModified) {
-		return false
+		return true
 	}
 
 	return false

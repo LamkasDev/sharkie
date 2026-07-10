@@ -7,7 +7,6 @@ import (
 
 	"github.com/LamkasDev/sharkie/cmd/lib_structs"
 	spirvStructs "github.com/LamkasDev/sharkie/cmd/spirv/structs"
-	"github.com/LamkasDev/sharkie/cmd/structs"
 	vk "github.com/goki/vulkan"
 )
 
@@ -19,8 +18,7 @@ func (t *GpuTranslator) createDummyTexture() {
 		return
 	}
 	baseAddress := uintptr(unsafe.Pointer(&data[0]))
-	structs.GlobalMemoryManager.Guest().MapAnonymous(baseAddress, uint64(lib_structs.SystemPageSize), lib_structs.PROT_READ|lib_structs.PROT_WRITE|lib_structs.PROT_GPU_READ, lib_structs.VMATypeAnon)
-	structs.GlobalMemoryManager.OnMapGuest(baseAddress, lib_structs.SystemPageSize)
+
 	*(*uint32)(unsafe.Pointer(baseAddress)) = 0xFFFF00FF // magenta
 
 	surface, err := t.GetSurface(spirvStructs.ImageDescriptor{
@@ -35,9 +33,6 @@ func (t *GpuTranslator) createDummyTexture() {
 		return
 	}
 	t.defaultSampler = surface.Sampler
-
-	structs.GlobalMemoryManager.MarkRegionCpuModified(baseAddress, 4)
-	surface.ImageView.Image.UploadToVkImage(&t.handles, t.GetLinearBuffer)
 
 	t.initStaticDescriptorSet(surface.ImageView.ImageView, surface.Sampler)
 }

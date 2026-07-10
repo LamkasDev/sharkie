@@ -33,7 +33,7 @@ func libKernel_sys_mprotect(addr uintptr, length uint64, prot int32) uintptr {
 	if ret != 0 {
 		alignedAddr := addr & ^(lib_structs.SystemPageSize - 1)
 		alignedSize := (uintptr(length) + (addr - alignedAddr) + lib_structs.SystemPageSize - 1) & ^(lib_structs.SystemPageSize - 1)
-		lib_structs.HookOnProtectGuest(alignedAddr, uintptr(alignedSize), prot)
+		lib_structs.HookProtect(alignedAddr, uintptr(alignedSize), prot)
 	}
 	if ret == 0 {
 		logger.Printf("%-132s %s failed changing protection: %s\n",

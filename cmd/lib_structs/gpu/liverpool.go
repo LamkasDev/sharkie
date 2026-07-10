@@ -18,19 +18,28 @@ type LiverpoolDmaCopy struct {
 	Count      uint32
 }
 
+type LiverpoolWriteData struct {
+	Address uintptr
+	Data    []uint32
+}
+
+type LiverpoolWaitRegMemory struct {
+	Function  uint32
+	Address   uintptr
+	Reference uint32
+	Mask      uint32
+}
+
 // Liverpool keeps state of the AMD Liverpool GPU.
 type Liverpool struct {
 	FrameNumber  uint64
 	RingMutex    sync.Mutex
 	GraphicsRing *LiverpoolCommandRing
 	ComputeRing  *LiverpoolCommandRing
-	// PendingOrdered retains CCB/DCB interleaving from the game's submit order.
-	PendingOrdered []OrderedIndirectBuffer
 
 	StateMutex sync.Mutex
 	Registers  LiverpoolRegisters
 	DrawState  LiverpoolDrawState
-	Stream     LiverpoolCommandStream
 
 	ShadersMutex  sync.Mutex
 	LoadedShaders map[uintptr]*GcnShader
@@ -50,10 +59,6 @@ func NewLiverpool() *Liverpool {
 		ComputeRing:  &LiverpoolCommandRing{},
 
 		StateMutex: sync.Mutex{},
-		Stream: LiverpoolCommandStream{
-			PipelinesMap:     map[uint64]uint32{},
-			DynamicStatesMap: map[uint64]uint32{},
-		},
 
 		LoadedShaders: map[uintptr]*GcnShader{},
 		ShadersMutex:  sync.Mutex{},
@@ -86,31 +91,15 @@ func (l *Liverpool) SubmitCommandBuffers(indirectBuffers []PM4IndirectBuffer) {
 	defer l.RingMutex.Unlock()
 	for _, indirectBuffer := range indirectBuffers {
 		opcode := (indirectBuffer.Header >> 8) & 0xFF
-		ringName := "GFX"
 		switch opcode {
 		case PM4_IT_INDIRECT_BUFFER:
 			l.GraphicsRing.Pending = append(l.GraphicsRing.Pending, indirectBuffer)
 		case PM4_IT_INDIRECT_BUFFER_CNST:
-			ringName = "COM"
 			l.ComputeRing.Pending = append(l.ComputeRing.Pending, indirectBuffer)
 		default:
 			continue
 		}
-		l.PendingOrdered = append(l.PendingOrdered, OrderedIndirectBuffer{
-			RingName: ringName,
-			Buffer:   indirectBuffer,
-		})
 	}
-}
-
-func (l *Liverpool) FlushStream() LiverpoolCommandStream {
-	l.StateMutex.Lock()
-	defer l.StateMutex.Unlock()
-
-	stream := l.Stream
-	l.Stream.Reset()
-
-	return stream
 }
 
 func (l *Liverpool) Flip(gpuAddress uintptr, flipArg uint64) {

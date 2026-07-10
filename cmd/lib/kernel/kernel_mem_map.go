@@ -142,12 +142,7 @@ func libKernel_mmap_0(addr uintptr, length uint64, prot, flags int32, fd FileDes
 		}
 	}
 
-	vmaType := lib_structs.VMATypeAnon
-	if flags&MAP_SYSTEM != 0 {
-		vmaType = lib_structs.VMATypeFlexible
-	}
-	lib_structs.HookMapAnonymous(allocatedAddr, allocatedLength, prot, vmaType)
-	lib_structs.HookOnMapGuest(allocatedAddr, uintptr(allocatedLength))
+	lib_structs.HookMap(allocatedAddr, allocatedLength, prot)
 
 	logger.Printf("%-132s %s allocated %s bytes at %s (addr=%s, length=%s, prot=%s, flags=%s, fd=%s, offset=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
@@ -203,7 +198,7 @@ func libKernel_munmap(addr uintptr, length uint64) uintptr {
 		return ERR_PTR
 	}
 
-	lib_structs.HookOnUnmapGuest(addr, uintptr(length))
+	lib_structs.HookUnmap(addr, uintptr(length))
 
 	_, err := FreeKernelMemory(addr, length)
 	if err != nil {

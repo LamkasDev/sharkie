@@ -58,28 +58,3 @@ func SwizzleTexture(linearData []byte, descriptor structs.ImageDescriptor) []byt
 
 	return swizzledData
 }
-
-// DeswizzleTexture takes a swizzled PS4 tiled buffer and converts it to linear layout.
-func DeswizzleTexture(swizzledData []byte, descriptor structs.ImageDescriptor) []byte {
-	if descriptor.TilingIndex == 0 {
-		result := make([]byte, len(swizzledData))
-		copy(result, swizzledData)
-		return result
-	}
-
-	bpp := GetBytesPerPixel(descriptor.DataFormat)
-	linearData := make([]byte, uint32(descriptor.Width)*uint32(descriptor.Height)*bpp)
-
-	for y := uint32(0); y < uint32(descriptor.Height); y++ {
-		for x := uint32(0); x < uint32(descriptor.Width); x++ {
-			linearOffset := (y*uint32(descriptor.Width) + x) * bpp
-			swizzledOffset := (y*uint32(descriptor.Pitch) + x) * bpp
-
-			if linearOffset+bpp <= uint32(len(linearData)) && swizzledOffset+bpp <= uint32(len(swizzledData)) {
-				copy(linearData[linearOffset:linearOffset+bpp], swizzledData[swizzledOffset:swizzledOffset+bpp])
-			}
-		}
-	}
-
-	return linearData
-}

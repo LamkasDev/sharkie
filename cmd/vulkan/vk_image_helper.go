@@ -39,11 +39,11 @@ func ImageBarrier(commandBuffer vk.CommandBuffer, image *VulkanImage,
 	aspectMask vk.ImageAspectFlags,
 ) {
 	vk.CmdPipelineBarrier(commandBuffer,
-		image.imageStage, dstStage,
+		image.ImageStage, dstStage,
 		0, 0, nil, 0, nil,
 		1, []vk.ImageMemoryBarrier{{
 			SType:               vk.StructureTypeImageMemoryBarrier,
-			OldLayout:           image.imageLayout,
+			OldLayout:           image.ImageLayout,
 			NewLayout:           newLayout,
 			SrcQueueFamilyIndex: vk.QueueFamilyIgnored,
 			DstQueueFamilyIndex: vk.QueueFamilyIgnored,
@@ -55,11 +55,11 @@ func ImageBarrier(commandBuffer vk.CommandBuffer, image *VulkanImage,
 				BaseArrayLayer: 0,
 				LayerCount:     vk.RemainingArrayLayers,
 			},
-			SrcAccessMask: image.imageAccess,
+			SrcAccessMask: image.ImageAccess,
 			DstAccessMask: dstAccess,
 		}},
 	)
-	image.imageLayout = newLayout
-	image.imageAccess = dstAccess
-	image.imageStage = dstStage
+	image.ImageLayout = newLayout
+	image.ImageAccess = dstAccess
+	image.ImageStage = dstStage
 }

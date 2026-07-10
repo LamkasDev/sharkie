@@ -13,6 +13,8 @@ const (
 	LiverpoolCommandTypeDmaCopy
 	LiverpoolCommandTypeBindPipeline
 	LiverpoolCommandTypeSetDynamicState
+	LiverpoolCommandTypeWriteData
+	LiverpoolCommandTypeWaitRegMemory
 )
 
 type LiverpoolCommand struct {
@@ -21,15 +23,36 @@ type LiverpoolCommand struct {
 }
 
 type LiverpoolCommandStream struct {
+	Name          string
 	Commands      []LiverpoolCommand
 	Pipelines     []LiverpoolBindPipeline
 	DynamicStates []LiverpoolSetDynamicState
 	Draws         []LiverpoolDraw
 	Dispatches    []LiverpoolDispatch
 	DmaCopies     []LiverpoolDmaCopy
+	WriteDatas    []LiverpoolWriteData
+	WaitRegMems   []LiverpoolWaitRegMemory
 
 	PipelinesMap     map[uint64]uint32
 	DynamicStatesMap map[uint64]uint32
+	CommandIndex     int
+}
+
+func NewLiverpoolCommandStream(name string) *LiverpoolCommandStream {
+	return &LiverpoolCommandStream{
+		Name:          name,
+		Commands:      []LiverpoolCommand{},
+		Pipelines:     []LiverpoolBindPipeline{},
+		DynamicStates: []LiverpoolSetDynamicState{},
+		Draws:         []LiverpoolDraw{},
+		Dispatches:    []LiverpoolDispatch{},
+		DmaCopies:     []LiverpoolDmaCopy{},
+		WriteDatas:    []LiverpoolWriteData{},
+		WaitRegMems:   []LiverpoolWaitRegMemory{},
+
+		PipelinesMap:     map[uint64]uint32{},
+		DynamicStatesMap: map[uint64]uint32{},
+	}
 }
 
 func (s *LiverpoolCommandStream) Reset() {
@@ -39,6 +62,8 @@ func (s *LiverpoolCommandStream) Reset() {
 	s.Draws = s.Draws[:0]
 	s.Dispatches = s.Dispatches[:0]
 	s.DmaCopies = s.DmaCopies[:0]
+	s.WriteDatas = s.WriteDatas[:0]
+	s.WaitRegMems = s.WaitRegMems[:0]
 
 	clear(s.PipelinesMap)
 	clear(s.DynamicStatesMap)

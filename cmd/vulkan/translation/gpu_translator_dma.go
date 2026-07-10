@@ -2,7 +2,9 @@ package translation
 
 import (
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/gpu"
+	"github.com/LamkasDev/sharkie/cmd/logger"
 	vk "github.com/goki/vulkan"
+	"github.com/gookit/color"
 )
 
 func (t *GpuTranslator) DmaCopy(frame uint64, dmaCopy *gpu.LiverpoolDmaCopy) {
@@ -27,7 +29,14 @@ func (t *GpuTranslator) DmaCopy(frame uint64, dmaCopy *gpu.LiverpoolDmaCopy) {
 		DstOffset: vk.DeviceSize(dstOffset),
 		Size:      vk.DeviceSize(copySize),
 	}})
-
+	if logger.LogRenderer {
+		logger.Printf("[%s] DMA copy of %s bytes from %s to %s.\n",
+			color.Blue.Sprintf("Frame %d", frame),
+			color.Yellow.Sprintf("0x%X", dmaCopy.Count),
+			color.Yellow.Sprintf("0x%X", dmaCopy.SrcAddress),
+			color.Yellow.Sprintf("0x%X", dmaCopy.DstAddress),
+		)
+	}
 	vk.CmdPipelineBarrier(t.commandBuffer,
 		vk.PipelineStageFlags(vk.PipelineStageTransferBit),
 		vk.PipelineStageFlags(vk.PipelineStageTransferBit),

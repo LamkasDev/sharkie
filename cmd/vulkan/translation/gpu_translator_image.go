@@ -1,9 +1,7 @@
 package translation
 
 import (
-	"github.com/LamkasDev/sharkie/cmd/lib_structs"
 	spirvStructs "github.com/LamkasDev/sharkie/cmd/spirv/structs"
-	"github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/LamkasDev/sharkie/cmd/vulkan"
 	vk "github.com/goki/vulkan"
 )
@@ -29,10 +27,12 @@ func (t *GpuTranslator) GetImage(descriptor spirvStructs.ImageDescriptor, format
 			}
 			newImage.Generation = gen + 1
 			t.imagesMutex.Lock()
-			t.registerImage(newImage)
+			t.registerImage(newImage, false)
 			t.imagesMutex.Unlock()
 
-			t.RefreshImageFromGuest(newImage)
+			if newImage.ShouldUploadToVkImage() {
+				_ = newImage.UploadToVkImage(&t.handles, t.GetLinearBuffer)
+			}
 			return newImage, nil, true
 		}
 
@@ -40,8 +40,7 @@ func (t *GpuTranslator) GetImage(descriptor spirvStructs.ImageDescriptor, format
 		if !image.IsSurface && isSurface {
 			gen := image.Generation
 			syncFlags := image.SyncFlags
-			syncMarkedFrame := image.SyncMarkedFrame
-			mirrorSynced := image.MirrorSynced
+
 			t.EvictResourcesAtAddress(descriptor.BaseAddress)
 
 			newImage, err := vulkan.CreateImage(&t.handles, vulkan.VulkanImageRequest{
@@ -54,10 +53,9 @@ func (t *GpuTranslator) GetImage(descriptor spirvStructs.ImageDescriptor, format
 			}
 			newImage.Generation = gen + 1
 			newImage.SyncFlags = syncFlags
-			newImage.SyncMarkedFrame = syncMarkedFrame
-			newImage.MirrorSynced = mirrorSynced
+
 			t.imagesMutex.Lock()
-			t.registerImage(newImage)
+			t.registerImage(newImage, true)
 			t.imagesMutex.Unlock()
 			err = image.CopyToImage(&t.handles, newImage)
 			if err != nil {
@@ -67,7 +65,9 @@ func (t *GpuTranslator) GetImage(descriptor spirvStructs.ImageDescriptor, format
 			return newImage, nil, true
 		}
 
-		t.RefreshImageFromGuest(image)
+		if image.ShouldUploadToVkImage() {
+			_ = image.UploadToVkImage(&t.handles, t.GetLinearBuffer)
+		}
 		return image, nil, false
 	}
 
@@ -80,50 +80,13 @@ func (t *GpuTranslator) GetImage(descriptor spirvStructs.ImageDescriptor, format
 		return nil, err, false
 	}
 	t.imagesMutex.Lock()
-	t.registerImage(image)
+	t.registerImage(image, false)
 	t.imagesMutex.Unlock()
 
-	t.RefreshImageFromGuest(image)
+	if image.ShouldUploadToVkImage() {
+		_ = image.UploadToVkImage(&t.handles, t.GetLinearBuffer)
+	}
 	return image, nil, true
-}
-
-func (t *GpuTranslator) RefreshImageFromGuest(image *vulkan.VulkanImage) {
-	if !image.ShouldUploadToVkImage() {
-		if image.HasSync(vulkan.ImageSyncGpuModified) {
-			image.SetSync(vulkan.ImageSyncGuestUploaded)
-			image.ClearSync(vulkan.ImageSyncCpuDirty)
-		}
-		return
-	}
-	if err := image.UploadToVkImage(&t.handles, t.GetBufferFromAddress); err != nil {
-		return
-	}
-	image.SetSync(vulkan.ImageSyncGuestUploaded)
-	image.ClearSync(vulkan.ImageSyncCpuDirty)
-	structs.ClearRegionDirty(image.FirstDescriptor.BaseAddress, vulkan.DescriptorRegionSize(image.FirstDescriptor))
-}
-
-func (t *GpuTranslator) MarkGpuModified(image *vulkan.VulkanImage) {
-	image.SetSync(vulkan.ImageSyncNeedsReadBarrier)
-	image.MirrorSynced = false
-
-	if image.SyncMarkedFrame == t.currentGuestFrame {
-		return
-	}
-	image.SyncMarkedFrame = t.currentGuestFrame
-
-	regionSize := image.GuestSize
-	size := regionSize
-	if size == 0 {
-		image.SetSync(vulkan.ImageSyncGuestUploaded)
-		image.ClearSync(vulkan.ImageSyncCpuDirty)
-		structs.ClearRegionDirty(image.Address, vulkan.DescriptorRegionSize(image.FirstDescriptor))
-		size = lib_structs.SystemPageSize
-	}
-	t.imagesMutex.Lock()
-	t.markGpuModifiedRegion(image.Address, size)
-	t.imagesMutex.Unlock()
-	structs.GlobalMemoryManager.MarkRegionGpuModified(image.Address, size)
 }
 
 func (t *GpuTranslator) EvictResourcesAtAddress(address uintptr) {

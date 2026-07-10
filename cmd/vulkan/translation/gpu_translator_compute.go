@@ -111,7 +111,7 @@ func (t *GpuTranslator) Dispatch(frame uint64, dispatch *gpu.LiverpoolDispatch) 
 
 	// Mark storage-written addresses as GPU modified so CPU doesn't overwrite them.
 	for _, image := range storeTargets {
-		t.MarkGpuModified(image)
+		image.MarkGpuModified()
 	}
 
 	t.FlushPendingResourceBarriers(t.commandBuffer, 0)

@@ -60,7 +60,7 @@ func CreateVkImageView(handles *VulkanHandles, request VulkanImageViewRequest, s
 		Format:     request.Image.ImageFormat,
 		Components: components,
 		SubresourceRange: vk.ImageSubresourceRange{
-			AspectMask:   request.Image.imageAspect,
+			AspectMask:   request.Image.ImageAspect,
 			BaseMipLevel: min(uint32(request.Descriptor.BaseLevel), 15),
 			LevelCount:   1,
 			LayerCount:   1,

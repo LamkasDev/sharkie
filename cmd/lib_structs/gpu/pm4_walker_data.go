@@ -1,16 +1,14 @@
 package gpu
 
 import (
-	"unsafe"
-
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
 )
 
-func (l *Liverpool) handleWriteData(ringName string, payload []uint32) {
+func (l *Liverpool) handleWriteData(stream *LiverpoolCommandStream, payload []uint32) {
 	if len(payload) < 4 {
 		logger.Printf("[%s] write data payload too short.\n",
-			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
+			color.Green.Sprintf("PM4-%s/%d", stream.Name, len(payload)),
 		)
 		return
 	}
@@ -21,7 +19,7 @@ func (l *Liverpool) handleWriteData(ringName string, payload []uint32) {
 	case 0, 1, 5:
 	default:
 		logger.Printf("[%s] failed write data on non-memory destination %s.\n",
-			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
+			color.Green.Sprintf("PM4-%s/%d", stream.Name, len(payload)),
 			color.Yellow.Sprintf("0x%X", destSelection),
 		)
 		return
@@ -33,29 +31,35 @@ func (l *Liverpool) handleWriteData(ringName string, payload []uint32) {
 	address := uintptr(addressLow | (addressHigh << 32))
 	if address == 0 {
 		logger.Printf("[%s] failed write data invalid address.\n",
-			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
+			color.Green.Sprintf("PM4-%s/%d", stream.Name, len(payload)),
 		)
 		return
 	}
 
-	// Write data.
+	// Construct write data.
 	data := payload[3:]
-	dstSlice := unsafe.Slice((*uint32)(unsafe.Pointer(address)), len(data))
-	copy(dstSlice, data)
+	writeData := LiverpoolWriteData{
+		Address: address,
+		Data:    data,
+	}
+
+	// Add to command stream.
+	stream.WriteDatas = append(stream.WriteDatas, writeData)
+	stream.Commands = append(stream.Commands, LiverpoolCommand{Type: LiverpoolCommandTypeWriteData, Index: uint32(len(stream.WriteDatas) - 1)})
 
 	if LogPM4Packets {
-		logger.Printf("[%s] wrote %s bytes to %s.\n",
-			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
+		logger.Printf("[%s] deferred writing %s bytes to %s.\n",
+			color.Green.Sprintf("PM4-%s/%d", stream.Name, len(payload)),
 			color.Green.Sprintf("%d", len(data)),
 			color.Yellow.Sprintf("0x%X", address),
 		)
 	}
 }
 
-func (l *Liverpool) handleDmaData(ringName string, payload []uint32) {
+func (l *Liverpool) handleDmaData(stream *LiverpoolCommandStream, payload []uint32) {
 	if len(payload) < 6 {
 		logger.Printf("[%s] dma data payload too short.\n",
-			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
+			color.Green.Sprintf("PM4-%s/%d", stream.Name, len(payload)),
 		)
 		return
 	}
@@ -74,14 +78,10 @@ func (l *Liverpool) handleDmaData(ringName string, payload []uint32) {
 	count := payload[5] & 0x3FFFFF
 	if srcAddr == 0 || dstAddr == 0 {
 		logger.Printf("[%s] failed dma data invalid address.\n",
-			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
+			color.Green.Sprintf("PM4-%s/%d", stream.Name, len(payload)),
 		)
 		return
 	}
-
-	// End render pass.
-	l.StateMutex.Lock()
-	defer l.StateMutex.Unlock()
 
 	// Construct DMA copy.
 	dmaCopy := LiverpoolDmaCopy{
@@ -91,12 +91,12 @@ func (l *Liverpool) handleDmaData(ringName string, payload []uint32) {
 	}
 
 	// Add to command stream.
-	l.Stream.DmaCopies = append(l.Stream.DmaCopies, dmaCopy)
-	l.Stream.Commands = append(l.Stream.Commands, LiverpoolCommand{Type: LiverpoolCommandTypeDmaCopy, Index: uint32(len(l.Stream.DmaCopies) - 1)})
+	stream.DmaCopies = append(stream.DmaCopies, dmaCopy)
+	stream.Commands = append(stream.Commands, LiverpoolCommand{Type: LiverpoolCommandTypeDmaCopy, Index: uint32(len(stream.DmaCopies) - 1)})
 
 	if LogPM4Packets {
 		logger.Printf("[%s] copied %s bytes from %s to %s\n",
-			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
+			color.Green.Sprintf("PM4-%s/%d", stream.Name, len(payload)),
 			color.Green.Sprintf("%d", count*4),
 			color.Yellow.Sprintf("0x%X", srcAddr),
 			color.Yellow.Sprintf("0x%X", dstAddr),
@@ -104,10 +104,10 @@ func (l *Liverpool) handleDmaData(ringName string, payload []uint32) {
 	}
 }
 
-func (l *Liverpool) handleWriteConstRam(ringName string, payload []uint32) {
+func (l *Liverpool) handleWriteConstRam(stream *LiverpoolCommandStream, payload []uint32) {
 	if len(payload) < 1 {
 		logger.Printf("[%s] write const ram payload too short.\n",
-			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
+			color.Green.Sprintf("PM4-%s/%d", stream.Name, len(payload)),
 		)
 		return
 	}
@@ -115,7 +115,7 @@ func (l *Liverpool) handleWriteConstRam(ringName string, payload []uint32) {
 	data := payload[1:]
 	if offset+len(data) > LiverpoolConstRamSize {
 		logger.Printf("[%s] failed write const ram outside bounds (offset=%s, size=%s).\n",
-			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
+			color.Green.Sprintf("PM4-%s/%d", stream.Name, len(payload)),
 			color.Yellow.Sprintf("0x%X", offset),
 			color.Green.Sprintf("%d", len(data)),
 		)
@@ -129,7 +129,7 @@ func (l *Liverpool) handleWriteConstRam(ringName string, payload []uint32) {
 
 	if LogPM4Packets {
 		logger.Printf("[%s] wrote %s bytes to const ram at %s.\n",
-			color.Green.Sprintf("PM4-%s/%d", ringName, len(payload)),
+			color.Green.Sprintf("PM4-%s/%d", stream.Name, len(payload)),
 			color.Green.Sprintf("%d", len(data)),
 			color.Yellow.Sprintf("0x%X", offset),
 		)

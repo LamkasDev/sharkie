@@ -30,12 +30,9 @@ const SystemPageShift = 12
 const SystemPageSize = uintptr(1 << SystemPageShift)
 
 var (
-	HookRegisterDirectAllocation func(addr uintptr, length uint64, memType int32)
-	HookMapAnonymous             func(addr uintptr, length uint64, prot int32, vmaType VMAType)
-	HookMapDirect                func(addr uintptr, length uint64, prot int32)
-	HookOnMapGuest               func(addr uintptr, length uintptr)
-	HookOnUnmapGuest             func(addr uintptr, length uintptr)
-	HookOnProtectGuest           func(addr uintptr, length uintptr, prot int32)
+	HookMap     func(addr uintptr, length uint64, prot int32)
+	HookUnmap   func(addr uintptr, length uintptr)
+	HookProtect func(addr uintptr, length uintptr, prot int32)
 )
 
 // GuestBacking holds the unified Vulkan device memory backing direct (onion+garlic) regions.
