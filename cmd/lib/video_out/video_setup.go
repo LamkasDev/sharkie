@@ -17,6 +17,7 @@ func libSceVideoOut_sceVideoOutOpen() uintptr {
 	handle := &VideoOutHandle{
 		Id:                 GlobalDisplayCoreEngine.NextHandle,
 		LabelBufferAddress: GlobalGoAllocator.Malloc(uintptr(VideoOutMaxBuffers) * 8),
+		NextFlip:           make(chan *VideoOutFlip, VideoOutMaxBuffers),
 	}
 	GlobalDisplayCoreEngine.Handles[handle.Id] = handle
 	GlobalDisplayCoreEngine.NextHandle++

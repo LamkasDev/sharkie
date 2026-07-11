@@ -112,8 +112,9 @@ func main() {
 		logger.Println()
 	}
 	gpu.GlobalLiverpool.OnFlip = app.GlobalApplication.Renderer.FrameSource.Submit
+	gpu.GlobalLiverpool.OnRingWork = app.GlobalApplication.Renderer.RingWorkSource.Submit
 	gpu.GlobalLiverpool.OnRegisterDisplaySurface = app.GlobalApplication.Renderer.RegisterFramebuffer
-	gpu.GlobalLiverpool.WaitOnFence = app.GlobalApplication.Renderer.WaitOnFence
+	gpu.GlobalLiverpool.WaitOnFence = app.GlobalApplication.Renderer.GpuTranslator.WaitOnFence
 
 	// Register function stubs.
 	symbol.LoadSymbolMap("data/aerolib.csv")

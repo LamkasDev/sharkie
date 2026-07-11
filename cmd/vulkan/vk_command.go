@@ -1,48 +1,97 @@
 package vulkan
 
 import (
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/gpu"
+	"github.com/LamkasDev/sharkie/cmd/logger"
 	vk "github.com/goki/vulkan"
+	"github.com/gookit/color"
 )
 
-func CreateCommandPool(handles *VulkanHandles) (vk.CommandPool, error) {
-	var pool vk.CommandPool
-	result := vk.CreateCommandPool(handles.Device, &vk.CommandPoolCreateInfo{
-		SType:            vk.StructureTypeCommandPoolCreateInfo,
-		QueueFamilyIndex: handles.GraphicsQueueFamilyIndex,
-		Flags:            vk.CommandPoolCreateFlags(vk.CommandPoolCreateResetCommandBufferBit),
-	}, nil, &pool)
+type VulkanCommandBuffer struct {
+	CommandBuffer vk.CommandBuffer
+	Dependencies  []*gpu.LiverpoolWaitRegMemoryInternal
+	Writes        []*gpu.LiverpoolWriteDataInternal
+	Submitted     bool
+}
+
+func CreateCommandBuffer(handles *VulkanHandles) (*VulkanCommandBuffer, error) {
+	buffers := make([]vk.CommandBuffer, 1)
+	handles.UploadPoolMutex.Lock()
+	result := vk.AllocateCommandBuffers(handles.Device, &vk.CommandBufferAllocateInfo{
+		SType:              vk.StructureTypeCommandBufferAllocateInfo,
+		CommandPool:        handles.UploadPool,
+		Level:              vk.CommandBufferLevelPrimary,
+		CommandBufferCount: 1,
+	}, buffers)
 	if err := NewError(result); err != nil {
-		return vk.NullCommandPool, err
+		return nil, err
+	}
+	handles.UploadPoolMutex.Unlock()
+
+	return &VulkanCommandBuffer{
+		CommandBuffer: buffers[0],
+		Dependencies:  []*gpu.LiverpoolWaitRegMemoryInternal{},
+		Writes:        []*gpu.LiverpoolWriteDataInternal{},
+	}, nil
+}
+
+func (commandBuffer *VulkanCommandBuffer) Destroy(handles *VulkanHandles) {
+	handles.UploadPoolMutex.Lock()
+	vk.FreeCommandBuffers(handles.Device, handles.UploadPool, 1, []vk.CommandBuffer{commandBuffer.CommandBuffer})
+	handles.UploadPoolMutex.Unlock()
+}
+
+func (commandBuffer *VulkanCommandBuffer) CanSubmit(frame uint64) bool {
+	for _, dependency := range commandBuffer.Dependencies {
+		if logger.LogRendererInternal {
+			logger.Printf("[%s] waiting on reg memory (address=%s, function=%s, reference=%s).\n",
+				color.Blue.Sprintf("Frame %d", frame),
+				color.Yellow.Sprintf("0x%X", dependency.Address),
+				color.Yellow.Sprintf("0x%X", dependency.Function),
+				color.Yellow.Sprintf("0x%X", dependency.Reference),
+			)
+		}
+		if !dependency.Satisfied() {
+			return false
+		}
+		if logger.LogRendererInternal {
+			logger.Printf("[%s] finished waiting on reg memory.\n",
+				color.Blue.Sprintf("Frame %d", frame),
+			)
+		}
 	}
 
-	return pool, nil
+	return true
 }
 
 // RunWithCommandBuffer records GPU work into a one-off command buffer and waits (image creation / readback).
-func RunWithCommandBuffer(handles *VulkanHandles, fn func(buffer vk.CommandBuffer)) error {
-	commandBuffer := handles.AllocateCommandBuffer()
-	vk.BeginCommandBuffer(commandBuffer, &vk.CommandBufferBeginInfo{
+func RunWithCommandBuffer(handles *VulkanHandles, fence vk.Fence, fn func(buffer *VulkanCommandBuffer)) error {
+	commandBuffer, err := CreateCommandBuffer(handles)
+	if err != nil {
+		return err
+	}
+	vk.BeginCommandBuffer(commandBuffer.CommandBuffer, &vk.CommandBufferBeginInfo{
 		SType: vk.StructureTypeCommandBufferBeginInfo,
 		Flags: vk.CommandBufferUsageFlags(vk.CommandBufferUsageOneTimeSubmitBit),
 	})
 	fn(commandBuffer)
-	vk.EndCommandBuffer(commandBuffer)
+	vk.EndCommandBuffer(commandBuffer.CommandBuffer)
 
-	status := vk.GetFenceStatus(handles.Device, handles.WorkerFence)
+	status := vk.GetFenceStatus(handles.Device, fence)
 	if status == vk.Success {
-		vk.ResetFences(handles.Device, 1, []vk.Fence{handles.WorkerFence})
+		vk.ResetFences(handles.Device, 1, []vk.Fence{fence})
 	}
 	handles.QueueMutex.Lock()
 	result := vk.QueueSubmit(handles.GraphicsQueue, 1, []vk.SubmitInfo{{
 		SType:              vk.StructureTypeSubmitInfo,
 		CommandBufferCount: 1,
-		PCommandBuffers:    []vk.CommandBuffer{commandBuffer},
-	}}, handles.WorkerFence)
+		PCommandBuffers:    []vk.CommandBuffer{commandBuffer.CommandBuffer},
+	}}, fence)
 	handles.QueueMutex.Unlock()
 	if err := NewError(result); err != nil {
 	}
-	vk.WaitForFences(handles.Device, 1, []vk.Fence{handles.WorkerFence}, vk.True, vk.MaxUint64)
-	vk.FreeCommandBuffers(handles.Device, handles.UploadPool, 1, []vk.CommandBuffer{commandBuffer})
+	vk.WaitForFences(handles.Device, 1, []vk.Fence{fence}, vk.True, vk.MaxUint64)
+	commandBuffer.Destroy(handles)
 
 	return nil
 }

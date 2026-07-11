@@ -3,6 +3,7 @@ package translation
 import (
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/gpu"
 	"github.com/LamkasDev/sharkie/cmd/logger"
+	"github.com/LamkasDev/sharkie/cmd/vulkan"
 	vk "github.com/goki/vulkan"
 	"github.com/gookit/color"
 )
@@ -24,11 +25,6 @@ func (t *GpuTranslator) DmaCopy(frame uint64, dmaCopy *gpu.LiverpoolDmaCopy) {
 		panic(err2)
 	}
 
-	vk.CmdCopyBuffer(t.commandBuffer, srcBuffer, dstBuffer, 1, []vk.BufferCopy{{
-		SrcOffset: vk.DeviceSize(srcOffset),
-		DstOffset: vk.DeviceSize(dstOffset),
-		Size:      vk.DeviceSize(copySize),
-	}})
 	if logger.LogRenderer {
 		logger.Printf("[%s] DMA copy of %s bytes from %s to %s.\n",
 			color.Blue.Sprintf("Frame %d", frame),
@@ -37,28 +33,19 @@ func (t *GpuTranslator) DmaCopy(frame uint64, dmaCopy *gpu.LiverpoolDmaCopy) {
 			color.Yellow.Sprintf("0x%X", dmaCopy.DstAddress),
 		)
 	}
-	vk.CmdPipelineBarrier(t.commandBuffer,
-		vk.PipelineStageFlags(vk.PipelineStageTransferBit),
-		vk.PipelineStageFlags(vk.PipelineStageTransferBit),
-		0, 1, []vk.MemoryBarrier{{
-			SType:         vk.StructureTypeMemoryBarrier,
-			SrcAccessMask: vk.AccessFlags(vk.AccessTransferWriteBit),
-			DstAccessMask: vk.AccessFlags(vk.AccessTransferReadBit),
-		}}, 0, nil, 0, nil,
-	)
-
-	// Upload DMA destination into any overlapping VkImages (guest buffer is now fresh in-GPU-order).
-	if err := t.UploadRegionVkImages(dmaCopy.DstAddress, copySize); err != nil {
-		panic(err)
+	err := vulkan.RunWithCommandBuffer(&t.handles, t.handles.WorkerFence, func(commandBuffer *vulkan.VulkanCommandBuffer) {
+		vk.CmdCopyBuffer(commandBuffer.CommandBuffer, srcBuffer, dstBuffer, 1, []vk.BufferCopy{{
+			SrcOffset: vk.DeviceSize(srcOffset),
+			DstOffset: vk.DeviceSize(dstOffset),
+			Size:      vk.DeviceSize(copySize),
+		}})
+	})
+	if err != nil {
+		return
 	}
 
-	vk.CmdPipelineBarrier(t.commandBuffer,
-		vk.PipelineStageFlags(vk.PipelineStageTransferBit),
-		vk.PipelineStageFlags(vk.PipelineStageTransferBit|vk.PipelineStageComputeShaderBit|vk.PipelineStageAllGraphicsBit),
-		0, 1, []vk.MemoryBarrier{{
-			SType:         vk.StructureTypeMemoryBarrier,
-			SrcAccessMask: vk.AccessFlags(vk.AccessTransferWriteBit),
-			DstAccessMask: vk.AccessFlags(vk.AccessTransferReadBit | vk.AccessShaderReadBit | vk.AccessShaderWriteBit | vk.AccessIndexReadBit | vk.AccessVertexAttributeReadBit),
-		}}, 0, nil, 0, nil,
-	)
+	// Upload DMA destination into any overlapping VkImages (guest buffer is now fresh in-GPU-order).
+	if err = t.UploadRegionVkImages(dmaCopy.DstAddress, copySize); err != nil {
+		panic(err)
+	}
 }

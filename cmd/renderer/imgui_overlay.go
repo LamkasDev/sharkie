@@ -125,7 +125,7 @@ func (overlay *ImguiOverlay) DrawWelcomeSplash(width, height uint32) {
 
 func (overlay *ImguiOverlay) DrawHud(frameCount uint64) {
 	imgui.SetNextWindowPos(imgui.Vec2{X: 8, Y: 8})
-	imgui.SetNextWindowSize(imgui.Vec2{X: 340, Y: 220})
+	imgui.SetNextWindowSize(imgui.Vec2{X: 310, Y: 150})
 	imgui.PushStyleColorVec4(imgui.ColWindowBg, colOverlayBg)
 	imgui.PushStyleVarVec2(imgui.StyleVarWindowPadding, imgui.Vec2{X: 14, Y: 14})
 	if imgui.BeginV("##hud", nil, ImguiOverlayFlags) {

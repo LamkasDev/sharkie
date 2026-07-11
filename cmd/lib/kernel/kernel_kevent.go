@@ -6,6 +6,8 @@ import (
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/dce"
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/gpu"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/time"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
@@ -66,6 +68,30 @@ func processKeventChange(equeue *Equeue, event KernelEvent) {
 					select {
 					case <-ticker.C:
 						vblankCount++
+
+						// Iterate displays and submit flips.
+						for _, handle := range dce.GlobalDisplayCoreEngine.Handles {
+							if handle.StagingFlip == nil {
+								select {
+								case nextFlip := <-handle.NextFlip:
+									handle.StagingFlip = nextFlip
+								default:
+								}
+							}
+							if handle.StagingFlip != nil {
+								labelSlot := (*uint64)(unsafe.Pointer(handle.LabelBufferAddress + uintptr(handle.StagingFlip.BufferIndex)*8))
+								if *labelSlot == 1 {
+									gpu.GlobalLiverpool.OnFlip(handle.StagingFlip)
+									if handle.CurrentFlip != nil {
+										oldLabelAddress := handle.LabelBufferAddress + uintptr(handle.CurrentFlip.BufferIndex)*8
+										oldLabelSlot := (*uint64)(unsafe.Pointer(oldLabelAddress))
+										*oldLabelSlot = 0
+									}
+									handle.CurrentFlip = handle.StagingFlip
+									handle.StagingFlip = nil
+								}
+							}
+						}
 
 						// Lower 12-bits of TSC ticks, small counter (up to 15), total events shifted by 16-bits.
 						timeBits := uint64(readTsc() & 0xFFF)

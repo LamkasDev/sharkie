@@ -94,10 +94,14 @@ func SetupApplication() error {
 func RunApplication() error {
 	defer CloseApplication()
 
-	// Start goroutine to consume new frames.
-	consumeFramesDone := make(chan struct{})
-	go pprof.Do(context.Background(), pprof.Labels("name", "ConsumeFrames"), func(ctx context.Context) {
-		GlobalApplication.Renderer.ConsumeFrames(consumeFramesDone)
+	// Start goroutine to consume ring work/frames.
+	consumeRingWorkDone := make(chan struct{})
+	go pprof.Do(context.Background(), pprof.Labels("name", "ConsumeRingWork"), func(ctx context.Context) {
+		GlobalApplication.Renderer.ConsumeRingWork(consumeRingWorkDone)
+	})
+	consumeFlipsDone := make(chan struct{})
+	go pprof.Do(context.Background(), pprof.Labels("name", "ConsumeFlips"), func(ctx context.Context) {
+		GlobalApplication.Renderer.ConsumeFlips(consumeFlipsDone)
 	})
 
 	// Start the main render loop.
@@ -109,9 +113,12 @@ func RunApplication() error {
 	for {
 		select {
 		case <-exitC:
+			GlobalApplication.Renderer.RingWorkSource.IsClosing.Store(true)
+			close(GlobalApplication.Renderer.RingWorkSource.Channel)
 			GlobalApplication.Renderer.FrameSource.IsClosing.Store(true)
 			close(GlobalApplication.Renderer.FrameSource.Channel)
-			<-consumeFramesDone
+			<-consumeRingWorkDone
+			<-consumeFlipsDone
 			logger.Println("renderer: main loop exited")
 			return nil
 		case <-fpsTicker.C:

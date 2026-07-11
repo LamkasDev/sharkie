@@ -145,18 +145,8 @@ func (l *Liverpool) handleWaitRegMemory(stream *LiverpoolCommandStream, payload 
 	mask := payload[4]
 	reference := payload[3] & mask
 
-	// Compare the values.
-	if LogPM4Packets {
-		logger.Printf("[%s] waiting on reg memory (address=%s, function=%s, reference=%s).\n",
-			color.Green.Sprintf("PM4-%s/%d", stream.Name, len(payload)),
-			color.Yellow.Sprintf("0x%X", address),
-			color.Yellow.Sprintf("0x%X", function),
-			color.Yellow.Sprintf("0x%X", reference),
-		)
-	}
-
 	// Construct wait reg memory.
-	waitRegMem := LiverpoolWaitRegMemory{
+	waitRegMem := LiverpoolWaitRegMemoryInternal{
 		Function:  function,
 		Address:   address,
 		Reference: reference,

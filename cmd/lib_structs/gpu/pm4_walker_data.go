@@ -38,7 +38,7 @@ func (l *Liverpool) handleWriteData(stream *LiverpoolCommandStream, payload []ui
 
 	// Construct write data.
 	data := payload[3:]
-	writeData := LiverpoolWriteData{
+	writeData := LiverpoolWriteDataInternal{
 		Address: address,
 		Data:    data,
 	}
@@ -85,9 +85,11 @@ func (l *Liverpool) handleDmaData(stream *LiverpoolCommandStream, payload []uint
 
 	// Construct DMA copy.
 	dmaCopy := LiverpoolDmaCopy{
-		SrcAddress: srcAddr,
-		DstAddress: dstAddr,
-		Count:      count,
+		LiverpoolDmaCopyInternal: LiverpoolDmaCopyInternal{
+			SrcAddress: srcAddr,
+			DstAddress: dstAddr,
+			Count:      count,
+		},
 	}
 
 	// Add to command stream.

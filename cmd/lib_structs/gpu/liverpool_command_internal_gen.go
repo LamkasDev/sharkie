@@ -127,6 +127,24 @@ func (z *LiverpoolDispatchInternal) Msgsize() (s int) {
 }
 
 // MarshalHash marshals for hash
+func (z *LiverpoolDmaCopyInternal) MarshalHash() (o []byte, err error) {
+	var b []byte
+	o = hsp.Require(b, z.Msgsize())
+	// map header, size 3
+	o = append(o, 0x83)
+	o = hsp.AppendUint32(o, z.Count)
+	o = hsp.AppendUint64(o, uint64(z.DstAddress))
+	o = hsp.AppendUint64(o, uint64(z.SrcAddress))
+	return
+}
+
+// Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
+func (z *LiverpoolDmaCopyInternal) Msgsize() (s int) {
+	s = 1 + 6 + hsp.Uint32Size + hsp.Uint64Size + hsp.Uint64Size
+	return
+}
+
+// MarshalHash marshals for hash
 func (z *LiverpoolDrawInternal) MarshalHash() (o []byte, err error) {
 	var b []byte
 	o = hsp.Require(b, z.Msgsize())
@@ -217,5 +235,44 @@ func (z *LiverpoolSetDynamicStateInternal) MarshalHash() (o []byte, err error) {
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
 func (z *LiverpoolSetDynamicStateInternal) Msgsize() (s int) {
 	s = 3 + 11 + hsp.Uint32Size + 10 + hsp.Uint32Size + 11 + hsp.Uint32Size + 9 + hsp.Uint32Size + 12 + hsp.Uint32Size + 14 + hsp.Float32Size + 14 + hsp.Float32Size + 14 + hsp.Float32Size + 14 + hsp.Float32Size + 17 + hsp.Uint32Size + 17 + hsp.Uint32Size + 21 + hsp.Uint32Size + 19 + hsp.Uint32Size + 23 + hsp.Uint32Size + 10 + hsp.Uint32Size + 10 + hsp.Uint32Size + 12 + hsp.Uint32Size + 16 + hsp.BoolSize + 12 + hsp.Uint32Size + 10 + hsp.Float32Size + 16 + hsp.BoolSize + 9 + hsp.Float32Size + 15 + hsp.BoolSize + 10 + hsp.Float32Size + 16 + hsp.BoolSize + 9 + hsp.Float32Size + 15 + hsp.BoolSize + 7 + hsp.Float32Size + 7 + hsp.Float32Size + 10 + hsp.Float32Size + 16 + hsp.BoolSize + 9 + hsp.Float32Size + 15 + hsp.BoolSize + 11 + hsp.Uint32Size + 9 + hsp.BoolSize + 9 + hsp.BoolSize + 8 + hsp.BoolSize + 13 + hsp.Uint32Size + 19 + hsp.BoolSize + 16 + hsp.Uint32Size + 16 + hsp.Uint32Size
+	return
+}
+
+// MarshalHash marshals for hash
+func (z *LiverpoolWaitRegMemoryInternal) MarshalHash() (o []byte, err error) {
+	var b []byte
+	o = hsp.Require(b, z.Msgsize())
+	// map header, size 4
+	o = append(o, 0x84)
+	o = hsp.AppendUint64(o, uint64(z.Address))
+	o = hsp.AppendUint32(o, z.Function)
+	o = hsp.AppendUint32(o, z.Mask)
+	o = hsp.AppendUint32(o, z.Reference)
+	return
+}
+
+// Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
+func (z *LiverpoolWaitRegMemoryInternal) Msgsize() (s int) {
+	s = 1 + hsp.Uint64Size + 9 + hsp.Uint32Size + 5 + hsp.Uint32Size + 10 + hsp.Uint32Size
+	return
+}
+
+// MarshalHash marshals for hash
+func (z *LiverpoolWriteDataInternal) MarshalHash() (o []byte, err error) {
+	var b []byte
+	o = hsp.Require(b, z.Msgsize())
+	// map header, size 2
+	o = append(o, 0x82)
+	o = hsp.AppendUint64(o, uint64(z.Address))
+	o = hsp.AppendArrayHeader(o, uint32(len(z.Data)))
+	for za0001 := range z.Data {
+		o = hsp.AppendUint32(o, z.Data[za0001])
+	}
+	return
+}
+
+// Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
+func (z *LiverpoolWriteDataInternal) Msgsize() (s int) {
+	s = 1 + hsp.Uint64Size + 5 + hsp.ArrayHeaderSize + (len(z.Data) * (hsp.Uint32Size))
 	return
 }

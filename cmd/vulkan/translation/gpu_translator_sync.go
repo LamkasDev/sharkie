@@ -2,7 +2,6 @@ package translation
 
 import (
 	"runtime"
-	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/lib_structs"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/gpu"
@@ -22,50 +21,33 @@ func (t *GpuTranslator) memorySyncWorker() {
 			continue
 		}
 		if req.IsWrite {
-			// logger.Printf("write at 0x%X.\n", req.Addr)
+			logger.Printf("write at 0x%X.\n", req.Addr)
 			t.InvalidateMemory(req.Addr, lib_structs.SystemPageSize)
 		} else {
-			// logger.Printf("read at 0x%X.\n", req.Addr)
+			logger.Printf("read at 0x%X.\n", req.Addr)
 			t.ReadMemory(req.Addr, lib_structs.SystemPageSize)
 		}
 		structs.CompleteSyncRequest()
 	}
 }
 
-func (t *GpuTranslator) WriteData(command *gpu.LiverpoolWriteData) {
-	if command.Address != 0 {
-		dstSlice := unsafe.Slice((*uint32)(unsafe.Pointer(command.Address)), len(command.Data))
-		copy(dstSlice, command.Data)
-	}
-	if logger.LogRenderer {
-		logger.Printf("[%s] wrote %s bytes to %s.\n",
-			color.Blue.Sprintf("Frame %d", t.currentGuestFrame),
-			color.Green.Sprintf("%d", len(command.Data)),
-			color.Yellow.Sprintf("0x%X", command.Address),
-		)
-	}
+func (t *GpuTranslator) WriteData(command *gpu.LiverpoolWriteDataInternal) {
+	t.commandBuffer.Writes = append(t.commandBuffer.Writes, command)
 }
 
-func (t *GpuTranslator) WaitRegMemory(command *gpu.LiverpoolWaitRegMemory) bool {
-	if logger.LogRenderer {
-		logger.Printf("[%s] waiting on reg memory (address=%s, function=%s, reference=%s).\n",
-			color.Blue.Sprintf("Frame %d", t.currentGuestFrame),
-			color.Yellow.Sprintf("0x%X", command.Address),
-			color.Yellow.Sprintf("0x%X", command.Function),
-			color.Yellow.Sprintf("0x%X", command.Reference),
-		)
+func (t *GpuTranslator) WaitRegMemory(command *gpu.LiverpoolWaitRegMemoryInternal) {
+	if command.Satisfied() {
+		if logger.LogRendererInternal {
+			logger.Printf("[%s] skipped waiting on reg memory (address=%s, function=%s, reference=%s).\n",
+				color.Blue.Sprintf("Frame %d", t.currentGuestFrame),
+				color.Yellow.Sprintf("0x%X", command.Address),
+				color.Yellow.Sprintf("0x%X", command.Function),
+				color.Yellow.Sprintf("0x%X", command.Reference),
+			)
+		}
+		return
 	}
-	current := *(*uint32)(unsafe.Pointer(command.Address)) & command.Mask
-	if ok := gpu.WaitRegMemCompare(command.Function, current, command.Reference); !ok {
-		// TODO: fix this.
-		return true
-		return false
-	}
-	if logger.LogRenderer {
-		logger.Printf("[%s] finished waiting on reg memory.\n",
-			color.Blue.Sprintf("Frame %d", t.currentGuestFrame),
-		)
-	}
-
-	return true
+	t.EndCommandBuffer()
+	t.StartCommandBuffer()
+	t.commandBuffer.Dependencies = append(t.commandBuffer.Dependencies, command)
 }

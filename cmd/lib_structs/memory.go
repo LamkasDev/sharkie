@@ -16,16 +16,6 @@ var GlobalAllocator *Allocator
 // GlobalGpuAllocator should be used for GPU-memory allocations.
 var GlobalGpuAllocator *Allocator
 
-// VMAType classifies how a guest virtual range was established.
-type VMAType uint8
-
-const (
-	VMATypeFree VMAType = iota
-	VMATypeDirect
-	VMATypeFlexible
-	VMATypeAnon
-)
-
 const SystemPageShift = 12
 const SystemPageSize = uintptr(1 << SystemPageShift)
 

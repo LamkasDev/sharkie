@@ -10,7 +10,15 @@ type VideoOutHandle struct {
 	Id                 uint32
 	Buffers            [VideoOutMaxBuffers]VideoOutBuffer
 	Attributes         [VideoOutMaxAttributes]VideoOutBufferAttribute
-	CurrentBuffer      uint32
+	CurrentFlip        *VideoOutFlip
+	StagingFlip        *VideoOutFlip
+	NextFlip           chan *VideoOutFlip
 	FlipRate           uint32
 	LabelBufferAddress uintptr
+}
+
+type VideoOutFlip struct {
+	BufferIndex uint32
+	FlipArg     uint64
+	GpuAddress  uintptr
 }

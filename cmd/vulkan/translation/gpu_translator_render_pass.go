@@ -9,7 +9,7 @@ func (t *GpuTranslator) EndRenderPass() {
 	if t.activePass == vk.NullRenderPass {
 		return
 	}
-	vk.CmdEndRenderPass(t.commandBuffer)
+	vk.CmdEndRenderPass(t.commandBuffer.CommandBuffer)
 	t.activePass = vk.NullRenderPass
 	t.FlushPendingResourceBarriers(t.commandBuffer, 0)
 }
@@ -19,7 +19,7 @@ func (t *GpuTranslator) StartRenderPass(pass vk.RenderPass, passNoClear vk.Rende
 	t.EndRenderPass()
 	t.FlushPendingResourceBarriers(t.commandBuffer, excludeAddress)
 
-	vk.CmdBeginRenderPass(t.commandBuffer, &vk.RenderPassBeginInfo{
+	vk.CmdBeginRenderPass(t.commandBuffer.CommandBuffer, &vk.RenderPassBeginInfo{
 		SType:           vk.StructureTypeRenderPassBeginInfo,
 		RenderPass:      pass,
 		Framebuffer:     fb,
@@ -27,7 +27,7 @@ func (t *GpuTranslator) StartRenderPass(pass vk.RenderPass, passNoClear vk.Rende
 		ClearValueCount: uint32(len(clearValues)),
 		PClearValues:    clearValues,
 	}, vk.SubpassContentsInline)
-	vk.CmdBindPipeline(t.commandBuffer, vk.PipelineBindPointGraphics, pipeline)
+	vk.CmdBindPipeline(t.commandBuffer.CommandBuffer, vk.PipelineBindPointGraphics, pipeline)
 
 	t.activePass = pass
 	t.activePassNoClear = passNoClear
@@ -55,13 +55,13 @@ func (t *GpuTranslator) ResumeActiveRenderPass() {
 }
 
 // FlushPendingResourceBarriers must be called outside an active render pass.
-func (t *GpuTranslator) FlushPendingResourceBarriers(commandBuffer vk.CommandBuffer, excludeAddress uintptr) {
+func (t *GpuTranslator) FlushPendingResourceBarriers(commandBuffer *vulkan.VulkanCommandBuffer, excludeAddress uintptr) {
 	if t.activePass != vk.NullRenderPass {
 		return
 	}
 
 	if t.pendingComputeBarrier {
-		vk.CmdPipelineBarrier(commandBuffer,
+		vk.CmdPipelineBarrier(commandBuffer.CommandBuffer,
 			vk.PipelineStageFlags(vk.PipelineStageComputeShaderBit),
 			vk.PipelineStageFlags(vk.PipelineStageAllGraphicsBit),
 			0, 1, []vk.MemoryBarrier{{

@@ -1,14 +1,12 @@
 package video_out
 
 import (
-	"time"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	"github.com/LamkasDev/sharkie/cmd/lib/kernel"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/dce"
-	. "github.com/LamkasDev/sharkie/cmd/lib_structs/gpu"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/video"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
@@ -76,16 +74,14 @@ func libSceVideoOut_sceVideoOutSubmitEopFlip(rawHandle, bufferIndex, flipMode, f
 	}
 
 	// Ask GPU to present new buffer.
-	handle.CurrentBuffer = uint32(bufferIndex)
-	GlobalLiverpool.Flip(buffer.GpuAddress, uint64(flipArg))
-
-	// TODO: actually sync it with the ticker (too lazy).
-	time.Sleep(16666 * time.Microsecond)
-
-	// Simulate EOP completion.
-	if handle.LabelBufferAddress != 0 {
-		labelSlot := (*uint64)(unsafe.Pointer(handle.LabelBufferAddress + bufferIndex*8))
-		*labelSlot = 1
+	select {
+	case handle.NextFlip <- &VideoOutFlip{
+		BufferIndex: uint32(bufferIndex),
+		FlipArg:     uint64(flipArg),
+		GpuAddress:  buffer.GpuAddress,
+	}:
+	default:
+		logger.Printf("Warning: Flip queue is full! Game is running too fast.")
 	}
 
 	if logger.LogGraphics {

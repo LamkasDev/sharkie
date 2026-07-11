@@ -32,13 +32,13 @@ func DetileGuestTexture(descriptor spirvStructs.ImageDescriptor) ([]byte, MipLay
 	return linear, layout, nil
 }
 
-func ImageBarrier(commandBuffer vk.CommandBuffer, image *VulkanImage,
+func ImageBarrier(commandBuffer *VulkanCommandBuffer, image *VulkanImage,
 	newLayout vk.ImageLayout,
 	dstAccess vk.AccessFlags,
 	dstStage vk.PipelineStageFlags,
 	aspectMask vk.ImageAspectFlags,
 ) {
-	vk.CmdPipelineBarrier(commandBuffer,
+	vk.CmdPipelineBarrier(commandBuffer.CommandBuffer,
 		image.ImageStage, dstStage,
 		0, 0, nil, 0, nil,
 		1, []vk.ImageMemoryBarrier{{

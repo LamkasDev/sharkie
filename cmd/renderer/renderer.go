@@ -11,6 +11,7 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/gpu"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/video"
 	"github.com/LamkasDev/sharkie/cmd/logger"
+	"github.com/LamkasDev/sharkie/cmd/spirv/structs"
 	"github.com/LamkasDev/sharkie/cmd/vulkan"
 	"github.com/LamkasDev/sharkie/cmd/vulkan/translation"
 	vk "github.com/goki/vulkan"
@@ -18,11 +19,12 @@ import (
 )
 
 type Renderer struct {
-	Handles       vulkan.VulkanHandles
-	Backend       backend.Backend[glfwvulkanbackend.GLFWWindowFlags]
-	GpuTranslator *translation.GpuTranslator
-	FrameSource   *FrameSource
-	Overlay       *ImguiOverlay
+	Handles        vulkan.VulkanHandles
+	Backend        backend.Backend[glfwvulkanbackend.GLFWWindowFlags]
+	GpuTranslator  *translation.GpuTranslator
+	RingWorkSource *RingWorkSource
+	FrameSource    *FlipSource
+	Overlay        *ImguiOverlay
 
 	SwapchainDimensions *backend.SwapchainDimensions
 	Depth               *Depth
@@ -38,7 +40,8 @@ type Renderer struct {
 func NewRenderer(context *vulkan.VulkanContext, dimensions *backend.SwapchainDimensions) *Renderer {
 	r := &Renderer{
 		SwapchainDimensions: dimensions,
-		FrameSource:         NewFrameSource(),
+		RingWorkSource:      NewRingWorkSource(),
+		FrameSource:         NewFlipSource(),
 		QueueMutex:          sync.Mutex{},
 	}
 	r.Handles = vulkan.NewVulkanHandles(context, &r.QueueMutex)
@@ -50,7 +53,7 @@ func NewRenderer(context *vulkan.VulkanContext, dimensions *backend.SwapchainDim
 	if r.GpuTranslator, err = translation.NewGpuTranslator(r.Handles, r.Backend); err != nil {
 		panic(err)
 	}
-	r.FrameSource.OnSubmit = r.GpuTranslator.ResetFence
+	r.RingWorkSource.OnSubmit = r.GpuTranslator.ResetFence
 
 	r.Depth = NewDepth(r)
 	r.prepareRenderPass()
@@ -100,56 +103,54 @@ func (r *Renderer) DrawFramebuffer() {
 	imgui.PopStyleColor()
 }
 
-func (r *Renderer) ConsumeFrames(done chan struct{}) {
+func (r *Renderer) ConsumeRingWork(done chan struct{}) {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	defer close(done)
+
+	for ringWork := range r.RingWorkSource.Channel {
+		logger.Printf("[%s] retrieved ring work from channel.\n",
+			color.Blue.Sprintf("Frame %d", ringWork.Number),
+		)
+
+		// Fetch PM4 command streams.
+		gpu.GlobalLiverpool.FrameNumber = ringWork.Number
+		streams := gpu.GlobalLiverpool.Walk(ringWork.RingWork)
+
+		// Translate command streams.
+		r.GpuTranslator.ResetFrameState(ringWork.Number)
+		r.GpuTranslator.StartCommandBuffer()
+		r.GpuTranslator.BeforeTranslate()
+		for _, stream := range streams {
+			r.GpuTranslator.UpdateUserDataBuffers(stream)
+			r.GpuTranslator.Translate(ringWork.Number, stream)
+		}
+
+		// Submit command buffer.
+		r.GpuTranslator.EndCommandBuffer()
+		r.GpuTranslator.SubmitCommandBuffers()
+		r.GpuTranslator.FlushDeferredDestruction()
+
+		// Signal that we're done.
+		r.GpuTranslator.SignalFence()
+	}
+}
+
+func (r *Renderer) ConsumeFlips(done chan struct{}) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 	defer close(done)
 
 	for frame := range r.FrameSource.Channel {
-		logger.Printf("[%s] retrieved from channel.\n",
+		logger.Printf("[%s] retrieved flip from channel.\n",
 			color.Blue.Sprintf("Frame %d", frame.Number),
 		)
 		r.UpdateCounters()
 
-		// Fetch PM4 command streams.
-		gpu.GlobalLiverpool.FrameNumber = frame.Number
-		streams := gpu.GlobalLiverpool.Walk()
-
-		// Start command buffer.
-		r.GpuTranslator.ResetFrameState(frame.Number)
-		r.GpuTranslator.StartCommandBuffer()
-		for _, stream := range streams {
-			r.GpuTranslator.UpdateUserDataBuffers(stream)
-		}
-
-		// Iterate streams and make them fight out dependencies.
-		activeStreams := make([]*gpu.LiverpoolCommandStream, len(streams))
-		copy(activeStreams, streams)
-		for len(activeStreams) > 0 {
-			progressed := false
-			for i := 0; i < len(activeStreams); i++ {
-				stream := activeStreams[i]
-				ok := r.GpuTranslator.Translate(frame.Number, stream)
-				if ok {
-					activeStreams = append(activeStreams[:i], activeStreams[i+1:]...)
-					i--
-					progressed = true
-				}
-			}
-			if !progressed {
-				// This shouldn't happen.
-				runtime.Gosched()
-			}
-		}
-
-		// Submit command buffer.
-		r.GpuTranslator.SubmitCommandBuffer()
-		r.GpuTranslator.FlushDeferredDestruction()
-
 		// Transition surface and update texture ID for display.
-		surface := r.GpuTranslator.GetSurfaceByAddress(frame.GpuAddress)
+		surface := r.GpuTranslator.GetSurfaceByAddress(structs.GetPhysicalGpuAddress(frame.Flip.GpuAddress))
 		if surface != nil {
-			err := vulkan.RunWithCommandBuffer(&r.Handles, func(commandBuffer vk.CommandBuffer) {
+			err := vulkan.RunWithCommandBuffer(&r.Handles, r.Handles.FlipFence, func(commandBuffer *vulkan.VulkanCommandBuffer) {
 				surface.ImageView.Image.BarrierGeneralShaderAccess(commandBuffer)
 			})
 			if err != nil {
@@ -159,7 +160,6 @@ func (r *Renderer) ConsumeFrames(done chan struct{}) {
 			r.DisplayTextureId = r.GpuTranslator.GetSurfaceTexture(surface)
 			r.QueueMutex.Unlock()
 		}
-		r.GpuTranslator.SignalFence()
 
 		// Wait on next frame.
 		select {
@@ -182,10 +182,6 @@ func (r *Renderer) UpdateCounters() {
 	oldFramerate := r.Overlay.Framerate.Load()
 	newFramerate := (instantFramerate * alpha) + (oldFramerate * (1.0 - alpha))
 	r.Overlay.Framerate.Store(newFramerate)
-}
-
-func (r *Renderer) WaitOnFence() {
-	r.GpuTranslator.WaitOnFence()
 }
 
 func (r *Renderer) RegisterFramebuffer(address uintptr, attribute *VideoOutBufferAttribute) {

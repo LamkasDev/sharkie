@@ -41,7 +41,12 @@ func (t *GpuTranslator) Draw(frame uint64, draw *gpu.LiverpoolDraw) {
 	if activeStaticSet != vk.NullDescriptorSet {
 		staticSetToBind = activeStaticSet
 	}
-	vk.CmdBindDescriptorSets(t.commandBuffer, vk.PipelineBindPointGraphics, t.pipelineLayout, spirvStructs.DescriptorSetSlotStatic, 1, []vk.DescriptorSet{staticSetToBind}, 0, nil)
+	vk.CmdBindDescriptorSets(
+		t.commandBuffer.CommandBuffer, vk.PipelineBindPointGraphics,
+		t.pipelineLayout, spirvStructs.DescriptorSetSlotStatic,
+		1, []vk.DescriptorSet{staticSetToBind},
+		0, nil,
+	)
 
 	// Resume render pass if needed.
 	t.ResumeActiveRenderPass()
@@ -72,7 +77,7 @@ func (t *GpuTranslator) Draw(frame uint64, draw *gpu.LiverpoolDraw) {
 			BaseArrayLayer: 0,
 			LayerCount:     1,
 		}}
-		vk.CmdClearAttachments(t.commandBuffer, 1, clearAttachments, 1, clearRects)
+		vk.CmdClearAttachments(t.commandBuffer.CommandBuffer, 1, clearAttachments, 1, clearRects)
 	}
 
 	// Push constants to vertex shader.
@@ -84,7 +89,11 @@ func (t *GpuTranslator) Draw(frame uint64, draw *gpu.LiverpoolDraw) {
 		VteControl:              t.activeVteControl,
 		ClipControl:             t.activeClipControl,
 	}
-	vk.CmdPushConstants(t.commandBuffer, t.pipelineLayout, vk.ShaderStageFlags(vk.ShaderStageVertexBit|vk.ShaderStageComputeBit), 0, spirvStructs.PushConstantsSize, unsafe.Pointer(&pushDataVs))
+	vk.CmdPushConstants(
+		t.commandBuffer.CommandBuffer, t.pipelineLayout,
+		vk.ShaderStageFlags(vk.ShaderStageVertexBit|vk.ShaderStageComputeBit), 0,
+		spirvStructs.PushConstantsSize, unsafe.Pointer(&pushDataVs),
+	)
 
 	// Push constants to fragment shader.
 	pushDataFs := spirvStructs.PushConstants{
@@ -96,7 +105,11 @@ func (t *GpuTranslator) Draw(frame uint64, draw *gpu.LiverpoolDraw) {
 		VteControl:              t.activeVteControl,
 		ClipControl:             t.activeClipControl,
 	}
-	vk.CmdPushConstants(t.commandBuffer, t.pipelineLayout, vk.ShaderStageFlags(vk.ShaderStageFragmentBit), spirvStructs.PushConstantsSize, spirvStructs.PushConstantsSize, unsafe.Pointer(&pushDataFs))
+	vk.CmdPushConstants(
+		t.commandBuffer.CommandBuffer, t.pipelineLayout,
+		vk.ShaderStageFlags(vk.ShaderStageFragmentBit), spirvStructs.PushConstantsSize,
+		spirvStructs.PushConstantsSize, unsafe.Pointer(&pushDataFs),
+	)
 
 	// Draw.
 	if logger.LogRenderer {
@@ -120,15 +133,15 @@ func (t *GpuTranslator) Draw(frame uint64, draw *gpu.LiverpoolDraw) {
 		if draw.IndexType == 1 {
 			indexType = vk.IndexTypeUint32
 		}
-		vk.CmdBindIndexBuffer(t.commandBuffer, targetBuffer, vk.DeviceSize(relativeOffset), indexType)
-		vk.CmdDrawIndexed(t.commandBuffer, draw.VertexCount, draw.InstanceCount, draw.IndexOffset, 0, 0)
+		vk.CmdBindIndexBuffer(t.commandBuffer.CommandBuffer, targetBuffer, vk.DeviceSize(relativeOffset), indexType)
+		vk.CmdDrawIndexed(t.commandBuffer.CommandBuffer, draw.VertexCount, draw.InstanceCount, draw.IndexOffset, 0, 0)
 	} else {
 		if draw.PrimType == 19 {
 			quadCount := draw.VertexCount / 4
-			vk.CmdBindIndexBuffer(t.commandBuffer, t.quadListIndexBuffer, 0, vk.IndexTypeUint16)
-			vk.CmdDrawIndexed(t.commandBuffer, quadCount*6, draw.InstanceCount, 0, 0, 0)
+			vk.CmdBindIndexBuffer(t.commandBuffer.CommandBuffer, t.quadListIndexBuffer, 0, vk.IndexTypeUint16)
+			vk.CmdDrawIndexed(t.commandBuffer.CommandBuffer, quadCount*6, draw.InstanceCount, 0, 0, 0)
 		} else {
-			vk.CmdDraw(t.commandBuffer, draw.VertexCount, draw.InstanceCount, 0, 0)
+			vk.CmdDraw(t.commandBuffer.CommandBuffer, draw.VertexCount, draw.InstanceCount, 0, 0)
 		}
 	}
 
@@ -146,7 +159,7 @@ func (t *GpuTranslator) SetDynamicState(dynamicState *gpu.LiverpoolSetDynamicSta
 	t.setScissor(dynamicState)
 
 	// Setup blend constants.
-	vk.CmdSetBlendConstants(t.commandBuffer, &[4]float32{
+	vk.CmdSetBlendConstants(t.commandBuffer.CommandBuffer, &[4]float32{
 		math.Float32frombits(dynamicState.BlendRed),
 		math.Float32frombits(dynamicState.BlendGreen),
 		math.Float32frombits(dynamicState.BlendBlue),
@@ -207,7 +220,7 @@ func (t *GpuTranslator) setViewport(dynamicState *gpu.LiverpoolSetDynamicState) 
 	minDepth := max(0.0, min(1.0, vpzOffset))
 	maxDepth := max(0.0, min(1.0, vpzOffset+vpzScale))
 
-	vk.CmdSetViewport(t.commandBuffer, 0, 1, []vk.Viewport{{
+	vk.CmdSetViewport(t.commandBuffer.CommandBuffer, 0, 1, []vk.Viewport{{
 		X: vpX, Y: vpY,
 		Width: vpWidth, Height: vpHeight,
 		MinDepth: minDepth,
@@ -285,7 +298,7 @@ func (t *GpuTranslator) setScissor(dynamicState *gpu.LiverpoolSetDynamicState) {
 		finalScissor.X1 = 0
 		finalScissor.Y1 = 0
 	}
-	vk.CmdSetScissor(t.commandBuffer, 0, 1, []vk.Rect2D{{
+	vk.CmdSetScissor(t.commandBuffer.CommandBuffer, 0, 1, []vk.Rect2D{{
 		Offset: vk.Offset2D{X: finalScissor.X1, Y: finalScissor.Y1},
 		Extent: vk.Extent2D{Width: width, Height: height},
 	}})

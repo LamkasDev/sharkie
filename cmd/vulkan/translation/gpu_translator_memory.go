@@ -7,20 +7,9 @@ import (
 
 // ReadMemory services a CPU read fault on GPU-tracked guest memory.
 func (t *GpuTranslator) ReadMemory(address, size uintptr) bool {
-	if !t.IsGpuMapped(address, size) {
-		return false
-	}
-
-	downloaded := map[uintptr]struct{}{}
-	for _, image := range t.CollectGpuResourcesInRange(address, size) {
-		if !image.ShouldDownloadFromVkImage() {
-			continue
-		}
-		if _, ok := downloaded[image.Address]; ok {
-			continue
-		}
-		downloaded[image.Address] = struct{}{}
-		_ = image.DownloadFromVkImage(&t.handles)
+	err := t.DownloadRegionVkImages(address, size)
+	if err != nil {
+		panic(err)
 	}
 
 	return true
@@ -28,13 +17,8 @@ func (t *GpuTranslator) ReadMemory(address, size uintptr) bool {
 
 // InvalidateMemory services a CPU write fault or guest mprotect.
 func (t *GpuTranslator) InvalidateMemory(address, size uintptr) bool {
-	if !t.IsGpuMapped(address, size) {
-		return false
-	}
 	t.ReadMemory(address, size)
-
-	images := t.CollectGpuResourcesInRange(address, size)
-	for _, image := range images {
+	for _, image := range t.CollectGpuResourcesInRange(address, size) {
 		image.MarkCpuModified()
 	}
 
@@ -49,5 +33,6 @@ func (t *GpuTranslator) IsGpuMapped(address, size uintptr) bool {
 			return true
 		}
 	}
+
 	return false
 }

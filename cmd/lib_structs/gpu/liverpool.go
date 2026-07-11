@@ -12,30 +12,9 @@ import (
 
 var GlobalLiverpool *Liverpool
 
-type LiverpoolDmaCopy struct {
-	SrcAddress uintptr
-	DstAddress uintptr
-	Count      uint32
-}
-
-type LiverpoolWriteData struct {
-	Address uintptr
-	Data    []uint32
-}
-
-type LiverpoolWaitRegMemory struct {
-	Function  uint32
-	Address   uintptr
-	Reference uint32
-	Mask      uint32
-}
-
 // Liverpool keeps state of the AMD Liverpool GPU.
 type Liverpool struct {
-	FrameNumber  uint64
-	RingMutex    sync.Mutex
-	GraphicsRing *LiverpoolCommandRing
-	ComputeRing  *LiverpoolCommandRing
+	FrameNumber uint64
 
 	StateMutex sync.Mutex
 	Registers  LiverpoolRegisters
@@ -47,21 +26,23 @@ type Liverpool struct {
 	DisplaySurfaces map[uintptr]*LiverpoolDisplaySurface
 	PM4Handlers     map[uint8]PM4Handler
 
-	OnFlip                   func(gpuAddress uintptr, flipArg uint64)
+	OnFlip                   func(flip *VideoOutFlip)
+	OnRingWork               func(ringWork *RingWork)
 	OnRegisterDisplaySurface func(address uintptr, attribute *VideoOutBufferAttribute)
 	WaitOnFence              func()
 }
 
+type RingWork struct {
+	GraphicsRing *LiverpoolCommandRing
+	ComputeRing  *LiverpoolCommandRing
+}
+
 func NewLiverpool() *Liverpool {
 	l := &Liverpool{
-		RingMutex:    sync.Mutex{},
-		GraphicsRing: &LiverpoolCommandRing{},
-		ComputeRing:  &LiverpoolCommandRing{},
-
 		StateMutex: sync.Mutex{},
 
-		LoadedShaders: map[uintptr]*GcnShader{},
 		ShadersMutex:  sync.Mutex{},
+		LoadedShaders: map[uintptr]*GcnShader{},
 
 		DisplaySurfaces: map[uintptr]*LiverpoolDisplaySurface{},
 		PM4Handlers:     map[uint8]PM4Handler{},
@@ -87,25 +68,22 @@ func (l *Liverpool) RegisterDisplaySurface(address uintptr, attribute *VideoOutB
 }
 
 func (l *Liverpool) SubmitCommandBuffers(indirectBuffers []PM4IndirectBuffer) {
-	l.RingMutex.Lock()
-	defer l.RingMutex.Unlock()
+	ringWork := &RingWork{
+		GraphicsRing: &LiverpoolCommandRing{},
+		ComputeRing:  &LiverpoolCommandRing{},
+	}
 	for _, indirectBuffer := range indirectBuffers {
 		opcode := (indirectBuffer.Header >> 8) & 0xFF
 		switch opcode {
 		case PM4_IT_INDIRECT_BUFFER:
-			l.GraphicsRing.Pending = append(l.GraphicsRing.Pending, indirectBuffer)
+			ringWork.GraphicsRing.Pending = append(ringWork.GraphicsRing.Pending, indirectBuffer)
 		case PM4_IT_INDIRECT_BUFFER_CNST:
-			l.ComputeRing.Pending = append(l.ComputeRing.Pending, indirectBuffer)
+			ringWork.ComputeRing.Pending = append(ringWork.ComputeRing.Pending, indirectBuffer)
 		default:
 			continue
 		}
 	}
-}
-
-func (l *Liverpool) Flip(gpuAddress uintptr, flipArg uint64) {
-	if l.OnFlip != nil {
-		l.OnFlip(gpuAddress, flipArg)
-	}
+	l.OnRingWork(ringWork)
 }
 
 func (l *Liverpool) GetShader(stage GcnShaderStage, address uintptr) *GcnShader {

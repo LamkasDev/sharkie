@@ -27,7 +27,10 @@ const (
 	LogGraphics = false
 
 	// Logs vulkan rendering.
-	LogRenderer = false
+	LogRenderer = true
+
+	// Logs vulkan pseudo commands (waits, writes, etc).
+	LogRendererInternal = false
 
 	// Logs things that clutter log (value returns, etc).
 	LogMisc = false
@@ -39,7 +42,7 @@ const (
 const (
 	FiosDebugMode = false
 
-	GameDebugMode = false
+	GameDebugMode = true
 )
 
 var LogFile *os.File

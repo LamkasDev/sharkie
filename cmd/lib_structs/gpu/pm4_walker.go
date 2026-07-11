@@ -40,18 +40,11 @@ func (l *Liverpool) SetupPM4Handlers() {
 }
 
 // Walk drains both the graphics and compute rings, decoding every PM4 packet and updating GPU register state.
-func (l *Liverpool) Walk() []*LiverpoolCommandStream {
+func (l *Liverpool) Walk(ringWork *RingWork) []*LiverpoolCommandStream {
 	asm.GCFence.Store(true)
 
-	l.RingMutex.Lock()
-	pendingGraphics := l.GraphicsRing.Pending
-	l.GraphicsRing.Pending = l.GraphicsRing.Pending[:0]
-	pendingCompute := l.ComputeRing.Pending
-	l.ComputeRing.Pending = l.ComputeRing.Pending[:0]
-	l.RingMutex.Unlock()
-
 	graphicsStream := NewLiverpoolCommandStream("GFX")
-	for i, buffer := range pendingGraphics {
+	for i, buffer := range ringWork.GraphicsRing.Pending {
 		logger.Printf("[%s] walking GFX pm4 buffer %s (length=%s).\n",
 			color.Green.Sprint("PM4"),
 			color.Green.Sprintf("%d", i),
@@ -60,7 +53,7 @@ func (l *Liverpool) Walk() []*LiverpoolCommandStream {
 		l.walkIndirectBuffer(graphicsStream, buffer)
 	}
 	computeStream := NewLiverpoolCommandStream("COM")
-	for i, buffer := range pendingCompute {
+	for i, buffer := range ringWork.ComputeRing.Pending {
 		logger.Printf("[%s] walking COM pm4 buffer %s (length=%s).\n",
 			color.Green.Sprint("PM4"),
 			color.Green.Sprintf("%d", i),
@@ -298,7 +291,7 @@ func (l *Liverpool) handleEventWriteEopEos(stream *LiverpoolCommandStream, kind 
 	}
 
 	// Construct write data.
-	writeData := LiverpoolWriteData{
+	writeData := LiverpoolWriteDataInternal{
 		Address: address,
 		Data:    data,
 	}

@@ -1,6 +1,8 @@
 package structs
 
 import (
+	"slices"
+	"sync"
 	"syscall"
 	"unsafe"
 
@@ -8,17 +10,19 @@ import (
 )
 
 type MemoryPage struct {
-	Mapped   bool
-	Prot     uint32
-	Resource interface{}
+	Mapped    bool
+	Prot      uint32
+	Resources []interface{}
 }
 
 type MemoryManager struct {
 	Pages map[uintptr]*MemoryPage
+	Lock  sync.Mutex
 }
 
 var GlobalMemoryManager = &MemoryManager{
 	Pages: make(map[uintptr]*MemoryPage),
+	Lock:  sync.Mutex{},
 }
 
 func init() {
@@ -39,33 +43,41 @@ func (m *MemoryManager) getPage(addr uintptr) *MemoryPage {
 	if p, ok := m.Pages[pageAddr]; ok {
 		return p
 	}
-	p := &MemoryPage{}
+	p := &MemoryPage{
+		Resources: []interface{}{},
+	}
 	m.Pages[pageAddr] = p
 	return p
 }
 
 func (m *MemoryManager) Map(address, size uintptr) {
 	end := address + size
+	m.Lock.Lock()
 	for addr := address >> lib_structs.SystemPageShift; (addr << lib_structs.SystemPageShift) < end; addr++ {
 		page := m.getPage(addr << lib_structs.SystemPageShift)
 		page.Mapped = true
 	}
+	m.Lock.Unlock()
 }
 
 func (m *MemoryManager) Unmap(address, size uintptr) {
 	end := address + size
+	m.Lock.Lock()
 	for addr := address >> lib_structs.SystemPageShift; (addr << lib_structs.SystemPageShift) < end; addr++ {
 		page := m.getPage(addr << lib_structs.SystemPageShift)
 		page.Mapped = false
 	}
+	m.Lock.Unlock()
 }
 
 func (m *MemoryManager) Protect(address, size uintptr, prot uint32) {
 	end := address + size
+	m.Lock.Lock()
 	for addr := address >> lib_structs.SystemPageShift; (addr << lib_structs.SystemPageShift) < end; addr++ {
 		page := m.getPage(addr << lib_structs.SystemPageShift)
 		page.Prot = prot
 	}
+	m.Lock.Unlock()
 }
 
 func (m *MemoryManager) UpdateTraps(address, size uintptr, protState int) {
@@ -96,23 +108,29 @@ func (m *MemoryManager) UpdateTraps(address, size uintptr, protState int) {
 
 func (m *MemoryManager) Track(address, size uintptr, resource interface{}) {
 	end := address + size
+	m.Lock.Lock()
 	for addr := address >> lib_structs.SystemPageShift; (addr << lib_structs.SystemPageShift) < end; addr++ {
 		pageAddr := addr << lib_structs.SystemPageShift
 		page := m.getPage(pageAddr)
-		page.Resource = resource
+		page.Resources = append(page.Resources, resource)
 		cTrackPage(pageAddr, 0) // 0 = PROT_NONE, traps reads and writes
 	}
+	m.Lock.Unlock()
 	m.UpdateTraps(address, size, 0)
 }
 
 func (m *MemoryManager) Untrack(address, size uintptr, resource interface{}) {
 	end := address + size
+	m.Lock.Lock()
 	for addr := address >> lib_structs.SystemPageShift; (addr << lib_structs.SystemPageShift) < end; addr++ {
 		pageAddr := addr << lib_structs.SystemPageShift
 		page := m.getPage(pageAddr)
-		if page.Resource == resource {
-			page.Resource = nil
+		if i := slices.Index(page.Resources, resource); i >= 0 {
+			page.Resources = slices.Delete(page.Resources, i, i+1)
+		}
+		if len(page.Resources) == 0 {
 			cUntrackPage(pageAddr)
 		}
 	}
+	m.Lock.Unlock()
 }

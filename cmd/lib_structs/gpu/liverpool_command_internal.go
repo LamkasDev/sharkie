@@ -1,5 +1,7 @@
 package gpu
 
+import "unsafe"
+
 //go:generate hsp
 //go:generate go run ../../hsp_gen/hsp_gen.go -- liverpool_command_internal_gen.go
 
@@ -218,4 +220,31 @@ type LiverpoolDispatchInternal struct {
 
 	// Hash of user data registers.
 	UserDataHash uint32
+}
+
+type LiverpoolDmaCopyInternal struct {
+	SrcAddress uintptr
+	DstAddress uintptr
+	Count      uint32
+}
+
+type LiverpoolWaitRegMemoryInternal struct {
+	Function  uint32
+	Address   uintptr
+	Reference uint32
+	Mask      uint32
+}
+
+func (command *LiverpoolWaitRegMemoryInternal) Satisfied() bool {
+	current := *(*uint32)(unsafe.Pointer(command.Address)) & command.Mask
+	if ok := WaitRegMemCompare(command.Function, current, command.Reference); !ok {
+		return false
+	}
+
+	return true
+}
+
+type LiverpoolWriteDataInternal struct {
+	Address uintptr
+	Data    []uint32
 }

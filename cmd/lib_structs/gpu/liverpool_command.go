@@ -30,8 +30,8 @@ type LiverpoolCommandStream struct {
 	Draws         []LiverpoolDraw
 	Dispatches    []LiverpoolDispatch
 	DmaCopies     []LiverpoolDmaCopy
-	WriteDatas    []LiverpoolWriteData
-	WaitRegMems   []LiverpoolWaitRegMemory
+	WriteDatas    []LiverpoolWriteDataInternal
+	WaitRegMems   []LiverpoolWaitRegMemoryInternal
 
 	PipelinesMap     map[uint64]uint32
 	DynamicStatesMap map[uint64]uint32
@@ -47,8 +47,8 @@ func NewLiverpoolCommandStream(name string) *LiverpoolCommandStream {
 		Draws:         []LiverpoolDraw{},
 		Dispatches:    []LiverpoolDispatch{},
 		DmaCopies:     []LiverpoolDmaCopy{},
-		WriteDatas:    []LiverpoolWriteData{},
-		WaitRegMems:   []LiverpoolWaitRegMemory{},
+		WriteDatas:    []LiverpoolWriteDataInternal{},
+		WaitRegMems:   []LiverpoolWaitRegMemoryInternal{},
 
 		PipelinesMap:     map[uint64]uint32{},
 		DynamicStatesMap: map[uint64]uint32{},
@@ -113,4 +113,16 @@ type LiverpoolDispatch struct {
 func (z *LiverpoolDispatch) Hash() uint64 {
 	data, _ := z.MarshalHash()
 	return xxhash.Sum64(data)
+}
+
+type LiverpoolDmaCopy struct {
+	LiverpoolDmaCopyInternal
+}
+
+type LiverpoolWaitRegMemory struct {
+	LiverpoolWaitRegMemoryInternal
+}
+
+type LiverpoolWriteData struct {
+	LiverpoolWriteDataInternal
 }

@@ -1,8 +1,6 @@
 package translation
 
 import (
-	"fmt"
-
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/LamkasDev/sharkie/cmd/vulkan"
@@ -10,11 +8,10 @@ import (
 )
 
 func (t *GpuTranslator) registerImage(image *vulkan.VulkanImage, isUpgrade bool) {
-	size := vulkan.DescriptorRegionSize(image.FirstDescriptor)
-	image.GuestSize = size
+	t.imagesMutex.Lock()
 	t.images[image.Address] = image
-	structs.GlobalMemoryManager.Track(image.Address, size, image)
-
+	t.imagesMutex.Unlock()
+	structs.GlobalMemoryManager.Track(image.Address, image.GuestSize, image)
 	if !isUpgrade {
 		image.MarkCpuModified()
 	} else {
@@ -31,22 +28,19 @@ func (t *GpuTranslator) registerImage(image *vulkan.VulkanImage, isUpgrade bool)
 		image.Address, image.FirstDescriptor.Width, image.FirstDescriptor.Height,
 		nstd.Btoi(image.IsSurface),
 	)
-	if image.Address == 0xFE4DC9400 {
-		fmt.Print()
-	}
 }
 
-// unregisterImage removes page watchers, map references, and page indexing for an image.
 func (t *GpuTranslator) unregisterImage(address uintptr) {
+	t.imagesMutex.Lock()
 	image, ok := t.images[address]
 	if !ok {
+		t.imagesMutex.Unlock()
 		return
 	}
-	if image.GuestSize > 0 {
-		structs.GlobalMemoryManager.Untrack(image.Address, image.GuestSize, image)
-		image.Destroy(t.handles.Device)
-	}
+	structs.GlobalMemoryManager.Untrack(image.Address, image.GuestSize, image)
 	delete(t.images, address)
+	t.imagesMutex.Unlock()
+
 	logger.Printf("deleted image at 0x%X (%dx%d).\n",
 		image.Address, image.FirstDescriptor.Width, image.FirstDescriptor.Height,
 	)

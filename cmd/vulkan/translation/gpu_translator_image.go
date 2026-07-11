@@ -26,9 +26,7 @@ func (t *GpuTranslator) GetImage(descriptor spirvStructs.ImageDescriptor, format
 				return nil, err, false
 			}
 			newImage.Generation = gen + 1
-			t.imagesMutex.Lock()
 			t.registerImage(newImage, false)
-			t.imagesMutex.Unlock()
 
 			if newImage.ShouldUploadToVkImage() {
 				_ = newImage.UploadToVkImage(&t.handles, t.GetLinearBuffer)
@@ -54,9 +52,7 @@ func (t *GpuTranslator) GetImage(descriptor spirvStructs.ImageDescriptor, format
 			newImage.Generation = gen + 1
 			newImage.SyncFlags = syncFlags
 
-			t.imagesMutex.Lock()
 			t.registerImage(newImage, true)
-			t.imagesMutex.Unlock()
 			err = image.CopyToImage(&t.handles, newImage)
 			if err != nil {
 				return nil, err, false
@@ -79,9 +75,7 @@ func (t *GpuTranslator) GetImage(descriptor spirvStructs.ImageDescriptor, format
 	if err != nil {
 		return nil, err, false
 	}
-	t.imagesMutex.Lock()
 	t.registerImage(image, false)
-	t.imagesMutex.Unlock()
 
 	if image.ShouldUploadToVkImage() {
 		_ = image.UploadToVkImage(&t.handles, t.GetLinearBuffer)
@@ -103,11 +97,14 @@ func (t *GpuTranslator) EvictResourcesAtAddress(address uintptr) {
 	t.invalidateFramebuffersForAddress(address)
 
 	t.imagesMutex.Lock()
-	if image, ok := t.images[address]; ok {
+	image, ok := t.images[address]
+	t.imagesMutex.Unlock()
+	if ok {
 		t.unregisterImage(address)
 		t.deferDestroyImage(image)
 	}
 
+	t.imagesMutex.Lock()
 	for hash, view := range t.imageViews {
 		if view.Image != nil && view.Image.Address == address {
 			delete(t.imageViews, hash)

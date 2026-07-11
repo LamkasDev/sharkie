@@ -17,7 +17,7 @@ func (t *GpuTranslator) Dispatch(frame uint64, dispatch *gpu.LiverpoolDispatch) 
 	t.EndRenderPass()
 
 	// Wait for all prior draw work before compute reads rendered attachments.
-	vk.CmdPipelineBarrier(t.commandBuffer,
+	vk.CmdPipelineBarrier(t.commandBuffer.CommandBuffer,
 		vk.PipelineStageFlags(vk.PipelineStageAllGraphicsBit),
 		vk.PipelineStageFlags(vk.PipelineStageComputeShaderBit),
 		0, 1, []vk.MemoryBarrier{{
@@ -50,7 +50,7 @@ func (t *GpuTranslator) Dispatch(frame uint64, dispatch *gpu.LiverpoolDispatch) 
 	}
 
 	// Bind pipeline.
-	vk.CmdBindPipeline(t.commandBuffer, vk.PipelineBindPointCompute, pipeline)
+	vk.CmdBindPipeline(t.commandBuffer.CommandBuffer, vk.PipelineBindPointCompute, pipeline)
 
 	// Get buffer addresses.
 	t.userDataBuffersMutex.Lock()
@@ -67,7 +67,12 @@ func (t *GpuTranslator) Dispatch(frame uint64, dispatch *gpu.LiverpoolDispatch) 
 	if activeStaticSet != vk.NullDescriptorSet {
 		staticSetToBind = activeStaticSet
 	}
-	vk.CmdBindDescriptorSets(t.commandBuffer, vk.PipelineBindPointCompute, t.pipelineLayout, spirvStructs.DescriptorSetSlotStatic, 1, []vk.DescriptorSet{staticSetToBind}, 0, nil)
+	vk.CmdBindDescriptorSets(
+		t.commandBuffer.CommandBuffer, vk.PipelineBindPointCompute,
+		t.pipelineLayout, spirvStructs.DescriptorSetSlotStatic,
+		1, []vk.DescriptorSet{staticSetToBind},
+		0, nil,
+	)
 
 	// Push constants to shader.
 	pushData := spirvStructs.PushConstants{
@@ -78,7 +83,7 @@ func (t *GpuTranslator) Dispatch(frame uint64, dispatch *gpu.LiverpoolDispatch) 
 		ShaderRsrc2:             dispatch.ComputeShRsrc2,
 	}
 	vk.CmdPushConstants(
-		t.commandBuffer, t.pipelineLayout,
+		t.commandBuffer.CommandBuffer, t.pipelineLayout,
 		vk.ShaderStageFlags(vk.ShaderStageVertexBit|vk.ShaderStageComputeBit),
 		0, spirvStructs.PushConstantsSize,
 		unsafe.Pointer(&pushData),
@@ -96,10 +101,10 @@ func (t *GpuTranslator) Dispatch(frame uint64, dispatch *gpu.LiverpoolDispatch) 
 			color.Green.Sprint(pushData.UserSgprCount),
 		)
 	}
-	vk.CmdDispatch(t.commandBuffer, dispatch.DimX, dispatch.DimY, dispatch.DimZ)
+	vk.CmdDispatch(t.commandBuffer.CommandBuffer, dispatch.DimX, dispatch.DimY, dispatch.DimZ)
 
 	// Global memory barrier to make compute writes visible.
-	vk.CmdPipelineBarrier(t.commandBuffer,
+	vk.CmdPipelineBarrier(t.commandBuffer.CommandBuffer,
 		vk.PipelineStageFlags(vk.PipelineStageComputeShaderBit),
 		vk.PipelineStageFlags(vk.PipelineStageAllCommandsBit),
 		0, 1, []vk.MemoryBarrier{{

@@ -46,6 +46,8 @@ func ResolveImageResources(sites []SpirvShaderResource, shader *spirv.SpirvShade
 				applySOP1(instr, &registers)
 			case gcnSpec.EncSOP2:
 				applySOP2(instr, &registers)
+			case gcnSpec.EncSOPC:
+				applySOPC(instr, &registers)
 			case gcnSpec.EncSMRD:
 				applySMRD(instr, &registers)
 			case gcnSpec.EncMIMG:
@@ -128,6 +130,17 @@ func applySOP2(instr *gcnSpec.Instruction, registers *gcnSpec.GcnRegisters) {
 		}
 		registers[dst] = res
 		registers[gcnSpec.OpScc] = uint32(nstd.Btoi(res != 0))
+	}
+}
+
+func applySOPC(instr *gcnSpec.Instruction, registers *gcnSpec.GcnRegisters) {
+	details := instr.Details.(*gcnSpec.ScalarDetails)
+	src0 := readScalarOperand(details.Src0, instr, registers)
+	src1 := readScalarOperand(details.Src1, instr, registers)
+
+	switch details.Op {
+	case gcnSpec.SopcOpCmpEqU32:
+		registers[gcnSpec.OpScc] = uint32(nstd.Btoi(src0 == src1))
 	}
 }
 

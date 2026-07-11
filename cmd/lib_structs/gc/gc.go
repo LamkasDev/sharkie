@@ -10,7 +10,6 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/fs"
-	. "github.com/LamkasDev/sharkie/cmd/lib_structs/gpu"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
 )
@@ -26,9 +25,6 @@ const (
 // GraphicsController keeps state of the /dev/gc device.
 type GraphicsController struct {
 	SubmitDoneAddress uintptr
-	ActiveRingSlot    uint32
-	PendingSubmits    uint32
-	RingActive        bool
 }
 
 func NewGraphicsController() *GraphicsController {
@@ -112,70 +108,12 @@ func (gc *GraphicsController) Ioctl(request uint64, argPtr uintptr) error {
 			color.Magenta.Sprint("ioctl"),
 		)
 		return nil
-	case SCE_GC_IOCTL_DRAIN_RING:
-		if logger.LogGraphics {
-			logger.Printf("%-132s %s tried draining ring %s.\n",
-				emu.GlobalModuleManager.GetCallSiteText(),
-				color.Magenta.Sprint("ioctl"),
-				color.Yellow.Sprintf("%d", GlobalGraphicsController.ActiveRingSlot),
-			)
-		}
-		return nil
 	case SCE_GC_IOCTL_SET_WORK_MODE:
 		setWorkMode := (*GnmSetWorkMode)(unsafe.Pointer(argPtr))
 		logger.Printf("%-132s %s tried setting work mode to %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("ioctl"),
 			color.Yellow.Sprintf("0x%X", setWorkMode.Mode),
-		)
-		return nil
-	case SCE_GC_IOCTL_SWITCH_BUFFER:
-		switchBuffer := (*GnmSwitchBuffer)(unsafe.Pointer(argPtr))
-		GlobalGraphicsController.ActiveRingSlot = switchBuffer.RingSlot
-
-		logger.Printf("%-132s %s switched to ring slot %s.\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("ioctl"),
-			color.Yellow.Sprintf("0x%X", switchBuffer.RingSlot),
-		)
-		return nil
-	case SCE_GC_IOCTL_SUBMIT_COMMAND_BUFFERS:
-		submitBuffers := (*GnmSubmitCommandBuffers)(unsafe.Pointer(argPtr))
-		if submitBuffers.Count == 0 || submitBuffers.IndirectBuffersPtr == 0 {
-			logger.Printf("%-132s %s skipped due to zero size or invalid pointer.\n",
-				emu.GlobalModuleManager.GetCallSiteText(),
-				color.Magenta.Sprint("ioctl[gc:submit_cbs]"),
-			)
-			return nil
-		}
-
-		buffers := unsafe.Slice((*PM4IndirectBuffer)(unsafe.Pointer(submitBuffers.IndirectBuffersPtr)), submitBuffers.Count)
-		buffersCopy := make([]PM4IndirectBuffer, submitBuffers.Count)
-		copy(buffersCopy, buffers)
-
-		GlobalLiverpool.SubmitCommandBuffers(buffersCopy)
-		WriteAddress(GlobalGraphicsController.SubmitDoneAddress, uintptr(1))
-		GlobalGraphicsController.PendingSubmits += submitBuffers.Count
-
-		logger.Printf("%-132s %s submitted %s indirect buffers (count=%s, contextId=%s).\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("ioctl"),
-			color.Green.Sprintf("%d", len(buffers)),
-			color.Green.Sprintf("%d", submitBuffers.Count),
-			color.Yellow.Sprintf("0x%X", submitBuffers.ContextId),
-		)
-		return nil
-	case SCE_GC_IOCTL_DINGDONG:
-		dingDong := (*GnmDingDong)(unsafe.Pointer(argPtr))
-		GlobalGraphicsController.PendingSubmits++
-
-		logger.Printf("%-132s %s dinged (pipe=%s, queue=%s, slot=%s, wp=%s).\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("ioctl"),
-			color.Yellow.Sprintf("%d", dingDong.PipeIndex),
-			color.Yellow.Sprintf("%d", dingDong.QueueIndex),
-			color.Yellow.Sprintf("%d", dingDong.SlotIndex),
-			color.Yellow.Sprintf("0x%X", dingDong.WritePointer),
 		)
 		return nil
 	}
