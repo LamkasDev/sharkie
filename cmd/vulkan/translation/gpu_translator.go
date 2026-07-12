@@ -533,7 +533,7 @@ func (t *GpuTranslator) DownloadRegionVkImages(address, size uintptr) error {
 		if !image.ShouldDownloadFromVkImage() {
 			continue
 		}
-		if err := image.DownloadFromVkImage(&t.handles); err != nil {
+		if err := image.DownloadFromVkImage(&t.handles, t.currentGuestFrame); err != nil {
 			return err
 		}
 	}
@@ -543,10 +543,10 @@ func (t *GpuTranslator) DownloadRegionVkImages(address, size uintptr) error {
 
 func (t *GpuTranslator) UploadRegionVkImages(address, size uintptr) error {
 	for _, image := range t.CollectGpuResourcesInRange(address, size) {
-		if !image.ShouldUploadToVkImage() {
+		if !image.ShouldUploadToVkImage(t.currentGuestFrame) {
 			continue
 		}
-		if err := image.UploadToVkImage(&t.handles, t.GetLinearBuffer); err != nil {
+		if err := image.UploadToVkImage(&t.handles, t.GetLinearBuffer, t.currentGuestFrame); err != nil {
 			return err
 		}
 	}

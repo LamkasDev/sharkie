@@ -117,7 +117,7 @@ func libKernel_pthread_create_name_np(threadPtr, attrHandlePtr, entryPoint, arg 
 	}
 
 	go pprof.Do(context.Background(), pprof.Labels("name", thread.Name), func(ctx context.Context) {
-		thread.Call(entryPoint, arg)
+		thread.CallAndWait(entryPoint, arg)
 		thread.Exit(0xDEAD)
 	})
 

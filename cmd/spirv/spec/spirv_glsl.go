@@ -6,6 +6,7 @@ const (
 	SpvGlslOpFract          = uint32(10)
 	SpvGlslOpExp2           = uint32(29)
 	SpvGlslOpSqrt           = uint32(31)
+	SpvGlslOpInverseSqrt    = uint32(32)
 	SpvGlslOpFMin           = uint32(37)
 	SpvGlslOpUMin           = uint32(38)
 	SpvGlslOpSMin           = uint32(39)

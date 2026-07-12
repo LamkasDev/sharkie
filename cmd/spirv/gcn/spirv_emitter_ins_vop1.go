@@ -2,6 +2,7 @@ package gcn
 
 import (
 	"fmt"
+	"math"
 
 	gcnSpec "github.com/LamkasDev/sharkie/cmd/lib_structs/gcn/spec"
 	. "github.com/LamkasDev/sharkie/cmd/spirv/common"
@@ -33,6 +34,13 @@ func EmitVOP1(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 	case gcnSpec.Vop1OpRcpF32:
 		val := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
 		resF := b.EmitFDiv(ctx.GetId(BlockContextIdTypeFloat), ctx.GetConstId(ConstIdFloat1), val)
+		StoreRegisterPointerMaskedModified(b, ctx, details.Clamp, details.OMod, details.Vdst+gcnSpec.OpVgpr0, resF, true)
+	case gcnSpec.Vop1OpRsqClampF32:
+		val := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
+		resF := b.EmitExtInst(ctx.GetId(BlockContextIdTypeFloat), ctx.GetId(BlockContextIdGlsl), spec.SpvGlslOpInverseSqrt, val)
+		maxFloat := b.EmitConstantFloat(ctx.GetId(BlockContextIdTypeFloat), math.MaxFloat32)
+		minFloat := b.EmitConstantFloat(ctx.GetId(BlockContextIdTypeFloat), -math.MaxFloat32)
+		resF = b.EmitExtInst(ctx.GetId(BlockContextIdTypeFloat), ctx.GetId(BlockContextIdGlsl), spec.SpvGlslOpFClamp, resF, minFloat, maxFloat)
 		StoreRegisterPointerMaskedModified(b, ctx, details.Clamp, details.OMod, details.Vdst+gcnSpec.OpVgpr0, resF, true)
 	default:
 		panic(fmt.Sprintf("unknown vop1 op %s", gcnSpec.Mnemotics[gcnSpec.EncVOP1][details.Op]))

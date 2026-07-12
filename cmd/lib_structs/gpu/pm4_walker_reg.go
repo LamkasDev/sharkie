@@ -146,16 +146,24 @@ func (l *Liverpool) handleWaitRegMemory(stream *LiverpoolCommandStream, payload 
 	reference := payload[3] & mask
 
 	// Construct wait reg memory.
-	waitRegMem := LiverpoolWaitRegMemoryInternal{
-		Function:  function,
-		Address:   address,
-		Reference: reference,
-		Mask:      mask,
+	waitRegMem := LiverpoolWaitRegMemory{
+		LiverpoolWaitRegMemoryInternal: LiverpoolWaitRegMemoryInternal{
+			Function:  function,
+			Address:   address,
+			Reference: reference,
+			Mask:      mask,
+		},
 	}
 
 	// Add to command stream.
-	stream.WaitRegMems = append(stream.WaitRegMems, waitRegMem)
-	stream.Commands = append(stream.Commands, LiverpoolCommand{Type: LiverpoolCommandTypeWaitRegMemory, Index: uint32(len(stream.WaitRegMems) - 1)})
+	waitRegMemHash := waitRegMem.Hash()
+	waitRegMemIndex, ok := stream.WaitRegMemsMap[waitRegMemHash]
+	if !ok {
+		waitRegMemIndex = uint32(len(stream.WaitRegMems))
+		stream.WaitRegMems = append(stream.WaitRegMems, waitRegMem)
+		stream.WaitRegMemsMap[waitRegMemHash] = waitRegMemIndex
+	}
+	stream.Commands = append(stream.Commands, LiverpoolCommand{Type: LiverpoolCommandTypeWaitRegMemory, Index: waitRegMemIndex})
 
 	if LogPM4Packets {
 		logger.Printf("[%s] deferred wait on reg memory.\n",

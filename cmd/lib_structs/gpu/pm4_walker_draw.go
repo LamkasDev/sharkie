@@ -260,8 +260,14 @@ func (l *Liverpool) recordDraw(stream *LiverpoolCommandStream, count uint32, isI
 	}
 
 	// Add to command stream.
-	stream.Draws = append(stream.Draws, draw)
-	stream.Commands = append(stream.Commands, LiverpoolCommand{Type: LiverpoolCommandTypeDraw, Index: uint32(len(stream.Draws) - 1)})
+	drawHash := draw.Hash()
+	drawIndex, ok := stream.DrawsMap[bindHash]
+	if !ok {
+		drawIndex = uint32(len(stream.Draws))
+		stream.Draws = append(stream.Draws, draw)
+		stream.DrawsMap[drawHash] = drawIndex
+	}
+	stream.Commands = append(stream.Commands, LiverpoolCommand{Type: LiverpoolCommandTypeDraw, Index: drawIndex})
 
 	if LogPM4Packets {
 		if isIndexed {

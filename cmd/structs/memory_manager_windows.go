@@ -26,11 +26,3 @@ func WaitForSyncRequest() SyncRequest {
 
 func CompleteSyncRequest() {
 }
-
-func IsRegionDirty(addr uintptr, size uintptr) bool {
-	return GlobalMemoryManager.IsRegionCpuModified(addr, size)
-}
-
-func ClearRegionDirty(addr uintptr, size uintptr) {
-	GlobalMemoryManager.UnmarkRegionCpuModified(addr, size)
-}

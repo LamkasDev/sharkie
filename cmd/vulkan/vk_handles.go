@@ -19,6 +19,7 @@ type VulkanHandles struct {
 	GraphicsQueueFamilyIndex uint32
 	MemoryProperties         vk.PhysicalDeviceMemoryProperties
 	DeviceProperties         vk.PhysicalDeviceProperties
+	FormatProperties         map[vk.Format]vk.FormatProperties
 	SubgroupSizeProperties   VkPhysicalDeviceSubgroupSizeControlPropertiesEXT
 
 	UploadPool  vk.CommandPool
@@ -41,6 +42,7 @@ func NewVulkanHandles(context *VulkanContext, queueMutex *sync.Mutex) VulkanHand
 		GraphicsQueue:            context.GraphicsQueue,
 		GraphicsQueueFamilyIndex: context.GraphicsQueueIndex,
 		MemoryProperties:         context.MemoryProperties,
+		FormatProperties:         map[vk.Format]vk.FormatProperties{},
 
 		QueueMutex:      queueMutex,
 		UploadPoolMutex: sync.Mutex{},
@@ -49,6 +51,12 @@ func NewVulkanHandles(context *VulkanContext, queueMutex *sync.Mutex) VulkanHand
 
 	vk.GetPhysicalDeviceProperties(vkh.PhysicalDevice, &vkh.DeviceProperties)
 	vkh.DeviceProperties.Deref()
+	for _, format := range []vk.Format{vk.FormatD16UnormS8Uint, vk.FormatD24UnormS8Uint, vk.FormatD32SfloatS8Uint} {
+		var formatProperties vk.FormatProperties
+		vk.GetPhysicalDeviceFormatProperties(vkh.PhysicalDevice, format, &formatProperties)
+		formatProperties.Deref()
+		vkh.FormatProperties[format] = formatProperties
+	}
 
 	vkh.SubgroupSizeProperties = VkPhysicalDeviceSubgroupSizeControlPropertiesEXT{
 		SType: StructureTypePhysicalDeviceSubgroupSizeControlPropertiesExt,
@@ -57,12 +65,10 @@ func NewVulkanHandles(context *VulkanContext, queueMutex *sync.Mutex) VulkanHand
 		SType: vk.StructureTypePhysicalDeviceProperties2,
 		PNext: unsafe.Pointer(&vkh.SubgroupSizeProperties),
 	}
-
 	pinner := &runtime.Pinner{}
 	pinner.Pin(&props2)
 	pinner.Pin(&vkh.SubgroupSizeProperties)
 	defer pinner.Unpin()
-
 	GetPhysicalDeviceProperties2(vkh.Instance, vkh.PhysicalDevice, unsafe.Pointer(&props2))
 
 	pool, err := CreateCommandPool(&vkh)

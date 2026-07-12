@@ -291,14 +291,22 @@ func (l *Liverpool) handleEventWriteEopEos(stream *LiverpoolCommandStream, kind 
 	}
 
 	// Construct write data.
-	writeData := LiverpoolWriteDataInternal{
-		Address: address,
-		Data:    data,
+	writeData := LiverpoolWriteData{
+		LiverpoolWriteDataInternal: LiverpoolWriteDataInternal{
+			Address: address,
+			Data:    data,
+		},
 	}
 
 	// Add to command stream.
-	stream.WriteDatas = append(stream.WriteDatas, writeData)
-	stream.Commands = append(stream.Commands, LiverpoolCommand{Type: LiverpoolCommandTypeWriteData, Index: uint32(len(stream.WriteDatas) - 1)})
+	writeDataHash := writeData.Hash()
+	writeDataIndex, ok := stream.WriteDatasMap[writeDataHash]
+	if !ok {
+		writeDataIndex = uint32(len(stream.WriteDatas))
+		stream.WriteDatas = append(stream.WriteDatas, writeData)
+		stream.WriteDatasMap[writeDataHash] = writeDataIndex
+	}
+	stream.Commands = append(stream.Commands, LiverpoolCommand{Type: LiverpoolCommandTypeWriteData, Index: writeDataIndex})
 
 	if LogPM4Packets {
 		logger.Printf("[%s] deferred writing %s data to %s.\n",

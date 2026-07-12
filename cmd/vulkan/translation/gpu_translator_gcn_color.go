@@ -244,5 +244,5 @@ func colorBufferHeight(pitch, slice uint32) uint32 {
 		return 1080
 	}
 
-	return height
+	return 1080 // TODO: fix
 }

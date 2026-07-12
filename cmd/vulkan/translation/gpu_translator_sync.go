@@ -21,21 +21,21 @@ func (t *GpuTranslator) memorySyncWorker() {
 			continue
 		}
 		if req.IsWrite {
-			logger.Printf("write at 0x%X.\n", req.Addr)
+			// logger.Printf("write at 0x%X.\n", req.Addr)
 			t.InvalidateMemory(req.Addr, lib_structs.SystemPageSize)
 		} else {
-			logger.Printf("read at 0x%X.\n", req.Addr)
+			// logger.Printf("read at 0x%X.\n", req.Addr)
 			t.ReadMemory(req.Addr, lib_structs.SystemPageSize)
 		}
 		structs.CompleteSyncRequest()
 	}
 }
 
-func (t *GpuTranslator) WriteData(command *gpu.LiverpoolWriteDataInternal) {
+func (t *GpuTranslator) WriteData(command *gpu.LiverpoolWriteData) {
 	t.commandBuffer.Writes = append(t.commandBuffer.Writes, command)
 }
 
-func (t *GpuTranslator) WaitRegMemory(command *gpu.LiverpoolWaitRegMemoryInternal) {
+func (t *GpuTranslator) WaitRegMemory(command *gpu.LiverpoolWaitRegMemory) {
 	if command.Satisfied() {
 		if logger.LogRendererInternal {
 			logger.Printf("[%s] skipped waiting on reg memory (address=%s, function=%s, reference=%s).\n",

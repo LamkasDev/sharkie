@@ -119,11 +119,8 @@ func (t *GpuTranslator) TranslateGcnDepthFormat(format uint32) vk.Format {
 	}
 
 	// Check if the physical device supports optimal tiling for this format as both a depth-stencil attachment and a sampled image.
-	var props vk.FormatProperties
-	vk.GetPhysicalDeviceFormatProperties(t.handles.PhysicalDevice, requested, &props)
-	props.Deref()
 	required := vk.FormatFeatureFlags(vk.FormatFeatureDepthStencilAttachmentBit | vk.FormatFeatureSampledImageBit)
-	if (props.OptimalTilingFeatures & required) == required {
+	if (t.handles.FormatProperties[requested].OptimalTilingFeatures & required) == required {
 		return requested
 	}
 

@@ -81,7 +81,6 @@ func libSceVideoOut_sceVideoOutSubmitEopFlip(rawHandle, bufferIndex, flipMode, f
 		GpuAddress:  buffer.GpuAddress,
 	}:
 	default:
-		logger.Printf("Warning: Flip queue is full! Game is running too fast.")
 	}
 
 	if logger.LogGraphics {

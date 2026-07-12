@@ -13,11 +13,10 @@ func (t *GpuTranslator) GetSurface(descriptor spirvStructs.ImageDescriptor, form
 	t.surfacesMutex.Unlock()
 
 	if ok {
-		if !surface.ImageView.Image.NeedsRecreate(descriptor, format, true) {
+		recreate, _ := surface.ImageView.Image.NeedsRecreate(descriptor, format, true)
+		if !recreate {
 			return surface, nil
 		}
-
-		t.EvictResourcesAtAddress(descriptor.BaseAddress)
 	}
 
 	image, err, _ := t.GetImage(descriptor, format, true)

@@ -30,6 +30,7 @@ func (t *GpuTranslator) BindPipeline(frame uint64, bind *gpu.LiverpoolBindPipeli
 		DataFormat: 10, NumFormat: 0,
 		DstSelX: 4, DstSelY: 5, DstSelZ: 6, DstSelW: 7,
 		Depth: 1, Pitch: uint16(rtWidth),
+		TilingIndex: uint8(bind.RtAttrib & 0x1F),
 	}, translateColorFormat(bind.RtFormat, bind.RtNumberType, bind.RtCompSwap))
 	if err != nil {
 		return

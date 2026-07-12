@@ -35,8 +35,11 @@ const (
 	Vop1OpExpF32           = 0x25
 	Vop1OpLogClampF32      = 0x26
 	Vop1OpLogF32           = 0x27
+	Vop1OpRcpClampF32      = 0x28
+	Vop1OpRcpLegacyF32     = 0x29
 	Vop1OpRcpF32           = 0x2A
-	Vop1OpRcpClampF32      = 0x2B
+	Vop1OpRcpIflagF32      = 0x2B
+	Vop1OpRsqClampF32      = 0x2C
 	Vop1OpRsqLegacyF32     = 0x2D
 	Vop1OpRsqF32           = 0x2E
 	Vop1OpRcpF64           = 0x2F

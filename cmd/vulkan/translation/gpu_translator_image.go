@@ -13,7 +13,8 @@ func (t *GpuTranslator) GetImage(descriptor spirvStructs.ImageDescriptor, format
 
 	if ok {
 		// Check if we need to recreate the existing image.
-		if image.NeedsRecreate(descriptor, format, isSurface) {
+		recreate, copyOld := image.NeedsRecreate(descriptor, format, isSurface)
+		if recreate {
 			gen := image.Generation
 			t.EvictResourcesAtAddress(descriptor.BaseAddress)
 
@@ -28,8 +29,12 @@ func (t *GpuTranslator) GetImage(descriptor spirvStructs.ImageDescriptor, format
 			newImage.Generation = gen + 1
 			t.registerImage(newImage, false)
 
-			if newImage.ShouldUploadToVkImage() {
-				_ = newImage.UploadToVkImage(&t.handles, t.GetLinearBuffer)
+			if copyOld {
+				_ = image.CopyToImage(&t.handles, newImage, t.currentGuestFrame)
+			}
+
+			if newImage.ShouldUploadToVkImage(t.currentGuestFrame) {
+				_ = newImage.UploadToVkImage(&t.handles, t.GetLinearBuffer, t.currentGuestFrame)
 			}
 			return newImage, nil, true
 		}
@@ -53,7 +58,7 @@ func (t *GpuTranslator) GetImage(descriptor spirvStructs.ImageDescriptor, format
 			newImage.SyncFlags = syncFlags
 
 			t.registerImage(newImage, true)
-			err = image.CopyToImage(&t.handles, newImage)
+			err = image.CopyToImage(&t.handles, newImage, t.currentGuestFrame)
 			if err != nil {
 				return nil, err, false
 			}
@@ -61,8 +66,8 @@ func (t *GpuTranslator) GetImage(descriptor spirvStructs.ImageDescriptor, format
 			return newImage, nil, true
 		}
 
-		if image.ShouldUploadToVkImage() {
-			_ = image.UploadToVkImage(&t.handles, t.GetLinearBuffer)
+		if image.ShouldUploadToVkImage(t.currentGuestFrame) {
+			_ = image.UploadToVkImage(&t.handles, t.GetLinearBuffer, t.currentGuestFrame)
 		}
 		return image, nil, false
 	}
@@ -77,8 +82,8 @@ func (t *GpuTranslator) GetImage(descriptor spirvStructs.ImageDescriptor, format
 	}
 	t.registerImage(image, false)
 
-	if image.ShouldUploadToVkImage() {
-		_ = image.UploadToVkImage(&t.handles, t.GetLinearBuffer)
+	if image.ShouldUploadToVkImage(t.currentGuestFrame) {
+		_ = image.UploadToVkImage(&t.handles, t.GetLinearBuffer, t.currentGuestFrame)
 	}
 	return image, nil, true
 }

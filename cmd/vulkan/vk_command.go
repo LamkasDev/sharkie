@@ -9,8 +9,8 @@ import (
 
 type VulkanCommandBuffer struct {
 	CommandBuffer vk.CommandBuffer
-	Dependencies  []*gpu.LiverpoolWaitRegMemoryInternal
-	Writes        []*gpu.LiverpoolWriteDataInternal
+	Dependencies  []*gpu.LiverpoolWaitRegMemory
+	Writes        []*gpu.LiverpoolWriteData
 	Submitted     bool
 }
 
@@ -30,8 +30,8 @@ func CreateCommandBuffer(handles *VulkanHandles) (*VulkanCommandBuffer, error) {
 
 	return &VulkanCommandBuffer{
 		CommandBuffer: buffers[0],
-		Dependencies:  []*gpu.LiverpoolWaitRegMemoryInternal{},
-		Writes:        []*gpu.LiverpoolWriteDataInternal{},
+		Dependencies:  []*gpu.LiverpoolWaitRegMemory{},
+		Writes:        []*gpu.LiverpoolWriteData{},
 	}, nil
 }
 

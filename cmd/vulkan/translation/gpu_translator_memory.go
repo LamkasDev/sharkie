@@ -17,9 +17,8 @@ func (t *GpuTranslator) ReadMemory(address, size uintptr) bool {
 
 // InvalidateMemory services a CPU write fault or guest mprotect.
 func (t *GpuTranslator) InvalidateMemory(address, size uintptr) bool {
-	t.ReadMemory(address, size)
 	for _, image := range t.CollectGpuResourcesInRange(address, size) {
-		image.MarkCpuModified()
+		image.MarkCpuModified(t.currentGuestFrame)
 	}
 
 	return true
@@ -28,6 +27,9 @@ func (t *GpuTranslator) InvalidateMemory(address, size uintptr) bool {
 // IsGpuMapped reports whether the address range may contain GPU-tracked guest memory.
 func (t *GpuTranslator) IsGpuMapped(address, size uintptr) bool {
 	end := address + size
+
+	structs.GlobalMemoryManager.Lock.Lock()
+	defer structs.GlobalMemoryManager.Lock.Unlock()
 	for addr := address >> lib_structs.SystemPageShift; (addr << lib_structs.SystemPageShift) < end; addr++ {
 		if page, ok := structs.GlobalMemoryManager.Pages[addr]; ok && page.Mapped {
 			return true

@@ -42,6 +42,24 @@ func EmitVOP2(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 		val1 := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src1, 0, 1)
 		resF := b.EmitFMul(ctx.GetId(BlockContextIdTypeFloat), val0, val1)
 		StoreRegisterPointerMaskedModified(b, ctx, details.Clamp, details.OMod, details.Vdst+gcnSpec.OpVgpr0, resF, true)
+	case gcnSpec.Vop2OpMacLegacyF32:
+		typeFloat := ctx.GetId(BlockContextIdTypeFloat)
+		typeBool := ctx.GetId(BlockContextIdTypeBool)
+		idZeroF := ctx.GetConstId(ConstIdFloat0)
+
+		val0 := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
+		val1 := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src1, 0, 1)
+		valD := b.EmitBitcast(typeFloat, ctx.LoadRegisterPointer(b, details.Vdst+gcnSpec.OpVgpr0))
+		valD = applyVop3Modifiers(b, ctx, valD, details.Abs, details.Neg, 2)
+
+		isZero0 := b.EmitFOrdEqual(typeBool, val0, idZeroF)
+		isZero1 := b.EmitFOrdEqual(typeBool, val1, idZeroF)
+		anyZero := b.EmitLogicalOr(typeBool, isZero0, isZero1)
+
+		mulF := b.EmitFMul(typeFloat, val0, val1)
+		resMul := b.EmitSelect(typeFloat, anyZero, idZeroF, mulF)
+		resF := b.EmitFAdd(typeFloat, resMul, valD)
+		StoreRegisterPointerMaskedModified(b, ctx, details.Clamp, details.OMod, details.Vdst+gcnSpec.OpVgpr0, resF, true)
 	case gcnSpec.Vop2OpMulLegacyF32:
 		typeFloat := ctx.GetId(BlockContextIdTypeFloat)
 		typeBool := ctx.GetId(BlockContextIdTypeBool)

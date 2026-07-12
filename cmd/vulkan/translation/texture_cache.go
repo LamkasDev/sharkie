@@ -13,14 +13,14 @@ func (t *GpuTranslator) registerImage(image *vulkan.VulkanImage, isUpgrade bool)
 	t.imagesMutex.Unlock()
 	structs.GlobalMemoryManager.Track(image.Address, image.GuestSize, image)
 	if !isUpgrade {
-		image.MarkCpuModified()
+		image.MarkCpuModified(t.currentGuestFrame)
 	} else {
 		if image.HasSync(vulkan.ImageSyncCpuModified) {
-			image.MarkCpuModified()
+			image.MarkCpuModified(t.currentGuestFrame)
 		} else if image.HasSync(vulkan.ImageSyncGpuModified) {
-			image.MarkGpuModified()
+			image.MarkGpuModified(t.currentGuestFrame)
 		} else {
-			image.MarkSynced()
+			image.MarkSynced(t.currentGuestFrame)
 		}
 	}
 

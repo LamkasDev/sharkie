@@ -89,6 +89,10 @@ func is2DThinTiledMode(tilingIndex uint8) bool {
 	}
 }
 
+func isMacroTiledMode(tilingIndex uint8) bool {
+	return !isLinearTileMode(tilingIndex) && !is1DTiledMode(tilingIndex)
+}
+
 func usesDisplayMicroTiling(tilingIndex uint8) bool {
 	switch tilingIndex {
 	case 6, 7, 8, 9, 10, 11, 12, 31:
@@ -120,10 +124,8 @@ func microPixelIndex(x, y int, bpp int, displayMicro bool) int {
 	}
 
 	switch bpp {
-	case 4, 2:
-		return x0 | (y0 << 1) | (x1 << 2) | (y1 << 3) | (x2 << 4) | (y2 << 5)
 	default:
-		return x0 | (y0 << 1) | (x1 << 2) | (y1 << 3)
+		return x0 | (y0 << 1) | (x1 << 2) | (y1 << 3) | (x2 << 4) | (y2 << 5)
 	}
 }
 
@@ -191,25 +193,46 @@ func copyTiledMicroBlocks(src, dst []byte, width, height, pitch, bpp int, displa
 	}
 }
 
-func offsetThin2D32(x, y, pitch, height int) int {
-	pixelIndex := microPixelIndex(x, y, 4, false)
-	elementOffset := pixelIndex * 4
+func offsetThin2D(x, y, pitch, height, bpp int) int {
+	pixelIndex := microPixelIndex(x, y, bpp, false)
+	elementOffset := pixelIndex * bpp
 
-	macroTileBytes := thin2DMicroTileBytes *
-		(thin2DMacroTilePitch / 8) *
-		(thin2DMacroTileHeight / 8) /
+	macroTilePitch := 128
+	macroTileHeight := 64
+	bankWidth := 1
+	bankHeight := 2
+
+	switch bpp {
+	case 1:
+		macroTilePitch = 256
+		macroTileHeight = 128
+		bankHeight = 4
+	case 2:
+		macroTilePitch = 128
+		macroTileHeight = 128
+		bankHeight = 4
+	case 8, 16:
+		macroTilePitch = 64
+		macroTileHeight = 64
+		bankHeight = 2
+	}
+
+	microTileBytes := bpp * 64
+	macroTileBytes := microTileBytes *
+		(macroTilePitch / 8) *
+		(macroTileHeight / 8) /
 		(thin2DNumPipes * thin2DNumBanks)
-	macroTilesPerRow := pitch / thin2DMacroTilePitch
-	macroTileX := x / thin2DMacroTilePitch
-	macroTileY := y / thin2DMacroTileHeight
+	macroTilesPerRow := pitch / macroTilePitch
+	macroTileX := x / macroTilePitch
+	macroTileY := y / macroTileHeight
 	macroTileOffset := (macroTileY*macroTilesPerRow + macroTileX) * macroTileBytes
-	macroTilesPerSlice := macroTilesPerRow * (height / thin2DMacroTileHeight)
+	macroTilesPerSlice := macroTilesPerRow * (height / macroTileHeight)
 	sliceBytes := macroTilesPerSlice * macroTileBytes
 
-	tileRowIndex := (y / 8) % thin2DBankHeight
-	tileColumnIndex := ((x / 8) / thin2DNumPipes) % thin2DBankWidth
-	tileIndex := tileRowIndex*thin2DBankWidth + tileColumnIndex
-	tileOffset := tileIndex * thin2DMicroTileBytes
+	tileRowIndex := (y / 8) % bankHeight
+	tileColumnIndex := ((x / 8) / thin2DNumPipes) % bankWidth
+	tileIndex := tileRowIndex*bankWidth + tileColumnIndex
+	tileOffset := tileIndex * microTileBytes
 
 	totalOffset := sliceBytes*0 + macroTileOffset + elementOffset + tileOffset
 
@@ -218,7 +241,7 @@ func offsetThin2D32(x, y, pitch, height int) int {
 	y3, y4, y5 := bitAt(ty, 0), bitAt(ty, 1), bitAt(ty, 2)
 	pipe := (x3 ^ y3 ^ x4) | ((x3 ^ y4) << 1) | ((x5 ^ y5) << 2)
 
-	txMacro, tyMacro := x/(8*thin2DBankWidth*thin2DNumPipes), y/(8*thin2DBankHeight)
+	txMacro, tyMacro := x/(8*bankWidth*thin2DNumPipes), y/(8*bankHeight)
 	x3m, x4m := bitAt(txMacro, 0), bitAt(txMacro, 1)
 	y3m, y4m := bitAt(tyMacro, 0), bitAt(tyMacro, 1)
 	bank := (x3m ^ y4m) | ((x4m ^ y3m) << 1)
@@ -249,19 +272,12 @@ func DetileToLinear(src, dst []byte, width, height, pitch int, tilingIndex uint8
 			return offset1DTiled(x, y, pitch, bpp, displayMicro)
 		})
 	case is2DDisplayTiledMode(tilingIndex):
-		if bpp == 4 {
-			copyTiledMicroBlocks(src, dst, width, height, pitch, bpp, true, func(x, y int) int {
-				return TiledByteOffset(x, y, pitch)
-			})
-			break
-		}
-		offsetFn := func(x, y int) int {
-			return TiledByteOffset(x, y, pitch)
-		}
-		copyTiledGeneric(src, dst, width, height, pitch, bpp, offsetFn)
+		copyTiledMicroBlocks(src, dst, width, height, pitch, bpp, true, func(x, y int) int {
+			return TiledByteOffset(x, y, pitch, bpp)
+		})
 	case is2DThinTiledMode(tilingIndex):
 		offsetFn := func(x, y int) int {
-			return offsetThin2D32(x, y, pitch, height)
+			return offsetThin2D(x, y, pitch, height, bpp)
 		}
 		copyTiledGeneric(src, dst, width, height, pitch, bpp, offsetFn)
 	default:
@@ -269,14 +285,14 @@ func DetileToLinear(src, dst []byte, width, height, pitch int, tilingIndex uint8
 	}
 }
 
-// TiledByteOffset returns the byte offset of pixel in a 32 bpp
-// ARRAY_2D_TILED_THIN1 surface with the given pitch in pixels.
-func TiledByteOffset(x, y, pitchAligned int) int {
+// TiledByteOffset returns the byte offset of pixel in a
+// ARRAY_2D_TILED_DISPLAY surface with the given pitch in pixels.
+func TiledByteOffset(x, y, pitchAligned, bpp int) int {
 	pixelX, pixelY := x&(TileMicroWidth-1), y&(TileMicroHeight-1)
 	microTileX, microTileY := x>>3, y>>3
 
 	// Pixel byte offset within the micro-tile.
-	pixelOffset := (pixelY*TileMicroWidth + pixelX) * 4
+	pixelOffset := microPixelIndex(pixelX, pixelY, bpp, true) * bpp
 
 	// Pipe is 3 bits (XOR of micro-tile coordinates modulo 8).
 	pipe := (microTileX ^ microTileY) & 7
@@ -296,10 +312,11 @@ func TiledByteOffset(x, y, pitchAligned int) int {
 	// Macro-tile position.
 	macroX, macroY := x/TileMacroWidth, y/TileMacroHeight
 	pitchInMacrotiles := pitchAligned / TileMacroWidth
-	macroTileBase := (macroY*pitchInMacrotiles + macroX) * TileMacroBytes
+	macroTileBytes := TileMacroWidth * TileMacroHeight * bpp
+	microTileBytes := bpp * 64
 
-	return macroTileBase +
-		channel*TileMicrosPerChannel*TileMicroBytes +
-		localIndex*TileMicroBytes +
+	return macroY*pitchInMacrotiles*macroTileBytes + macroX*macroTileBytes +
+		channel*TileMicrosPerChannel*microTileBytes +
+		localIndex*microTileBytes +
 		pixelOffset
 }

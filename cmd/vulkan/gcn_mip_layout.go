@@ -51,6 +51,24 @@ func imageSizeMicroTiled(pitch, height, thickness, bpp, numSamples uint32) (pitc
 	return pitchAligned, heightAligned, int(logSz)
 }
 
+func imageSizeMacroTiled(pitch, height, thickness, bpp, numSamples uint32) (pitchAligned, heightAligned uint32, size int) {
+	var pitchAlign, heightAlign uint32
+	switch bpp {
+	case 8: // 1 byte
+		pitchAlign, heightAlign = 256, 128
+	case 16: // 2 bytes
+		pitchAlign, heightAlign = 128, 128
+	case 32: // 4 bytes
+		pitchAlign, heightAlign = 128, 64
+	default:
+		pitchAlign, heightAlign = 64, 64
+	}
+	pitchAligned = (pitch + pitchAlign - 1) &^ (pitchAlign - 1)
+	heightAligned = (height + heightAlign - 1) &^ (heightAlign - 1)
+	logSz := (pitchAligned * heightAligned * bpp * numSamples) / 8
+	return pitchAligned, heightAligned, int(logSz)
+}
+
 func mipTexelSize(baseWidth, baseHeight, basePitch uint16, level uint8, pow2Pad bool) (uint32, uint32) {
 	mipW := uint32(basePitch) >> level
 	mipH := uint32(baseHeight) >> level
@@ -77,19 +95,38 @@ func computeMipLayouts(descriptor spirvStructs.ImageDescriptor, numLevels uint8)
 
 	bpp := uint32(structs.GetBytesPerPixel(descriptor.DataFormat) * 8)
 	linear := isLinearTileMode(descriptor.TilingIndex)
+	isBlock := descriptor.DataFormat >= 35 && descriptor.DataFormat <= 41
 
 	layouts := make([]MipLayout, numLevels)
 	guestSize := 0
 	for mip := range numLevels {
 		mipW, mipH := mipTexelSize(descriptor.Width, descriptor.Height, descriptor.Pitch, uint8(mip), descriptor.Pow2Pad)
+		if isBlock {
+			mipW = (mipW + 3) / 4
+			mipH = (mipH + 3) / 4
+		}
+		if mipW < 1 {
+			mipW = 1
+		}
+		if mipH < 1 {
+			mipH = 1
+		}
+
 		var pitchAligned, heightAligned uint32
 		var size int
 		if linear {
 			pitchAligned, heightAligned, size = imageSizeLinearAligned(mipW, mipH, bpp, 1)
 		} else if is1DTiledMode(descriptor.TilingIndex) {
 			pitchAligned, heightAligned, size = imageSizeMicroTiled(mipW, mipH, 1, bpp, 1)
+		} else if isMacroTiledMode(descriptor.TilingIndex) {
+			pitchAligned, heightAligned, size = imageSizeMacroTiled(mipW, mipH, 1, bpp, 1)
 		} else {
 			pitchAligned, heightAligned, size = imageSizeMicroTiled(mipW, mipH, 1, bpp, 1)
+		}
+
+		if isBlock {
+			pitchAligned = max(pitchAligned*4, 32)
+			heightAligned = max(heightAligned*4, 32)
 		}
 
 		texW := max(uint32(descriptor.Width)>>uint(mip), 1)
@@ -98,6 +135,12 @@ func computeMipLayouts(descriptor spirvStructs.ImageDescriptor, numLevels uint8)
 		if int(texH) < texHeight {
 			texHeight = int(texH)
 		}
+
+		if isBlock {
+			// for texture height limitation
+			texHeight = max(texHeight*4, 32)
+		}
+
 		layouts[mip] = MipLayout{
 			Offset: guestSize,
 			Size:   size,

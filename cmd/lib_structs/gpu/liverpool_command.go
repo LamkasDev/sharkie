@@ -23,35 +23,47 @@ type LiverpoolCommand struct {
 }
 
 type LiverpoolCommandStream struct {
-	Name          string
+	Name         string
+	CommandIndex int
+
 	Commands      []LiverpoolCommand
 	Pipelines     []LiverpoolBindPipeline
 	DynamicStates []LiverpoolSetDynamicState
 	Draws         []LiverpoolDraw
 	Dispatches    []LiverpoolDispatch
 	DmaCopies     []LiverpoolDmaCopy
-	WriteDatas    []LiverpoolWriteDataInternal
-	WaitRegMems   []LiverpoolWaitRegMemoryInternal
+	WriteDatas    []LiverpoolWriteData
+	WaitRegMems   []LiverpoolWaitRegMemory
 
 	PipelinesMap     map[uint64]uint32
 	DynamicStatesMap map[uint64]uint32
-	CommandIndex     int
+	DrawsMap         map[uint64]uint32
+	DispatchesMap    map[uint64]uint32
+	DmaCopiesMap     map[uint64]uint32
+	WriteDatasMap    map[uint64]uint32
+	WaitRegMemsMap   map[uint64]uint32
 }
 
 func NewLiverpoolCommandStream(name string) *LiverpoolCommandStream {
 	return &LiverpoolCommandStream{
-		Name:          name,
+		Name: name,
+
 		Commands:      []LiverpoolCommand{},
 		Pipelines:     []LiverpoolBindPipeline{},
 		DynamicStates: []LiverpoolSetDynamicState{},
 		Draws:         []LiverpoolDraw{},
 		Dispatches:    []LiverpoolDispatch{},
 		DmaCopies:     []LiverpoolDmaCopy{},
-		WriteDatas:    []LiverpoolWriteDataInternal{},
-		WaitRegMems:   []LiverpoolWaitRegMemoryInternal{},
+		WriteDatas:    []LiverpoolWriteData{},
+		WaitRegMems:   []LiverpoolWaitRegMemory{},
 
 		PipelinesMap:     map[uint64]uint32{},
 		DynamicStatesMap: map[uint64]uint32{},
+		DrawsMap:         map[uint64]uint32{},
+		DispatchesMap:    map[uint64]uint32{},
+		DmaCopiesMap:     map[uint64]uint32{},
+		WriteDatasMap:    map[uint64]uint32{},
+		WaitRegMemsMap:   map[uint64]uint32{},
 	}
 }
 
@@ -119,10 +131,25 @@ type LiverpoolDmaCopy struct {
 	LiverpoolDmaCopyInternal
 }
 
+func (z *LiverpoolDmaCopy) Hash() uint64 {
+	data, _ := z.MarshalHash()
+	return xxhash.Sum64(data)
+}
+
 type LiverpoolWaitRegMemory struct {
 	LiverpoolWaitRegMemoryInternal
 }
 
+func (z *LiverpoolWaitRegMemory) Hash() uint64 {
+	data, _ := z.MarshalHash()
+	return xxhash.Sum64(data)
+}
+
 type LiverpoolWriteData struct {
 	LiverpoolWriteDataInternal
+}
+
+func (z *LiverpoolWriteData) Hash() uint64 {
+	data, _ := z.MarshalHash()
+	return xxhash.Sum64(data)
 }

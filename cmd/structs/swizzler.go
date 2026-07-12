@@ -19,11 +19,11 @@ func GetBytesPerPixel(format uint8) uint32 {
 		return 1
 	case 2, 4, 5, 6, 25: // R16, R8G8, B5G6R5, etc
 		return 2
-	case 10, 11, 26: // R8G8B8A8, B8G8R8A8, R10G10B10A2
+	case 10, 11, 26, 34: // R8G8B8A8, B8G8R8A8, R10G10B10A2, Format5_9_9_9
 		return 4
-	case 13, 14: // R16G16B16A16, R32G32
+	case 13, 14, 35, 38: // R16G16B16A16, R32G32, BC1, BC4
 		return 8
-	case 15: // R32G32B32A32
+	case 15, 36, 37, 39, 40, 41: // R32G32B32A32, BC2, BC3, BC5, BC6, BC7
 		return 16
 	default:
 		return 4 // Fallback
