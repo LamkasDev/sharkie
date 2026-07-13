@@ -225,7 +225,6 @@ func RegisterKernelStubs() {
 	elf.RegisterStub("libkernel", "ipmimgr_call", libKernel_ipmimgr_call)
 
 	// Clock functions.
-	elf.RegisterStub("libkernel", "clock_gettime", libKernel_clock_gettime)
 	elf.RegisterStub("libkernel", "sceKernelClockGettime", libKernel_sceKernelClockGettime)
 	elf.RegisterStub("libkernel", "sceKernelGetProcessTime", libKernel_sceKernelGetProcessTime)
 	elf.RegisterStub("libkernel", "sceKernelGettimeofday", libKernel_sceKernelGettimeofday)
@@ -243,17 +242,12 @@ func RegisterKernelStubs() {
 	elf.RegisterStub("libkernel", "sceKernelAddUserEvent", libKernel_sceKernelAddUserEvent)
 
 	// Semaphore functions.
-	elf.RegisterStub("libkernel", "sem_init", libKernel_sem_init)
 	elf.RegisterStub("libkernel", "sceKernelCreateSema", libKernel_sceKernelCreateSema)
 	elf.RegisterStub("libkernel", "sceKernelOpenSema", libKernel_sceKernelOpenSema)
 	elf.RegisterStub("libkernel", "sceKernelDeleteSema", libKernel_sceKernelDeleteSema)
 	elf.RegisterStub("libkernel", "sceKernelWaitSema", libKernel_sceKernelWaitSema)
 	elf.RegisterStub("libkernel", "sceKernelPollSema", libKernel_sceKernelPollSema)
 	elf.RegisterStub("libkernel", "sceKernelSignalSema", libKernel_sceKernelSignalSema)
-	elf.RegisterStub("libkernel", "sem_wait", libKernel_sem_wait)
-	elf.RegisterStub("libkernel", "sem_trywait", libKernel_sem_trywait)
-	elf.RegisterStub("libkernel", "sem_timedwait", libKernel_sem_timedwait)
-	elf.RegisterStub("libkernel", "sem_post", libKernel_sem_post)
 
 	// Network functions.
 	elf.RegisterStub("libkernel", "__sys_netcontrol", libKernel___sys_netcontrol)

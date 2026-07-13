@@ -28,7 +28,7 @@ func libKernel_shm_open(pathPtr Cstring, oflag FileFlags, mode FileMode) int32 {
 			color.Blue.Sprint(path),
 			err.Error(),
 		)
-		SetErrno(EFAULT)
+		emu.SetErrno(EFAULT)
 		return ERR_PTRI
 	}
 

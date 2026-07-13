@@ -16,7 +16,7 @@ import (
 func libKernel_sceKernelRead(fd FileDescriptor, bufPtr uintptr, length uint64) int64 {
 	readBytes := libKernel_read(fd, bufPtr, length)
 	if readBytes == ERR_PTRI {
-		return int64(GetErrno() - SonyErrorOffset)
+		return int64(emu.GetErrno() - SonyErrorOffset)
 	}
 
 	return readBytes
@@ -40,7 +40,7 @@ func libKernel__read(fd FileDescriptor, bufPtr uintptr, length uint64) int64 {
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("_read"),
 		)
-		SetErrno(EFAULT)
+		emu.SetErrno(EFAULT)
 		return 0
 	}
 
@@ -53,7 +53,7 @@ func libKernel__read(fd FileDescriptor, bufPtr uintptr, length uint64) int64 {
 			color.Yellow.Sprintf("0x%X", fd),
 			err.Error(),
 		)
-		SetErrno(EFAULT)
+		emu.SetErrno(EFAULT)
 		return ERR_PTRI
 	}
 
@@ -74,7 +74,7 @@ func libKernel__read(fd FileDescriptor, bufPtr uintptr, length uint64) int64 {
 func libKernel_sceKernelPread(fd FileDescriptor, bufPtr uintptr, length uint64, offset int64) int64 {
 	readBytes := libKernel_pread(fd, bufPtr, length, offset)
 	if readBytes == ERR_PTRI {
-		return int64(GetErrno() - SonyErrorOffset)
+		return int64(emu.GetErrno() - SonyErrorOffset)
 	}
 
 	return readBytes
@@ -94,7 +94,7 @@ func libKernel_pread_0(fd FileDescriptor, bufPtr uintptr, length uint64, offset 
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("pread_0"),
 		)
-		SetErrno(EFAULT)
+		emu.SetErrno(EFAULT)
 		return 0
 	}
 
@@ -107,7 +107,7 @@ func libKernel_pread_0(fd FileDescriptor, bufPtr uintptr, length uint64, offset 
 			color.Magenta.Sprint("pread_0"),
 			color.Yellow.Sprintf("0x%X", fd),
 		)
-		SetErrno(ENOENT)
+		emu.SetErrno(ENOENT)
 		return ERR_PTRI
 	}
 
@@ -123,7 +123,7 @@ func libKernel_pread_0(fd FileDescriptor, bufPtr uintptr, length uint64, offset 
 			color.Yellow.Sprintf("0x%X", fd),
 			err.Error(),
 		)
-		SetErrno(EFAULT)
+		emu.SetErrno(EFAULT)
 		return ERR_PTRI
 	}
 

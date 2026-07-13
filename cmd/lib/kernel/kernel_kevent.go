@@ -27,7 +27,7 @@ func libKernel_kevent(equeueHandle, changelistPtr, nchanges, eventlistPtr, neven
 			color.Magenta.Sprint("kevent"),
 			color.Yellow.Sprintf("0x%X", equeueHandle),
 		)
-		SetErrno(EFAULT)
+		emu.SetErrno(EFAULT)
 		return ERR_PTR
 	}
 

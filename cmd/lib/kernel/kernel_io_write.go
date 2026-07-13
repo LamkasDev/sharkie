@@ -16,7 +16,7 @@ import (
 func libKernel_sceKernelWrite(fd FileDescriptor, bufPtr uintptr, length uint64) int64 {
 	wroteBytes := libKernel_write(fd, bufPtr, length)
 	if wroteBytes == ERR_PTRI {
-		return int64(GetErrno() - SonyErrorOffset)
+		return int64(emu.GetErrno() - SonyErrorOffset)
 	}
 
 	return wroteBytes
@@ -40,7 +40,7 @@ func libKernel__write(fd FileDescriptor, bufPtr uintptr, length uint64) int64 {
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("_write"),
 		)
-		SetErrno(EFAULT)
+		emu.SetErrno(EFAULT)
 		return 0
 	}
 
@@ -53,7 +53,7 @@ func libKernel__write(fd FileDescriptor, bufPtr uintptr, length uint64) int64 {
 			color.Magenta.Sprint("_write"),
 			color.Yellow.Sprintf("0x%X", fd),
 		)
-		SetErrno(ENOENT)
+		emu.SetErrno(ENOENT)
 		return ERR_PTRI
 	}
 
@@ -67,7 +67,7 @@ func libKernel__write(fd FileDescriptor, bufPtr uintptr, length uint64) int64 {
 			color.Yellow.Sprintf("0x%X", fd),
 			err.Error(),
 		)
-		SetErrno(EFAULT)
+		emu.SetErrno(EFAULT)
 		return ERR_PTRI
 	}
 
@@ -88,7 +88,7 @@ func libKernel__write(fd FileDescriptor, bufPtr uintptr, length uint64) int64 {
 func libKernel_sceKernelPwrite(fd FileDescriptor, bufPtr uintptr, length uint64, offset int64) int64 {
 	wroteBytes := libKernel_pwrite(fd, bufPtr, length, offset)
 	if wroteBytes == ERR_PTRI {
-		return int64(GetErrno() - SonyErrorOffset)
+		return int64(emu.GetErrno() - SonyErrorOffset)
 	}
 
 	return wroteBytes
@@ -108,7 +108,7 @@ func libKernel_pwrite_0(fd FileDescriptor, bufPtr uintptr, length uint64, offset
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("pwrite_0"),
 		)
-		SetErrno(EFAULT)
+		emu.SetErrno(EFAULT)
 		return 0
 	}
 
@@ -121,7 +121,7 @@ func libKernel_pwrite_0(fd FileDescriptor, bufPtr uintptr, length uint64, offset
 			color.Magenta.Sprint("pwrite_0"),
 			color.Yellow.Sprintf("0x%X", fd),
 		)
-		SetErrno(ENOENT)
+		emu.SetErrno(ENOENT)
 		return ERR_PTRI
 	}
 
@@ -137,7 +137,7 @@ func libKernel_pwrite_0(fd FileDescriptor, bufPtr uintptr, length uint64, offset
 			color.Yellow.Sprintf("0x%X", fd),
 			err.Error(),
 		)
-		SetErrno(EFAULT)
+		emu.SetErrno(EFAULT)
 		return ERR_PTRI
 	}
 

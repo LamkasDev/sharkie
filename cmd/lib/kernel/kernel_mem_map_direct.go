@@ -17,7 +17,7 @@ func libKernel_sceKernelMapDirectMemory(addrPtr uintptr, length uint64, prot, fl
 	// TODO: pthread_once
 	err := libKernel_sys_sceKernelMapDirectMemory(addrPtr, length, prot, flags, offset, alignment)
 	if err == ERR_PTR {
-		return GetErrno() - SonyErrorOffset
+		return emu.GetErrno() - SonyErrorOffset
 	}
 
 	return 0
@@ -30,12 +30,12 @@ func libKernel_sceKernelMapNamedDirectMemory(addrPtr uintptr, length uint64, pro
 	// TODO: pthread_once
 	err := libKernel_sys_sceKernelMapDirectMemory(addrPtr, length, prot, flags, offset, alignment)
 	if err == ERR_PTR {
-		return GetErrno() - SonyErrorOffset
+		return emu.GetErrno() - SonyErrorOffset
 	}
 	addrSlice := unsafe.Slice((*byte)(unsafe.Pointer(addrPtr)), 8)
 	addr := uintptr(binary.LittleEndian.Uint64(addrSlice))
 	if libKernel_mname(addr, length, namePtr) == ERR_PTR {
-		return GetErrno() - SonyErrorOffset
+		return emu.GetErrno() - SonyErrorOffset
 	}
 
 	return 0
@@ -51,7 +51,7 @@ func libKernel_sys_sceKernelMapDirectMemory(addrPtr uintptr, length uint64, prot
 				color.Magenta.Sprint("sceKernelMapDirectMemory"),
 				color.Yellow.Sprintf("0x%X", alignment),
 			)
-			SetErrno(EINVAL)
+			emu.SetErrno(EINVAL)
 			return ERR_PTR
 		}
 		if (offset & (alignment - 1)) != 0 {
@@ -60,7 +60,7 @@ func libKernel_sys_sceKernelMapDirectMemory(addrPtr uintptr, length uint64, prot
 				color.Magenta.Sprint("sceKernelMapDirectMemory"),
 				color.Yellow.Sprintf("0x%X", offset),
 			)
-			SetErrno(EINVAL)
+			emu.SetErrno(EINVAL)
 			return ERR_PTR
 		}
 	}
@@ -70,7 +70,7 @@ func libKernel_sys_sceKernelMapDirectMemory(addrPtr uintptr, length uint64, prot
 			color.Magenta.Sprint("sceKernelMapDirectMemory"),
 			color.Yellow.Sprintf("0x%X", length),
 		)
-		SetErrno(EINVAL)
+		emu.SetErrno(EINVAL)
 		return ERR_PTR
 	}
 	if addrPtr == 0 {
@@ -78,7 +78,7 @@ func libKernel_sys_sceKernelMapDirectMemory(addrPtr uintptr, length uint64, prot
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceKernelMapDirectMemory"),
 		)
-		SetErrno(EINVAL)
+		emu.SetErrno(EINVAL)
 		return ERR_PTR
 	}
 
@@ -88,7 +88,7 @@ func libKernel_sys_sceKernelMapDirectMemory(addrPtr uintptr, length uint64, prot
 			color.Magenta.Sprint("sceKernelMapDirectMemory"),
 			err.Error(),
 		)
-		SetErrno(EFAULT)
+		emu.SetErrno(EFAULT)
 		return ERR_PTR
 	}
 

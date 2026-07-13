@@ -42,7 +42,7 @@ const (
 const (
 	FiosDebugMode = false
 
-	GameDebugMode = true
+	GameDebugMode = false
 )
 
 var LogFile *os.File

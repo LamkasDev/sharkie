@@ -1,41 +1,16 @@
 package kernel
 
 import (
-	"encoding/binary"
-	"unsafe"
-
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
 )
 
-const ErrnoTcbOffset = 0x188
-
-// GetErrnoAddress returns address of the errno variable for current thread.
-func GetErrnoAddress() uintptr {
-	thread := emu.GetCurrentThread()
-	return uintptr(unsafe.Pointer(thread.Tcb)) + ErrnoTcbOffset
-}
-
-// GetErrno returns error number of current thread.
-func GetErrno() uintptr {
-	errNoAddr := GetErrnoAddress()
-	errNoSlice := unsafe.Slice((*byte)(unsafe.Pointer(errNoAddr)), 8)
-	return uintptr(binary.LittleEndian.Uint64(errNoSlice))
-}
-
-// SetErrno sets error number for current thread.
-func SetErrno(err uintptr) {
-	errNoAddr := GetErrnoAddress()
-	errNoSlice := unsafe.Slice((*byte)(unsafe.Pointer(errNoAddr)), 8)
-	binary.LittleEndian.PutUint64(errNoSlice, uint64(err))
-}
-
 // 0x0000000000002C70
 // void *_error()
 func libKernel___error() uintptr {
-	address := GetErrnoAddress()
+	address := emu.GetErrnoAddress()
 	if logger.LogErrorRet {
 		logger.Printf("%-132s %s returned %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),

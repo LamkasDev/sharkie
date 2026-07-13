@@ -15,7 +15,7 @@ func libKernel_fake() uintptr {
 // __int64 __fastcall sceKernelSetVirtualRangeName()
 func libKernel_sceKernelSetVirtualRangeName(addr uintptr, length uint64, namePtr Cstring) uintptr {
 	if libKernel_mname(addr, length, namePtr) == ERR_PTR {
-		return GetErrno() - SonyErrorOffset
+		return emu.GetErrno() - SonyErrorOffset
 	}
 
 	return 0
@@ -30,7 +30,7 @@ func libKernel_mname(addr uintptr, length uint64, namePtr Cstring) uintptr {
 func libKernel_sys_mname(addr uintptr, length uint64, namePtr Cstring) uintptr {
 	// Perform initial pointer checks.
 	if addr == 0 {
-		SetErrno(EINVAL)
+		emu.SetErrno(EINVAL)
 		return ERR_PTR
 	}
 

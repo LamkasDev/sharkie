@@ -18,7 +18,7 @@ func libKernel_ioctl(fd FileDescriptor, request uint64, argPtr uintptr) int32 {
 			color.Magenta.Sprint("ioctl"),
 			color.Yellow.Sprintf("0x%X", fd),
 		)
-		SetErrno(ENOENT)
+		emu.SetErrno(ENOENT)
 		return ENOENT
 	}
 
@@ -33,7 +33,7 @@ func libKernel_ioctl(fd FileDescriptor, request uint64, argPtr uintptr) int32 {
 			err.Error(),
 		)
 		if false {
-			SetErrno(EFAULT)
+			emu.SetErrno(EFAULT)
 			return ERR_PTRI
 		}
 	}

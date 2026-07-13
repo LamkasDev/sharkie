@@ -13,7 +13,7 @@ import (
 func libKernel_sceKernelClose(fd FileDescriptor) int32 {
 	err := libKernel_close(fd)
 	if err != 0 {
-		return int32(GetErrno() - SonyErrorOffset)
+		return int32(emu.GetErrno() - SonyErrorOffset)
 	}
 
 	return 0
@@ -41,7 +41,7 @@ func libKernel__close(fd FileDescriptor) int32 {
 			color.Magenta.Sprint("_close"),
 			color.Yellow.Sprintf("0x%X", fd),
 		)
-		SetErrno(ENOENT)
+		emu.SetErrno(ENOENT)
 		return ERR_PTRI
 	}
 
@@ -52,7 +52,7 @@ func libKernel__close(fd FileDescriptor) int32 {
 			color.Blue.Sprint(file.Path),
 			err.Error(),
 		)
-		SetErrno(EFAULT)
+		emu.SetErrno(EFAULT)
 		return ERR_PTRI
 	}
 

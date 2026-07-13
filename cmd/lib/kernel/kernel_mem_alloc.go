@@ -13,7 +13,7 @@ func libKernel_sceKernelAllocateDirectMemory(searchStart, searchEnd uintptr, len
 	// TODO: pthread_once
 	err := libKernel_sys_sceKernelAllocateDirectMemory(searchStart, searchEnd, length, alignment, memType, destPtr)
 	if err == ERR_PTR {
-		return GetErrno() - SonyErrorOffset
+		return emu.GetErrno() - SonyErrorOffset
 	}
 
 	return 0
@@ -26,7 +26,7 @@ func libKernel_sys_sceKernelAllocateDirectMemory(searchStart, searchEnd uintptr,
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceKernelAllocateDirectMemory"),
 		)
-		SetErrno(EFAULT)
+		emu.SetErrno(EFAULT)
 		return ERR_PTR
 	}
 	if alignment == 0 {

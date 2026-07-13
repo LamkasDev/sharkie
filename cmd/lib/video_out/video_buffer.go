@@ -155,3 +155,40 @@ func libSceVideoOut_sceVideoOutSetBufferAttribute(attrPtr, pixelFormat, tilingMo
 	)
 	return 0
 }
+
+func SceVideoOutGetBufferLabelAddress(rawHandle, resultLabelBufferAddressPtr uintptr) uintptr {
+	return libSceVideoOut_sceVideoOutGetBufferLabelAddress(rawHandle, resultLabelBufferAddressPtr)
+}
+
+// 0x000000000000BB80
+// __int64 __fastcall sceVideoOutGetBufferLabelAddress(int, _QWORD *)
+func libSceVideoOut_sceVideoOutGetBufferLabelAddress(rawHandle, resultLabelBufferAddressPtr uintptr) uintptr {
+	if resultLabelBufferAddressPtr == 0 {
+		logger.Printf("%-132s %s failed due to invalid result label buffer address pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceVideoOutGetBufferLabelAddress"),
+		)
+		return SCE_VIDEO_OUT_ERROR_INVALID_VALUE
+	}
+	handle, ok := GlobalDisplayCoreEngine.Handles[uint32(rawHandle)]
+	if !ok {
+		logger.Printf("%-132s %s failed due to invalid handle.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceVideoOutGetBufferLabelAddress"),
+		)
+		return SCE_VIDEO_OUT_ERROR_INVALID_HANDLE
+	}
+
+	*(*uintptr)(unsafe.Pointer(resultLabelBufferAddressPtr)) = handle.LabelBufferAddress
+
+	if logger.LogGraphics {
+		logger.Printf("%-132s %s wrote %s's label buffer address %s to %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceVideoOutGetBufferLabelAddress"),
+			color.Yellow.Sprintf("0x%X", handle.Id),
+			color.Yellow.Sprintf("0x%X", handle.LabelBufferAddress),
+			color.Yellow.Sprintf("0x%X", resultLabelBufferAddressPtr),
+		)
+	}
+	return 0
+}

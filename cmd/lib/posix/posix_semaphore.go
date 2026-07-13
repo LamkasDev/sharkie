@@ -1,4 +1,4 @@
-package kernel
+package posix
 
 import (
 	"sync/atomic"
@@ -12,15 +12,13 @@ import (
 	"github.com/gookit/color"
 )
 
-// 0x000000000000FC70
-// __int64 __fastcall sem_init(__int64, int, int)
-func libKernel_sem_init(semPtr, pShared, value uintptr) uintptr {
+func libScePosix_sem_init(semPtr, pShared, value uintptr) uintptr {
 	if semPtr == 0 {
 		logger.Printf("%-132s %s failed due to invalid sem pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sem_init"),
 		)
-		SetErrno(EINVAL)
+		emu.SetErrno(EINVAL)
 		return ERR_PTR
 	}
 
@@ -44,15 +42,13 @@ func libKernel_sem_init(semPtr, pShared, value uintptr) uintptr {
 	return 0
 }
 
-// 0x0000000000010480
-// __int64 __fastcall sem_trywait(__int64)
-func libKernel_sem_trywait(semPtr uintptr) uintptr {
+func libScePosix_sem_trywait(semPtr uintptr) uintptr {
 	if semPtr == 0 {
 		logger.Printf("%-132s %s failed due to invalid sem pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sem_trywait"),
 		)
-		SetErrno(EINVAL)
+		emu.SetErrno(EINVAL)
 		return ERR_PTR
 	}
 
@@ -62,7 +58,7 @@ func libKernel_sem_trywait(semPtr uintptr) uintptr {
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sem_trywait"),
 		)
-		SetErrno(EINVAL)
+		emu.SetErrno(EINVAL)
 		return ERR_PTR
 	}
 
@@ -77,7 +73,7 @@ func libKernel_sem_trywait(semPtr uintptr) uintptr {
 					color.Yellow.Sprintf("0x%X", semPtr),
 				)
 			}
-			SetErrno(EAGAIN)
+			emu.SetErrno(EAGAIN)
 			return ERR_PTR
 		}
 		if atomic.CompareAndSwapInt32(&semaphore.Value, value, value-1) {
@@ -93,21 +89,17 @@ func libKernel_sem_trywait(semPtr uintptr) uintptr {
 	}
 }
 
-// 0x00000000000109F0
-// __int64 __fastcall sem_wait(__int64)
-func libKernel_sem_wait(semPtr uintptr) uintptr {
-	return libKernel_sem_timedwait(semPtr, 0)
+func libScePosix_sem_wait(semPtr uintptr) uintptr {
+	return libScePosix_sem_timedwait(semPtr, 0)
 }
 
-// 0x00000000000104D0
-// __int64 __fastcall sem_timedwait(__int64, __int64)
-func libKernel_sem_timedwait(semPtr, timestampPtr uintptr) uintptr {
+func libScePosix_sem_timedwait(semPtr, timestampPtr uintptr) uintptr {
 	if semPtr == 0 {
 		logger.Printf("%-132s %s failed due to invalid sem pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sem_timedwait"),
 		)
-		SetErrno(EINVAL)
+		emu.SetErrno(EINVAL)
 		return ERR_PTR
 	}
 
@@ -117,7 +109,7 @@ func libKernel_sem_timedwait(semPtr, timestampPtr uintptr) uintptr {
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sem_timedwait"),
 		)
-		SetErrno(EINVAL)
+		emu.SetErrno(EINVAL)
 		return ERR_PTR
 	}
 
@@ -153,7 +145,7 @@ func libKernel_sem_timedwait(semPtr, timestampPtr uintptr) uintptr {
 					color.Yellow.Sprintf("0x%X", semPtr),
 				)
 			}
-			SetErrno(ETIMEDOUT)
+			emu.SetErrno(ETIMEDOUT)
 			return ERR_PTR
 		}
 	}
@@ -199,22 +191,20 @@ func libKernel_sem_timedwait(semPtr, timestampPtr uintptr) uintptr {
 						color.Yellow.Sprintf("0x%X", semPtr),
 					)
 				}
-				SetErrno(ETIMEDOUT)
+				emu.SetErrno(ETIMEDOUT)
 				return ERR_PTR
 			}
 		}
 	}
 }
 
-// 0x0000000000010A00
-// __int64 __fastcall sem_post(__int64)
-func libKernel_sem_post(semPtr uintptr) uintptr {
+func libScePosix_sem_post(semPtr uintptr) uintptr {
 	if semPtr == 0 {
 		logger.Printf("%-132s %s failed due to invalid sem pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sem_post"),
 		)
-		SetErrno(EINVAL)
+		emu.SetErrno(EINVAL)
 		return ERR_PTR
 	}
 
@@ -224,7 +214,7 @@ func libKernel_sem_post(semPtr uintptr) uintptr {
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sem_post"),
 		)
-		SetErrno(EINVAL)
+		emu.SetErrno(EINVAL)
 		return ERR_PTR
 	}
 

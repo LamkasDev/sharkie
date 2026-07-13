@@ -13,7 +13,7 @@ import (
 func libKernel_sceKernelMprotect(addr uintptr, length uint64, prot int32) uintptr {
 	err := libKernel_sys_mprotect(addr, length, prot)
 	if err == ERR_PTR {
-		return GetErrno() - SonyErrorOffset
+		return emu.GetErrno() - SonyErrorOffset
 	}
 
 	return 0
@@ -25,7 +25,7 @@ func libKernel_sys_mprotect(addr uintptr, length uint64, prot int32) uintptr {
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceKernelMprotect"),
 		)
-		SetErrno(EINVAL)
+		emu.SetErrno(EINVAL)
 		return ERR_PTR
 	}
 
@@ -41,7 +41,7 @@ func libKernel_sys_mprotect(addr uintptr, length uint64, prot int32) uintptr {
 			color.Magenta.Sprint("sceKernelMprotect"),
 			err.Error(),
 		)
-		SetErrno(EPERM)
+		emu.SetErrno(EPERM)
 		return ERR_PTR
 	}
 

@@ -1,4 +1,4 @@
-package kernel
+package posix
 
 import (
 	"time"
@@ -11,14 +11,18 @@ import (
 	"github.com/gookit/color"
 )
 
-func libKernel_clock_gettime(clockId uint32, timestampPtr uintptr) int32 {
+func Clock_gettime(clockId uint32, timestampPtr uintptr) uintptr {
+	return libScePosix_clock_gettime(clockId, timestampPtr)
+}
+
+func libScePosix_clock_gettime(clockId uint32, timestampPtr uintptr) uintptr {
 	if timestampPtr == 0 {
 		logger.Printf("%-132s %s failed due to invalid time pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("clock_gettime"),
 		)
-		SetErrno(EINVAL)
-		return ERR_PTRI
+		emu.SetErrno(EINVAL)
+		return ERR_PTR
 	}
 
 	now := time.Now()
@@ -36,7 +40,11 @@ func libKernel_clock_gettime(clockId uint32, timestampPtr uintptr) int32 {
 	return 0
 }
 
-func libKernel_clock_gettimeofday(timevaluePtr, timezonePtr uintptr) int32 {
+func Clock_gettimeofday(timevaluePtr, timezonePtr uintptr) uintptr {
+	return libScePosix_clock_gettimeofday(timevaluePtr, timezonePtr)
+}
+
+func libScePosix_clock_gettimeofday(timevaluePtr, timezonePtr uintptr) uintptr {
 	now := time.Now()
 	if timevaluePtr != 0 {
 		timevalue := (*Timevalue)(unsafe.Pointer(timevaluePtr))

@@ -26,7 +26,7 @@ func libKernel_sceKernelCreateEventFlag(handlePtr uintptr, namePtr Cstring, attr
 
 	handle := libKernel_sys_evf_create(namePtr, uint32(attr), uint64(initPattern))
 	if handle == ERR_PTR {
-		return GetErrno() - SonyErrorOffset
+		return emu.GetErrno() - SonyErrorOffset
 	}
 
 	efHandleSlice := unsafe.Slice((*byte)(unsafe.Pointer(handlePtr)), 8)
@@ -45,7 +45,7 @@ func libKernel_sys_evf_create(namePtr Cstring, attr uint32, initPattern uint64) 
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sys_evf_create"),
 		)
-		SetErrno(ENAMETOOLONG)
+		emu.SetErrno(ENAMETOOLONG)
 		return ERR_PTR
 	}
 
@@ -119,7 +119,7 @@ func libKernel_sceKernelOpenEventFlag(handlePtr uintptr, namePtr Cstring) uintpt
 func libKernel_sceKernelWaitEventFlag(handle uintptr, waitPattern uint64, waitMode uint32, outPatternPtr, timeoutPtr uintptr) uintptr {
 	err := libKernel_sys_evf_wait(handle, waitPattern, waitMode, outPatternPtr, timeoutPtr)
 	if err == ERR_PTR {
-		return GetErrno() - SonyErrorOffset
+		return emu.GetErrno() - SonyErrorOffset
 	}
 
 	return 0
@@ -216,7 +216,7 @@ func libKernel_sys_evf_wait(handle uintptr, waitPattern uint64, waitMode uint32,
 func libKernel_sceKernelPollEventFlag(handle uintptr, waitPattern uint64, waitMode uint32, outPatternPtr uintptr) uintptr {
 	err := libKernel_sys_evf_trywait(handle, waitPattern, waitMode, outPatternPtr)
 	if err == ERR_PTR {
-		return GetErrno() - SonyErrorOffset
+		return emu.GetErrno() - SonyErrorOffset
 	}
 
 	return 0
@@ -275,7 +275,7 @@ func libKernel_sys_evf_trywait(handle uintptr, waitPattern uint64, waitMode uint
 func libKernel_sceKernelSetEventFlag(handle uintptr, bits uint64) uintptr {
 	err := libKernel_sys_evf_set(handle, bits)
 	if err == ERR_PTR {
-		return GetErrno() - SonyErrorOffset
+		return emu.GetErrno() - SonyErrorOffset
 	}
 
 	return 0

@@ -44,7 +44,7 @@ func libKernel_sysctl(namePtr, nameLen, oldPtr, oldLenPtr, newPtr, newLen uintpt
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sysctl"),
 		)
-		SetErrno(EFAULT)
+		emu.SetErrno(EFAULT)
 		return ERR_PTR
 	}
 
@@ -73,11 +73,11 @@ func libKernel_sysctl(namePtr, nameLen, oldPtr, oldLenPtr, newPtr, newLen uintpt
 			color.Magenta.Sprint("sysctl"),
 			mib,
 		)
-		SetErrno(ENOENT)
+		emu.SetErrno(ENOENT)
 		return ERR_PTR
 	}
 	if err != 0 {
-		SetErrno(err)
+		emu.SetErrno(err)
 		return ERR_PTR
 	}
 
@@ -94,7 +94,7 @@ func libKernel_sys_sysarch(number, argsPtr uintptr) uintptr {
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("sys_sysarch"),
 			)
-			SetErrno(EFAULT)
+			emu.SetErrno(EFAULT)
 			return ERR_PTR
 		}
 
@@ -118,7 +118,7 @@ func libKernel_sys_sysarch(number, argsPtr uintptr) uintptr {
 		color.Magenta.Sprint("sys_sysarch"),
 		color.Yellow.Sprintf("0x%X", number),
 	)
-	SetErrno(EINVAL)
+	emu.SetErrno(EINVAL)
 	return ERR_PTR
 }
 
@@ -130,7 +130,7 @@ func libKernel_sys_thr_self(idPtr uintptr) uintptr {
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sys_thr_self"),
 		)
-		SetErrno(EFAULT)
+		emu.SetErrno(EFAULT)
 		return ERR_PTR
 	}
 
@@ -214,7 +214,7 @@ func libKernel_sys_get_authinfo(processId, infoPtr uintptr) uintptr {
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sys_get_authinfo"),
 		)
-		SetErrno(EFAULT)
+		emu.SetErrno(EFAULT)
 		return ERR_PTR
 	}
 

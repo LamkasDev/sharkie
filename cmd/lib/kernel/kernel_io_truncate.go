@@ -13,7 +13,7 @@ import (
 func libKernel_sceKernelTruncate(pathPtr Cstring, length int64) int32 {
 	err := libKernel_truncate(pathPtr, length)
 	if err != 0 {
-		return int32(GetErrno() - SonyErrorOffset)
+		return int32(emu.GetErrno() - SonyErrorOffset)
 	}
 
 	return 0
@@ -46,7 +46,7 @@ func libKernel_truncate_0(pathPtr Cstring, length int64) int32 {
 			color.Blue.Sprint(path),
 			err.Error(),
 		)
-		SetErrno(ENOENT)
+		emu.SetErrno(ENOENT)
 		return ERR_PTRI
 	}
 
@@ -57,7 +57,7 @@ func libKernel_truncate_0(pathPtr Cstring, length int64) int32 {
 			color.Magenta.Sprint("truncate_0"),
 			color.Yellow.Sprintf("0x%X", fd),
 		)
-		SetErrno(ENOENT)
+		emu.SetErrno(ENOENT)
 		return ERR_PTRI
 	}
 
@@ -69,7 +69,7 @@ func libKernel_truncate_0(pathPtr Cstring, length int64) int32 {
 			color.Yellow.Sprintf("0x%X", fd),
 			err.Error(),
 		)
-		SetErrno(EFAULT)
+		emu.SetErrno(EFAULT)
 		return ERR_PTRI
 	}
 
@@ -89,7 +89,7 @@ func libKernel_truncate_0(pathPtr Cstring, length int64) int32 {
 func libKernel_sceKernelFtruncate(fd FileDescriptor, length int64) int32 {
 	err := libKernel_ftruncate(fd, length)
 	if err != 0 {
-		return int32(GetErrno() - SonyErrorOffset)
+		return int32(emu.GetErrno() - SonyErrorOffset)
 	}
 
 	return 0
@@ -111,7 +111,7 @@ func libKernel_ftruncate_0(fd FileDescriptor, length int64) int32 {
 			color.Magenta.Sprint("ftruncate_0"),
 			color.Yellow.Sprintf("0x%X", fd),
 		)
-		SetErrno(ENOENT)
+		emu.SetErrno(ENOENT)
 		return ERR_PTRI
 	}
 
@@ -123,7 +123,7 @@ func libKernel_ftruncate_0(fd FileDescriptor, length int64) int32 {
 			color.Yellow.Sprintf("0x%X", fd),
 			err.Error(),
 		)
-		SetErrno(EFAULT)
+		emu.SetErrno(EFAULT)
 		return ERR_PTRI
 	}
 

@@ -40,6 +40,29 @@ func libSceVideoOut_sceVideoOutAddFlipEvent(equeueHandle, rawHandle, userData ui
 	return result
 }
 
+// 0x000000000000BDE0
+// __int64 __fastcall sceVideoOutSetFlipRate(int, unsigned int)
+func libSceVideoOut_sceVideoOutSetFlipRate(rawHandle, flipRate uintptr) uintptr {
+	handle, ok := GlobalDisplayCoreEngine.Handles[uint32(rawHandle)]
+	if !ok {
+		logger.Printf("%-132s %s failed due to invalid handle.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceVideoOutSetFlipRate"),
+		)
+		return SCE_VIDEO_OUT_ERROR_INVALID_HANDLE
+	}
+
+	handle.FlipRate = uint32(flipRate)
+
+	logger.Printf("%-132s %s set %s's flip rate to %s.\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("sceVideoOutSetFlipRate"),
+		color.Yellow.Sprintf("0x%X", handle.Id),
+		color.Green.Sprintf("%d", flipRate),
+	)
+	return 0
+}
+
 func SceVideoOutSubmitEopFlip(rawHandle, bufferIndex, flipMode, flipArg, eopSignalCtx uintptr) uintptr {
 	return libSceVideoOut_sceVideoOutSubmitEopFlip(rawHandle, bufferIndex, flipMode, flipArg, eopSignalCtx)
 }

@@ -15,13 +15,13 @@ import (
 func libKernel_sceKernelMapNamedFlexibleMemory(addrPtr uintptr, length uint64, prot, flags int32, namePtr Cstring) uintptr {
 	err := libKernel_sceKernelMapFlexibleMemory(addrPtr, length, prot, flags)
 	if err == ERR_PTR {
-		return GetErrno() - SonyErrorOffset
+		return emu.GetErrno() - SonyErrorOffset
 	}
 
 	addrSlice := unsafe.Slice((*byte)(unsafe.Pointer(addrPtr)), 8)
 	addr := uintptr(binary.LittleEndian.Uint64(addrSlice))
 	if libKernel_mname(addr, length, namePtr) == ERR_PTR {
-		return GetErrno() - SonyErrorOffset
+		return emu.GetErrno() - SonyErrorOffset
 	}
 
 	return 0
@@ -43,7 +43,7 @@ func libKernel_sceKernelMapFlexibleMemory(addrPtr uintptr, length uint64, prot, 
 
 	allocatedAddr := libKernel_mmap(addr, length, prot, flags|MAP_ANON, ERR_PTRI, 0)
 	if allocatedAddr == ERR_PTR {
-		return GetErrno() - SonyErrorOffset
+		return emu.GetErrno() - SonyErrorOffset
 	}
 
 	WriteAddress(addrPtr, allocatedAddr)
@@ -72,12 +72,12 @@ func libKernel_sceKernelMapNamedSystemFlexibleMemory(addrPtr uintptr, length uin
 
 	allocatedAddr := libKernel_mmap(addr, length, prot, flags|MAP_ANON|MAP_SYSTEM, ERR_PTRI, 0)
 	if allocatedAddr == ERR_PTR {
-		return GetErrno() - SonyErrorOffset
+		return emu.GetErrno() - SonyErrorOffset
 	}
 
 	WriteAddress(addrPtr, allocatedAddr)
 	if libKernel_mname(allocatedAddr, length, namePtr) == ERR_PTR {
-		return GetErrno() - SonyErrorOffset
+		return emu.GetErrno() - SonyErrorOffset
 	}
 	logger.Printf("%-132s %s stored pointer at %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),

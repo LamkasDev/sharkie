@@ -13,7 +13,7 @@ import (
 func libKernel_sceKernelOpen(pathPtr Cstring, flags FileFlags, mode FileMode) int32 {
 	fd := libKernel_open(pathPtr, flags, mode)
 	if fd == ERR_PTRI {
-		return int32(GetErrno() - SonyErrorOffset)
+		return int32(emu.GetErrno() - SonyErrorOffset)
 	}
 
 	return fd
@@ -37,7 +37,7 @@ func libKernel__open(pathPtr Cstring, flags FileFlags, mode FileMode) int32 {
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("_open"),
 		)
-		SetErrno(EFAULT)
+		emu.SetErrno(EFAULT)
 		return ERR_PTRI
 	}
 
@@ -50,7 +50,7 @@ func libKernel__open(pathPtr Cstring, flags FileFlags, mode FileMode) int32 {
 			color.Blue.Sprint(path),
 			err.Error(),
 		)
-		SetErrno(ENOENT)
+		emu.SetErrno(ENOENT)
 		return ERR_PTRI
 	}
 

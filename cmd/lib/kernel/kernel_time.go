@@ -5,6 +5,7 @@ import (
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
+	"github.com/LamkasDev/sharkie/cmd/lib/posix"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/time"
 	"github.com/LamkasDev/sharkie/cmd/logger"
@@ -30,9 +31,9 @@ func libKernel_sceKernelGetProcessTime() uintptr {
 // 0x0000000000014CE0
 // __int64 __fastcall sceKernelGettimeofday(__int64)
 func libKernel_sceKernelGettimeofday(timevaluePtr uintptr) uintptr {
-	err := libKernel_clock_gettimeofday(timevaluePtr, 0)
+	err := posix.Clock_gettimeofday(timevaluePtr, 0)
 	if err != 0 {
-		return GetErrno() - SonyErrorOffset
+		return emu.GetErrno() - SonyErrorOffset
 	}
 
 	return 0
@@ -46,9 +47,9 @@ func SceKernelConvertUtcToLocaltime(utcTime int64, localTimePtr, timesecPtr, dst
 // __int64 __fastcall sceKernelConvertUtcToLocaltime(__int64, _QWORD *, __int64, _DWORD *)
 func libKernel_sceKernelConvertUtcToLocaltime(utcTime int64, localTimePtr, timesecPtr, dstSecPtr uintptr) uintptr {
 	var timezone Timezone
-	err := libKernel_clock_gettimeofday(0, uintptr(unsafe.Pointer(&timezone)))
+	err := posix.Clock_gettimeofday(0, uintptr(unsafe.Pointer(&timezone)))
 	if err != 0 {
-		return GetErrno() - SonyErrorOffset
+		return emu.GetErrno() - SonyErrorOffset
 	}
 
 	localTime := utcTime + 60*(int64(timezone.MinutesWest)+int64(timezone.DstTime))

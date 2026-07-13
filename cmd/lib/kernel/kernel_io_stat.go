@@ -16,7 +16,7 @@ import (
 func libKernel_sceKernelStat(pathPtr Cstring, statPtr uintptr) int32 {
 	err := libKernel_stat(pathPtr, statPtr)
 	if err != 0 {
-		return int32(GetErrno() - SonyErrorOffset)
+		return int32(emu.GetErrno() - SonyErrorOffset)
 	}
 
 	return 0
@@ -43,7 +43,7 @@ func libKernel_stat(pathPtr Cstring, statPtr uintptr) int32 {
 			color.Blue.Sprint(path),
 			err.Error(),
 		)
-		SetErrno(ENOENT)
+		emu.SetErrno(ENOENT)
 		return ERR_PTRI
 	}
 
@@ -55,7 +55,7 @@ func libKernel_stat(pathPtr Cstring, statPtr uintptr) int32 {
 func libKernel_sceKernelFstat(fd FileDescriptor, statPtr uintptr) int32 {
 	err := libKernel_fstat(fd, statPtr)
 	if err != 0 {
-		return int32(GetErrno() - SonyErrorOffset)
+		return int32(emu.GetErrno() - SonyErrorOffset)
 	}
 
 	return 0
@@ -69,7 +69,7 @@ func libKernel_fstat(fd FileDescriptor, statPtr uintptr) int32 {
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("fstat"),
 		)
-		SetErrno(EFAULT)
+		emu.SetErrno(EFAULT)
 		return ERR_PTRI
 	}
 
@@ -82,7 +82,7 @@ func libKernel_fstat(fd FileDescriptor, statPtr uintptr) int32 {
 			color.Magenta.Sprint("fstat"),
 			color.Yellow.Sprintf("0x%X", fd),
 		)
-		SetErrno(ENOENT)
+		emu.SetErrno(ENOENT)
 		return ERR_PTRI
 	}
 
@@ -94,7 +94,7 @@ func libKernel_fstat(fd FileDescriptor, statPtr uintptr) int32 {
 			color.Yellow.Sprintf("0x%X", fd),
 			err.Error(),
 		)
-		SetErrno(EFAULT)
+		emu.SetErrno(EFAULT)
 		return ERR_PTRI
 	}
 

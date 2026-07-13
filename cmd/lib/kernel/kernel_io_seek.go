@@ -15,7 +15,7 @@ import (
 func libKernel_sceKernelLseek(fd FileDescriptor, offset int64, whence int32) int64 {
 	newOffset := libKernel_lseek(fd, offset, whence)
 	if newOffset == ERR_PTRI {
-		return int64(GetErrno() - SonyErrorOffset)
+		return int64(emu.GetErrno() - SonyErrorOffset)
 	}
 
 	return newOffset
@@ -39,7 +39,7 @@ func libKernel_lseek_0(fd FileDescriptor, offset int64, whence int32) int64 {
 			color.Magenta.Sprint("pread_0"),
 			color.Yellow.Sprintf("0x%X", fd),
 		)
-		SetErrno(ENOENT)
+		emu.SetErrno(ENOENT)
 		return ERR_PTRI
 	}
 
@@ -52,7 +52,7 @@ func libKernel_lseek_0(fd FileDescriptor, offset int64, whence int32) int64 {
 	case 2:
 		goWhence = io.SeekEnd
 	default:
-		SetErrno(EINVAL)
+		emu.SetErrno(EINVAL)
 		return ERR_PTRI
 	}
 
@@ -64,7 +64,7 @@ func libKernel_lseek_0(fd FileDescriptor, offset int64, whence int32) int64 {
 			color.Yellow.Sprintf("0x%X", fd),
 			err.Error(),
 		)
-		SetErrno(ESPIPE)
+		emu.SetErrno(ESPIPE)
 		return -1
 	}
 

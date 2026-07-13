@@ -24,7 +24,7 @@ func libKernel_sceKernelCreateEqueue(handlePtr uintptr, namePtr Cstring) uintptr
 	}
 	err := libKernel_kqueue(handlePtr, namePtr)
 	if err == ERR_PTR {
-		return GetErrno() - SonyErrorOffset
+		return emu.GetErrno() - SonyErrorOffset
 	}
 
 	// TODO: emulate __sys_namedobj_create?
@@ -49,7 +49,7 @@ func libKernel_kqueue(handlePtr uintptr, namePtr Cstring) uintptr {
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("kqueue"),
 		)
-		SetErrno(EINVAL)
+		emu.SetErrno(EINVAL)
 		return ERR_PTR
 	}
 
@@ -83,7 +83,7 @@ func libKernel_sceKernelWaitEqueue(handle, eventPtr, num, resultPtr, timeoutPtr 
 			color.Magenta.Sprint("sceKernelWaitEqueue"),
 			color.Yellow.Sprintf("0x%X", handle),
 		)
-		SetErrno(EFAULT)
+		emu.SetErrno(EFAULT)
 		return ERR_PTR
 	}
 
@@ -119,7 +119,7 @@ func libKernel_sceKernelAddUserEvent(handle, eventId uintptr) uintptr {
 			color.Magenta.Sprint("sceKernelAddUserEvent"),
 			color.Yellow.Sprintf("0x%X", handle),
 		)
-		SetErrno(EFAULT)
+		emu.SetErrno(EFAULT)
 		return ERR_PTR
 	}
 	equeue.Lock.Lock()

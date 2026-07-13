@@ -24,7 +24,7 @@ func libKernel_rtprio_thread(function, lwpid, rtpPtr uintptr) uintptr {
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("rtprio_thread"),
 		)
-		SetErrno(EFAULT)
+		emu.SetErrno(EFAULT)
 		return ERR_PTR
 	}
 
@@ -47,6 +47,6 @@ func libKernel_rtprio_thread(function, lwpid, rtpPtr uintptr) uintptr {
 		color.Magenta.Sprint("rtprio_thread"),
 		color.Yellow.Sprintf("0x%X", function),
 	)
-	SetErrno(EINVAL)
+	emu.SetErrno(EINVAL)
 	return ERR_PTR
 }

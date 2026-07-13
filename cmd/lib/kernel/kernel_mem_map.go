@@ -27,7 +27,7 @@ func libKernel_mmap_0(addr uintptr, length uint64, prot, flags int32, fd FileDes
 			color.Magenta.Sprint("mmap_0"),
 			color.Yellow.Sprintf("0x%X", length),
 		)
-		SetErrno(EINVAL)
+		emu.SetErrno(EINVAL)
 		return ERR_PTR
 	}
 	if addr != 0 && (addr%uintptr(MemoryPageSize)) != 0 {
@@ -36,7 +36,7 @@ func libKernel_mmap_0(addr uintptr, length uint64, prot, flags int32, fd FileDes
 			color.Magenta.Sprint("mmap_0"),
 			color.Yellow.Sprintf("0x%X", addr),
 		)
-		SetErrno(EINVAL)
+		emu.SetErrno(EINVAL)
 		return ERR_PTR
 	}
 
@@ -80,7 +80,7 @@ func libKernel_mmap_0(addr uintptr, length uint64, prot, flags int32, fd FileDes
 			color.Yellow.Sprintf("0x%X", offset),
 			err.Error(),
 		)
-		SetErrno(ENOMEM)
+		emu.SetErrno(ENOMEM)
 		return ERR_PTR
 	}
 	if addr != 0 && allocatedAddr != addr {
@@ -101,7 +101,7 @@ func libKernel_mmap_0(addr uintptr, length uint64, prot, flags int32, fd FileDes
 				color.Magenta.Sprint("mmap_0"),
 				color.Yellow.Sprintf("0x%X", fd),
 			)
-			SetErrno(ENOENT)
+			emu.SetErrno(ENOENT)
 			return ERR_PTR
 		}
 
@@ -114,7 +114,7 @@ func libKernel_mmap_0(addr uintptr, length uint64, prot, flags int32, fd FileDes
 				color.Blue.Sprint(file.Path),
 				err.Error(),
 			)
-			SetErrno(EFAULT)
+			emu.SetErrno(EFAULT)
 			return ERR_PTR
 		}
 		if int(offset) < len(fileData) {
@@ -136,7 +136,7 @@ func libKernel_mmap_0(addr uintptr, length uint64, prot, flags int32, fd FileDes
 					color.Magenta.Sprint("mmap_0"),
 					err.Error(),
 				)
-				SetErrno(EFAULT)
+				emu.SetErrno(EFAULT)
 				return ERR_PTR
 			}
 		}
@@ -164,7 +164,7 @@ func libKernel_mmap_0(addr uintptr, length uint64, prot, flags int32, fd FileDes
 func libKernel_sceKernelMmap(addr uintptr, length uint64, prot, flags int32, fd FileDescriptor, offset, retAddrPtr uintptr) uintptr {
 	allocatedAddr := libKernel_mmap(addr, length, prot, flags, fd, offset)
 	if allocatedAddr == ERR_PTR {
-		return GetErrno() - SonyErrorOffset
+		return emu.GetErrno() - SonyErrorOffset
 	}
 
 	if retAddrPtr != 0 {
@@ -179,7 +179,7 @@ func libKernel_sceKernelMmap(addr uintptr, length uint64, prot, flags int32, fd 
 func libKernel_sceKernelMunmap(addr uintptr, length uint64) uintptr {
 	err := libKernel_munmap(addr, length)
 	if err == ERR_PTR {
-		return GetErrno() - SonyErrorOffset
+		return emu.GetErrno() - SonyErrorOffset
 	}
 
 	return 0
@@ -194,7 +194,7 @@ func libKernel_munmap(addr uintptr, length uint64) uintptr {
 			color.Magenta.Sprint("sceKernelMunmap"),
 			color.Yellow.Sprintf("0x%X", addr),
 		)
-		SetErrno(EINVAL)
+		emu.SetErrno(EINVAL)
 		return ERR_PTR
 	}
 
@@ -209,7 +209,7 @@ func libKernel_munmap(addr uintptr, length uint64) uintptr {
 			color.Yellow.Sprintf("0x%X", length),
 			err.Error(),
 		)
-		SetErrno(EFAULT)
+		emu.SetErrno(EFAULT)
 		return ERR_PTR
 	}
 
