@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"os"
+	"sort"
 	"unsafe"
 )
 
@@ -23,9 +24,9 @@ const (
 
 type Psf struct {
 	Entries     []PsfEntry
-	MapBinaries map[int][]byte
-	MapStrings  map[int]string
-	MapIntegers map[int]int32
+	MapBinaries map[string][]byte
+	MapStrings  map[string]string
+	MapIntegers map[string]int32
 }
 
 type PsfEntry struct {
@@ -47,7 +48,7 @@ const PsfHeaderSize = unsafe.Sizeof(PsfHeader{})
 
 type PsfRawEntry struct {
 	KeyOffset   uint16 // u16_le
-	ParamFmt    uint32 // u16_be
+	ParamFmt    uint16 // u16_be
 	ParamLen    uint32 // u32_le
 	ParamMaxLen uint32 // u32_le
 	Dataffset   uint32 // u32_le
@@ -58,9 +59,9 @@ const PsfRawEntrySize = unsafe.Sizeof(PsfRawEntry{})
 func NewPsf() *Psf {
 	return &Psf{
 		Entries:     []PsfEntry{},
-		MapBinaries: map[int][]byte{},
-		MapStrings:  map[int]string{},
-		MapIntegers: map[int]int32{},
+		MapBinaries: map[string][]byte{},
+		MapStrings:  map[string]string{},
+		MapIntegers: map[string]int32{},
 	}
 }
 
@@ -137,7 +138,6 @@ func NewPsfFromData(data []byte) (*Psf, error) {
 			MaxLen:   paramMaxLen,
 		}
 		psf.Entries = append(psf.Entries, entry)
-		index := int(i)
 
 		// Slice out the raw data for this parameter.
 		valStart := dataTableOffset + dataOffset
@@ -151,19 +151,19 @@ func NewPsfFromData(data []byte) (*Psf, error) {
 		case PsfEntryFmtBinary:
 			binVal := make([]byte, paramLen)
 			copy(binVal, valData)
-			psf.MapBinaries[index] = binVal
+			psf.MapBinaries[key] = binVal
 		case PsfEntryFmtText:
 			// Text format is UTF-8 and NULL terminated, so we trim up to the NULL byte.
 			strLen := 0
 			for strLen < len(valData) && valData[strLen] != 0 {
 				strLen++
 			}
-			psf.MapStrings[index] = string(valData[:strLen])
+			psf.MapStrings[key] = string(valData[:strLen])
 		case PsfEntryFmtInteger:
 			if paramLen != 4 { // sizeof(s32)
 				return nil, fmt.Errorf("psf integer entry '%s' size mismatch (expected=4, got=%d)", key, paramLen)
 			}
-			psf.MapIntegers[index] = int32(binary.LittleEndian.Uint32(valData))
+			psf.MapIntegers[key] = int32(binary.LittleEndian.Uint32(valData))
 		default:
 			return nil, fmt.Errorf("unknown psf entry format: 0x%04x for key '%s'", paramFmt, key)
 		}
@@ -173,6 +173,12 @@ func NewPsfFromData(data []byte) (*Psf, error) {
 }
 
 func (psf *Psf) Encode() ([]byte, error) {
+	// We need to sort entries alphabetically to comply with spec.
+	sort.Slice(psf.Entries, func(i, j int) bool {
+		return psf.Entries[i].Key < psf.Entries[j].Key
+	})
+
+	// Prepare buffer.
 	numEntries := len(psf.Entries)
 	data := make([]byte, int(PsfHeaderSize)+(int(PsfRawEntrySize)*numEntries))
 
@@ -193,6 +199,12 @@ func (psf *Psf) Encode() ([]byte, error) {
 		data = append(data, 0) // NULL terminator.
 	}
 
+	// 4-byte alignment padding for data table.
+	if len(data)%4 != 0 {
+		padding := 4 - (len(data) % 4)
+		data = append(data, make([]byte, padding)...)
+	}
+
 	// Write data table.
 	dataTableOffset := len(data)
 	binary.LittleEndian.PutUint32(data[12:16], uint32(dataTableOffset)) // u32_le data_table_offset in header
@@ -202,6 +214,8 @@ func (psf *Psf) Encode() ([]byte, error) {
 			padding := 4 - (len(data) % 4)
 			data = append(data, make([]byte, padding)...)
 		}
+
+		// Write entry.
 		rawEntryOffset := int(PsfHeaderSize) + (i * int(PsfRawEntrySize))
 		binary.LittleEndian.PutUint32(data[rawEntryOffset+12:rawEntryOffset+16], uint32(len(data)-dataTableOffset)) // data_offset (u32_le)
 
@@ -209,14 +223,14 @@ func (psf *Psf) Encode() ([]byte, error) {
 		var paramLen uint32
 		switch entry.ParamFmt {
 		case PsfEntryFmtBinary:
-			val, ok := psf.MapBinaries[i]
+			val, ok := psf.MapBinaries[entry.Key]
 			if !ok {
 				return nil, fmt.Errorf("missing binary data for entry index %d", i)
 			}
 			paramLen = uint32(len(val))
 			data = append(data, val...)
 		case PsfEntryFmtText:
-			val, ok := psf.MapStrings[i]
+			val, ok := psf.MapStrings[entry.Key]
 			if !ok {
 				return nil, fmt.Errorf("missing string data for entry index %d", i)
 			}
@@ -224,7 +238,7 @@ func (psf *Psf) Encode() ([]byte, error) {
 			data = append(data, []byte(val)...)
 			data = append(data, 0) // NULL terminator.
 		case PsfEntryFmtInteger:
-			val, ok := psf.MapIntegers[i]
+			val, ok := psf.MapIntegers[entry.Key]
 			if !ok {
 				return nil, fmt.Errorf("missing integer data for entry index %d", i)
 			}

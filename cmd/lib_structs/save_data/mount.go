@@ -22,12 +22,19 @@ const (
 	OrbisSaveDataMountStatusCREATED = OrbisSaveDataMountStatus(1)
 )
 
+type OrbisSaveDataFingerprint struct {
+	Data [65]byte
+	_    [15]byte
+}
+
+type OrbisSaveDataMountPoint [16]byte
+
 type OrbisSaveDataMount struct {
 	UserId      int32
 	_           uint32
 	TitleId     Cstring
 	DirName     Cstring
-	Fingerprint Cstring
+	Fingerprint *OrbisSaveDataFingerprint
 	Blocks      OrbisSaveDataBlocks
 	MountMode   OrbisSaveDataMountMode
 	Reserved    [32]byte
@@ -40,7 +47,7 @@ type OrbisSaveDataMountInfo struct {
 }
 
 type OrbisSaveDataMountResult struct {
-	MountPoint     Cstring
+	MountPoint     OrbisSaveDataMountPoint
 	RequiredBlocks OrbisSaveDataBlocks
 	_              uint32
 	MountStatus    OrbisSaveDataMountStatus

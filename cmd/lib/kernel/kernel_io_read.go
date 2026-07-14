@@ -98,24 +98,8 @@ func libKernel_pread_0(fd FileDescriptor, bufPtr uintptr, length uint64, offset 
 		return 0
 	}
 
-	GlobalFilesystem.Lock.Lock()
-	file, ok := GlobalFilesystem.Descriptors[fd]
-	GlobalFilesystem.Lock.Unlock()
-	if !ok {
-		logger.Printf("%-132s %s failed due to unknown file %s.\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("pread_0"),
-			color.Yellow.Sprintf("0x%X", fd),
-		)
-		emu.SetErrno(ENOENT)
-		return ERR_PTRI
-	}
-
 	buffer := unsafe.Slice((*byte)(unsafe.Pointer(bufPtr)), length)
-	currentOffset, _ := file.File.Seek(0, io.SeekCurrent)
-	_, _ = file.File.Seek(offset, io.SeekStart)
-	readBytes, err := file.File.Read(buffer)
-	_, _ = file.File.Seek(currentOffset, io.SeekStart)
+	readBytes, err := GlobalFilesystem.PreadFd(fd, buffer, offset)
 	if err != nil && err != io.EOF {
 		logger.Printf("%-132s %s failed due to read error on %s (%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -123,7 +107,14 @@ func libKernel_pread_0(fd FileDescriptor, bufPtr uintptr, length uint64, offset 
 			color.Yellow.Sprintf("0x%X", fd),
 			err.Error(),
 		)
-		emu.SetErrno(EFAULT)
+
+		if err.Error() == "invalid file descriptor" {
+			emu.SetErrno(ENOENT)
+		} else if err.Error() == "illegal seek" {
+			emu.SetErrno(ESPIPE)
+		} else {
+			emu.SetErrno(EFAULT)
+		}
 		return ERR_PTRI
 	}
 

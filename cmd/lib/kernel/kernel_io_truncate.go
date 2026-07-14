@@ -33,14 +33,14 @@ func libKernel_truncate_0(pathPtr Cstring, length int64) int32 {
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("truncate_0"),
 		)
-		return 0
+		emu.SetErrno(ENOENT)
+		return ERR_PTRI
 	}
 
 	path := GetUsablePath(GoString(pathPtr))
-	fd, err := GlobalFilesystem.Open(path, 0, 0)
-	defer GlobalFilesystem.Close(fd)
+	err := GlobalFilesystem.Truncate(path, length)
 	if err != nil {
-		logger.Printf("%-132s %s failed due to open error on %s (%s).\n",
+		logger.Printf("%-132s %s failed due to truncate error on %s (%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("truncate_0"),
 			color.Blue.Sprint(path),
@@ -50,34 +50,11 @@ func libKernel_truncate_0(pathPtr Cstring, length int64) int32 {
 		return ERR_PTRI
 	}
 
-	file, ok := GlobalFilesystem.Descriptors[fd]
-	if !ok {
-		logger.Printf("%-132s %s failed due to unknown file %s.\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("truncate_0"),
-			color.Yellow.Sprintf("0x%X", fd),
-		)
-		emu.SetErrno(ENOENT)
-		return ERR_PTRI
-	}
-
-	err = file.File.Truncate(length)
-	if err != nil {
-		logger.Printf("%-132s %s failed due to truncate error on %s (%s).\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("truncate_0"),
-			color.Yellow.Sprintf("0x%X", fd),
-			err.Error(),
-		)
-		emu.SetErrno(EFAULT)
-		return ERR_PTRI
-	}
-
 	if logger.LogFilesystem {
 		logger.Printf("%-132s %s truncated %s to %s bytes.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("truncate_0"),
-			color.Yellow.Sprintf("0x%X", fd),
+			color.Blue.Sprint(path),
 			color.Yellow.Sprintf("0x%X", length),
 		)
 	}
@@ -104,18 +81,7 @@ func libKernel_ftruncate(fd FileDescriptor, length int64) int32 {
 // 0x0000000000002950
 // __int64 ftruncate_0()
 func libKernel_ftruncate_0(fd FileDescriptor, length int64) int32 {
-	file, ok := GlobalFilesystem.Descriptors[fd]
-	if !ok {
-		logger.Printf("%-132s %s failed due to unknown file %s.\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("ftruncate_0"),
-			color.Yellow.Sprintf("0x%X", fd),
-		)
-		emu.SetErrno(ENOENT)
-		return ERR_PTRI
-	}
-
-	err := file.File.Truncate(length)
+	err := GlobalFilesystem.TruncateFd(fd, length)
 	if err != nil {
 		logger.Printf("%-132s %s failed due to truncate error on %s (%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -123,7 +89,12 @@ func libKernel_ftruncate_0(fd FileDescriptor, length int64) int32 {
 			color.Yellow.Sprintf("0x%X", fd),
 			err.Error(),
 		)
-		emu.SetErrno(EFAULT)
+
+		if err.Error() == "invalid file descriptor" {
+			emu.SetErrno(ENOENT)
+		} else {
+			emu.SetErrno(EFAULT)
+		}
 		return ERR_PTRI
 	}
 

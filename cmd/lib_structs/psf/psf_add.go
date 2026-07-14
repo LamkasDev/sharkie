@@ -37,7 +37,7 @@ func (psf *Psf) AddBinary(key string, value []byte, update bool) error {
 			return fmt.Errorf("format change is not supported")
 		}
 		psf.Entries[index].MaxLen = maxLen
-		psf.MapBinaries[index] = value
+		psf.MapBinaries[key] = value
 		return nil
 	}
 
@@ -46,7 +46,7 @@ func (psf *Psf) AddBinary(key string, value []byte, update bool) error {
 		ParamFmt: PsfEntryFmtBinary,
 		MaxLen:   maxLen,
 	})
-	psf.MapBinaries[len(psf.Entries)-1] = value
+	psf.MapBinaries[key] = value
 	return nil
 }
 
@@ -68,7 +68,7 @@ func (psf *Psf) AddString(key string, value string, update bool) error {
 			return fmt.Errorf("format change is not supported")
 		}
 		psf.Entries[index].MaxLen = maxLen
-		psf.MapStrings[index] = value
+		psf.MapStrings[key] = value
 		return nil
 	}
 
@@ -77,7 +77,7 @@ func (psf *Psf) AddString(key string, value string, update bool) error {
 		ParamFmt: PsfEntryFmtText,
 		MaxLen:   maxLen,
 	})
-	psf.MapStrings[len(psf.Entries)-1] = value
+	psf.MapStrings[key] = value
 	return nil
 }
 
@@ -94,7 +94,7 @@ func (psf *Psf) AddInteger(key string, value int32, update bool) error {
 			return fmt.Errorf("format change is not supported")
 		}
 		psf.Entries[index].MaxLen = maxLen
-		psf.MapIntegers[index] = value
+		psf.MapIntegers[key] = value
 		return nil
 	}
 
@@ -103,6 +103,6 @@ func (psf *Psf) AddInteger(key string, value int32, update bool) error {
 		ParamFmt: PsfEntryFmtInteger,
 		MaxLen:   maxLen,
 	})
-	psf.MapIntegers[len(psf.Entries)-1] = value
+	psf.MapIntegers[key] = value
 	return nil
 }

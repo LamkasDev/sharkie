@@ -1,7 +1,6 @@
 package kernel
 
 import (
-	"io"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
@@ -112,24 +111,8 @@ func libKernel_pwrite_0(fd FileDescriptor, bufPtr uintptr, length uint64, offset
 		return 0
 	}
 
-	GlobalFilesystem.Lock.Lock()
-	file, ok := GlobalFilesystem.Descriptors[fd]
-	GlobalFilesystem.Lock.Unlock()
-	if !ok {
-		logger.Printf("%-132s %s failed due to unknown file %s.\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("pwrite_0"),
-			color.Yellow.Sprintf("0x%X", fd),
-		)
-		emu.SetErrno(ENOENT)
-		return ERR_PTRI
-	}
-
 	buffer := unsafe.Slice((*byte)(unsafe.Pointer(bufPtr)), length)
-	currentOffset, _ := file.File.Seek(0, io.SeekCurrent)
-	_, _ = file.File.Seek(offset, io.SeekStart)
-	wroteBytes, err := file.File.Write(buffer)
-	_, _ = file.File.Seek(currentOffset, io.SeekStart)
+	wroteBytes, err := GlobalFilesystem.PwriteFd(fd, buffer, offset)
 	if err != nil {
 		logger.Printf("%-132s %s failed due to write error on %s (%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -137,7 +120,16 @@ func libKernel_pwrite_0(fd FileDescriptor, bufPtr uintptr, length uint64, offset
 			color.Yellow.Sprintf("0x%X", fd),
 			err.Error(),
 		)
-		emu.SetErrno(EFAULT)
+
+		if err.Error() == "invalid file descriptor" {
+			emu.SetErrno(ENOENT)
+		} else if err.Error() == "illegal seek" {
+			emu.SetErrno(ESPIPE)
+		} else if err.Error() == "file not opened for writing" {
+			emu.SetErrno(EFAULT) // TODO: EBADF?
+		} else {
+			emu.SetErrno(EFAULT)
+		}
 		return ERR_PTRI
 	}
 

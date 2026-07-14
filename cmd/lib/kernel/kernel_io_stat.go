@@ -6,7 +6,6 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/fs"
-	. "github.com/LamkasDev/sharkie/cmd/lib_structs/time"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
 )
@@ -73,20 +72,7 @@ func libKernel_fstat(fd FileDescriptor, statPtr uintptr) int32 {
 		return ERR_PTRI
 	}
 
-	GlobalFilesystem.Lock.Lock()
-	file, ok := GlobalFilesystem.Descriptors[fd]
-	GlobalFilesystem.Lock.Unlock()
-	if !ok {
-		logger.Printf("%-132s %s failed due to unknown file %s.\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("fstat"),
-			color.Yellow.Sprintf("0x%X", fd),
-		)
-		emu.SetErrno(ENOENT)
-		return ERR_PTRI
-	}
-
-	fileStat, err := file.File.Stat()
+	fileStat, err := GlobalFilesystem.StatFd(fd)
 	if err != nil {
 		logger.Printf("%-132s %s failed due to stat error on %s (%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -94,28 +80,17 @@ func libKernel_fstat(fd FileDescriptor, statPtr uintptr) int32 {
 			color.Yellow.Sprintf("0x%X", fd),
 			err.Error(),
 		)
-		emu.SetErrno(EFAULT)
+
+		if err.Error() == "invalid file descriptor" {
+			emu.SetErrno(ENOENT)
+		} else {
+			emu.SetErrno(EFAULT)
+		}
 		return ERR_PTRI
 	}
 
 	stat := (*FileStat)(unsafe.Pointer(statPtr))
-	stat.Device = 0
-	stat.Inodes = 0
-	stat.Mode = 0
-	stat.HardLinkCount = 1
-	stat.OwnerUser = 0
-	stat.OwnerGroup = 0
-	stat.SpecialDevice = 0
-	stat.AccessTime = Timestamp{Seconds: 0, Nanoseconds: 0}
-	stat.ModifyTime = Timestamp{Seconds: 0, Nanoseconds: 0}
-	stat.ChangeStatusTime = Timestamp{Seconds: 0, Nanoseconds: 0}
-	stat.Size = fileStat.Size()
-	stat.BlockSize = FileBlockSize
-	stat.Blocks = (stat.Size + 511) / 512
-	stat.Flags = 0
-	stat.GenerationNumber = 0
-	stat.ImplementationDetails = 0
-	stat.CreateTime = Timestamp{Seconds: 0, Nanoseconds: 0}
+	*stat = *fileStat
 
 	if logger.LogFilesystem {
 		logger.Printf("%-132s %s returned file stat for %s (size=%s).\n",

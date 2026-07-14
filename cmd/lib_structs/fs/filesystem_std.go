@@ -3,7 +3,7 @@ package fs
 import (
 	"errors"
 	"fmt"
-	ioFs "io/fs"
+	"io/fs"
 	"strings"
 
 	"github.com/gookit/color"
@@ -42,7 +42,7 @@ func (out *OutputDevice) Close() error {
 	return nil
 }
 
-func (out *OutputDevice) Stat() (ioFs.FileInfo, error) {
+func (out *OutputDevice) Stat() (fs.FileInfo, error) {
 	return nil, errors.New("output device stat not implemented")
 }
 

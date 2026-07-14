@@ -30,19 +30,6 @@ func libKernel_lseek(fd FileDescriptor, offset int64, whence int32) int64 {
 // 0x0000000000002970
 // __int64 __fastcall lseek_0()
 func libKernel_lseek_0(fd FileDescriptor, offset int64, whence int32) int64 {
-	GlobalFilesystem.Lock.Lock()
-	file, ok := GlobalFilesystem.Descriptors[fd]
-	GlobalFilesystem.Lock.Unlock()
-	if !ok {
-		logger.Printf("%-132s %s failed due to unknown file %s.\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("pread_0"),
-			color.Yellow.Sprintf("0x%X", fd),
-		)
-		emu.SetErrno(ENOENT)
-		return ERR_PTRI
-	}
-
 	var goWhence int
 	switch whence {
 	case 0:
@@ -56,7 +43,7 @@ func libKernel_lseek_0(fd FileDescriptor, offset int64, whence int32) int64 {
 		return ERR_PTRI
 	}
 
-	newOffset, err := file.File.Seek(offset, goWhence)
+	newOffset, err := GlobalFilesystem.SeekFd(fd, offset, goWhence)
 	if err != nil {
 		logger.Printf("%-132s %s failed due to seek error on %s (%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -64,8 +51,13 @@ func libKernel_lseek_0(fd FileDescriptor, offset int64, whence int32) int64 {
 			color.Yellow.Sprintf("0x%X", fd),
 			err.Error(),
 		)
-		emu.SetErrno(ESPIPE)
-		return -1
+
+		if err.Error() == "invalid file descriptor" {
+			emu.SetErrno(ENOENT)
+		} else {
+			emu.SetErrno(ESPIPE)
+		}
+		return ERR_PTRI
 	}
 
 	if logger.LogFilesystem {

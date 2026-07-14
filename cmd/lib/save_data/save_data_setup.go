@@ -96,7 +96,7 @@ func libSceSaveData_sceSaveDataMount(mountPtr, resultPtr uintptr) uintptr {
 
 	// Set mount result.
 	mountResult := (*OrbisSaveDataMountResult)(unsafe.Pointer(resultPtr))
-	CString(mountResult.MountPoint, mountPoint)
+	CString(Cstring(unsafe.Pointer(&mountResult.MountPoint)), mountPoint)
 	if created {
 		mountResult.MountStatus = OrbisSaveDataMountStatusCREATED
 	}

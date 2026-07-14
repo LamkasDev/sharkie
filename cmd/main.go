@@ -24,6 +24,7 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/pad"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/rng"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/save_data"
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/system_service"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/user"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/LamkasDev/sharkie/cmd/structs"
@@ -99,6 +100,7 @@ func main() {
 	pad.SetupPadEngine()
 	user.SetupUserManager()
 	save_data.SetupSaveDataManager()
+	system_service.SetupSystemService()
 	gpu.SetupLiverpool()
 
 	// Hook functions.

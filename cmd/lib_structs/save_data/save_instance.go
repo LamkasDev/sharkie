@@ -80,23 +80,9 @@ func (instance *SaveInstance) Mount(mountSlot int, copyIcon bool) (string, error
 	}
 	instance.MaxBlocks = GetMaxBlocksFromSfo(instance.ParamSfo)
 
-	// TODO: this chunk should be mount, but let's just copy manually for now.
 	mountPoint := fmt.Sprintf("/savedata%d", mountSlot)
-	paramSfoData, err := instance.ParamSfo.Encode()
-	if err != nil {
+	if err = GlobalFilesystem.Mount(mountPoint, config.GetGameSavesDir(), false); err != nil {
 		return "", err, false
-	}
-	if _, err = GlobalFilesystem.Write(fmt.Sprintf("%s/sce_sys/param.sfo", mountPoint), paramSfoData); err != nil {
-		return "", err, false
-	}
-	if _, err = os.Stat(filepath.Join(config.GetGameSavesDir(), "sce_sys", "savedata.png")); err == nil {
-		iconData, err := os.ReadFile(filepath.Join(config.GetGameSavesDir(), "sce_sys", "savedata.png"))
-		if err != nil {
-			return "", err, false
-		}
-		if _, err = GlobalFilesystem.Write(fmt.Sprintf("%s/sce_sys/savedata.png", mountPoint), iconData); err != nil {
-			return "", err, false
-		}
 	}
 
 	return mountPoint, nil, created
