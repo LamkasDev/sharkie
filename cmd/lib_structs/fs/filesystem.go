@@ -53,7 +53,7 @@ func (shFs *SharkieFilesystem) Create(path string) (FileDescriptor, error) {
 }
 
 // Open creates a new file descriptor for the given path.
-func (shFs *SharkieFilesystem) Open(path string, oflag FileFlags, mode FileMode) (FileDescriptor, error) {
+func (shFs *SharkieFilesystem) Open(path string, flags FileFlags, mode FileMode) (FileDescriptor, error) {
 	shFs.Lock.Lock()
 	defer shFs.Lock.Unlock()
 
@@ -65,14 +65,14 @@ func (shFs *SharkieFilesystem) Open(path string, oflag FileFlags, mode FileMode)
 			Descriptor: fd,
 			Device:     createFunc(),
 			IsDevice:   true,
-			Flags:      int(oflag),
+			Flags:      int(flags),
 		}
 		shFs.NextDescriptor++
 		return fd, nil
 	}
 
 	// Parse basic flags for VFS creation.
-	create := (oflag & O_CREAT) != 0
+	create := (flags & O_CREAT) != 0
 
 	// Resolve or create the node in the VFS tree.
 	node, err := shFs.Fs.GetOrCreateNode(path, create, false, os.FileMode(mode))
@@ -81,7 +81,7 @@ func (shFs *SharkieFilesystem) Open(path string, oflag FileFlags, mode FileMode)
 	}
 
 	// Handle TRUNC flag if it already existed and wasn't a device
-	if (oflag & O_TRUNC) != 0 {
+	if (flags & O_TRUNC) != 0 {
 		if err = node.Truncate(0); err != nil {
 			return -1, err
 		}
@@ -93,12 +93,12 @@ func (shFs *SharkieFilesystem) Open(path string, oflag FileFlags, mode FileMode)
 		Path:       path,
 		Descriptor: fd,
 		Node:       node,
-		Flags:      int(oflag),
+		Flags:      int(flags),
 		Offset:     0,
 	}
 
 	// Handle APPEND flag cursor initialization.
-	if (oflag & O_APPEND) != 0 {
+	if (flags & O_APPEND) != 0 {
 		shFile.Offset = node.GetSize()
 	}
 

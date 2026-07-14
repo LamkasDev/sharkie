@@ -96,6 +96,10 @@ func GetGameSavesDir() string {
 	return filepath.Join(GetSavesDir(), GameName)
 }
 
+func GetGameSaveDir(dirName string) string {
+	return filepath.Join(GetGameSavesDir(), dirName)
+}
+
 func GetLibDir() string {
 	libPath, _ := AppScope.DataPath("lib")
 	return libPath

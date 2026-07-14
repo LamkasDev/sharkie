@@ -34,7 +34,8 @@ type SaveInstance struct {
 	DirName    string
 	MaxBlocks  uint64
 
-	ParamSfo *Psf
+	ParamSfo   *Psf
+	MountPoint string
 }
 
 func NewSaveInstance(userId int32, gameSerial, dirName string, maxBlocks uint64) *SaveInstance {
@@ -48,44 +49,47 @@ func NewSaveInstance(userId int32, gameSerial, dirName string, maxBlocks uint64)
 }
 
 func (instance *SaveInstance) ExistsOnHost() bool {
-	if _, err := os.Stat(filepath.Join(config.GetGameSavesDir(), "sce_sys", "param.sfo")); err == nil {
+	if _, err := os.Stat(filepath.Join(config.GetGameSaveDir(instance.DirName), "sce_sys", "param.sfo")); err == nil {
 		return true
 	}
 
 	return false
 }
 
-func (instance *SaveInstance) Mounted(mountSlot int) bool {
-	fd, err := GlobalFilesystem.Open(fmt.Sprintf("/savedata%d/sce_sys/param.sfo", mountSlot), 0, 0)
-	defer GlobalFilesystem.Close(fd)
+func (instance *SaveInstance) Mounted() bool {
+	_, err := GlobalFilesystem.Stat(fmt.Sprintf("%s/sce_sys/param.sfo", instance.MountPoint))
+	if err != nil {
+		return false
+	}
 
-	return err == nil
+	return true
 }
 
 // TODO: readOnly, ignoreCorrupt, dontRestoreBackup
-func (instance *SaveInstance) Mount(mountSlot int, copyIcon bool) (string, error, bool) {
+func (instance *SaveInstance) Mount(mountSlot int, copyIcon bool) (error, bool) {
 	var err error
 	created := false
 	if !instance.ExistsOnHost() {
 		instance.ParamSfo, err = instance.CreateOnHost(copyIcon)
 		if err != nil {
-			return "", err, false
+			return err, false
 		}
 		created = true
 	} else {
-		instance.ParamSfo, err = NewPsfFromPath(filepath.Join(config.GetGameSavesDir(), "sce_sys", "param.sfo"))
+		instance.ParamSfo, err = NewPsfFromPath(filepath.Join(config.GetGameSaveDir(instance.DirName), "sce_sys", "param.sfo"))
 		if err != nil {
-			return "", err, false
+			return err, false
 		}
 	}
 	instance.MaxBlocks = GetMaxBlocksFromSfo(instance.ParamSfo)
 
-	mountPoint := fmt.Sprintf("/savedata%d", mountSlot)
-	if err = GlobalFilesystem.Mount(mountPoint, config.GetGameSavesDir(), false); err != nil {
-		return "", err, false
+	// Mount save.
+	instance.MountPoint = fmt.Sprintf("/savedata%d", mountSlot)
+	if err = GlobalFilesystem.Mount(instance.MountPoint, config.GetGameSaveDir(instance.DirName), false); err != nil {
+		return err, false
 	}
 
-	return mountPoint, nil, created
+	return nil, created
 }
 
 func (instance *SaveInstance) CreateOnHost(copyIcon bool) (*Psf, error) {
@@ -101,15 +105,15 @@ func (instance *SaveInstance) CreateOnHost(copyIcon bool) (*Psf, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err = os.MkdirAll(filepath.Join(config.GetGameSavesDir(), "sce_sys"), 0755); err != nil {
+	if err = os.MkdirAll(filepath.Join(config.GetGameSaveDir(instance.DirName), "sce_sys"), 0755); err != nil {
 		return nil, err
 	}
-	if err = os.WriteFile(filepath.Join(config.GetGameSavesDir(), "sce_sys", "param.sfo"), data, 0755); err != nil {
+	if err = os.WriteFile(filepath.Join(config.GetGameSaveDir(instance.DirName), "sce_sys", "param.sfo"), data, 0755); err != nil {
 		return nil, err
 	}
 	if copyIcon {
 		if iconData, err := GlobalFilesystem.ReadFull("/app0/sce_sys/save_data.png"); err == nil {
-			if err = os.WriteFile(filepath.Join(config.GetGameSavesDir(), "sce_sys", "save_data.png"), iconData, 0755); err != nil {
+			if err = os.WriteFile(filepath.Join(config.GetGameSaveDir(instance.DirName), "sce_sys", "save_data.png"), iconData, 0755); err != nil {
 				return nil, err
 			}
 		}
@@ -155,4 +159,15 @@ func GetMaxBlocksFromSfo(psf *Psf) uint64 {
 	}
 
 	return binary.LittleEndian.Uint64(value)
+}
+
+func (instance *SaveInstance) SaveParamSfo() error {
+	if instance.ParamSfo == nil {
+		return nil
+	}
+	data, err := instance.ParamSfo.Encode()
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(config.GetGameSaveDir(instance.DirName), "sce_sys", "param.sfo"), data, 0755)
 }

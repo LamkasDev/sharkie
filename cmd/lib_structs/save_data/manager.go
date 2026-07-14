@@ -4,6 +4,8 @@ package save_data
 import (
 	"fmt"
 	"sync"
+
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/fs"
 )
 
 var GlobalSaveDataManager *SaveDataManager
@@ -35,6 +37,28 @@ func (sdm *SaveDataManager) GetAvailableMountSlot(dirName string) (int, error) {
 	}
 
 	return -1, fmt.Errorf("no available save mount slot found")
+}
+
+func (sdm *SaveDataManager) Unmount(mountPoint string) error {
+	sdm.Lock.Lock()
+	defer sdm.Lock.Unlock()
+	for slot, save := range sdm.MountSlots {
+		if save == nil {
+			continue
+		}
+		if save.MountPoint == mountPoint && save.Mounted() {
+			if err := save.SaveParamSfo(); err != nil {
+				return fmt.Errorf("failed to save param.sfo: %w", err)
+			}
+			sdm.MountSlots[slot] = nil
+			if err := GlobalFilesystem.Unmount(mountPoint); err != nil {
+				return err
+			}
+			return nil
+		}
+	}
+
+	return fmt.Errorf("no mounted save found")
 }
 
 func (sdm *SaveDataManager) GetSaveInstance(mountSlot int) *SaveInstance {

@@ -42,7 +42,7 @@ func libKernel__open(pathPtr Cstring, flags FileFlags, mode FileMode) int32 {
 	}
 
 	path := GetUsablePath(GoString(pathPtr))
-	fd, err := GlobalFilesystem.Open(path, 0, mode)
+	fd, err := GlobalFilesystem.Open(path, flags, mode)
 	if err != nil {
 		logger.Printf("%-132s %s failed due to open error on %s (%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),

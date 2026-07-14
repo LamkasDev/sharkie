@@ -54,3 +54,20 @@ type OrbisSaveDataMountResult struct {
 	Reserved       [28]byte
 	_              uint32
 }
+
+type OrbisSaveDataIcon struct {
+	Buf      uintptr
+	BufSize  uint64
+	DataSize uint64
+	Reserved [32]byte
+}
+
+type OrbisSaveDataDelete struct {
+	UserId   int32
+	_        uint32
+	TitleId  Cstring
+	DirName  Cstring
+	Unused   uint32
+	Reserved [32]byte
+	_        uint32
+}
