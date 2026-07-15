@@ -45,6 +45,10 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
+	err = os.MkdirAll(GetAddonsDir(), 0755)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func LoadConfig() error {
@@ -100,6 +104,10 @@ func GetGameSaveDir(dirName string) string {
 	return filepath.Join(GetGameSavesDir(), dirName)
 }
 
+func GetGameAddonsDir(titleId string) string {
+	return filepath.Join(GetAddonsDir(), titleId)
+}
+
 func GetLibDir() string {
 	libPath, _ := AppScope.DataPath("lib")
 	return libPath
@@ -113,6 +121,11 @@ func GetToolsDir() string {
 func GetSavesDir() string {
 	savesPath, _ := AppScope.DataPath("saves")
 	return savesPath
+}
+
+func GetAddonsDir() string {
+	addonsPath, _ := AppScope.DataPath("addons")
+	return addonsPath
 }
 
 func ResolveGame(arg string) error {

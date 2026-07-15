@@ -15,6 +15,7 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/lib"
 	"github.com/LamkasDev/sharkie/cmd/lib/libc"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs"
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/app_content"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/audio"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/dce"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/fs"
@@ -101,6 +102,7 @@ func main() {
 	user.SetupUserManager()
 	save_data.SetupSaveDataManager()
 	system_service.SetupSystemService()
+	app_content.SetupAppContentInstance()
 	gpu.SetupLiverpool()
 
 	// Hook functions.

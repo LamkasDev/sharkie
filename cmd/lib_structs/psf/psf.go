@@ -115,7 +115,7 @@ func NewPsfFromData(data []byte) (*Psf, error) {
 
 		// Read raw entry.
 		keyOffset := binary.LittleEndian.Uint16(data[entryOffset : entryOffset+2])
-		paramFmt := PsfEntryFmt(binary.BigEndian.Uint16(data[entryOffset+2 : entryOffset+4]))
+		paramFmt := PsfEntryFmt(binary.LittleEndian.Uint16(data[entryOffset+2 : entryOffset+4]))
 		paramLen := binary.LittleEndian.Uint32(data[entryOffset+4 : entryOffset+8])
 		paramMaxLen := binary.LittleEndian.Uint32(data[entryOffset+8 : entryOffset+12])
 		dataOffset := binary.LittleEndian.Uint32(data[entryOffset+12 : entryOffset+16])
@@ -193,7 +193,7 @@ func (psf *Psf) Encode() ([]byte, error) {
 	for i, entry := range psf.Entries {
 		rawEntryOffset := int(PsfHeaderSize) + (i * int(PsfRawEntrySize))
 		binary.LittleEndian.PutUint16(data[rawEntryOffset:rawEntryOffset+2], uint16(len(data)-keyTableOffset)) // u16_le key_offset
-		binary.BigEndian.PutUint16(data[rawEntryOffset+2:rawEntryOffset+4], uint16(entry.ParamFmt))            // u16_be param_fmt
+		binary.LittleEndian.PutUint16(data[rawEntryOffset+2:rawEntryOffset+4], uint16(entry.ParamFmt))         // u16_le param_fmt
 		binary.LittleEndian.PutUint32(data[rawEntryOffset+8:rawEntryOffset+12], entry.MaxLen)                  // u32_le param_max_len
 		data = append(data, []byte(entry.Key)...)
 		data = append(data, 0) // NULL terminator.

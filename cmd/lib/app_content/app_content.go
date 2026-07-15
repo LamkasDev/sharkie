@@ -3,6 +3,7 @@ package app_content
 import (
 	"github.com/LamkasDev/sharkie/cmd/elf"
 	"github.com/LamkasDev/sharkie/cmd/emu"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/app_content"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
 )
@@ -10,8 +11,10 @@ import (
 func RegisterAppContentStubs() {
 	elf.RegisterStub("libSceAppContent", "sceAppContentGetEntitlementKey", libSceAppContent_stub)
 	elf.RegisterStub("libSceAppContent", "sceAppContentGetAddcontInfoList", libSceAppContent_stub)
-	elf.RegisterStub("libSceAppContent", "sceAppContentAppParamGetInt", libSceAppContent_stub)
-	elf.RegisterStub("libSceAppContent", "sceAppContentInitialize", libSceAppContent_stub)
+
+	// Setup functions.
+	elf.RegisterStub("libSceAppContent", "sceAppContentInitialize", libSceAppContent_sceAppContentInitialize)
+	elf.RegisterStub("libSceAppContent", "sceAppContentAppParamGetInt", libSceAppContent_sceAppContentAppParamGetInt)
 }
 
 func libSceAppContent_stub() uintptr {
