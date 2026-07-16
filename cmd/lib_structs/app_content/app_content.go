@@ -1,48 +1,47 @@
 package app_content
 
-type OrbisAppContentInitParam struct {
+const (
+	NpUnifiedEntitlementLabelSize    = 17
+	AppContentEntitlementLabelOffset = 20
+)
+
+type AppContentAddcontDownloadStatus uint32
+
+const (
+	AppContentAddcontDownloadStatusNoExtraData       = AppContentAddcontDownloadStatus(0)
+	AppContentAddcontDownloadStatusNoInQueue         = AppContentAddcontDownloadStatus(1)
+	AppContentAddcontDownloadStatusDownloading       = AppContentAddcontDownloadStatus(2)
+	AppContentAddcontDownloadStatusDownloadSuspended = AppContentAddcontDownloadStatus(3)
+	AppContentAddcontDownloadStatusInstalled         = AppContentAddcontDownloadStatus(4)
+)
+
+type AppContentAppParamId int32
+
+const (
+	AppContentAppParamIdSkuFlag           = AppContentAppParamId(0)
+	AppContentAppParamIdUserDefinedParam1 = AppContentAppParamId(1)
+	AppContentAppParamIdUserDefinedParam2 = AppContentAppParamId(2)
+	AppContentAppParamIdUserDefinedParam3 = AppContentAppParamId(3)
+	AppContentAppParamIdUserDefinedParam4 = AppContentAppParamId(4)
+	AppContentAppParamSkuFlagFull         = 3
+)
+
+type AppContentInitParam struct {
 	Reserved [32]byte
 }
 
-type OrbisAppContentBootParam struct {
+type AppContentBootParam struct {
 	Reserved1 [4]byte
 	Attr      uint32
 	Reserved2 [32]byte
 }
 
-const (
-	OrbisNpUnifiedEntitlementLabelSize    = 17
-	OrbisAppContentEntitlementLabelOffset = 20
-)
+type AppContentAddcontInfo struct {
+	EntitlementLabel NpUnifiedEntitlementLabel
+	Status           AppContentAddcontDownloadStatus
+}
 
-type OrbisNpUnifiedEntitlementLabel struct {
-	Data    [OrbisNpUnifiedEntitlementLabelSize]byte
+type NpUnifiedEntitlementLabel struct {
+	Data    [NpUnifiedEntitlementLabelSize]byte
 	Padding [3]byte
 }
-
-type OrbisAppContentAddcontDownloadStatus uint32
-
-const (
-	OrbisAppContentAddcontDownloadStatusNoExtraData       OrbisAppContentAddcontDownloadStatus = 0
-	OrbisAppContentAddcontDownloadStatusNoInQueue         OrbisAppContentAddcontDownloadStatus = 1
-	OrbisAppContentAddcontDownloadStatusDownloading       OrbisAppContentAddcontDownloadStatus = 2
-	OrbisAppContentAddcontDownloadStatusDownloadSuspended OrbisAppContentAddcontDownloadStatus = 3
-	OrbisAppContentAddcontDownloadStatusInstalled         OrbisAppContentAddcontDownloadStatus = 4
-)
-
-type OrbisAppContentAddcontInfo struct {
-	EntitlementLabel OrbisNpUnifiedEntitlementLabel
-	Status           OrbisAppContentAddcontDownloadStatus
-}
-
-type OrbisAppContentAppParamId int32
-
-const (
-	OrbisAppContentAppParamIdSkuFlag           OrbisAppContentAppParamId = 0
-	OrbisAppContentAppParamIdUserDefinedParam1 OrbisAppContentAppParamId = 1
-	OrbisAppContentAppParamIdUserDefinedParam2 OrbisAppContentAppParamId = 2
-	OrbisAppContentAppParamIdUserDefinedParam3 OrbisAppContentAppParamId = 3
-	OrbisAppContentAppParamIdUserDefinedParam4 OrbisAppContentAppParamId = 4
-)
-
-const OrbisAppContentAppParamSkuFlagFull = 3

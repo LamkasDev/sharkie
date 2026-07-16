@@ -7,6 +7,7 @@ import (
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/semaphore"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/time"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
@@ -151,6 +152,7 @@ func libScePosix_sem_timedwait(semPtr, timestampPtr uintptr) uintptr {
 	}
 
 	// Lock semaphore.
+	start := time.Now()
 	hostSemaphore := GetPSemaphore(semPtr)
 
 	for {
@@ -168,7 +170,24 @@ func libScePosix_sem_timedwait(semPtr, timestampPtr uintptr) uintptr {
 			hostSemaphore.Mutex.Unlock()
 			return 0
 		}
+		w := hostSemaphore.WaitChan()
 		hostSemaphore.Mutex.Unlock()
+
+		var remaining time.Duration
+		if timeout != -1 {
+			remaining = timeout - time.Since(start)
+			if remaining <= 0 {
+				if logger.LogSyncingFail {
+					logger.Printf("%-132s %s timed out on semaphore %s.\n",
+						emu.GlobalModuleManager.GetCallSiteText(),
+						color.Magenta.Sprint("sem_timedwait"),
+						color.Yellow.Sprintf("0x%X", semPtr),
+					)
+				}
+				emu.SetErrno(ETIMEDOUT)
+				return ERR_PTR
+			}
+		}
 
 		// Wait.
 		if logger.LogSyncing {
@@ -180,10 +199,11 @@ func libScePosix_sem_timedwait(semPtr, timestampPtr uintptr) uintptr {
 			)
 		}
 		if timeout == -1 {
-			hostSemaphore.Wait()
+			<-w
 		} else {
-			waited := hostSemaphore.WaitTimeout(timeout)
-			if !waited {
+			select {
+			case <-w:
+			case <-time.After(remaining):
 				if logger.LogSyncingFail {
 					logger.Printf("%-132s %s timed out on semaphore %s.\n",
 						emu.GlobalModuleManager.GetCallSiteText(),

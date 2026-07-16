@@ -34,8 +34,8 @@ func libSceSaveData_sceSaveDataDirNameSearch(condPtr, resultPtr uintptr) uintptr
 		)
 		return 0x809F0000
 	}
-	cond := (*OrbisSaveDataDirNameSearchCond)(unsafe.Pointer(condPtr))
-	result := (*OrbisSaveDataDirNameSearchResult)(unsafe.Pointer(resultPtr))
+	cond := (*SaveDataDirNameSearchCond)(unsafe.Pointer(condPtr))
+	result := (*SaveDataDirNameSearchResult)(unsafe.Pointer(resultPtr))
 
 	// Fetch save directories.
 	savesDir := config.GetGameSavesDir()
@@ -92,18 +92,18 @@ func libSceSaveData_sceSaveDataDirNameSearch(condPtr, resultPtr uintptr) uintptr
 		b := searchResults[j]
 		var less bool
 		switch cond.Key {
-		case OrbisSaveDataSortKeyDIRNAME:
+		case SaveDataSortKeyDirName:
 			less = a.DirName < b.DirName
-		case OrbisSaveDataSortKeyUSER_PARAM:
+		case SaveDataSortKeyUserParam:
 			less = a.Psf.MapIntegers[SaveParamSaveDataListParam] < b.Psf.MapIntegers[SaveParamSaveDataListParam]
-		case OrbisSaveDataSortKeyBLOCKS:
+		case SaveDataSortKeyBlocks:
 			less = GetMaxBlocksFromSfo(a.Psf) < GetMaxBlocksFromSfo(b.Psf)
-		case OrbisSaveDataSortKeyFREE_BLOCKS:
+		case SaveDataSortKeyFreeBlocks:
 			less = GetMaxBlocksFromSfo(a.Psf) < GetMaxBlocksFromSfo(b.Psf)
-		case OrbisSaveDataSortKeyMTIME:
+		case SaveDataSortKeyMTime:
 			less = a.SfoInfo.ModTime().Before(b.SfoInfo.ModTime())
 		}
-		if cond.Order == OrbisSaveDataSortOrderDESCENT {
+		if cond.Order == SaveDataSortOrderDescent {
 			return !less
 		}
 		return less
@@ -119,24 +119,24 @@ func libSceSaveData_sceSaveDataDirNameSearch(condPtr, resultPtr uintptr) uintptr
 	for i := 0; i < maxCount; i++ {
 		res := searchResults[i]
 		if result.DirNames != 0 {
-			dirNames := (*[1024]OrbisSaveDataDirName)(unsafe.Pointer(result.DirNames))
+			dirNames := (*[1024]SaveDataDirName)(unsafe.Pointer(result.DirNames))
 			copy(dirNames[i].Data[:], make([]byte, 32))
 			copy(dirNames[i].Data[:], res.DirName)
 		}
 		if result.Params != 0 {
-			params := (*[1024]OrbisSaveDataParam)(unsafe.Pointer(result.Params))
+			params := (*[1024]SaveDataParam)(unsafe.Pointer(result.Params))
 			copy(params[i].Title[:], make([]byte, 128))
-			copy(params[i].SubTitle[:], make([]byte, 128))
+			copy(params[i].Subtitle[:], make([]byte, 128))
 			copy(params[i].Detail[:], make([]byte, 1024))
 
 			copy(params[i].Title[:], res.Psf.MapStrings[SaveParamMainTitle])
-			copy(params[i].SubTitle[:], res.Psf.MapStrings[SaveParamSubtitle])
+			copy(params[i].Subtitle[:], res.Psf.MapStrings[SaveParamSubtitle])
 			copy(params[i].Detail[:], res.Psf.MapStrings[SaveParamDetail])
 			params[i].UserParam = uint32(res.Psf.MapIntegers[SaveParamSaveDataListParam])
-			params[i].Mtime = res.SfoInfo.ModTime().Unix()
+			params[i].MTime = res.SfoInfo.ModTime().Unix()
 		}
 		if result.Infos != 0 {
-			infos := (*[1024]OrbisSaveDataSearchInfo)(unsafe.Pointer(result.Infos))
+			infos := (*[1024]SaveDataSearchInfo)(unsafe.Pointer(result.Infos))
 			infos[i].Blocks = GetMaxBlocksFromSfo(res.Psf)
 			infos[i].FreeBlocks = infos[i].Blocks
 		}
@@ -161,7 +161,7 @@ func libSceSaveData_sceSaveDataMount(mountPtr, resultPtr uintptr) uintptr {
 		return 0x809F0000
 	}
 
-	mount := (*OrbisSaveDataMount)(unsafe.Pointer(mountPtr))
+	mount := (*SaveDataMount)(unsafe.Pointer(mountPtr))
 	if mount.UserId < 0 {
 		logger.Printf("%-132s %s failed due to invalid user id.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -176,9 +176,9 @@ func libSceSaveData_sceSaveDataMount(mountPtr, resultPtr uintptr) uintptr {
 		)
 		return 0x809F0000
 	}
-	create := mount.MountMode&OrbisSaveDataMountModeCREATE != 0
-	createIfNotExists := mount.MountMode&OrbisSaveDataMountModeCREATE2 != 0
-	copyIcon := mount.MountMode&OrbisSaveDataMountModeCOPY_ICON != 0
+	create := mount.MountMode&SaveDataMountModeCreate != 0
+	createIfNotExists := mount.MountMode&SaveDataMountModeCreate2 != 0
+	copyIcon := mount.MountMode&SaveDataMountModeCopyIcon != 0
 
 	// Get next available mount slot.
 	mountSlot, err := GlobalSaveDataManager.GetAvailableMountSlot(GoString(mount.DirName))
@@ -221,10 +221,10 @@ func libSceSaveData_sceSaveDataMount(mountPtr, resultPtr uintptr) uintptr {
 	}
 
 	// Set mount result.
-	mountResult := (*OrbisSaveDataMountResult)(unsafe.Pointer(resultPtr))
+	mountResult := (*SaveDataMountResult)(unsafe.Pointer(resultPtr))
 	CString(Cstring(unsafe.Pointer(&mountResult.MountPoint)), saveInstance.MountPoint)
 	if created {
-		mountResult.MountStatus = OrbisSaveDataMountStatusCREATED
+		mountResult.MountStatus = SaveDataMountStatusCreated
 	}
 	GlobalSaveDataManager.SetSaveInstance(mountSlot, saveInstance)
 
@@ -300,8 +300,8 @@ func libSceSaveData_sceSaveDataGetMountInfo(mountPointPtr, infoPtr uintptr) uint
 	}
 
 	// Populate result.
-	info := (*OrbisSaveDataMountInfo)(unsafe.Pointer(infoPtr))
-	info.Blocks = OrbisSaveDataBlocks(saveInstance.MaxBlocks)
+	info := (*SaveDataMountInfo)(unsafe.Pointer(infoPtr))
+	info.Blocks = SaveDataBlocks(saveInstance.MaxBlocks)
 	info.FreeBlocks = info.Blocks
 
 	logger.Printf("%-132s %s got mount info for %s.\n",
@@ -315,7 +315,7 @@ func libSceSaveData_sceSaveDataGetMountInfo(mountPointPtr, infoPtr uintptr) uint
 // 0x0000000000029200
 // __int64 __fastcall sceSaveDataGetParam(int, int, int, __int64, __int64)
 func libSceSaveData_sceSaveDataGetParam(mountPointPtr, paramTypeVal, paramBuf, paramBufSize, gotSizePtr uintptr) uintptr {
-	if mountPointPtr == 0 || paramBuf == 0 || uint32(paramTypeVal) > uint32(OrbisSaveDataParamTypeMTIME) {
+	if mountPointPtr == 0 || paramBuf == 0 || uint32(paramTypeVal) > uint32(SaveDataParamTypeMTime) {
 		logger.Printf("%-132s %s failed due to invalid pointers or paramType.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceSaveDataGetParam"),
@@ -323,7 +323,7 @@ func libSceSaveData_sceSaveDataGetParam(mountPointPtr, paramTypeVal, paramBuf, p
 		return 0x809F0000
 	}
 	mountPoint := GoString(Cstring(mountPointPtr))
-	paramType := OrbisSaveDataParamType(paramTypeVal)
+	paramType := SaveDataParamType(paramTypeVal)
 
 	// Find mounted save instance.
 	var saveInstance *SaveInstance
@@ -343,33 +343,33 @@ func libSceSaveData_sceSaveDataGetParam(mountPointPtr, paramTypeVal, paramBuf, p
 
 	// Read parameter.
 	switch paramType {
-	case OrbisSaveDataParamTypeALL:
-		if paramBufSize != unsafe.Sizeof(OrbisSaveDataParam{}) {
+	case SaveDataParamTypeAll:
+		if paramBufSize != unsafe.Sizeof(SaveDataParam{}) {
 			logger.Printf("%-132s %s failed due to parameter buffer size mismatch.\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("sceSaveDataGetParam"),
 			)
 			return 0x809F0000
 		}
-		params := (*OrbisSaveDataParam)(unsafe.Pointer(paramBuf))
+		params := (*SaveDataParam)(unsafe.Pointer(paramBuf))
 		copy(params.Title[:], saveInstance.ParamSfo.MapStrings[SaveParamMainTitle])
-		copy(params.SubTitle[:], saveInstance.ParamSfo.MapStrings[SaveParamSubtitle])
+		copy(params.Subtitle[:], saveInstance.ParamSfo.MapStrings[SaveParamSubtitle])
 		copy(params.Detail[:], saveInstance.ParamSfo.MapStrings[SaveParamDetail])
 		params.UserParam = uint32(saveInstance.ParamSfo.MapIntegers[SaveParamSaveDataListParam])
 		sfoPath := filepath.Join(config.GetGameSaveDir(saveInstance.DirName), "sce_sys", "param.sfo")
 		if sfoInfo, err := os.Stat(sfoPath); err == nil {
-			params.Mtime = sfoInfo.ModTime().Unix()
+			params.MTime = sfoInfo.ModTime().Unix()
 		}
 		if gotSizePtr != 0 {
-			*(*uint64)(unsafe.Pointer(gotSizePtr)) = uint64(unsafe.Sizeof(OrbisSaveDataParam{}))
+			*(*uint64)(unsafe.Pointer(gotSizePtr)) = uint64(unsafe.Sizeof(SaveDataParam{}))
 		}
-	case OrbisSaveDataParamTypeTITLE, OrbisSaveDataParamTypeSUB_TITLE, OrbisSaveDataParamTypeDETAIL:
+	case SaveDataParamTypeTitle, SaveDataParamTypeSubtitle, SaveDataParamTypeDetail:
 		key := ""
-		if paramType == OrbisSaveDataParamTypeTITLE {
+		if paramType == SaveDataParamTypeTitle {
 			key = SaveParamMainTitle
-		} else if paramType == OrbisSaveDataParamTypeSUB_TITLE {
+		} else if paramType == SaveDataParamTypeSubtitle {
 			key = SaveParamSubtitle
-		} else if paramType == OrbisSaveDataParamTypeDETAIL {
+		} else if paramType == SaveDataParamTypeDetail {
 			key = SaveParamDetail
 		}
 		val := saveInstance.ParamSfo.MapStrings[key]
@@ -384,7 +384,7 @@ func libSceSaveData_sceSaveDataGetParam(mountPointPtr, paramTypeVal, paramBuf, p
 		if gotSizePtr != 0 {
 			*(*uint64)(unsafe.Pointer(gotSizePtr)) = uint64(n + 1)
 		}
-	case OrbisSaveDataParamTypeUSER_PARAM:
+	case SaveDataParamTypeUserParam:
 		if paramBufSize < 4 {
 			logger.Printf("%-132s %s failed due to parameter buffer size mismatch.\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
@@ -396,7 +396,7 @@ func libSceSaveData_sceSaveDataGetParam(mountPointPtr, paramTypeVal, paramBuf, p
 		if gotSizePtr != 0 {
 			*(*uint64)(unsafe.Pointer(gotSizePtr)) = 4
 		}
-	case OrbisSaveDataParamTypeMTIME:
+	case SaveDataParamTypeMTime:
 		if paramBufSize < 8 {
 			logger.Printf("%-132s %s failed due to parameter buffer size mismatch.\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
@@ -426,7 +426,7 @@ func libSceSaveData_sceSaveDataGetParam(mountPointPtr, paramTypeVal, paramBuf, p
 // 0x0000000000029140
 // __int64 __fastcall sceSaveDataSetParam(int, int, int, __int64)
 func libSceSaveData_sceSaveDataSetParam(mountPointPtr, paramTypeVal, paramBuf, paramBufSize uintptr) uintptr {
-	if mountPointPtr == 0 || paramBuf == 0 || uint32(paramTypeVal) > uint32(OrbisSaveDataParamTypeUSER_PARAM) {
+	if mountPointPtr == 0 || paramBuf == 0 || uint32(paramTypeVal) > uint32(SaveDataParamTypeUserParam) {
 		logger.Printf("%-132s %s failed due to invalid pointers or paramType.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceSaveDataSetParam"),
@@ -434,7 +434,7 @@ func libSceSaveData_sceSaveDataSetParam(mountPointPtr, paramTypeVal, paramBuf, p
 		return 0x809F0000
 	}
 	mountPoint := GoString(Cstring(mountPointPtr))
-	paramType := OrbisSaveDataParamType(paramTypeVal)
+	paramType := SaveDataParamType(paramTypeVal)
 
 	// Find mounted save instance.
 	var saveInstance *SaveInstance
@@ -454,43 +454,43 @@ func libSceSaveData_sceSaveDataSetParam(mountPointPtr, paramTypeVal, paramBuf, p
 
 	// Set parameter.
 	switch paramType {
-	case OrbisSaveDataParamTypeALL:
-		if paramBufSize != unsafe.Sizeof(OrbisSaveDataParam{}) {
+	case SaveDataParamTypeAll:
+		if paramBufSize != unsafe.Sizeof(SaveDataParam{}) {
 			logger.Printf("%-132s %s failed due to parameter buffer size mismatch.\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("sceSaveDataSetParam"),
 			)
 			return 0x809F0000
 		}
-		params := (*OrbisSaveDataParam)(unsafe.Pointer(paramBuf))
+		params := (*SaveDataParam)(unsafe.Pointer(paramBuf))
 		titleIdx := bytes.IndexByte(params.Title[:], 0)
 		if titleIdx == -1 {
 			titleIdx = len(params.Title)
 		}
 		saveInstance.ParamSfo.MapStrings[SaveParamMainTitle] = string(params.Title[:titleIdx])
-		subTitleIdx := bytes.IndexByte(params.SubTitle[:], 0)
+		subTitleIdx := bytes.IndexByte(params.Subtitle[:], 0)
 		if subTitleIdx == -1 {
-			subTitleIdx = len(params.SubTitle)
+			subTitleIdx = len(params.Subtitle)
 		}
-		saveInstance.ParamSfo.MapStrings[SaveParamSubtitle] = string(params.SubTitle[:subTitleIdx])
+		saveInstance.ParamSfo.MapStrings[SaveParamSubtitle] = string(params.Subtitle[:subTitleIdx])
 		detailIdx := bytes.IndexByte(params.Detail[:], 0)
 		if detailIdx == -1 {
 			detailIdx = len(params.Detail)
 		}
 		saveInstance.ParamSfo.MapStrings[SaveParamDetail] = string(params.Detail[:detailIdx])
 		saveInstance.ParamSfo.MapIntegers[SaveParamSaveDataListParam] = int32(params.UserParam)
-	case OrbisSaveDataParamTypeTITLE, OrbisSaveDataParamTypeSUB_TITLE, OrbisSaveDataParamTypeDETAIL:
+	case SaveDataParamTypeTitle, SaveDataParamTypeSubtitle, SaveDataParamTypeDetail:
 		key := ""
-		if paramType == OrbisSaveDataParamTypeTITLE {
+		if paramType == SaveDataParamTypeTitle {
 			key = SaveParamMainTitle
-		} else if paramType == OrbisSaveDataParamTypeSUB_TITLE {
+		} else if paramType == SaveDataParamTypeSubtitle {
 			key = SaveParamSubtitle
-		} else if paramType == OrbisSaveDataParamTypeDETAIL {
+		} else if paramType == SaveDataParamTypeDetail {
 			key = SaveParamDetail
 		}
 		val := GoString(Cstring(paramBuf))
 		saveInstance.ParamSfo.MapStrings[key] = val
-	case OrbisSaveDataParamTypeUSER_PARAM:
+	case SaveDataParamTypeUserParam:
 		if paramBufSize < 4 {
 			logger.Printf("%-132s %s failed due to parameter buffer size mismatch.\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
@@ -520,7 +520,7 @@ func libSceSaveData_sceSaveDataSaveIcon(mountPointPtr, iconPtr uintptr) uintptr 
 		)
 		return 0x809F0000
 	}
-	icon := (*OrbisSaveDataIcon)(unsafe.Pointer(iconPtr))
+	icon := (*SaveDataIcon)(unsafe.Pointer(iconPtr))
 	if icon.Buf == 0 {
 		return 0x809F0000
 	}
@@ -576,7 +576,7 @@ func libSceSaveData_sceSaveDataDelete(delPtr uintptr) uintptr {
 		)
 		return 0x809F0000
 	}
-	del := (*OrbisSaveDataDelete)(unsafe.Pointer(delPtr))
+	del := (*SaveDataDelete)(unsafe.Pointer(delPtr))
 	if del.DirName == nil {
 		logger.Printf("%-132s %s failed due to invalid directory name pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),

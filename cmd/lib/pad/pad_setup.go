@@ -38,7 +38,7 @@ func libScePad_scePadRead(handleId, dataPtr, count uintptr) uintptr {
 		return 0x802F0001 // SCE_PAD_ERROR_INVALID_HANDLE? some error
 	}
 
-	data := (*OrbisPadData)(unsafe.Pointer(dataPtr))
+	data := (*PadData)(unsafe.Pointer(dataPtr))
 	data.Connected = true
 	data.ConnectedCount = 1
 	data.LeftStick.X = 128
@@ -52,23 +52,23 @@ func libScePad_scePadRead(handleId, dataPtr, count uintptr) uintptr {
 	if app.GlobalApplication != nil && app.GlobalApplication.Window != nil {
 		window := app.GlobalApplication.Window
 		if window.GetKey(glfw.KeyEnter) == glfw.Press {
-			buttons |= OrbisPadButtonCross
+			buttons |= PadButtonCross
 			logger.Printf("pressed enter\n")
 		}
 		if window.GetKey(glfw.KeyEscape) == glfw.Press {
-			buttons |= OrbisPadButtonCircle
+			buttons |= PadButtonCircle
 		}
 		if window.GetKey(glfw.KeyUp) == glfw.Press {
-			buttons |= OrbisPadButtonUp
+			buttons |= PadButtonUp
 		}
 		if window.GetKey(glfw.KeyDown) == glfw.Press {
-			buttons |= OrbisPadButtonDown
+			buttons |= PadButtonDown
 		}
 		if window.GetKey(glfw.KeyLeft) == glfw.Press {
-			buttons |= OrbisPadButtonLeft
+			buttons |= PadButtonLeft
 		}
 		if window.GetKey(glfw.KeyRight) == glfw.Press {
-			buttons |= OrbisPadButtonRight
+			buttons |= PadButtonRight
 		}
 	}
 
@@ -84,7 +84,7 @@ func libScePad_scePadGetControllerInformation(handleId, infoPtr uintptr) uintptr
 		return 0x802F0001
 	}
 
-	info := (*OrbisPadControllerInformation)(unsafe.Pointer(infoPtr))
+	info := (*PadControllerInformation)(unsafe.Pointer(infoPtr))
 	info.Connected = true
 	info.ConnectedCount = 1
 	info.ConnectionType = 0 // Local

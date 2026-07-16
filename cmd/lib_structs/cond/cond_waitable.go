@@ -2,7 +2,6 @@ package cond
 
 import (
 	"sync"
-	"time"
 )
 
 type CondWaitable struct {
@@ -25,32 +24,9 @@ func (cond *CondWaitable) Broadcast() {
 }
 
 func (cond *CondWaitable) Signal() {
-	cond.Mutex.Lock()
-	defer cond.Mutex.Unlock()
-
-	select {
-	case cond.wait <- struct{}{}:
-	default:
-	}
+	cond.Broadcast()
 }
 
-func (cond *CondWaitable) Wait() {
-	cond.Mutex.Lock()
-	w := cond.wait
-	cond.Mutex.Unlock()
-
-	<-w
-}
-
-func (cond *CondWaitable) WaitTimeout(timeout time.Duration) bool {
-	cond.Mutex.Lock()
-	w := cond.wait
-	cond.Mutex.Unlock()
-
-	select {
-	case <-w:
-		return true
-	case <-time.After(timeout):
-		return false
-	}
+func (cond *CondWaitable) WaitChan() <-chan struct{} {
+	return cond.wait
 }

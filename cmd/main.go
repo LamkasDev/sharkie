@@ -25,6 +25,7 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/pad"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/rng"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/save_data"
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/semaphore"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/system_service"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/user"
 	"github.com/LamkasDev/sharkie/cmd/logger"
@@ -90,7 +91,7 @@ func main() {
 
 	// Setup guest stuff.
 	libc.SetupMspaceAllocator()
-	lib_structs.SetupSemaphores()
+	semaphore.SetupSemaphores()
 	lib_structs.SetupEventFlags()
 	fs.SetupFilesystem()
 	rng.SetupRngDevice()

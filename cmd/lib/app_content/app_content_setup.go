@@ -14,6 +14,8 @@ import (
 	"github.com/gookit/color"
 )
 
+// 0x0000000000001610
+// __int64 __fastcall sceAppContentInitialize(__int64, __int64)
 func libSceAppContent_sceAppContentInitialize(initParamPtr, bootParamPtr uintptr) uintptr {
 	if GlobalAppContentInstance.IsInitialized {
 		logger.Printf("%-132s %s failed (already initialized).\n",
@@ -63,14 +65,14 @@ func libSceAppContent_sceAppContentInitialize(initParamPtr, bootParamPtr uintptr
 					logger.Printf("Additional content %s param.sfo is missing CONTENT_ID.\n", entry.Name())
 					continue
 				}
-				if len(contentId) <= OrbisAppContentEntitlementLabelOffset {
+				if len(contentId) <= AppContentEntitlementLabelOffset {
 					logger.Printf("Additional content %s param.sfo has malformed CONTENT_ID.\n", entry.Name())
 					continue
 				}
 
-				entitlementId := contentId[OrbisAppContentEntitlementLabelOffset:]
-				info := OrbisAppContentAddcontInfo{
-					Status: OrbisAppContentAddcontDownloadStatusInstalled,
+				entitlementId := contentId[AppContentEntitlementLabelOffset:]
+				info := AppContentAddcontInfo{
+					Status: AppContentAddcontDownloadStatusInstalled,
 				}
 				copy(info.EntitlementLabel.Data[:], entitlementId)
 
@@ -97,6 +99,8 @@ func libSceAppContent_sceAppContentInitialize(initParamPtr, bootParamPtr uintptr
 	return 0
 }
 
+// 0x0000000000001630
+// __int64 __fastcall sceAppContentAppParamGetInt(unsigned int, __int64)
 func libSceAppContent_sceAppContentAppParamGetInt(paramIdVal, outValuePtr uintptr) uintptr {
 	if outValuePtr == 0 {
 		logger.Printf("%-132s %s failed due to invalid pointer.\n",
@@ -105,7 +109,7 @@ func libSceAppContent_sceAppContentAppParamGetInt(paramIdVal, outValuePtr uintpt
 		)
 		return 0x809E0000
 	}
-	paramId := OrbisAppContentAppParamId(paramIdVal)
+	paramId := AppContentAppParamId(paramIdVal)
 	if GlobalAppContentInstance.ParamSfo == nil {
 		logger.Printf("%-132s %s failed due to missing param.sfo.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -118,16 +122,16 @@ func libSceAppContent_sceAppContentAppParamGetInt(paramIdVal, outValuePtr uintpt
 	var value int32
 	var ok bool
 	switch paramId {
-	case OrbisAppContentAppParamIdSkuFlag:
-		value = OrbisAppContentAppParamSkuFlagFull
+	case AppContentAppParamIdSkuFlag:
+		value = AppContentAppParamSkuFlagFull
 		ok = true
-	case OrbisAppContentAppParamIdUserDefinedParam1:
+	case AppContentAppParamIdUserDefinedParam1:
 		value, ok = GlobalAppContentInstance.ParamSfo.MapIntegers["USER_DEFINED_PARAM_1"]
-	case OrbisAppContentAppParamIdUserDefinedParam2:
+	case AppContentAppParamIdUserDefinedParam2:
 		value, ok = GlobalAppContentInstance.ParamSfo.MapIntegers["USER_DEFINED_PARAM_2"]
-	case OrbisAppContentAppParamIdUserDefinedParam3:
+	case AppContentAppParamIdUserDefinedParam3:
 		value, ok = GlobalAppContentInstance.ParamSfo.MapIntegers["USER_DEFINED_PARAM_3"]
-	case OrbisAppContentAppParamIdUserDefinedParam4:
+	case AppContentAppParamIdUserDefinedParam4:
 		value, ok = GlobalAppContentInstance.ParamSfo.MapIntegers["USER_DEFINED_PARAM_4"]
 	default:
 		logger.Printf("%-132s %s failed due to invalid parameter id %d.\n",

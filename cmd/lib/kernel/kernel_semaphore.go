@@ -8,6 +8,7 @@ import (
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/semaphore"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/time"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
@@ -127,10 +128,13 @@ func libKernel_sceKernelWaitSema(handle uintptr, needed int32, timeoutPtr uintpt
 			semaphore.Cond.Mutex.Unlock()
 			return 0
 		}
+		w := semaphore.Cond.WaitChan()
 		semaphore.Cond.Mutex.Unlock()
 
+		var remaining time.Duration
 		if timeout != -1 {
-			if time.Since(start) >= timeout {
+			remaining = timeout - time.Since(start)
+			if remaining <= 0 {
 				logger.Printf("%-132s %s timed out semaphore %s.\n",
 					emu.GlobalModuleManager.GetCallSiteText(),
 					color.Magenta.Sprint("sceKernelWaitSema"),
@@ -148,10 +152,11 @@ func libKernel_sceKernelWaitSema(handle uintptr, needed int32, timeoutPtr uintpt
 			color.Yellow.Sprintf("0x%X", timeout.Microseconds()),
 		)
 		if timeout == -1 {
-			semaphore.Cond.Wait()
+			<-w
 		} else {
-			waited := semaphore.Cond.WaitTimeout(timeout)
-			if !waited {
+			select {
+			case <-w:
+			case <-time.After(remaining):
 				logger.Printf("%-132s %s timed out on semaphore %s.\n",
 					emu.GlobalModuleManager.GetCallSiteText(),
 					color.Magenta.Sprint("sceKernelWaitSema"),

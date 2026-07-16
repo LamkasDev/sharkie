@@ -1,4 +1,4 @@
-package lib_structs
+package semaphore
 
 import (
 	"sync"

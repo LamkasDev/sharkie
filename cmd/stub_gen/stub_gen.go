@@ -201,6 +201,12 @@ var signatures = []Signature{
 		{Name: "DX", Type: "uintptr"},
 		{Name: "CX", Type: "uintptr"},
 	}},
+	{FuncType: "func(uintptr, uint64, int32, uint64) uintptr", Params: []Param{
+		{Name: "DI", Type: "uintptr"},
+		{Name: "SI", Type: "uint64"},
+		{Name: "DX", Type: "int32"},
+		{Name: "CX", Type: "uint64"},
+	}},
 
 	// 5 arguments.
 	{FuncType: "func(uint32, uintptr, uintptr, uintptr, uintptr) int64", Params: []Param{

@@ -21,7 +21,7 @@ func libKernel_pthread_mutex_init(mutexHandlePtr, attrHandlePtr uintptr) uintptr
 	// Initialize to defaults.
 	mutex := (*PthreadMutex)(unsafe.Pointer(mutexAddr))
 	mutex.Lock = 0
-	mutex.Flags = uint32(PthreadMutexTypeRecursive)
+	mutex.Flags = uint32(PthreadMutexTypeErrorCheck)
 	mutex.Owner = 0
 	mutex.Count = 0
 	mutex.SpinLoops = 0
@@ -75,7 +75,7 @@ func libKernel_initStaticMutex(mutexHandlePtr, initType uintptr) uintptr {
 		mutex.Flags = uint32(PthreadMutexTypeAdaptiveNp)
 		mutex.SpinLoops = 2000
 	} else {
-		mutex.Flags = uint32(PthreadMutexTypeRecursive)
+		mutex.Flags = uint32(PthreadMutexTypeErrorCheck)
 		mutex.SpinLoops = 0
 	}
 	mutex.Owner = 0

@@ -57,7 +57,7 @@ func libKernel_pthread_mutex_lock(mutexHandlePtr uintptr) uintptr {
 	if mutex.Owner == threadPtr {
 		mutexType := mutex.Flags & PthreadMutexTypeMask
 		switch mutexType {
-		case uint32(PthreadMutexTypeAdaptiveNp), uint32(PthreadMutexTypeRecursive):
+		case uint32(PthreadMutexTypeRecursive):
 			mutex.Count++
 			if logger.LogSyncing {
 				logger.Printf("%-132s %s incremented recursive/adaptive mutex %s (count=%s).\n",
@@ -68,13 +68,16 @@ func libKernel_pthread_mutex_lock(mutexHandlePtr uintptr) uintptr {
 				)
 			}
 			return 0
+		case uint32(PthreadMutexTypeAdaptiveNp), uint32(PthreadMutexTypeErrorCheck):
+			if logger.LogSyncingFail {
+				logger.Printf("%-132s %s tried to lock a mutex %s it already owns.\n",
+					emu.GlobalModuleManager.GetCallSiteText(),
+					color.Magenta.Sprint("pthread_mutex_lock"),
+					GetMutexNameText(mutex, mutexAddr),
+				)
+			}
+			return EDEADLK
 		}
-		logger.Printf("%-132s %s tried to lock a mutex %s it already owns.\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("pthread_mutex_lock"),
-			GetMutexNameText(mutex, mutexAddr),
-		)
-		return EDEADLK
 	}
 
 	hostMutex := GetMutex(mutexAddr)
@@ -168,7 +171,7 @@ func libKernel_pthread_mutex_trylock(mutexHandlePtr uintptr) uintptr {
 	if mutex.Owner == threadPtr {
 		mutexType := mutex.Flags & PthreadMutexTypeMask
 		switch mutexType {
-		case uint32(PthreadMutexTypeAdaptiveNp), uint32(PthreadMutexTypeRecursive):
+		case uint32(PthreadMutexTypeRecursive):
 			mutex.Count++
 			if logger.LogSyncing {
 				logger.Printf("%-132s %s incremented recursive/adaptive mutex %s (count=%s).\n",
@@ -179,13 +182,16 @@ func libKernel_pthread_mutex_trylock(mutexHandlePtr uintptr) uintptr {
 				)
 			}
 			return 0
+		case uint32(PthreadMutexTypeAdaptiveNp), uint32(PthreadMutexTypeErrorCheck):
+			if logger.LogSyncingFail {
+				logger.Printf("%-132s %s tried to lock a mutex %s it already owns.\n",
+					emu.GlobalModuleManager.GetCallSiteText(),
+					color.Magenta.Sprint("pthread_mutex_trylock"),
+					GetMutexNameText(mutex, mutexAddr),
+				)
+			}
+			return EDEADLK
 		}
-		logger.Printf("%-132s %s tried to lock a mutex %s it already owns.\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("pthread_mutex_trylock"),
-			GetMutexNameText(mutex, mutexAddr),
-		)
-		return EBUSY
 	}
 
 	hostMutex := GetMutex(mutexAddr)
@@ -249,7 +255,7 @@ func libKernel_pthread_mutex_timedlock(mutexHandlePtr, timestampPtr uintptr) uin
 	if mutex.Owner == threadPtr {
 		mutexType := mutex.Flags & PthreadMutexTypeMask
 		switch mutexType {
-		case uint32(PthreadMutexTypeAdaptiveNp), uint32(PthreadMutexTypeRecursive):
+		case uint32(PthreadMutexTypeRecursive):
 			mutex.Count++
 			if logger.LogSyncing {
 				logger.Printf("%-132s %s incremented recursive/adaptive mutex %s (count=%s).\n",
@@ -260,13 +266,16 @@ func libKernel_pthread_mutex_timedlock(mutexHandlePtr, timestampPtr uintptr) uin
 				)
 			}
 			return 0
+		case uint32(PthreadMutexTypeAdaptiveNp), uint32(PthreadMutexTypeErrorCheck):
+			if logger.LogSyncingFail {
+				logger.Printf("%-132s %s tried to lock a mutex %s it already owns.\n",
+					emu.GlobalModuleManager.GetCallSiteText(),
+					color.Magenta.Sprint("pthread_mutex_timedlock"),
+					GetMutexNameText(mutex, mutexAddr),
+				)
+			}
+			return EDEADLK
 		}
-		logger.Printf("%-132s %s tried to lock a mutex %s it already owns.\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("pthread_mutex_timedlock"),
-			GetMutexNameText(mutex, mutexAddr),
-		)
-		return EDEADLK
 	}
 
 	hostMutex := GetMutex(mutexAddr)
@@ -343,6 +352,7 @@ func libKernel_pthread_mutex_timedlock(mutexHandlePtr, timestampPtr uintptr) uin
 		return ETIMEDOUT
 	}
 	mutex.Owner = threadPtr
+	mutex.Count = 1
 
 	return 0
 }
@@ -382,7 +392,7 @@ func libKernel_pthread_mutex_reltimedlock_np(mutexHandlePtr, micros uintptr) uin
 	if mutex.Owner == threadPtr {
 		mutexType := mutex.Flags & PthreadMutexTypeMask
 		switch mutexType {
-		case uint32(PthreadMutexTypeAdaptiveNp), uint32(PthreadMutexTypeRecursive):
+		case uint32(PthreadMutexTypeRecursive):
 			mutex.Count++
 			if logger.LogSyncing {
 				logger.Printf("%-132s %s incremented recursive/adaptive mutex %s (count=%s).\n",
@@ -393,13 +403,16 @@ func libKernel_pthread_mutex_reltimedlock_np(mutexHandlePtr, micros uintptr) uin
 				)
 			}
 			return 0
+		case uint32(PthreadMutexTypeAdaptiveNp), uint32(PthreadMutexTypeErrorCheck):
+			if logger.LogSyncingFail {
+				logger.Printf("%-132s %s tried to lock a mutex %s it already owns.\n",
+					emu.GlobalModuleManager.GetCallSiteText(),
+					color.Magenta.Sprint("pthread_mutex_reltimedlock_np"),
+					GetMutexNameText(mutex, mutexAddr),
+				)
+			}
+			return EDEADLK
 		}
-		logger.Printf("%-132s %s tried to lock a mutex %s it already owns.\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("pthread_mutex_reltimedlock_np"),
-			GetMutexNameText(mutex, mutexAddr),
-		)
-		return EDEADLK
 	}
 
 	hostMutex := GetMutex(mutexAddr)
@@ -464,6 +477,7 @@ func libKernel_pthread_mutex_reltimedlock_np(mutexHandlePtr, micros uintptr) uin
 		return ETIMEDOUT
 	}
 	mutex.Owner = threadPtr
+	mutex.Count = 1
 
 	return 0
 }

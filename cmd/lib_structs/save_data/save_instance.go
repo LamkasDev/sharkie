@@ -3,7 +3,6 @@ package save_data
 import (
 	"encoding/binary"
 	"fmt"
-	"math"
 	"os"
 	"path/filepath"
 
@@ -22,10 +21,6 @@ const (
 	SaveParamSaveDataListParam = "SAVEDATA_LIST_PARAM"
 	SaveParamTitleID           = "TITLE_ID"
 	SaveParamSaveDataBlocks    = "SAVEDATA_BLOCKS"
-
-	OrbisSaveDataBlockSize = uint64(32768)
-	OrbisSaveDataBlocksMin = uint64(96)
-	OrbisSaveDataBlocksMax = math.MaxUint64
 )
 
 type SaveInstance struct {
@@ -39,7 +34,7 @@ type SaveInstance struct {
 }
 
 func NewSaveInstance(userId int32, gameSerial, dirName string, maxBlocks uint64) *SaveInstance {
-	maxBlocks = nstd.Clamp(maxBlocks, OrbisSaveDataBlocksMin, OrbisSaveDataBlocksMax)
+	maxBlocks = nstd.Clamp(maxBlocks, SaveDataBlocksMin, SaveDataBlocksMax)
 	return &SaveInstance{
 		UserId:     userId,
 		GameSerial: gameSerial,
@@ -155,7 +150,7 @@ func NewDefaultParamSfo(dirName, gameSerial string) (*Psf, error) {
 func GetMaxBlocksFromSfo(psf *Psf) uint64 {
 	value, ok := psf.GetBinary(SaveParamSaveDataBlocks)
 	if !ok || len(value) < 8 {
-		return OrbisSaveDataBlocksMax
+		return SaveDataBlocksMax
 	}
 
 	return binary.LittleEndian.Uint64(value)

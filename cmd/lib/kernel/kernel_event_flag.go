@@ -169,10 +169,13 @@ func libKernel_sys_evf_wait(handle uintptr, waitPattern uint64, waitMode uint32,
 			eventFlag.Cond.Mutex.Unlock()
 			return 0
 		}
+		w := eventFlag.Cond.WaitChan()
 		eventFlag.Cond.Mutex.Unlock()
 
+		var remaining time.Duration
 		if timeout != -1 {
-			if time.Since(start) >= timeout {
+			remaining = timeout - time.Since(start)
+			if remaining <= 0 {
 				if logger.LogSyncingFail {
 					logger.Printf("%-132s %s timed out event flag %s.\n",
 						emu.GlobalModuleManager.GetCallSiteText(),
@@ -194,12 +197,13 @@ func libKernel_sys_evf_wait(handle uintptr, waitPattern uint64, waitMode uint32,
 			)
 		}
 		if timeout == -1 {
-			eventFlag.Cond.Wait()
+			<-w
 		} else {
-			waited := eventFlag.Cond.WaitTimeout(timeout)
-			if !waited {
+			select {
+			case <-w:
+			case <-time.After(remaining):
 				if logger.LogSyncingFail {
-					logger.Printf("%-132s %s timed out on event flag %s.\n",
+					logger.Printf("%-132s %s timed out event flag %s.\n",
 						emu.GlobalModuleManager.GetCallSiteText(),
 						color.Magenta.Sprint("sys_evf_wait"),
 						GetEventFlagName(eventFlag),

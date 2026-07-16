@@ -5,107 +5,107 @@ type PadHandle struct {
 }
 
 const (
-	ORBIS_PAD_MAX_TOUCH_NUM               = 2
-	ORBIS_PAD_MAX_DEVICE_UNIQUE_DATA_SIZE = 12
+	PadMaxTouchNum             = 2
+	PadMaxDeviceUniqueDataSize = 12
 )
 
 const (
-	OrbisPadButtonL3          = 0x2
-	OrbisPadButtonR3          = 0x4
-	OrbisPadButtonOptions     = 0x8
-	OrbisPadButtonUp          = 0x10
-	OrbisPadButtonRight       = 0x20
-	OrbisPadButtonDown        = 0x40
-	OrbisPadButtonLeft        = 0x80
-	OrbisPadButtonL2          = 0x100
-	OrbisPadButtonR2          = 0x200
-	OrbisPadButtonL1          = 0x400
-	OrbisPadButtonR1          = 0x800
-	OrbisPadButtonTriangle    = 0x1000
-	OrbisPadButtonCircle      = 0x2000
-	OrbisPadButtonCross       = 0x4000
-	OrbisPadButtonSquare      = 0x8000
-	OrbisPadButtonTouchPad    = 0x100000
-	OrbisPadButtonIntercepted = 0x80000000
+	PadButtonL3          = 0x2
+	PadButtonR3          = 0x4
+	PadButtonOptions     = 0x8
+	PadButtonUp          = 0x10
+	PadButtonRight       = 0x20
+	PadButtonDown        = 0x40
+	PadButtonLeft        = 0x80
+	PadButtonL2          = 0x100
+	PadButtonR2          = 0x200
+	PadButtonL1          = 0x400
+	PadButtonR1          = 0x800
+	PadButtonTriangle    = 0x1000
+	PadButtonCircle      = 0x2000
+	PadButtonCross       = 0x4000
+	PadButtonSquare      = 0x8000
+	PadButtonTouchPad    = 0x100000
+	PadButtonIntercepted = 0x80000000
 )
 
-type OrbisPadAnalogStick struct {
+type PadData struct {
+	Buttons             uint32
+	LeftStick           PadAnalogStick
+	RightStick          PadAnalogStick
+	AnalogButtons       PadAnalogButtons
+	Orientation         FQuaternion
+	Acceleration        FVector3
+	AngularVelocity     FVector3
+	TouchData           PadTouchData
+	Connected           bool
+	_                   [7]uint8
+	Timestamp           uint64
+	ExtensionUnitData   PadExtensionUnitData
+	ConnectedCount      uint8
+	Reserved            [2]uint8
+	DeviceUniqueDataLen uint8
+	DeviceUniqueData    [PadMaxDeviceUniqueDataSize]uint8
+}
+
+type PadAnalogStick struct {
 	X uint8
 	Y uint8
 }
 
-type OrbisPadAnalogButtons struct {
+type PadAnalogButtons struct {
 	L2 uint8
 	R2 uint8
 	_  [2]uint8
 }
 
-type OrbisFQuaternion struct {
+type FQuaternion struct {
 	X, Y, Z, W float32
 }
 
-type OrbisFVector3 struct {
+type FVector3 struct {
 	X, Y, Z float32
 }
 
-type OrbisPadTouch struct {
+type PadTouchData struct {
+	TouchNum               uint8
+	Reserved               [3]uint8
+	TimeSinceTouchHeldDown uint32
+	Touch                  [PadMaxTouchNum]PadTouch
+}
+
+type PadTouch struct {
 	X        uint16
 	Y        uint16
 	Id       uint8
 	Reserved [3]uint8
 }
 
-type OrbisPadTouchData struct {
-	TouchNum               uint8
-	Reserved               [3]uint8
-	TimeSinceTouchHeldDown uint32
-	Touch                  [ORBIS_PAD_MAX_TOUCH_NUM]OrbisPadTouch
-}
-
-type OrbisPadExtensionUnitData struct {
+type PadExtensionUnitData struct {
 	ExtensionUnitId uint32
 	Reserved        [1]uint8
 	DataLength      uint8
 	Data            [10]uint8
 }
 
-type OrbisPadData struct {
-	Buttons             uint32
-	LeftStick           OrbisPadAnalogStick
-	RightStick          OrbisPadAnalogStick
-	AnalogButtons       OrbisPadAnalogButtons
-	Orientation         OrbisFQuaternion
-	Acceleration        OrbisFVector3
-	AngularVelocity     OrbisFVector3
-	TouchData           OrbisPadTouchData
-	Connected           bool
-	_                   [7]uint8
-	Timestamp           uint64
-	ExtensionUnitData   OrbisPadExtensionUnitData
-	ConnectedCount      uint8
-	Reserved            [2]uint8
-	DeviceUniqueDataLen uint8
-	DeviceUniqueData    [ORBIS_PAD_MAX_DEVICE_UNIQUE_DATA_SIZE]uint8
-}
-
-type OrbisPadTouchPadInformation struct {
-	PixelDensity float32
-	ResolutionX  uint16
-	ResolutionY  uint16
-}
-
-type OrbisPadStickInformation struct {
-	DeadZoneLeft  uint8
-	DeadZoneRight uint8
-}
-
-type OrbisPadControllerInformation struct {
-	TouchPadInfo   OrbisPadTouchPadInformation
-	StickInfo      OrbisPadStickInformation
+type PadControllerInformation struct {
+	TouchPadInfo   PadTouchPadInformation
+	StickInfo      PadStickInformation
 	ConnectionType uint8
 	ConnectedCount uint8
 	Connected      bool
 	_              [1]uint8
 	DeviceClass    uint32
 	Reserved       [8]uint8
+}
+
+type PadTouchPadInformation struct {
+	PixelDensity float32
+	ResolutionX  uint16
+	ResolutionY  uint16
+}
+
+type PadStickInformation struct {
+	DeadZoneLeft  uint8
+	DeadZoneRight uint8
 }

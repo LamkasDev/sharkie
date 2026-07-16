@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/semaphore"
 )
 
 var GlobalIpmiManager *IpmiManager

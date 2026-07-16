@@ -61,7 +61,7 @@ func libKernel_pthread_mutex_unlock(mutexHandlePtr uintptr) uintptr {
 	// Handle special mutex types.
 	mutexType := mutex.Flags & PthreadMutexTypeMask
 	shouldReleaseHost := true
-	if (mutexType == uint32(PthreadMutexTypeAdaptiveNp) || mutexType == uint32(PthreadMutexTypeRecursive)) && mutex.Count > 0 {
+	if mutexType == uint32(PthreadMutexTypeRecursive) && mutex.Count > 0 {
 		mutex.Count--
 		if logger.LogSyncing {
 			logger.Printf("%-132s %s decremented recursive/adaptive mutex %s (count=%s).\n",

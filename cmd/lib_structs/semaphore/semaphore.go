@@ -1,9 +1,10 @@
-package lib_structs
+package semaphore
 
 import (
 	"fmt"
 	"sync"
 
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/cond"
 )
 

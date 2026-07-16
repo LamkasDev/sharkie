@@ -9,12 +9,12 @@ var GlobalAppContentInstance *AppContentInstance
 type AppContentInstance struct {
 	IsInitialized bool
 	ParamSfo      *psf.Psf
-	AddcontInfo   []OrbisAppContentAddcontInfo
+	AddcontInfo   []AppContentAddcontInfo
 }
 
 func NewAppContentInstance() *AppContentInstance {
 	return &AppContentInstance{
-		AddcontInfo: []OrbisAppContentAddcontInfo{},
+		AddcontInfo: []AppContentAddcontInfo{},
 	}
 }
 
