@@ -301,11 +301,13 @@ func libKernel_sys_evf_set(handle uintptr, bits uint64) uintptr {
 	eventFlag.Cond.Mutex.Unlock()
 	eventFlag.Cond.Broadcast()
 
-	logger.Printf("%-132s %s set event flag %s to %s.\n",
-		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprint("sys_evf_set"),
-		GetEventFlagName(eventFlag),
-		color.Yellow.Sprintf("0x%X", bits),
-	)
+	if logger.LogSyncing {
+		logger.Printf("%-132s %s set event flag %s to %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sys_evf_set"),
+			GetEventFlagName(eventFlag),
+			color.Yellow.Sprintf("0x%X", bits),
+		)
+	}
 	return 0
 }

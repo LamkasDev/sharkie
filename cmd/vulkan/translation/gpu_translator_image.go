@@ -32,40 +32,15 @@ func (t *GpuTranslator) GetImage(descriptor spirvStructs.ImageDescriptor, format
 			if copyOld {
 				_ = image.CopyToImage(&t.handles, newImage, t.currentGuestFrame)
 			}
-
 			if newImage.ShouldUploadToVkImage(t.currentGuestFrame) {
 				_ = newImage.UploadToVkImage(&t.handles, t.GetLinearBuffer, t.currentGuestFrame)
 			}
 			return newImage, nil, true
 		}
 
-		// Upgrade texture-only VkImages to surfaces (adds COLOR_ATTACHMENT usage).
-		if !image.IsSurface && isSurface {
-			gen := image.Generation
-			syncFlags := image.SyncFlags
-
-			t.EvictResourcesAtAddress(descriptor.BaseAddress)
-
-			newImage, err := vulkan.CreateImage(&t.handles, vulkan.VulkanImageRequest{
-				Descriptor: descriptor,
-				Format:     format,
-				IsSurface:  true,
-			}, t.commandBuffer)
-			if err != nil {
-				return nil, err, false
-			}
-			newImage.Generation = gen + 1
-			newImage.SyncFlags = syncFlags
-
-			t.registerImage(newImage, true)
-			err = image.CopyToImage(&t.handles, newImage, t.currentGuestFrame)
-			if err != nil {
-				return nil, err, false
-			}
-
-			return newImage, nil, true
+		if isSurface {
+			image.IsSurface = true
 		}
-
 		if image.ShouldUploadToVkImage(t.currentGuestFrame) {
 			_ = image.UploadToVkImage(&t.handles, t.GetLinearBuffer, t.currentGuestFrame)
 		}
@@ -105,7 +80,7 @@ func (t *GpuTranslator) EvictResourcesAtAddress(address uintptr) {
 	image, ok := t.images[address]
 	t.imagesMutex.Unlock()
 	if ok {
-		t.unregisterImage(address)
+		t.unregisterImage(image)
 		t.deferDestroyImage(image)
 	}
 
@@ -117,4 +92,17 @@ func (t *GpuTranslator) EvictResourcesAtAddress(address uintptr) {
 		}
 	}
 	t.imagesMutex.Unlock()
+}
+
+func (t *GpuTranslator) ClearAllResources() {
+	t.imagesMutex.Lock()
+	addresses := make([]uintptr, 0, len(t.images))
+	for address := range t.images {
+		addresses = append(addresses, address)
+	}
+	t.imagesMutex.Unlock()
+
+	for _, address := range addresses {
+		t.EvictResourcesAtAddress(address)
+	}
 }

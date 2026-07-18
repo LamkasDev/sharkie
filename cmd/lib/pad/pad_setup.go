@@ -11,6 +11,8 @@ import (
 	"github.com/gookit/color"
 )
 
+var wasF11Pressed bool
+
 // 0x0000000000000220
 // __int64 __fastcall scePadInit(__m128)
 func libScePad_scePadInit() uintptr {
@@ -70,6 +72,15 @@ func libScePad_scePadRead(handleId, dataPtr, count uintptr) uintptr {
 		if window.GetKey(glfw.KeyRight) == glfw.Press {
 			buttons |= PadButtonRight
 		}
+
+		isF11Pressed := window.GetKey(glfw.KeyF11) == glfw.Press
+		if isF11Pressed && !wasF11Pressed {
+			logger.Printf("pressed F11 (clearing resources)\n")
+			if app.GlobalApplication.Renderer != nil && app.GlobalApplication.Renderer.GpuTranslator != nil {
+				app.GlobalApplication.Renderer.GpuTranslator.ClearAllResources()
+			}
+		}
+		wasF11Pressed = isF11Pressed
 	}
 
 	data.Buttons = buttons

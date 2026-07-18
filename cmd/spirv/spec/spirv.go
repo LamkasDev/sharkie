@@ -201,6 +201,7 @@ const (
 	SpvOpFDiv                   = uint32(136)
 	SpvOpUMod                   = uint32(137)
 	SpvOpIAddCarry              = uint32(149)
+	SpvOpISubBorrow             = uint32(150)
 	SpvOpIsNan                  = uint32(156)
 	SpvOpLogicalOr              = uint32(166)
 	SpvOpLogicalAnd             = uint32(167)

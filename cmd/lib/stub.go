@@ -30,6 +30,7 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/lib/np_utility"
 	"github.com/LamkasDev/sharkie/cmd/lib/np_web_api"
 	"github.com/LamkasDev/sharkie/cmd/lib/pad"
+	"github.com/LamkasDev/sharkie/cmd/lib/pngdec"
 	"github.com/LamkasDev/sharkie/cmd/lib/posix"
 	"github.com/LamkasDev/sharkie/cmd/lib/remote_play"
 	"github.com/LamkasDev/sharkie/cmd/lib/rtc"
@@ -60,6 +61,7 @@ func RegisterStubs() {
 	kernel.RegisterKernelStubs()
 	libc.RegisterSceLibcInternalStubs()
 	libc.RegisterLibcStubs()
+	pngdec.RegisterPngDecStubs()
 	msg_dialog.RegisterMsgDialogStubs()
 	net.RegisterNetStubs()
 	net_ctl.RegisterNetCtlStubs()

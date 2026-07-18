@@ -4,7 +4,6 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/LamkasDev/sharkie/cmd/vulkan"
-	"go101.org/nstd"
 )
 
 func (t *GpuTranslator) registerImage(image *vulkan.VulkanImage, isUpgrade bool) {
@@ -24,21 +23,15 @@ func (t *GpuTranslator) registerImage(image *vulkan.VulkanImage, isUpgrade bool)
 		}
 	}
 
-	logger.Printf("registered image at 0x%X (%dx%d, surface=%d).\n",
+	logger.Printf("registered image at 0x%X (%dx%d).\n",
 		image.Address, image.FirstDescriptor.Width, image.FirstDescriptor.Height,
-		nstd.Btoi(image.IsSurface),
 	)
 }
 
-func (t *GpuTranslator) unregisterImage(address uintptr) {
-	t.imagesMutex.Lock()
-	image, ok := t.images[address]
-	if !ok {
-		t.imagesMutex.Unlock()
-		return
-	}
+func (t *GpuTranslator) unregisterImage(image *vulkan.VulkanImage) {
 	structs.GlobalMemoryManager.Untrack(image.Address, image.GuestSize, image)
-	delete(t.images, address)
+	t.imagesMutex.Lock()
+	delete(t.images, image.Address)
 	t.imagesMutex.Unlock()
 
 	logger.Printf("deleted image at 0x%X (%dx%d).\n",

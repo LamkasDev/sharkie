@@ -36,6 +36,7 @@ func imageSizeLinearAligned(pitch, height, bpp, numSamples uint32) (pitchAligned
 		pitchAligned += pitchAlign
 		logSz = pitchAligned * heightAligned * numSamples
 	}
+
 	return pitchAligned, heightAligned, int((logSz*bpp + 7) / 8)
 }
 
@@ -48,6 +49,7 @@ func imageSizeMicroTiled(pitch, height, thickness, bpp, numSamples uint32) (pitc
 		pitchAligned += pitchAlign
 		logSz = (pitchAligned * heightAligned * bpp * numSamples) / 8
 	}
+
 	return pitchAligned, heightAligned, int(logSz)
 }
 
@@ -66,6 +68,7 @@ func imageSizeMacroTiled(pitch, height, thickness, bpp, numSamples uint32) (pitc
 	pitchAligned = (pitch + pitchAlign - 1) &^ (pitchAlign - 1)
 	heightAligned = (height + heightAlign - 1) &^ (heightAlign - 1)
 	logSz := (pitchAligned * heightAligned * bpp * numSamples) / 8
+
 	return pitchAligned, heightAligned, int(logSz)
 }
 
@@ -82,6 +85,7 @@ func mipTexelSize(baseWidth, baseHeight, basePitch uint16, level uint8, pow2Pad 
 		mipW = bitCeil(mipW)
 		mipH = bitCeil(mipH)
 	}
+
 	return mipW, mipH
 }
 
@@ -150,6 +154,7 @@ func computeMipLayouts(descriptor spirvStructs.ImageDescriptor, numLevels uint8)
 		}
 		guestSize += size
 	}
+
 	return layouts
 }
 

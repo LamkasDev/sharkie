@@ -22,3 +22,13 @@ const (
 	SopkOpSetregB32      = 0x13
 	SopkOpSetregImm32B32 = 0x15
 )
+
+func (instr *Instruction) DecodeSOPK() {
+	dw := instr.Dwords[0]
+	instr.Details = &ScalarDetails{
+		Dst: (dw >> 16) & 0b1111_111,
+		Op:  (dw >> 23) & 0b1111_1,
+	}
+	instr.HasLiteral = true
+	instr.Literal = dw & 0xFFFF
+}

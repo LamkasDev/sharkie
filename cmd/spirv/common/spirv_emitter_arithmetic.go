@@ -16,6 +16,13 @@ func (b *SpvBuilder) EmitIAddCarry(resultType, op1, op2 SpirvId) SpirvId {
 	return id
 }
 
+// EmitISubBorrow emits OpISubBorrow and returns the result ID.
+func (b *SpvBuilder) EmitISubBorrow(resultType, op1, op2 SpirvId) SpirvId {
+	id := b.AllocId()
+	b.instr(&b.code, spec.SpvOpISubBorrow, uint32(resultType), uint32(id), uint32(op1), uint32(op2))
+	return id
+}
+
 // EmitISub emits OpISub and returns the result ID.
 func (b *SpvBuilder) EmitISub(resultType, op1, op2 SpirvId) SpirvId {
 	id := b.AllocId()

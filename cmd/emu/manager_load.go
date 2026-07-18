@@ -101,9 +101,6 @@ func (m *ModuleManager) _RecursiveLoadModule(name string) error {
 		m.ModulesMap[module.Name] = module
 	}
 	GlobalModuleManager.ModulesLock.Unlock()
-	if module.Name == "libSceFios2.sprx" || module.Name == "libSceFios2.prx" {
-		RegisterFiosStubs(module)
-	}
 	logger.Println()
 
 	for _, needed := range module.DynamicInfo.Needed {

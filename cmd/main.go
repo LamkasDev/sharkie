@@ -22,6 +22,7 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/gc"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/gpu"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/ipmi"
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/net"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/pad"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/rng"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/save_data"
@@ -59,12 +60,11 @@ func main() {
 	}
 
 	// Add game directories to module linker paths.
-	emu.GlobalModuleManager.LinkPaths = append(
-		emu.GlobalModuleManager.LinkPaths,
-		config.GetLibDir(),
-		filepath.Join(config.GameDirectory, "Image0"),
+	emu.GlobalModuleManager.LinkPaths = []string{
 		filepath.Join(config.GameDirectory, "Image0", "sce_module"),
-	)
+		filepath.Join(config.GameDirectory, "Image0"),
+		config.GetLibDir(),
+	}
 
 	// Log any interesting info.
 	logger.Printf("hi from %s :3\n", color.Blue.Sprint("sharkie"))
@@ -104,6 +104,7 @@ func main() {
 	save_data.SetupSaveDataManager()
 	system_service.SetupSystemService()
 	app_content.SetupAppContentInstance()
+	net.SetupNetConnectionInstance()
 	gpu.SetupLiverpool()
 
 	// Hook functions.

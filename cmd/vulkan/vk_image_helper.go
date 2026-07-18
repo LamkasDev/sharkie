@@ -1,35 +1,38 @@
 package vulkan
 
 import (
-	"fmt"
-	"unsafe"
-
-	spirvStructs "github.com/LamkasDev/sharkie/cmd/spirv/structs"
-	"github.com/LamkasDev/sharkie/cmd/structs"
 	vk "github.com/goki/vulkan"
 )
 
-// detileGuestTexture reads a tiled mip from guest RAM and returns row-major pixels.
-func DetileGuestTexture(descriptor spirvStructs.ImageDescriptor) ([]byte, MipLayout, error) {
-	bpp := int(structs.GetBytesPerPixel(descriptor.DataFormat))
-	if descriptor.Width <= 0 || descriptor.Height <= 0 || bpp <= 0 {
-		return nil, MipLayout{}, fmt.Errorf("invalid texture dimensions %dx%d bpp=%d", descriptor.Width, descriptor.Height, bpp)
+const (
+	tileModeDisplayLinearAligned = 8
+	tileModeDisplayLinearGeneral = 31
+)
+
+func isLinearTileMode(tilingIndex uint8) bool {
+	return tilingIndex == tileModeDisplayLinearAligned || tilingIndex == tileModeDisplayLinearGeneral
+}
+
+func is1DTiledMode(tilingIndex uint8) bool {
+	switch tilingIndex {
+	case 5, 9, 13, 19: // Depth1DThin, Display1DThin, Thin1DThin, Thick1DThick
+		return true
+	default:
+		return false
 	}
+}
 
-	mipLevel := int(descriptor.BaseLevel)
-	layouts := computeMipLayouts(descriptor, mipLevelCount(descriptor))
-	if mipLevel >= len(layouts) {
-		return nil, MipLayout{}, fmt.Errorf("mip level %d out of range", mipLevel)
+func isMacroTiledMode(tilingIndex uint8) bool {
+	return !isLinearTileMode(tilingIndex) && !is1DTiledMode(tilingIndex)
+}
+
+func usesDisplayMicroTiling(tilingIndex uint8) bool {
+	switch tilingIndex {
+	case 6, 7, 8, 9, 10, 11, 12, 31:
+		return true
+	default:
+		return false
 	}
-	layout := layouts[mipLevel]
-
-	srcBase := descriptor.BaseAddress + uintptr(layout.Offset)
-	src := unsafe.Slice((*byte)(unsafe.Pointer(srcBase)), layout.Size)
-
-	linearSize := layout.Width * layout.Height * bpp
-	linear := make([]byte, linearSize)
-	DetileToLinear(src, linear, layout.Width, layout.Height, layout.Pitch, descriptor.TilingIndex, bpp)
-	return linear, layout, nil
 }
 
 func ImageBarrier(commandBuffer *VulkanCommandBuffer, image *VulkanImage,

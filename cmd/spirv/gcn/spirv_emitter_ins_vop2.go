@@ -27,6 +27,18 @@ func EmitVOP2(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 		StoreRegisterPointerMaskedModified(b, ctx, details.Clamp, details.OMod, details.Vdst+gcnSpec.OpVgpr0, resSum, false)
 		cond := b.EmitINotEqual(ctx.GetId(BlockContextIdTypeBool), resCarry, ctx.GetConstId(ConstIdUint0))
 		emitComparisonResultUpdate(b, ctx, cond, details.Sdst)
+	case gcnSpec.Vop2OpSubI32:
+		val0 := GetOperandUintValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
+		val1 := GetOperandUintValueModified(b, ctx, details.Abs, details.Neg, details.Src1, 0, 1)
+
+		resStruct := b.EmitISubBorrow(ctx.GetId(BlockContextIdTypeStructUintUint), val0, val1)
+		resDiff := b.EmitCompositeExtract(ctx.GetId(BlockContextIdTypeUint), resStruct, 0)
+		resBorrow := b.EmitCompositeExtract(ctx.GetId(BlockContextIdTypeUint), resStruct, 1)
+
+		StoreRegisterPointerMaskedModified(b, ctx, details.Clamp, details.OMod, details.Vdst+gcnSpec.OpVgpr0, resDiff, false)
+		// AMD GCN V_SUB_I32 (carry-out is 1 if NO borrow). OpISubBorrow sets borrow to 1 if there IS a borrow.
+		cond := b.EmitIEqual(ctx.GetId(BlockContextIdTypeBool), resBorrow, ctx.GetConstId(ConstIdUint0))
+		emitComparisonResultUpdate(b, ctx, cond, details.Sdst)
 	case gcnSpec.Vop2OpSubF32:
 		val0 := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
 		val1 := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src1, 0, 1)
@@ -103,6 +115,12 @@ func EmitVOP2(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 		val1 := GetOperandUintValueModified(b, ctx, details.Abs, details.Neg, details.Src1, 0, 1)
 		shift := b.EmitBitwiseAnd(ctx.GetId(BlockContextIdTypeUint), val0, ctx.GetConstId(ConstIdUint31))
 		resU := b.EmitShiftLeftLogical(ctx.GetId(BlockContextIdTypeUint), val1, shift)
+		StoreRegisterPointerMaskedModified(b, ctx, details.Clamp, details.OMod, details.Vdst+gcnSpec.OpVgpr0, resU, false)
+	case gcnSpec.Vop2OpLshrrevB32:
+		val0 := GetOperandUintValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
+		val1 := GetOperandUintValueModified(b, ctx, details.Abs, details.Neg, details.Src1, 0, 1)
+		shift := b.EmitBitwiseAnd(ctx.GetId(BlockContextIdTypeUint), val0, ctx.GetConstId(ConstIdUint31))
+		resU := b.EmitShiftRightLogical(ctx.GetId(BlockContextIdTypeUint), val1, shift)
 		StoreRegisterPointerMaskedModified(b, ctx, details.Clamp, details.OMod, details.Vdst+gcnSpec.OpVgpr0, resU, false)
 	case gcnSpec.Vop2OpMinU32:
 		val0 := GetOperandUintValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)

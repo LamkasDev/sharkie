@@ -34,6 +34,14 @@ func (t *GpuTranslator) DmaCopy(frame uint64, dmaCopy *gpu.LiverpoolDmaCopy) {
 		)
 	}
 	err := vulkan.RunWithCommandBuffer(&t.handles, t.handles.WorkerFence, func(commandBuffer *vulkan.VulkanCommandBuffer) {
+		vk.CmdPipelineBarrier(commandBuffer.CommandBuffer,
+			vk.PipelineStageFlags(vk.PipelineStageHostBit),
+			vk.PipelineStageFlags(vk.PipelineStageTransferBit),
+			0, 1, []vk.MemoryBarrier{{
+				SType:         vk.StructureTypeMemoryBarrier,
+				SrcAccessMask: vk.AccessFlags(vk.AccessHostWriteBit),
+				DstAccessMask: vk.AccessFlags(vk.AccessTransferReadBit),
+			}}, 0, nil, 0, nil)
 		vk.CmdCopyBuffer(commandBuffer.CommandBuffer, srcBuffer, dstBuffer, 1, []vk.BufferCopy{{
 			SrcOffset: vk.DeviceSize(srcOffset),
 			DstOffset: vk.DeviceSize(dstOffset),
@@ -45,6 +53,9 @@ func (t *GpuTranslator) DmaCopy(frame uint64, dmaCopy *gpu.LiverpoolDmaCopy) {
 	}
 
 	// Upload DMA destination into any overlapping VkImages (guest buffer is now fresh in-GPU-order).
+	for _, image := range t.CollectGpuResourcesInRange(dmaCopy.DstAddress, copySize) {
+		image.MarkCpuModified(t.currentGuestFrame)
+	}
 	if err = t.UploadRegionVkImages(dmaCopy.DstAddress, copySize); err != nil {
 		panic(err)
 	}

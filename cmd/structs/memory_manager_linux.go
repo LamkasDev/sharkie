@@ -3,6 +3,8 @@
 package structs
 
 /*
+#define _GNU_SOURCE
+#include <ucontext.h>
 #include <signal.h>
 #include <string.h>
 #include <stdint.h>
@@ -53,18 +55,10 @@ static void segv_handler(int sig, siginfo_t* info, void* ctx) {
     }
 
     int is_write = 0;
-    if (tracked_pages[page_idx].prot_state == 1) {
-        // PROT_READ: CPU write fault.
-        is_write = 1;
-    } else if (tracked_pages[page_idx].prot_state != 0) {
-        // PROT_RW should not fault; forward.
-        if (old_segv_sa.sa_sigaction != NULL) {
-            old_segv_sa.sa_sigaction(sig, info, ctx);
-        } else if (old_segv_sa.sa_handler != NULL) {
-            old_segv_sa.sa_handler(sig);
-        }
-        return;
-    }
+    ucontext_t *uctx = (ucontext_t *)ctx;
+	if (uctx->uc_mcontext.gregs[REG_ERR] & 2) {
+		is_write = 1;
+	}
 
     pthread_mutex_lock(&sync_mutex);
     pending_sync_addr = aligned_addr;

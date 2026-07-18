@@ -119,34 +119,6 @@ func (t *GpuTranslator) GetShaderModule(spirvShader *spirv.SpirvShader) (vk.Shad
 	return module, nil
 }
 
-func (t *GpuTranslator) getAuxShaderModule(path, name string, cache *vk.ShaderModule) (vk.ShaderModule, error) {
-	t.shaderModulesMutex.Lock()
-	defer t.shaderModulesMutex.Unlock()
-	if *cache != vk.NullShaderModule {
-		return *cache, nil
-	}
-
-	bytes, err := os.ReadFile(path)
-	if err != nil {
-		return vk.NullShaderModule, err
-	}
-	module, err := t.GetShaderModuleFromBytes(common.SpvBytesToWords(bytes), name)
-	if err != nil {
-		return vk.NullShaderModule, err
-	}
-	*cache = module
-
-	return module, nil
-}
-
-func (t *GpuTranslator) GetRectlistTcsShader() (vk.ShaderModule, error) {
-	return t.getAuxShaderModule("data/shaders/shader_rectlist_tcs.spv", "Rectlist TCS", &t.rectlistTcsShaderModule)
-}
-
-func (t *GpuTranslator) GetRectlistTesShader() (vk.ShaderModule, error) {
-	return t.getAuxShaderModule("data/shaders/shader_rectlist_tes.spv", "Rectlist TES", &t.rectlistTesShaderModule)
-}
-
 // DumpShaderOnce prints shader byte-code to a file.
 func (t *GpuTranslator) DumpShaderOnce(spirvShader *spirv.SpirvShader) error {
 	// Check if tools available, otherwise skip.

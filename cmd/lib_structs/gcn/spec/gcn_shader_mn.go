@@ -677,6 +677,16 @@ var Mnemotics = map[Encoding]map[uint32]string{
 		SmrdOpMemtime:            "s_memtime",
 		SmrdOpDcacheInv:          "s_dcache_inv",
 	},
+	EncMTBUF: {
+		MtbufOpTbufferLoadFormatX:     "tbuffer_load_format_x",
+		MtbufOpTbufferLoadFormatXy:    "tbuffer_load_format_xy",
+		MtbufOpTbufferLoadFormatXyz:   "tbuffer_load_format_xyz",
+		MtbufOpTbufferLoadFormatXyzw:  "tbuffer_load_format_xyzw",
+		MtbufOpTbufferStoreFormatX:    "tbuffer_store_format_x",
+		MtbufOpTbufferStoreFormatXy:   "tbuffer_store_format_xy",
+		MtbufOpTbufferStoreFormatXyz:  "tbuffer_store_format_xyz",
+		MtbufOpTbufferStoreFormatXyzw: "tbuffer_store_format_xyzw",
+	},
 	EncMUBUF: {
 		MubufOpLoadFormatX:      "buffer_load_format_x",
 		MubufOpLoadFormatXy:     "buffer_load_format_xy",
@@ -991,7 +1001,9 @@ func (instr *Instruction) GetMnemotic() string {
 		b = Mnemotics[instr.Encoding][instr.Details.(*VintrpDetails).Op]
 	case EncSMRD:
 		b = Mnemotics[instr.Encoding][instr.Details.(*SmrdDetails).Op]
-	case EncMTBUF, EncMUBUF:
+	case EncMTBUF:
+		b = Mnemotics[instr.Encoding][instr.Details.(*MtbufDetails).Op]
+	case EncMUBUF:
 		b = Mnemotics[instr.Encoding][instr.Details.(*MubufDetails).Op]
 	case EncMIMG:
 		b = Mnemotics[instr.Encoding][instr.Details.(*MimgDetails).Op]
@@ -1103,11 +1115,27 @@ func (instr *Instruction) GetFieldsString() string {
 	case EncSMRD:
 		fmt.Fprintf(&b, "sdst=s%d sbase=s%d imm=%d offset=%d",
 			instr.Details.(*SmrdDetails).Dst,
-			instr.Details.(*SmrdDetails).Base,
+			instr.Details.(*SmrdDetails).Base*2,
 			nstd.Btoi(instr.Details.(*SmrdDetails).ImmOff),
 			instr.Details.(*SmrdDetails).Offset,
 		)
 	case EncMTBUF:
+		fmt.Fprintf(&b, "offset=%d offen=%d idxen=%d glc=%d addr64=%d dfmt=%d nfmt=%d vaddr=v%d vdata=v%d srsrc=s%d-%d slc=%d tfe=%d soffset=%s",
+			instr.Details.(*MtbufDetails).Offset,
+			nstd.Btoi(instr.Details.(*MtbufDetails).Offen),
+			nstd.Btoi(instr.Details.(*MtbufDetails).Idxen),
+			nstd.Btoi(instr.Details.(*MtbufDetails).Glc),
+			nstd.Btoi(instr.Details.(*MtbufDetails).Addr64),
+			instr.Details.(*MtbufDetails).DataFormat,
+			instr.Details.(*MtbufDetails).NumFormat,
+			instr.Details.(*MtbufDetails).Vaddr,
+			instr.Details.(*MtbufDetails).Vdata,
+			instr.Details.(*MtbufDetails).Srsrc*4,
+			instr.Details.(*MtbufDetails).Srsrc*4+3,
+			nstd.Btoi(instr.Details.(*MtbufDetails).Slc),
+			nstd.Btoi(instr.Details.(*MtbufDetails).Tfe),
+			OperandToString(instr.Details.(*MtbufDetails).Soffset),
+		)
 	case EncMUBUF:
 		fmt.Fprintf(&b, "offset=%d offen=%d idxen=%d glc=%d addr64=%d lds=%d vaddr=v%d vdata=v%d srsrc=s%d-%d slc=%d tfe=%d soffset=%s",
 			instr.Details.(*MubufDetails).Offset,
@@ -1131,7 +1159,7 @@ func (instr *Instruction) GetFieldsString() string {
 		}
 		fmt.Fprintf(&b, "ssamp=s%d-%d srsrc=s%d-%d vdata=v%d vaddr=v%d slc=%d lwe=%d tfe=%d r128=%d da=%d glc=%d unrm=%d dmask=%d",
 			instr.Details.(*MimgDetails).Ssamp*4,
-			instr.Details.(*MimgDetails).Ssamp*4+1,
+			instr.Details.(*MimgDetails).Ssamp*4+3,
 			instr.Details.(*MimgDetails).Srsrc*4,
 			instr.Details.(*MimgDetails).Srsrc*4+rsrcLength-1,
 			instr.Details.(*MimgDetails).Vdata,

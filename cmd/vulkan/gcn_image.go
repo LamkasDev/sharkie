@@ -6,7 +6,7 @@ import (
 	vk "github.com/goki/vulkan"
 )
 
-func DescriptorRegionSize(descriptor spirvStructs.ImageDescriptor) uintptr {
+func DescriptorGuestSize(descriptor spirvStructs.ImageDescriptor) uintptr {
 	bpp := structs.GetBytesPerPixel(descriptor.DataFormat)
 	layouts := computeMipLayouts(descriptor, mipLevelCount(descriptor))
 	if len(layouts) > 0 {

@@ -10,6 +10,7 @@ type InstructionDecodeFunc func(instr *spec.Instruction)
 
 var InstructionDecodeMap = map[spec.Encoding]InstructionDecodeFunc{
 	spec.EncSOP2:   (*spec.Instruction).DecodeSOP2,
+	spec.EncSOPK:   (*spec.Instruction).DecodeSOPK,
 	spec.EncSOP1:   (*spec.Instruction).DecodeSOP1,
 	spec.EncSOPC:   (*spec.Instruction).DecodeSOPC,
 	spec.EncSOPP:   (*spec.Instruction).DecodeSOPP,
@@ -19,6 +20,7 @@ var InstructionDecodeMap = map[spec.Encoding]InstructionDecodeFunc{
 	spec.EncVOP3:   (*spec.Instruction).DecodeVOP3,
 	spec.EncVINTRP: (*spec.Instruction).DecodeVINTRP,
 	spec.EncSMRD:   (*spec.Instruction).DecodeSMRD,
+	spec.EncMTBUF:  (*spec.Instruction).DecodeMTBUF,
 	spec.EncMUBUF:  (*spec.Instruction).DecodeMUBUF,
 	spec.EncMIMG:   (*spec.Instruction).DecodeMIMG,
 	spec.EncEXP:    (*spec.Instruction).DecodeEXP,

@@ -12,6 +12,7 @@ type InstructionEmitFunc func(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *Sp
 
 var InstructionEmitMap = map[gcnSpec.Encoding]InstructionEmitFunc{
 	gcnSpec.EncSOP2:   gcn.EmitSOP2,
+	gcnSpec.EncSOPK:   gcn.EmitSOPK,
 	gcnSpec.EncSOP1:   gcn.EmitSOP1,
 	gcnSpec.EncSOPC:   gcn.EmitSOPC,
 	gcnSpec.EncSOPP:   gcn.EmitSOPP,
@@ -21,6 +22,7 @@ var InstructionEmitMap = map[gcnSpec.Encoding]InstructionEmitFunc{
 	gcnSpec.EncVOP3:   gcn.EmitVOP3,
 	gcnSpec.EncVINTRP: gcn.EmitVINTRP,
 	gcnSpec.EncSMRD:   gcn.EmitSMRD,
+	gcnSpec.EncMTBUF:  gcn.EmitMTBUF,
 	gcnSpec.EncMUBUF:  gcn.EmitMUBUF,
 	gcnSpec.EncMIMG:   gcn.EmitMIMG,
 	gcnSpec.EncEXP:    gcn.EmitEXP,

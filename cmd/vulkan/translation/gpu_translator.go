@@ -45,10 +45,10 @@ type GpuTranslator struct {
 	shaders      map[SpirvShaderKey]*spirv.SpirvShader
 
 	// VkShaderModules created from SPIR-V shaders.
-	shaderModulesMutex      sync.Mutex
-	shaderModules           map[uintptr]vk.ShaderModule
-	rectlistTcsShaderModule vk.ShaderModule
-	rectlistTesShaderModule vk.ShaderModule
+	shaderModulesMutex       sync.Mutex
+	shaderModules            map[uintptr]vk.ShaderModule
+	rectlistTescShaderModule vk.ShaderModule
+	rectlistTeseShaderModule vk.ShaderModule
 
 	// Per-draw compiled pipelines.
 	pipelinesMutex sync.Mutex
@@ -175,9 +175,6 @@ func NewGpuTranslator(handles vulkan.VulkanHandles, bknd backend.Backend[glfwvul
 	}
 	GlobalAllocator.Buffer = onionBuffer
 	GlobalAllocator.DeviceAddress = t.GetBufferAddress(onionBuffer)
-	GuestBacking.Buffer = onionBuffer
-	GuestBacking.Memory = onionMemory
-	GuestBacking.DeviceAddress = GlobalAllocator.DeviceAddress
 
 	garlicBuffer, garlicMemory, err := vulkan.AllocateExternalBuffer(&t.handles, vk.DeviceSize(GlobalGpuAllocator.Size),
 		vk.BufferUsageFlags(vk.BufferUsageShaderDeviceAddressBit|vk.BufferUsageStorageBufferBit|vk.BufferUsageVertexBufferBit|vk.BufferUsageIndexBufferBit|vk.BufferUsageTransferSrcBit|vk.BufferUsageTransferDstBit),

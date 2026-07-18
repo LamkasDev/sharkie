@@ -106,11 +106,11 @@ func (t *GpuTranslator) BindPipeline(frame uint64, bind *gpu.LiverpoolBindPipeli
 
 	var tcsModule, tesModule, gsModule vk.ShaderModule
 	if bind.PrimType == 17 { // RECTLIST
-		tcsModule, err = t.GetRectlistTcsShader()
+		tcsModule, err = t.GetRectlistTescShader()
 		if err != nil {
 			return
 		}
-		tesModule, err = t.GetRectlistTesShader()
+		tesModule, err = t.GetRectlistTeseShader()
 		if err != nil {
 			return
 		}
