@@ -71,6 +71,12 @@ func GetEventFlag(handle uintptr) *EventFlag {
 	return EventFlagRepo[handle]
 }
 
+func DeleteEventFlag(handle uintptr) {
+	EventFlagLock.Lock()
+	defer EventFlagLock.Unlock()
+	delete(EventFlagRepo, handle)
+}
+
 func CheckEventFlagCondition(current, wait uint64, mode uint32) bool {
 	if (mode & EVF_WAITMODE_OR) != 0 {
 		return (current & wait) != 0

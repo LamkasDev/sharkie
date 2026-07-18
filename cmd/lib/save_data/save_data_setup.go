@@ -176,6 +176,44 @@ func libSceSaveData_sceSaveDataMount(mountPtr, resultPtr uintptr) uintptr {
 		)
 		return 0x809F0000
 	}
+	mountResult := (*SaveDataMountResult)(unsafe.Pointer(resultPtr))
+
+	return saveDataMount(mount, mountResult)
+}
+
+// 0x0000000000027C50
+// __int64 __fastcall sceSaveDataMount2(__int64, int, __m128 _XMM0)
+func libSceSaveData_sceSaveDataMount2(mountPtr, resultPtr uintptr) uintptr {
+	if mountPtr == 0 {
+		logger.Printf("%-132s %s failed due to invalid mount pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceSaveDataMount2"),
+		)
+		return 0x809F0000
+	}
+
+	mount2 := (*SaveDataMount2)(unsafe.Pointer(mountPtr))
+	if mount2.UserId < 0 {
+		logger.Printf("%-132s %s failed due to invalid user id.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceSaveDataMount2"),
+		)
+		return 0x809F0011
+	}
+	if mount2.DirName == nil {
+		logger.Printf("%-132s %s failed due to invalid dir name.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceSaveDataMount2"),
+		)
+		return 0x809F0000
+	}
+	mount := mount2.To1()
+	mountResult := (*SaveDataMountResult)(unsafe.Pointer(resultPtr))
+
+	return saveDataMount(mount, mountResult)
+}
+
+func saveDataMount(mount *SaveDataMount, mountResult *SaveDataMountResult) uintptr {
 	create := mount.MountMode&SaveDataMountModeCreate != 0
 	createIfNotExists := mount.MountMode&SaveDataMountModeCreate2 != 0
 	copyIcon := mount.MountMode&SaveDataMountModeCopyIcon != 0
@@ -185,7 +223,7 @@ func libSceSaveData_sceSaveDataMount(mountPtr, resultPtr uintptr) uintptr {
 	if err != nil {
 		logger.Printf("%-132s %s failed due to slot error (%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("sceSaveDataMount"),
+			color.Magenta.Sprint("saveDataMount"),
 			err.Error(),
 		)
 		return 0x809F0003
@@ -197,14 +235,14 @@ func libSceSaveData_sceSaveDataMount(mountPtr, resultPtr uintptr) uintptr {
 	if !create && !createIfNotExists && !exists {
 		logger.Printf("%-132s %s failed due to no existing save (no create flag).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("sceSaveDataMount"),
+			color.Magenta.Sprint("saveDataMount"),
 		)
 		return 0x809F0008
 	}
 	if create && exists {
 		logger.Printf("%-132s %s failed due to existing save (with create flag).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("sceSaveDataMount"),
+			color.Magenta.Sprint("saveDataMount"),
 		)
 		return 0x809F0007
 	}
@@ -214,14 +252,13 @@ func libSceSaveData_sceSaveDataMount(mountPtr, resultPtr uintptr) uintptr {
 	if err != nil {
 		logger.Printf("%-132s %s failed due to mount error (%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("sceSaveDataMount"),
+			color.Magenta.Sprint("saveDataMount"),
 			err.Error(),
 		)
 		return 0x809F000B
 	}
 
 	// Set mount result.
-	mountResult := (*SaveDataMountResult)(unsafe.Pointer(resultPtr))
 	CString(Cstring(unsafe.Pointer(&mountResult.MountPoint)), saveInstance.MountPoint)
 	if created {
 		mountResult.MountStatus = SaveDataMountStatusCreated
@@ -230,7 +267,7 @@ func libSceSaveData_sceSaveDataMount(mountPtr, resultPtr uintptr) uintptr {
 
 	logger.Printf("%-132s %s mounted save at %s (userId=%s, titleId=%s, dirName=%s, blocks=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprint("sceSaveDataMount"),
+		color.Magenta.Sprint("saveDataMount"),
 		color.Green.Sprint(saveInstance.MountPoint),
 		color.Yellow.Sprintf("0x%X", mount.UserId),
 		color.Yellow.Sprintf("0x%X", mount.TitleId),

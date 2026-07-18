@@ -1,4 +1,4 @@
-package kernel
+package posix
 
 import (
 	"unsafe"
@@ -12,18 +12,17 @@ import (
 )
 
 func Pthread_mutex_unlock(mutexHandlePtr uintptr) uintptr {
-	return libKernel_pthread_mutex_unlock(mutexHandlePtr)
+	return libScePosix_pthread_mutex_unlock(mutexHandlePtr)
 }
 
-// 0x00000000000327F0
-// __int64 __fastcall sub_327F0(__int64 *, __int64, __int64, __int64)
-func libKernel_pthread_mutex_unlock(mutexHandlePtr uintptr) uintptr {
+func libScePosix_pthread_mutex_unlock(mutexHandlePtr uintptr) uintptr {
 	if mutexHandlePtr == 0 {
 		logger.Printf("%-132s %s failed due to invalid mutex pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("pthread_mutex_unlock"),
 		)
-		return EINVAL
+		emu.SetErrno(EINVAL)
+		return ERR_PTR
 	}
 
 	// Try initializing a mutex, if it wasn't initialized yet.
@@ -36,26 +35,31 @@ func libKernel_pthread_mutex_unlock(mutexHandlePtr uintptr) uintptr {
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("pthread_mutex_unlock"),
 			)
-			return EINVAL
+			emu.SetErrno(EINVAL)
+			return ERR_PTR
 		}
 		logger.Printf("%-132s %s failed trying to unlock uninitialized mutex.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("pthread_mutex_unlock"),
 		)
-		return EPERM
+		emu.SetErrno(EPERM)
+		return ERR_PTR
 	}
 
 	// Check permissions.
 	mutex := (*PthreadMutex)(unsafe.Pointer(mutexAddr))
 	if mutex.Owner != threadPtr {
-		logger.Printf("%-132s %s failed trying to unlock unowned mutex %s (owner=%s, caller=%s).\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("pthread_mutex_unlock"),
-			GetMutexNameText(mutex, mutexAddr),
-			color.Yellow.Sprintf("0x%X", mutex.Owner),
-			color.Yellow.Sprintf("0x%X", threadPtr),
-		)
-		return EPERM
+		if logger.LogSyncingFail {
+			logger.Printf("%-132s %s failed trying to unlock unowned mutex %s (owner=%s, caller=%s).\n",
+				emu.GlobalModuleManager.GetCallSiteText(),
+				color.Magenta.Sprint("pthread_mutex_unlock"),
+				GetMutexNameText(mutex, mutexAddr),
+				color.Yellow.Sprintf("0x%X", mutex.Owner),
+				color.Yellow.Sprintf("0x%X", threadPtr),
+			)
+		}
+		emu.SetErrno(EPERM)
+		return ERR_PTR
 	}
 
 	// Handle special mutex types.

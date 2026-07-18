@@ -3,6 +3,7 @@ package kernel
 import (
 	"github.com/LamkasDev/sharkie/cmd/elf"
 	"github.com/LamkasDev/sharkie/cmd/emu"
+	"github.com/LamkasDev/sharkie/cmd/lib/posix"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
@@ -67,14 +68,8 @@ func RegisterKernelStubs() {
 	elf.RegisterStub("libSceLibcInternal", "GG6441JdYkA#A#B", libKernel_fake)
 
 	// IO functions.
-	elf.RegisterStub("libkernel", "open", libKernel_open)
-	elf.RegisterStub("libkernel", "_open", libKernel__open)
 	elf.RegisterStub("libkernel", "sceKernelOpen", libKernel_sceKernelOpen)
-	elf.RegisterStub("libkernel", "close", libKernel_close)
-	elf.RegisterStub("libkernel", "_close", libKernel__close)
 	elf.RegisterStub("libkernel", "sceKernelClose", libKernel_sceKernelClose)
-	elf.RegisterStub("libkernel", "read", libKernel_read)
-	elf.RegisterStub("libkernel", "_read", libKernel__read)
 	elf.RegisterStub("libkernel", "sceKernelRead", libKernel_sceKernelRead)
 	elf.RegisterStub("libkernel", "pread_0", libKernel_pread_0)
 	elf.RegisterStub("libkernel", "pread", libKernel_pread)
@@ -93,8 +88,6 @@ func RegisterKernelStubs() {
 	elf.RegisterStub("libkernel", "ftruncate", libKernel_ftruncate)
 	elf.RegisterStub("libkernel", "ftruncate_0", libKernel_ftruncate_0)
 	elf.RegisterStub("libkernel", "sceKernelFtruncate", libKernel_sceKernelFtruncate)
-	elf.RegisterStub("libkernel", "lseek", libKernel_lseek)
-	elf.RegisterStub("libkernel", "lseek_0", libKernel_lseek_0)
 	elf.RegisterStub("libkernel", "sceKernelLseek", libKernel_sceKernelLseek)
 	elf.RegisterStub("libkernel", "stat", libKernel_stat)
 	elf.RegisterStub("libkernel", "sceKernelStat", libKernel_sceKernelStat)
@@ -139,7 +132,6 @@ func RegisterKernelStubs() {
 	elf.RegisterStub("libkernel", "scePthreadSelf", libKernel_scePthreadSelf)
 	elf.RegisterStub("libkernel", "pthread_equal", libKernel_pthread_equal)
 	elf.RegisterStub("libkernel", "scePthreadEqual", libKernel_scePthreadEqual)
-	elf.RegisterStub("libkernel", "pthread_create_name_np", libKernel_pthread_create_name_np)
 	elf.RegisterStub("libkernel", "scePthreadCreate", libKernel_scePthreadCreate)
 	elf.RegisterStub("libkernel", "pthread_getaffinity_np", libKernel_pthread_getaffinity_np)
 	elf.RegisterStub("libkernel", "scePthreadGetaffinity", libKernel_scePthreadGetaffinity)
@@ -150,7 +142,6 @@ func RegisterKernelStubs() {
 	elf.RegisterStub("libkernel", "scePthreadRwlockRdlock", libKernel_scePthreadRwlockRdlock)
 	elf.RegisterStub("libkernel", "scePthreadRwlockWrlock", libKernel_scePthreadRwlockWrlock)
 	elf.RegisterStub("libkernel", "scePthreadRwlockUnlock", libKernel_scePthreadRwlockUnlock)
-	elf.RegisterStub("libkernel", "pthread_join", libKernel_pthread_join)
 	elf.RegisterStub("libkernel", "scePthreadJoin", libKernel_scePthreadJoin)
 
 	// Mutex functions.
@@ -160,15 +151,11 @@ func RegisterKernelStubs() {
 	elf.RegisterStub("libkernel", "scePthreadMutexattrDestroy", libKernel_scePthreadMutexattrDestroy)
 	elf.RegisterStub("libkernel", "pthread_mutexattr_settype", libKernel_pthread_mutexattr_settype)
 	elf.RegisterStub("libkernel", "scePthreadMutexattrSettype", libKernel_scePthreadMutexattrSettype)
-	elf.RegisterStub("libkernel", "pthread_mutex_init", libKernel_pthread_mutex_init)
 	elf.RegisterStub("libkernel", "scePthreadMutexInit", libKernel_scePthreadMutexInit)
-	elf.RegisterStub("libkernel", "pthread_mutex_destroy", libKernel_pthread_mutex_destroy)
 	elf.RegisterStub("libkernel", "scePthreadMutexDestroy", libKernel_scePthreadMutexDestroy)
-	elf.RegisterStub("libkernel", "pthread_mutex_lock", libKernel_pthread_mutex_lock)
 	elf.RegisterStub("libkernel", "scePthreadMutexLock", libKernel_scePthreadMutexLock)
 	elf.RegisterStub("libkernel", "pthread_mutex_trylock", libKernel_pthread_mutex_trylock)
 	elf.RegisterStub("libkernel", "scePthreadMutexTrylock", libKernel_scePthreadMutexTrylock)
-	elf.RegisterStub("libkernel", "pthread_mutex_unlock", libKernel_pthread_mutex_unlock)
 	elf.RegisterStub("libkernel", "scePthreadMutexUnlock", libKernel_scePthreadMutexUnlock)
 	elf.RegisterStub("libkernel", "pthread_mutex_timedlock", libKernel_pthread_mutex_timedlock)
 	elf.RegisterStub("libkernel", "pthread_mutex_reltimedlock_np", libKernel_pthread_mutex_reltimedlock_np)
@@ -201,6 +188,8 @@ func RegisterKernelStubs() {
 	elf.RegisterStub("libkernel", "sceKernelWaitEventFlag", libKernel_sceKernelWaitEventFlag)
 	elf.RegisterStub("libkernel", "sceKernelPollEventFlag", libKernel_sceKernelPollEventFlag)
 	elf.RegisterStub("libkernel", "sceKernelSetEventFlag", libKernel_sceKernelSetEventFlag)
+	elf.RegisterStub("libkernel", "sceKernelClearEventFlag", libKernel_sceKernelClearEventFlag)
+	elf.RegisterStub("libkernel", "sceKernelDeleteEventFlag", libKernel_sceKernelDeleteEventFlag)
 
 	// Module functions.
 	elf.RegisterStub("libkernel", "sceKernelGetExecutableModuleHandle", libKernel_sceKernelGetExecutableModuleHandle)
@@ -228,6 +217,7 @@ func RegisterKernelStubs() {
 	elf.RegisterStub("libkernel", "sceKernelClockGettime", libKernel_sceKernelClockGettime)
 	elf.RegisterStub("libkernel", "sceKernelGetProcessTime", libKernel_sceKernelGetProcessTime)
 	elf.RegisterStub("libkernel", "sceKernelGettimeofday", libKernel_sceKernelGettimeofday)
+	elf.RegisterStub("libkernel", "clock_gettime", posix.Clock_gettime)
 
 	// Signal functions.
 	elf.RegisterStub("libkernel", "sigprocmask", libKernel_sigprocmask)

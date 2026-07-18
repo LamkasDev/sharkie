@@ -31,12 +31,13 @@ func RegisterSceLibcInternalStubs() {
 	elf.RegisterStub("libSceLibcInternal", "sceLibcMspaceMallocStatsFast", libSceLibcInternal_sceLibcMspaceMallocStatsFast)
 	elf.RegisterStub("libSceLibcInternal", "sceLibcPafMspaceIsHeapEmpty", libSceLibcInternal_sceLibcPafMspaceIsHeapEmpty)
 
-	// Guard functions.
-	elf.RegisterStub("libSceLibcInternal", "__cxa_guard_release", libSceLibcInternal___cxa_guard_release)
-
-	// CXA exception functions.
-	elf.RegisterStub("libSceLibcInternal", "__cxa_throw", libSceLibcInternal___cxa_throw)
-	elf.RegisterStub("libSceLibcInternal", "std::_Xbad_alloc", libSceLibcInternal_std_Xbad_alloc)
+	// IO functions.
+	elf.RegisterStub("libSceLibcInternal", "fopen", libSceLibcInternal_fopen)
+	elf.RegisterStub("libSceLibcInternal", "fread", libSceLibcInternal_fread)
+	elf.RegisterStub("libSceLibcInternal", "fseek", libSceLibcInternal_fseek)
+	elf.RegisterStub("libSceLibcInternal", "fgetpos", libSceLibcInternal_fgetpos)
+	elf.RegisterStub("libSceLibcInternal", "setvbuf", libSceLibcInternal_setvbuf)
+	elf.RegisterStub("libSceLibcInternal", "fclose", libSceLibcInternal_fclose)
 }
 
 func Abort() uintptr {

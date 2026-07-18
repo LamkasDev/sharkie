@@ -133,7 +133,7 @@ func libKernel_sys_evf_wait(handle uintptr, waitPattern uint64, waitMode uint32,
 			color.Magenta.Sprint("sys_evf_wait"),
 			color.Yellow.Sprintf("0x%X", handle),
 		)
-		return SCE_KERNEL_ERROR_ENOENT
+		return SCE_KERNEL_ERROR_ESRCH
 	}
 
 	timeout := time.Duration(-1)
@@ -234,7 +234,7 @@ func libKernel_sys_evf_trywait(handle uintptr, waitPattern uint64, waitMode uint
 			color.Magenta.Sprint("sys_evf_trywait"),
 			color.Yellow.Sprintf("0x%X", handle),
 		)
-		return SCE_KERNEL_ERROR_ENOENT
+		return SCE_KERNEL_ERROR_ESRCH
 	}
 
 	eventFlag.Cond.Mutex.Lock()
@@ -293,7 +293,7 @@ func libKernel_sys_evf_set(handle uintptr, bits uint64) uintptr {
 			color.Magenta.Sprint("sys_evf_set"),
 			color.Yellow.Sprintf("0x%X", handle),
 		)
-		return SCE_KERNEL_ERROR_ENOENT
+		return SCE_KERNEL_ERROR_ESRCH
 	}
 
 	eventFlag.Cond.Mutex.Lock()
@@ -309,5 +309,74 @@ func libKernel_sys_evf_set(handle uintptr, bits uint64) uintptr {
 			color.Yellow.Sprintf("0x%X", bits),
 		)
 	}
+	return 0
+}
+
+// 00000000000023310
+// __int64 sceKernelClearEventFlag()
+func libKernel_sceKernelClearEventFlag(handle uintptr, bits uint64) uintptr {
+	err := libKernel_sys_evf_clear(handle, bits)
+	if err == ERR_PTR {
+		return emu.GetErrno() - SonyErrorOffset
+	}
+
+	return 0
+}
+
+func libKernel_sys_evf_clear(handle uintptr, bits uint64) uintptr {
+	eventFlag := GetEventFlag(handle)
+	if eventFlag == nil {
+		logger.Printf("%-132s %s failed due unknown event flag handle %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sys_evf_clear"),
+			color.Yellow.Sprintf("0x%X", handle),
+		)
+		return SCE_KERNEL_ERROR_ESRCH
+	}
+
+	eventFlag.Cond.Mutex.Lock()
+	eventFlag.CurrentPattern &= bits
+	eventFlag.Cond.Mutex.Unlock()
+
+	if logger.LogSyncing {
+		logger.Printf("%-132s %s cleared event flag %s to %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sys_evf_clear"),
+			GetEventFlagName(eventFlag),
+			color.Yellow.Sprintf("0x%X", bits),
+		)
+	}
+	return 0
+}
+
+// 0x0000000000023210
+// __int64 sceKernelDeleteEventFlag()
+func libKernel_sceKernelDeleteEventFlag(handle uintptr, bits uint64) uintptr {
+	err := libKernel_sys_evf_delete(handle, bits)
+	if err == ERR_PTR {
+		return emu.GetErrno() - SonyErrorOffset
+	}
+
+	return 0
+}
+
+func libKernel_sys_evf_delete(handle uintptr, bits uint64) uintptr {
+	eventFlag := GetEventFlag(handle)
+	if eventFlag == nil {
+		logger.Printf("%-132s %s failed due unknown event flag handle %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sys_evf_delete"),
+			color.Yellow.Sprintf("0x%X", handle),
+		)
+		return SCE_KERNEL_ERROR_ESRCH
+	}
+
+	DeleteEventFlag(handle)
+
+	logger.Printf("%-132s %s deleted event flag %s.\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("sys_evf_delete"),
+		GetEventFlagName(eventFlag),
+	)
 	return 0
 }

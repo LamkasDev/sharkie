@@ -5,6 +5,7 @@ import (
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
+	"github.com/LamkasDev/sharkie/cmd/lib/posix"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/pthread"
 	"github.com/LamkasDev/sharkie/cmd/logger"
@@ -16,9 +17,9 @@ import (
 // 0x0000000000013AA0
 // __int64 __fastcall scePthreadMutexInit(_QWORD *a1, __int64 a2, __int64 a3)
 func libKernel_scePthreadMutexInit(mutexHandlePtr, attrPtr uintptr, namePtr Cstring) uintptr {
-	err := libKernel_pthread_mutex_init(mutexHandlePtr, attrPtr)
+	err := posix.Pthread_mutex_init(mutexHandlePtr, attrPtr)
 	if err != 0 {
-		return err - SonyErrorOffset
+		return emu.GetErrno() - SonyErrorOffset
 	}
 
 	// Retrieve structs back.
@@ -48,9 +49,9 @@ func libKernel_scePthreadMutexInit(mutexHandlePtr, attrPtr uintptr, namePtr Cstr
 // 0x0000000000013C50
 // __int64 scePthreadMutexDestroy()
 func libKernel_scePthreadMutexDestroy(mutexHandlePtr uintptr) uintptr {
-	err := libKernel_pthread_mutex_destroy(mutexHandlePtr)
+	err := posix.Pthread_mutex_destroy(mutexHandlePtr)
 	if err != 0 {
-		return err - SonyErrorOffset
+		return emu.GetErrno() - SonyErrorOffset
 	}
 
 	return 0
@@ -59,9 +60,9 @@ func libKernel_scePthreadMutexDestroy(mutexHandlePtr uintptr) uintptr {
 // 0x0000000000013C70
 // __int64 __fastcall scePthreadMutexLock(__int64 *, __int64, int, int, int, int)
 func libKernel_scePthreadMutexLock(mutexHandlePtr uintptr) uintptr {
-	err := libKernel_pthread_mutex_lock(mutexHandlePtr)
+	err := posix.Pthread_mutex_lock(mutexHandlePtr)
 	if err != 0 {
-		return err - SonyErrorOffset
+		return emu.GetErrno() - SonyErrorOffset
 	}
 
 	return 0
@@ -81,9 +82,9 @@ func libKernel_scePthreadMutexTrylock(mutexHandlePtr uintptr) uintptr {
 // 0x0000000000013CD0
 // __int64 __fastcall scePthreadMutexUnlock(__int64 *, __int64, __int64, __int64)
 func libKernel_scePthreadMutexUnlock(mutexHandlePtr uintptr) uintptr {
-	err := libKernel_pthread_mutex_unlock(mutexHandlePtr)
+	err := posix.Pthread_mutex_unlock(mutexHandlePtr)
 	if err != 0 {
-		return err - SonyErrorOffset
+		return emu.GetErrno() - SonyErrorOffset
 	}
 
 	return 0

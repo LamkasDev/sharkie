@@ -27,12 +27,6 @@ func libSceAppContent_sceAppContentInitialize(initParamPtr, bootParamPtr uintptr
 	GlobalAppContentInstance.IsInitialized = true
 
 	// Load app metadata.
-	sfoPath := filepath.Join(config.GameDirectory, "Sc0", "param.sfo")
-	p, err := psf.NewPsfFromPath(sfoPath)
-	if err != nil {
-		panic(err)
-	}
-	GlobalAppContentInstance.ParamSfo = p
 	titleId := GlobalAppContentInstance.ParamSfo.MapStrings["TITLE_ID"]
 	if titleId == "" {
 		logger.Printf("%-132s %s failed due to missing title id.\n",

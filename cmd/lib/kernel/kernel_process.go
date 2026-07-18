@@ -1,12 +1,9 @@
 package kernel
 
 import (
-	"time"
-	"unsafe"
-
 	"github.com/LamkasDev/sharkie/cmd/emu"
+	"github.com/LamkasDev/sharkie/cmd/lib/posix"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
-	. "github.com/LamkasDev/sharkie/cmd/lib_structs/time"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
 )
@@ -61,40 +58,22 @@ func libKernel_sceKernelGetProcParam() uintptr {
 
 // 0x0000000000014BE0
 // __int64 __fastcall sceKernelUsleep(unsigned int)
-func libKernel_sceKernelUsleep(micros uintptr) uintptr {
-	if logger.LogSleep {
-		logger.Printf("%-132s %s sleeping for %s microseconds.\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("sceKernelUsleep"),
-			color.Green.Sprintf("%d", micros),
-		)
+func libKernel_sceKernelUsleep(micros uint32) uintptr {
+	err := posix.Usleep(micros)
+	if err != 0 {
+		return emu.GetErrno() - SonyErrorOffset
 	}
-	time.Sleep(time.Duration(micros) * time.Microsecond)
+
 	return 0
 }
 
 // 0x0000000000014B50
 // __int64 __fastcall sceKernelNanosleep(__int128 *, __int64)
-func libKernel_sceKernelNanosleep(timestampPtr uintptr) uintptr {
-	if timestampPtr == 0 {
-		logger.Printf("%-132s %s failed due to invalid time pointer.\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("sceKernelNanosleep"),
-		)
-		return SCE_KERNEL_ERROR_EINVAL
+func libKernel_sceKernelNanosleep(timestampPtr, remainingTimestampPtr uintptr) uintptr {
+	err := posix.Nanosleep(timestampPtr, remainingTimestampPtr)
+	if err != 0 {
+		return emu.GetErrno() - SonyErrorOffset
 	}
 
-	timestamp := (*Timestamp)(unsafe.Pointer(timestampPtr))
-	timeout := time.Duration(timestamp.Seconds)*time.Second + time.Duration(timestamp.Nanoseconds)*time.Nanosecond
-
-	if logger.LogSleep {
-		logger.Printf("%-132s %s sleeping for %ss and %sns.\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("sceKernelNanosleep"),
-			color.Yellow.Sprintf("0x%X", timestamp.Seconds),
-			color.Yellow.Sprintf("0x%X", timestamp.Nanoseconds),
-		)
-	}
-	time.Sleep(timeout)
 	return 0
 }

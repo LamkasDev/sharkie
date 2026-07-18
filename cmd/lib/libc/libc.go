@@ -24,10 +24,11 @@ func RegisterLibcStubs() {
 	elf.RegisterStub("libc", "sceLibcMspaceMallocStats", libc_sceLibcMspaceMallocStats)
 	elf.RegisterStub("libc", "sceLibcMspaceMallocStatsFast", libc_sceLibcMspaceMallocStatsFast)
 
-	// CXA guard functions.
-	elf.RegisterStub("libc", "__cxa_guard_release", libLibc___cxa_guard_release)
-
-	// CXA exception functions.
-	elf.RegisterStub("libc", "__cxa_throw", libLibc___cxa_throw)
-	elf.RegisterStub("libc", "std::_Xbad_alloc", libLibc_std_Xbad_alloc)
+	// IO functions.
+	elf.RegisterStub("libc", "fopen", libc_fopen)
+	elf.RegisterStub("libc", "fread", libc_fread)
+	elf.RegisterStub("libc", "fseek", libc_fseek)
+	elf.RegisterStub("libc", "fgetpos", libc_fgetpos)
+	elf.RegisterStub("libc", "setvbuf", libc_setvbuf)
+	elf.RegisterStub("libc", "fclose", libc_fclose)
 }

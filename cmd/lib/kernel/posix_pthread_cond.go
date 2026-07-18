@@ -5,6 +5,7 @@ import (
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
+	"github.com/LamkasDev/sharkie/cmd/lib/posix"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/cond"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/pthread"
@@ -198,7 +199,7 @@ func libKernel_pthread_cond_wait(condHandlePtr, mutexHandlePtr uintptr) uintptr 
 	hostCond.Mutex.Lock()
 	w := hostCond.WaitChan()
 	hostCond.Mutex.Unlock()
-	err := libKernel_pthread_mutex_unlock(mutexHandlePtr)
+	err := posix.Pthread_mutex_unlock(mutexHandlePtr)
 	if err != 0 {
 		return err
 	}
@@ -210,7 +211,7 @@ func libKernel_pthread_cond_wait(condHandlePtr, mutexHandlePtr uintptr) uintptr 
 		)
 	}
 	<-w
-	err = libKernel_pthread_mutex_lock(mutexHandlePtr)
+	err = posix.Pthread_mutex_lock(mutexHandlePtr)
 	if err != 0 {
 		return err
 	}
@@ -262,7 +263,7 @@ func libKernel_pthread_cond_timedwait(condHandlePtr, mutexHandlePtr, timestampPt
 	hostCond.Mutex.Lock()
 	w := hostCond.WaitChan()
 	hostCond.Mutex.Unlock()
-	err := libKernel_pthread_mutex_unlock(mutexHandlePtr)
+	err := posix.Pthread_mutex_unlock(mutexHandlePtr)
 	if err != 0 {
 		return err
 	}
@@ -284,10 +285,10 @@ func libKernel_pthread_cond_timedwait(condHandlePtr, mutexHandlePtr, timestampPt
 				GetCondNameText(cond, condAddr),
 			)
 		}
-		libKernel_pthread_mutex_lock(mutexHandlePtr)
+		posix.Pthread_mutex_lock(mutexHandlePtr)
 		return ETIMEDOUT
 	}
-	err = libKernel_pthread_mutex_lock(mutexHandlePtr)
+	err = posix.Pthread_mutex_lock(mutexHandlePtr)
 	if err != 0 {
 		return err
 	}
@@ -327,7 +328,7 @@ func libKernel_pthread_cond_reltimedwait_np(condHandlePtr, mutexHandlePtr, micro
 	hostCond.Mutex.Lock()
 	w := hostCond.WaitChan()
 	hostCond.Mutex.Unlock()
-	err := libKernel_pthread_mutex_unlock(mutexHandlePtr)
+	err := posix.Pthread_mutex_unlock(mutexHandlePtr)
 	if err != 0 {
 		return err
 	}
@@ -350,10 +351,10 @@ func libKernel_pthread_cond_reltimedwait_np(condHandlePtr, mutexHandlePtr, micro
 				GetCondNameText(cond, condAddr),
 			)
 		}
-		libKernel_pthread_mutex_lock(mutexHandlePtr)
+		posix.Pthread_mutex_lock(mutexHandlePtr)
 		return ETIMEDOUT
 	}
-	err = libKernel_pthread_mutex_lock(mutexHandlePtr)
+	err = posix.Pthread_mutex_lock(mutexHandlePtr)
 
 	return 0
 }

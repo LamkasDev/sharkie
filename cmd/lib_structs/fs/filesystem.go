@@ -166,6 +166,17 @@ func (shFs *SharkieFilesystem) SeekFd(fd FileDescriptor, offset int64, whence in
 	return shFile.Seek(offset, whence)
 }
 
+func (shFs *SharkieFilesystem) GetOffsetFd(fd FileDescriptor) (int64, error) {
+	shFs.Lock.Lock()
+	shFile, ok := shFs.Descriptors[fd]
+	shFs.Lock.Unlock()
+	if !ok {
+		return 0, errors.New("invalid file descriptor")
+	}
+
+	return shFile.Offset, nil
+}
+
 func (shFs *SharkieFilesystem) ReadFull(path string) ([]byte, error) {
 	fd, err := shFs.Open(path, O_RDONLY, 0)
 	if err != nil {

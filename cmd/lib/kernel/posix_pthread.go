@@ -1,15 +1,12 @@
 package kernel
 
 import (
-	"context"
 	"encoding/binary"
 	"runtime"
-	"runtime/pprof"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
-	. "github.com/LamkasDev/sharkie/cmd/lib_structs/pthread"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
 )
@@ -77,59 +74,6 @@ func libKernel_pthread_equal(t1, t2 uintptr) uintptr {
 	if t1 == t2 {
 		return 1
 	}
-	return 0
-}
-
-// 0x0000000000006DA0
-// __int64 __fastcall pthread_create_name_np(int **, __int64 *, __int64, __int64, _BYTE *, __m128 _XMM0)
-func libKernel_pthread_create_name_np(threadPtr, attrHandlePtr, entryPoint, arg uintptr, namePtr Cstring) uintptr {
-	// Check if entry point is valid.
-	module := emu.GetModuleAtAddress(entryPoint)
-	if module == nil {
-		logger.Printf("%-132s %s failed due to invalid entry point %s.\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("pthread_create_name_np"),
-			color.Yellow.Sprintf("0x%X", entryPoint),
-		)
-		return EINVAL
-	}
-
-	// Figure out stack size beforehand.
-	stackSize := uint64(StackDefaultSize)
-	attr, _ := ResolveHandle[PthreadAttr](attrHandlePtr)
-	if attr != nil {
-		stackSize = attr.StackSize
-	}
-
-	// Create thread and assign attributes.
-	thread := emu.CreateThread(GoString(namePtr), stackSize)
-	thread.Tcb.Thread.StartFunc = entryPoint
-	thread.Tcb.Thread.Arg = arg
-	if attr != nil {
-		thread.Tcb.Thread.Attr = *attr
-	}
-	thread.Tcb.Thread.Magic = PthreadMagic
-
-	// Write back result.
-	pthreadAddr := (uintptr)(unsafe.Pointer(thread.Tcb.Thread))
-	if threadPtr != 0 {
-		WriteAddress(threadPtr, pthreadAddr)
-	}
-
-	go pprof.Do(context.Background(), pprof.Labels("name", thread.Name), func(ctx context.Context) {
-		thread.CallAndWait(entryPoint, arg)
-		thread.Exit(0xDEAD)
-	})
-
-	logger.Printf("%-132s %s created thread %s at %s (%s at %s, arg=%s).\n",
-		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprint("pthread_create_name_np"),
-		color.Blue.Sprint(thread.Name),
-		color.Yellow.Sprintf("0x%X", pthreadAddr),
-		color.Blue.Sprint(module.Name),
-		color.Yellow.Sprintf("0x%X", entryPoint-module.BaseAddress),
-		color.Yellow.Sprintf("0x%X", arg),
-	)
 	return 0
 }
 
@@ -216,62 +160,5 @@ func libKernel_sys_pthread_exit(retValue uintptr) uintptr {
 	thread.Exit(retValue)
 	runtime.Goexit()
 
-	return 0
-}
-
-// 0x0000000000008880
-// __int64 __fastcall pthread_join(__int64, __int64)
-func libKernel_pthread_join(threadPtr, retValPtr uintptr) uintptr {
-	if threadPtr == 0 {
-		logger.Printf("%-132s %s failed due to invalid thread pointer %s.\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("pthread_join"),
-			color.Yellow.Sprintf("0x%X", threadPtr),
-		)
-		return EINVAL
-	}
-	thread := emu.GetThreadForPtr(threadPtr)
-	if thread == nil {
-		logger.Printf("%-132s %s failed due to invalid thread %s.\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("pthread_join"),
-			color.Yellow.Sprintf("0x%X", threadPtr),
-		)
-		return ENOENT
-	}
-
-	// No being naughty.
-	if thread == emu.GetCurrentThread() {
-		logger.Printf("%-132s %s failed trying to join itself.\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("pthread_join"),
-		)
-		return EDEADLK
-	}
-
-	// Wait for thread to exit.
-	thread.Lock.Lock()
-	for !thread.Exited {
-		logger.Printf("%-132s %s waiting for thread %s to exit...\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("pthread_join"),
-			color.Blue.Sprint(thread.Name),
-		)
-		thread.JoinCond.Wait()
-	}
-	exitCode := thread.ExitCode
-	thread.Lock.Unlock()
-
-	// Write back exit code.
-	if retValPtr != 0 {
-		WriteAddress(retValPtr, exitCode)
-	}
-
-	logger.Printf("%-132s %s joined thread %s (exitCode=%s).\n",
-		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprint("pthread_join"),
-		color.Blue.Sprint(thread.Name),
-		color.Yellow.Sprintf("0x%X", exitCode),
-	)
 	return 0
 }

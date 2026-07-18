@@ -1,6 +1,9 @@
 package save_data
 
-import . "github.com/LamkasDev/sharkie/cmd/lib_structs"
+import (
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/app_content"
+)
 
 type SaveDataBlocks uint64
 
@@ -38,6 +41,32 @@ type SaveDataMount struct {
 	Blocks      SaveDataBlocks
 	MountMode   SaveDataMountMode
 	Reserved    [32]byte
+}
+
+type SaveDataMount2 struct {
+	UserId    int32
+	_         uint32
+	DirName   Cstring
+	Blocks    SaveDataBlocks
+	MountMode SaveDataMountMode
+	Reserved  [32]byte
+	_         uint32
+}
+
+func (sdm *SaveDataMount2) To1() *SaveDataMount {
+	titleId, ok := GlobalAppContentInstance.ParamSfo.GetString("TITLE_ID")
+	if !ok {
+		panic("missing title id")
+	}
+	mount := &SaveDataMount{
+		UserId:    sdm.UserId,
+		DirName:   sdm.DirName,
+		Blocks:    sdm.Blocks,
+		MountMode: sdm.MountMode,
+	}
+	CString(mount.TitleId, titleId)
+
+	return mount
 }
 
 type SaveDataMountInfo struct {

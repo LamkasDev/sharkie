@@ -119,12 +119,14 @@ func libKernel_sceKernelWaitSema(handle uintptr, needed int32, timeoutPtr uintpt
 		semaphore.Cond.Mutex.Lock()
 		if semaphore.CurrentCount >= needed {
 			semaphore.CurrentCount -= needed
-			logger.Printf("%-132s %s decremented semaphore %s to %s.\n",
-				emu.GlobalModuleManager.GetCallSiteText(),
-				color.Magenta.Sprint("sceKernelWaitSema"),
-				color.Blue.Sprint(semaphore.Name),
-				color.Green.Sprint(semaphore.CurrentCount),
-			)
+			if logger.LogSyncing {
+				logger.Printf("%-132s %s decremented semaphore %s to %s.\n",
+					emu.GlobalModuleManager.GetCallSiteText(),
+					color.Magenta.Sprint("sceKernelWaitSema"),
+					color.Blue.Sprint(semaphore.Name),
+					color.Green.Sprint(semaphore.CurrentCount),
+				)
+			}
 			semaphore.Cond.Mutex.Unlock()
 			return 0
 		}
@@ -135,33 +137,39 @@ func libKernel_sceKernelWaitSema(handle uintptr, needed int32, timeoutPtr uintpt
 		if timeout != -1 {
 			remaining = timeout - time.Since(start)
 			if remaining <= 0 {
-				logger.Printf("%-132s %s timed out semaphore %s.\n",
-					emu.GlobalModuleManager.GetCallSiteText(),
-					color.Magenta.Sprint("sceKernelWaitSema"),
-					color.Blue.Sprint(semaphore.Name),
-				)
+				if logger.LogSyncingFail {
+					logger.Printf("%-132s %s timed out semaphore %s.\n",
+						emu.GlobalModuleManager.GetCallSiteText(),
+						color.Magenta.Sprint("sceKernelWaitSema"),
+						color.Blue.Sprint(semaphore.Name),
+					)
+				}
 				return SCE_KERNEL_ERROR_TIMEDOUT
 			}
 		}
 
 		// Wait.
-		logger.Printf("%-132s %s waiting on semaphore %s for %s microseconds.\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("sceKernelWaitSema"),
-			color.Blue.Sprint(semaphore.Name),
-			color.Yellow.Sprintf("0x%X", timeout.Microseconds()),
-		)
+		if logger.LogSyncing {
+			logger.Printf("%-132s %s waiting on semaphore %s for %s microseconds.\n",
+				emu.GlobalModuleManager.GetCallSiteText(),
+				color.Magenta.Sprint("sceKernelWaitSema"),
+				color.Blue.Sprint(semaphore.Name),
+				color.Yellow.Sprintf("0x%X", timeout.Microseconds()),
+			)
+		}
 		if timeout == -1 {
 			<-w
 		} else {
 			select {
 			case <-w:
 			case <-time.After(remaining):
-				logger.Printf("%-132s %s timed out on semaphore %s.\n",
-					emu.GlobalModuleManager.GetCallSiteText(),
-					color.Magenta.Sprint("sceKernelWaitSema"),
-					color.Blue.Sprint(semaphore.Name),
-				)
+				if logger.LogSyncingFail {
+					logger.Printf("%-132s %s timed out on semaphore %s.\n",
+						emu.GlobalModuleManager.GetCallSiteText(),
+						color.Magenta.Sprint("sceKernelWaitSema"),
+						color.Blue.Sprint(semaphore.Name),
+					)
+				}
 				return SCE_KERNEL_ERROR_TIMEDOUT
 			}
 		}
@@ -204,13 +212,13 @@ func libKernel_sceKernelSignalSema(handle uintptr, signalCount int32) uintptr {
 	}
 
 	semaphore.Cond.Mutex.Lock()
-	defer semaphore.Cond.Mutex.Unlock()
-
 	if semaphore.CurrentCount+signalCount > semaphore.MaxCount {
+		semaphore.Cond.Mutex.Unlock()
 		return SCE_KERNEL_ERROR_EINVAL
 	}
-
 	semaphore.CurrentCount += signalCount
+	semaphore.Cond.Mutex.Unlock()
+
 	semaphore.Cond.Broadcast()
 	if logger.LogSyncing {
 		logger.Printf("%-132s %s incremented semaphore %s to %s.\n",

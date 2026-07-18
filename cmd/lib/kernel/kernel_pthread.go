@@ -4,6 +4,7 @@ import (
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
+	"github.com/LamkasDev/sharkie/cmd/lib/posix"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
@@ -44,9 +45,9 @@ func libKernel_scePthreadEqual(t1, t2 uintptr) uintptr {
 // 0x00000000000138E0
 // __int64 scePthreadCreate()
 func libKernel_scePthreadCreate(threadPtr, attrHandlePtr, entryPoint, arg uintptr, namePtr Cstring) uintptr {
-	err := libKernel_pthread_create_name_np(threadPtr, attrHandlePtr, entryPoint, arg, namePtr)
+	err := posix.Pthread_create_name_np(threadPtr, attrHandlePtr, entryPoint, arg, namePtr)
 	if err != 0 {
-		return err - SonyErrorOffset
+		return emu.GetErrno() - SonyErrorOffset
 	}
 
 	return 0
@@ -125,9 +126,9 @@ func libKernel_scePthreadGetaffinity(threadPtr, maskPtr uintptr) uintptr {
 // 0x0000000000013980
 // __int64 __fastcall scePthreadJoin(__int64, __int64)
 func libKernel_scePthreadJoin(threadPtr, retValPtr uintptr) uintptr {
-	err := libKernel_pthread_join(threadPtr, retValPtr)
+	err := posix.Pthread_join(threadPtr, retValPtr)
 	if err != 0 {
-		return err - SonyErrorOffset
+		return emu.GetErrno() - SonyErrorOffset
 	}
 
 	return 0
