@@ -69,12 +69,12 @@ func (e *Elf) ResolveSymbolInfo(s *ElfSymbol, stShndx uint16) {
 		s.LibraryIndex = stShndx
 	}
 	if s.Address == 0 {
-		if int(s.LibraryIndex) < len(e.DynamicInfo.ImportLibraries) {
-			s.LibraryName = e.DynamicInfo.ImportLibraries[s.LibraryIndex].Name
+		if lib := e.DynamicInfo.ImportLibraries[s.LibraryIndex]; lib != nil {
+			s.LibraryName = lib.Name
 		}
 	} else {
-		if int(s.LibraryIndex) < len(e.DynamicInfo.ExportLibraries) {
-			s.LibraryName = e.DynamicInfo.ExportLibraries[s.LibraryIndex].Name
+		if lib := e.DynamicInfo.ExportLibraries[s.LibraryIndex]; lib != nil {
+			s.LibraryName = lib.Name
 		}
 	}
 	s.HashIndex = GetSymbolHashIndex(s.LibraryName, s.ReadableName)

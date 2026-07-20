@@ -90,6 +90,9 @@ func (l *Liverpool) handleDmaData(stream *LiverpoolCommandStream, payload []uint
 		)
 		return
 	}
+	if dstAddrLow == 0x3022C { // Not sure what this is, shadps4 skips it too.
+		return
+	}
 
 	// Construct DMA copy.
 	dmaCopy := LiverpoolDmaCopy{

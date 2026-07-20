@@ -62,7 +62,7 @@ func EmitVOP2(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 		val0 := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
 		val1 := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src1, 0, 1)
 		valD := b.EmitBitcast(typeFloat, ctx.LoadRegisterPointer(b, details.Vdst+gcnSpec.OpVgpr0))
-		valD = applyVop3Modifiers(b, ctx, valD, details.Abs, details.Neg, 2)
+		valD = applyVop3Modifiers(b, ctx, valD, details.Abs, details.Neg, 2) // TODO: ????
 
 		isZero0 := b.EmitFOrdEqual(typeBool, val0, idZeroF)
 		isZero1 := b.EmitFOrdEqual(typeBool, val1, idZeroF)
@@ -101,7 +101,7 @@ func EmitVOP2(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 		val0 := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
 		val1 := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src1, 0, 1)
 		valD := b.EmitBitcast(ctx.GetId(BlockContextIdTypeFloat), ctx.LoadRegisterPointer(b, details.Vdst+gcnSpec.OpVgpr0))
-		valD = applyVop3Modifiers(b, ctx, valD, details.Abs, details.Neg, 2)
+		valD = applyVop3Modifiers(b, ctx, valD, details.Abs, details.Neg, 2) // TODO: ????
 		resF := b.EmitExtInst(ctx.GetId(BlockContextIdTypeFloat), ctx.GetId(BlockContextIdGlsl), spec.SpvGlslOpFma, val0, val1, valD)
 		StoreRegisterPointerMaskedModified(b, ctx, details.Clamp, details.OMod, details.Vdst+gcnSpec.OpVgpr0, resF, true)
 	case gcnSpec.Vop2OpCvtPkrtzF16F32:
@@ -131,6 +131,31 @@ func EmitVOP2(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 		val0 := GetOperandUintValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
 		val1 := GetOperandUintValueModified(b, ctx, details.Abs, details.Neg, details.Src1, 0, 1)
 		resU := b.EmitBitwiseAnd(ctx.GetId(BlockContextIdTypeUint), val0, val1)
+		StoreRegisterPointerMaskedModified(b, ctx, details.Clamp, details.OMod, details.Vdst+gcnSpec.OpVgpr0, resU, false)
+	case gcnSpec.Vop2OpCndmaskB32:
+		typeUint := ctx.GetId(BlockContextIdTypeUint)
+		typeBool := ctx.GetId(BlockContextIdTypeBool)
+		idZeroU := ctx.GetConstId(ConstIdUint0)
+		idOneU := ctx.GetConstId(ConstIdUint1)
+
+		// D.u = VCC[i] ? S1.u : S0.u (i = threadID in wave); VOP3: specify VCC as a scalar GPR in S2.
+		val0 := GetOperandUintValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
+		val1 := GetOperandUintValueModified(b, ctx, details.Abs, details.Neg, details.Src1, 0, 1)
+		var maskVal SpirvId
+		if instr.Encoding == gcnSpec.EncVOP3 {
+			maskVal = ctx.GetOperandValue(b, details.Src2, 0)
+		} else {
+			maskVal = ctx.GetOperandValue(b, gcnSpec.OpVccLo, 0)
+		}
+
+		// Get mask bit based on thread ID.
+		threadId := b.EmitLoad(typeUint, ctx.GetId(BlockContextIdSubgroupLocalInvocationId))
+		shiftedMask := b.EmitShiftRightLogical(typeUint, maskVal, threadId)
+		bitVal := b.EmitBitwiseAnd(typeUint, shiftedMask, idOneU)
+
+		// D.u = mask[i] ? S1.u : S0.u.
+		cond := b.EmitINotEqual(typeBool, bitVal, idZeroU)
+		resU := b.EmitSelect(typeUint, cond, val1, val0)
 		StoreRegisterPointerMaskedModified(b, ctx, details.Clamp, details.OMod, details.Vdst+gcnSpec.OpVgpr0, resU, false)
 	default:
 		panic(fmt.Sprintf("unknown vop2 op %s", gcnSpec.Mnemotics[gcnSpec.EncVOP2][details.Op]))

@@ -3,6 +3,7 @@ package libc
 import (
 	"github.com/LamkasDev/sharkie/cmd/elf"
 	"github.com/LamkasDev/sharkie/cmd/emu"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 )
 
@@ -33,11 +34,58 @@ func RegisterSceLibcInternalStubs() {
 
 	// IO functions.
 	elf.RegisterStub("libSceLibcInternal", "fopen", libSceLibcInternal_fopen)
+	elf.RegisterStub("libSceLibcInternal", "fdopen", libSceLibcInternal_fdopen)
 	elf.RegisterStub("libSceLibcInternal", "fread", libSceLibcInternal_fread)
+	elf.RegisterStub("libSceLibcInternal", "fgetc", libSceLibcInternal_fgetc)
+	elf.RegisterStub("libSceLibcInternal", "ungetc", libSceLibcInternal_ungetc)
+	elf.RegisterStub("libSceLibcInternal", "fwrite", libSceLibcInternal_fwrite)
+	elf.RegisterStub("libSceLibcInternal", "fputc", libSceLibcInternal_fputc)
+	elf.RegisterStub("libSceLibcInternal", "fputs", libSceLibcInternal_fputs)
+	elf.RegisterStub("libSceLibcInternal", "putc", libSceLibcInternal_fputc)
+	elf.RegisterStub("libSceLibcInternal", "putchar", libSceLibcInternal_putchar)
+	elf.RegisterStub("libSceLibcInternal", "puts", libSceLibcInternal_puts)
+	elf.RegisterStub("libSceLibcInternal", "fflush", libSceLibcInternal_fflush)
 	elf.RegisterStub("libSceLibcInternal", "fseek", libSceLibcInternal_fseek)
+	elf.RegisterStub("libSceLibcInternal", "ftell", libSceLibcInternal_ftell)
 	elf.RegisterStub("libSceLibcInternal", "fgetpos", libSceLibcInternal_fgetpos)
 	elf.RegisterStub("libSceLibcInternal", "setvbuf", libSceLibcInternal_setvbuf)
 	elf.RegisterStub("libSceLibcInternal", "fclose", libSceLibcInternal_fclose)
+	elf.RegisterStub("libSceLibcInternal", "feof", libSceLibcInternal_feof)
+
+	// Standard files (should remove once we have proper support).
+	RegisterFileStubs("libSceLibcInternal")
+	RegisterFileStubs("libc")
+}
+
+func RegisterFileStubs(libraryName string) {
+	stdin := elf.RegisterVariableStub(libraryName, "_Stdin", 8)
+	stdin_0 := elf.RegisterVariableStub(libraryName, "_Stdin_0", 8)
+	stdin_1 := elf.RegisterVariableStub(libraryName, "_Stdin_1", 8)
+	stdin_2 := elf.RegisterVariableStub(libraryName, "_Stdin_2", 8)
+	stdin_3 := elf.RegisterVariableStub(libraryName, "_Stdin_2", 8)
+	WriteAddress(stdin.Address, 0)
+	WriteAddress(stdin_0.Address, 0)
+	WriteAddress(stdin_1.Address, 0)
+	WriteAddress(stdin_2.Address, 0)
+	WriteAddress(stdin_3.Address, 0)
+
+	stdout := elf.RegisterVariableStub(libraryName, "_Stdout", 8)
+	stdout_0 := elf.RegisterVariableStub(libraryName, "_Stdout_0", 8)
+	stdout_1 := elf.RegisterVariableStub(libraryName, "_Stdout_1", 8)
+	stdout_2 := elf.RegisterVariableStub(libraryName, "_Stdout_2", 8)
+	WriteAddress(stdout.Address, 1)
+	WriteAddress(stdout_0.Address, 1)
+	WriteAddress(stdout_1.Address, 1)
+	WriteAddress(stdout_2.Address, 1)
+
+	stderr := elf.RegisterVariableStub(libraryName, "_Stderr", 8)
+	stderr_0 := elf.RegisterVariableStub(libraryName, "_Stderr_0", 8)
+	stderr_1 := elf.RegisterVariableStub(libraryName, "_Stderr_1", 8)
+	stderr_2 := elf.RegisterVariableStub(libraryName, "_Stderr_2", 8)
+	WriteAddress(stderr.Address, 2)
+	WriteAddress(stderr_0.Address, 2)
+	WriteAddress(stderr_1.Address, 2)
+	WriteAddress(stderr_2.Address, 2)
 }
 
 func Abort() uintptr {

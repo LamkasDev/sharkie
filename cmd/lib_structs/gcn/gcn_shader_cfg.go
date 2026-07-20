@@ -77,14 +77,19 @@ func NewGcnShaderCfg(instructions []spec.Instruction) (GcnShaderCfg, error) {
 		blocks[currentBlockId].Instructions = append(blocks[currentBlockId].Instructions, *instr)
 	}
 
-	// Remove blocks with no instructions.
-	nonEmptyBlocks := blocks[:0]
+	// Inject fake S_ENDPGM for empty blocks (usually targets outside the shader bounds).
 	for i := range blocks {
-		if len(blocks[i].Instructions) > 0 {
-			nonEmptyBlocks = append(nonEmptyBlocks, blocks[i])
+		if len(blocks[i].Instructions) == 0 {
+			blocks[i].Instructions = append(blocks[i].Instructions, spec.Instruction{
+				Encoding: spec.EncSOPP,
+				Details: &spec.ScalarDetails{
+					Op: spec.SoppOpEndpgm,
+				},
+				DwordOffset: blocks[i].DwordOffset,
+				DwordLen:    1,
+			})
 		}
 	}
-	blocks = nonEmptyBlocks
 
 	// Re-assign block IDs after filtering.
 	blocksByOffset := make(map[uintptr]int, len(blocks))

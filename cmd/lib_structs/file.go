@@ -64,3 +64,9 @@ const (
 	S_IWOTH = FileMode(0000002) /* W for other */
 	S_IXOTH = FileMode(0000001) /* X for other */
 )
+
+type FileOperation int32
+
+const (
+	F_GETFL = FileOperation(3)
+)

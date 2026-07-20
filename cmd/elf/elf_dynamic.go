@@ -80,11 +80,11 @@ type ElfDynamicSection struct {
 	HashOffset, HashSize                uint64 // Hash table information
 
 	Needed               []string          // List of needed shared libraries
-	ImportModules        []ElfModule       // List of imported modules
+	ImportModules        []*ElfModule      // List of imported modules
 	ImportModulesCount   uint16            // Number of imported modules
-	ImportLibraries      []ElfLibrary      // List of imported libraries
+	ImportLibraries      []*ElfLibrary     // List of imported libraries
 	ImportLibrariesCount uint16            // Number of imported libraries
-	ExportLibraries      []ElfLibrary      // List of exported libraries
+	ExportLibraries      []*ElfLibrary     // List of exported libraries
 	ExportLibrariesCount uint16            // Number of exported libraries
 	StringTable          map[uint64]string // String table for dynamic section strings
 
@@ -104,9 +104,9 @@ func (e *Elf) NewDynamicSection(data []byte, dynOffset, dynSize uint64) *ElfDyna
 
 	section := &ElfDynamicSection{
 		Needed:          []string{},
-		ImportModules:   make([]ElfModule, 64),
-		ImportLibraries: make([]ElfLibrary, 64),
-		ExportLibraries: make([]ElfLibrary, 64),
+		ImportModules:   make([]*ElfModule, 1024),
+		ImportLibraries: make([]*ElfLibrary, 1024),
+		ExportLibraries: make([]*ElfLibrary, 1024),
 		StringTable:     map[uint64]string{},
 		InitArray:       []uint64{},
 		PreInitArray:    []uint64{},
@@ -161,7 +161,7 @@ func (e *Elf) NewDynamicSection(data []byte, dynOffset, dynSize uint64) *ElfDyna
 			nameOffset := value & 0xFFF
 			moduleName := section.StringTable[nameOffset]
 
-			section.ImportModules[moduleIndex] = ElfModule{
+			section.ImportModules[moduleIndex] = &ElfModule{
 				Name:        moduleName,
 				ModuleIndex: uint16(moduleIndex),
 			}
@@ -171,7 +171,7 @@ func (e *Elf) NewDynamicSection(data []byte, dynOffset, dynSize uint64) *ElfDyna
 			nameOffset := value & 0xFFF
 			libraryName := section.StringTable[nameOffset]
 
-			section.ImportLibraries[libraryIndex] = ElfLibrary{
+			section.ImportLibraries[libraryIndex] = &ElfLibrary{
 				Name:         libraryName,
 				LibraryIndex: uint16(libraryIndex),
 			}
@@ -181,7 +181,7 @@ func (e *Elf) NewDynamicSection(data []byte, dynOffset, dynSize uint64) *ElfDyna
 			nameOffset := value & 0xFFF
 			libraryName := section.StringTable[nameOffset]
 
-			section.ExportLibraries[libraryIndex] = ElfLibrary{
+			section.ExportLibraries[libraryIndex] = &ElfLibrary{
 				Name:         libraryName,
 				LibraryIndex: uint16(libraryIndex),
 			}
@@ -190,7 +190,7 @@ func (e *Elf) NewDynamicSection(data []byte, dynOffset, dynSize uint64) *ElfDyna
 			nameOffset := value & 0xFFF
 			moduleName := section.StringTable[nameOffset]
 
-			section.ImportModules[0] = ElfModule{
+			section.ImportModules[0] = &ElfModule{
 				Name:        moduleName,
 				ModuleIndex: 0,
 			}

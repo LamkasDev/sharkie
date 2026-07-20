@@ -39,6 +39,7 @@ type VectorDetails struct {
 	Neg   uint8
 	OMod  uint8
 	Clamp bool
+	Src2  uint32
 }
 
 func (details *VectorDetails) IsVopcCmpx() bool {

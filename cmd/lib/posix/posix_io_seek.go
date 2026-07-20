@@ -32,7 +32,7 @@ func libScePosix_lseek(fd FileDescriptor, offset int64, whence int32) int64 {
 	if err != nil {
 		logger.Printf("%-132s %s failed due to seek error on %s (%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("lseek_0"),
+			color.Magenta.Sprint("lseek"),
 			color.Yellow.Sprintf("0x%X", fd),
 			err.Error(),
 		)
@@ -46,11 +46,11 @@ func libScePosix_lseek(fd FileDescriptor, offset int64, whence int32) int64 {
 	}
 
 	if logger.LogFilesystem {
-		logger.Printf("%-132s %s moved %s cursor to %s.\n",
+		logger.Printf("%-132s %s moved cursor to %s (fd=%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("lseek_0"),
-			color.Yellow.Sprintf("0x%X", fd),
+			color.Magenta.Sprint("lseek"),
 			color.Yellow.Sprintf("0x%X", newOffset),
+			color.Yellow.Sprintf("0x%X", fd),
 		)
 	}
 	return newOffset

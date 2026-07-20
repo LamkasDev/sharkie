@@ -29,6 +29,39 @@ func libKernel_sceKernelRead(fd FileDescriptor, bufPtr uintptr, length uint64) i
 	return readBytes
 }
 
+// 0x0000000000016520
+// __int64 sceKernelPread()
+func libKernel_sceKernelPread(fd FileDescriptor, bufPtr uintptr, length uint64, offset int64) int64 {
+	readBytes := posix.Pread(fd, bufPtr, length, offset)
+	if readBytes == ERR_PTRI {
+		return int64(emu.GetErrno() - SonyErrorOffset)
+	}
+
+	return readBytes
+}
+
+// 0x0000000000015960
+// __int64 __fastcall sceKernelWrite(__int64, __int64, __int64)
+func libKernel_sceKernelWrite(fd FileDescriptor, bufPtr uintptr, length uint64) int64 {
+	wroteBytes := posix.Write(fd, bufPtr, length)
+	if wroteBytes == ERR_PTRI {
+		return int64(emu.GetErrno() - SonyErrorOffset)
+	}
+
+	return wroteBytes
+}
+
+// 0x0000000000016550
+// __int64 sceKernelPwrite()
+func libKernel_sceKernelPwrite(fd FileDescriptor, bufPtr uintptr, length uint64, offset int64) int64 {
+	wroteBytes := posix.Pwrite(fd, bufPtr, length, offset)
+	if wroteBytes == ERR_PTRI {
+		return int64(emu.GetErrno() - SonyErrorOffset)
+	}
+
+	return wroteBytes
+}
+
 // 0x00000000000165B0
 // __int64 sceKernelLseek()
 func libKernel_sceKernelLseek(fd FileDescriptor, offset int64, whence int32) int64 {

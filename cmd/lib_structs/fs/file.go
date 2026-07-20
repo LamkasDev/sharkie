@@ -113,8 +113,13 @@ func (shFile *SharkieFile) Write(data []byte) (int, error) {
 	if shFile.Flags&os.O_RDWR == 0 && shFile.Flags&os.O_WRONLY == 0 {
 		return 0, errors.New("file not opened for writing")
 	}
+	if shFile.Flags&os.O_APPEND != 0 {
+		shFile.Offset = shFile.Node.GetSize()
+	}
 	n, err := shFile.Node.WriteAt(data, shFile.Offset)
-	shFile.Offset += int64(n)
+	if err == nil {
+		shFile.Offset += int64(n)
+	}
 
 	return n, err
 }

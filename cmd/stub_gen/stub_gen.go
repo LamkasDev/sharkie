@@ -42,6 +42,9 @@ var signatures = []Signature{
 	{FuncType: "func(fs.FileDescriptor) uintptr", Params: []Param{
 		{Name: "DI", Type: "fs.FileDescriptor"},
 	}},
+	{FuncType: "func(Cstring) uintptr", Params: []Param{
+		{Name: "DI", Type: "Cstring"},
+	}},
 
 	// 2 arguments.
 	{FuncType: "func(int, int) uintptr", Params: []Param{
@@ -76,6 +79,10 @@ var signatures = []Signature{
 		{Name: "DI", Type: "Cstring"},
 		{Name: "SI", Type: "uintptr"},
 	}},
+	{FuncType: "func(Cstring, uintptr) uintptr", Params: []Param{
+		{Name: "DI", Type: "Cstring"},
+		{Name: "SI", Type: "uintptr"},
+	}},
 	{FuncType: "func(fs.FileDescriptor, int64) int32", Params: []Param{
 		{Name: "DI", Type: "fs.FileDescriptor"},
 		{Name: "SI", Type: "int64"},
@@ -98,6 +105,10 @@ var signatures = []Signature{
 	}},
 	{FuncType: "func(Cstring, Cstring) uintptr", Params: []Param{
 		{Name: "DI", Type: "Cstring"},
+		{Name: "SI", Type: "Cstring"},
+	}},
+	{FuncType: "func(fs.FileDescriptor, Cstring) uintptr", Params: []Param{
+		{Name: "DI", Type: "fs.FileDescriptor"},
 		{Name: "SI", Type: "Cstring"},
 	}},
 
@@ -151,6 +162,11 @@ var signatures = []Signature{
 		{Name: "DI", Type: "uintptr"},
 		{Name: "SI", Type: "uintptr"},
 		{Name: "DX", Type: "int64"},
+	}},
+	{FuncType: "func(fs.FileDescriptor, FileOperation, uintptr) int64", Params: []Param{
+		{Name: "DI", Type: "fs.FileDescriptor"},
+		{Name: "SI", Type: "FileOperation"},
+		{Name: "DX", Type: "uintptr"},
 	}},
 
 	// 4 arguments.

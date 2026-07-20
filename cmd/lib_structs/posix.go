@@ -9,6 +9,7 @@ import (
 const (
 	EPERM        = 1
 	ENOENT       = 2
+	EBADF        = 9
 	EAGAIN       = 11
 	ENOMEM       = 12
 	EFAULT       = 14

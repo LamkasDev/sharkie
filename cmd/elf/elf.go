@@ -17,6 +17,7 @@ const (
 	PT_TLS            = 7          // Thread-local storage segment
 	PT_SCE_DYNLIBDATA = 0x61000000 // SCE-specific dynamic library data
 	PT_SCE_PROCPARAM  = 0x61000001 // SCE-specific process parameters
+	PT_SCE_RELRO      = 0x61000010 // SCE-specific loadable segment
 	PT_GNU_EH_FRAME   = 0x6474e550 // GNU exception handling frame
 )
 
@@ -76,7 +77,7 @@ func NewElf(data []byte) *Elf {
 		offset := phOff + i*phEntSize
 		pType := binary.LittleEndian.Uint32(data[offset:])
 		switch pType {
-		case PT_LOAD:
+		case PT_LOAD, PT_SCE_RELRO:
 			loadSection := e.NewLoadSection(data, uint64(offset))
 			size := loadSection.PVaddr + loadSection.PMemsz
 			if size > e.MemSize {

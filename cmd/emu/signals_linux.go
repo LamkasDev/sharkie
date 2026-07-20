@@ -114,7 +114,7 @@ func SprintException(ctx *sys_struct.SIGNAL_CONTEXT) (result string) {
 	result += sys_struct.SprintContext(ctx)
 	threadContext := asm.GetCurrentThreadContext()
 	result += sys_struct.SprintRegister("TCB", uint64(uintptr(unsafe.Pointer(threadContext))))
-	result += SprintStackTrace(ctx)
+	result += SprintExceptionStackTrace(ctx)
 
 	return result
 }

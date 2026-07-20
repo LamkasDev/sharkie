@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"path/filepath"
 	"runtime"
+	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/asm"
 	"github.com/LamkasDev/sharkie/cmd/elf"
+	"github.com/LamkasDev/sharkie/cmd/lib_structs"
 	"github.com/gookit/color"
 )
 
@@ -53,4 +55,30 @@ func SprintAddress(address uintptr) string {
 		"  %42s\n",
 		color.Yellow.Sprintf("0x%X", address),
 	)
+}
+
+// SprintStackTrace prints stack trace using thread context.
+func SprintStackTrace() string {
+	threadContext := asm.GetCurrentThreadContext()
+	return "Stack trace:\n" + SprintStackTraceFromSP(threadContext.PlaystationSP)
+}
+
+// SprintStackTraceFromSP prints stack trace starting from a given stack pointer.
+func SprintStackTraceFromSP(stackPtr uintptr) (result string) {
+	thread := GetCurrentThread()
+	if stackPtr <= 0x1000 {
+		return result
+	}
+	stackTop := thread.Stack.Address + lib_structs.StackDefaultSize
+	for i := 0; i < 40; i++ {
+		if stackPtr >= stackTop {
+			break
+		}
+		address := *(*uint64)(unsafe.Pointer(stackPtr))
+		result += SprintAddress(uintptr(address))
+
+		stackPtr += 8
+	}
+
+	return result
 }

@@ -106,7 +106,8 @@ func (m *ModuleManager) _RecursiveLoadModule(name string) error {
 	for _, needed := range module.DynamicInfo.Needed {
 		if strings.HasPrefix(needed, "libSceGnmDriver_padebug") ||
 			strings.HasPrefix(needed, "libSceDbgAddressSanitizer") ||
-			strings.HasPrefix(needed, "libSceDipsw") {
+			strings.HasPrefix(needed, "libSceDipsw") ||
+			strings.HasPrefix(needed, "libSceOttvCapture") {
 			continue
 		}
 		if err = m._RecursiveLoadModule(needed); err != nil {
@@ -135,37 +136,21 @@ func (m *ModuleManager) RunModuleInitializers(module *elf.Elf, visited map[strin
 		}
 	}
 
-	isSelfContained := module.Name == "libSceLibcInternal.sprx"
 	if skipOwnInit {
 		return
 	}
 	m.CurrentModule = module
 
-	// Call	module_start function on shared libraries.
-	if module.EntryAddress != 0 && module != m.CurrentModule {
-		moduleStart := module.BaseAddress + uintptr(module.EntryAddress)
+	// Call C++ initialization functions.
+	for _, funcAddr := range module.DynamicInfo.PreInitArray {
 		logger.Printf(
 			"Calling %s's %s function at %s (relative=%s)...\n",
 			color.Blue.Sprint(module.Name),
-			color.Magenta.Sprint("module_start"),
-			color.Yellow.Sprintf("0x%X", moduleStart),
-			color.Yellow.Sprintf("0x%X", module.EntryAddress),
+			color.Magenta.Sprint("DT_PREINIT_ARRAY"),
+			color.Yellow.Sprintf("0x%X", funcAddr),
+			color.Yellow.Sprintf("0x%X", uintptr(funcAddr)-module.BaseAddress),
 		)
-		m.MainThread.CallAndWait(moduleStart, 0)
-	}
-
-	// Call C++ initialization functions.
-	if !isSelfContained {
-		for _, funcAddr := range module.DynamicInfo.PreInitArray {
-			logger.Printf(
-				"Calling %s's %s function at %s (relative=%s)...\n",
-				color.Blue.Sprint(module.Name),
-				color.Magenta.Sprint("DT_PREINIT_ARRAY"),
-				color.Yellow.Sprintf("0x%X", funcAddr),
-				color.Yellow.Sprintf("0x%X", uintptr(funcAddr)-module.BaseAddress),
-			)
-			m.MainThread.CallAndWait(uintptr(funcAddr), 0)
-		}
+		m.MainThread.CallAndWait(uintptr(funcAddr), 0)
 	}
 	if module.DynamicInfo.InitFunc != nil {
 		logger.Printf(
@@ -177,17 +162,15 @@ func (m *ModuleManager) RunModuleInitializers(module *elf.Elf, visited map[strin
 		)
 		m.MainThread.CallAndWait(uintptr(*module.DynamicInfo.InitFunc), 0)
 	}
-	if !isSelfContained {
-		for _, funcAddr := range module.DynamicInfo.InitArray {
-			logger.Printf(
-				"Calling %s's %s function at %s (relative=%s)...\n",
-				color.Blue.Sprint(module.Name),
-				color.Magenta.Sprint("DT_INIT_ARRAY"),
-				color.Yellow.Sprintf("0x%X", funcAddr),
-				color.Yellow.Sprintf("0x%X", uintptr(funcAddr)-module.BaseAddress),
-			)
-			m.MainThread.CallAndWait(uintptr(funcAddr), 0)
-		}
+	for _, funcAddr := range module.DynamicInfo.InitArray {
+		logger.Printf(
+			"Calling %s's %s function at %s (relative=%s)...\n",
+			color.Blue.Sprint(module.Name),
+			color.Magenta.Sprint("DT_INIT_ARRAY"),
+			color.Yellow.Sprintf("0x%X", funcAddr),
+			color.Yellow.Sprintf("0x%X", uintptr(funcAddr)-module.BaseAddress),
+		)
+		m.MainThread.CallAndWait(uintptr(funcAddr), 0)
 	}
 }
 

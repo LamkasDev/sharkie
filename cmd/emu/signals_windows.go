@@ -70,7 +70,7 @@ func ExceptionHandlerGo() uintptr {
 func SprintException(ctx *sys_struct.CONTEXT) (result string) {
 	result += sys_struct.SprintContext(ctx)
 	result += sys_struct.SprintRegister("TCB", uint64(uintptr(unsafe.Pointer(asm.GetCurrentThreadContext()))))
-	result += SprintStackTrace(ctx)
+	result += SprintExceptionStackTrace(ctx)
 
 	return result
 }

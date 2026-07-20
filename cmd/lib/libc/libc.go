@@ -1,6 +1,8 @@
 package libc
 
-import "github.com/LamkasDev/sharkie/cmd/elf"
+import (
+	"github.com/LamkasDev/sharkie/cmd/elf"
+)
 
 func RegisterLibcStubs() {
 	// Memory functions.
@@ -26,9 +28,21 @@ func RegisterLibcStubs() {
 
 	// IO functions.
 	elf.RegisterStub("libc", "fopen", libc_fopen)
+	elf.RegisterStub("libc", "fdopen", libc_fdopen)
 	elf.RegisterStub("libc", "fread", libc_fread)
+	elf.RegisterStub("libc", "fgetc", libc_fgetc)
+	elf.RegisterStub("libc", "ungetc", libc_ungetc)
+	elf.RegisterStub("libc", "fwrite", libc_fwrite)
+	elf.RegisterStub("libc", "fputc", libc_fputc)
+	elf.RegisterStub("libc", "fputs", libc_fputs)
+	elf.RegisterStub("libc", "putc", libc_fputc)
+	elf.RegisterStub("libc", "putchar", libc_putchar)
+	elf.RegisterStub("libc", "puts", libc_puts)
+	elf.RegisterStub("libc", "fflush", libc_fflush)
 	elf.RegisterStub("libc", "fseek", libc_fseek)
+	elf.RegisterStub("libc", "ftell", libc_ftell)
 	elf.RegisterStub("libc", "fgetpos", libc_fgetpos)
 	elf.RegisterStub("libc", "setvbuf", libc_setvbuf)
 	elf.RegisterStub("libc", "fclose", libc_fclose)
+	elf.RegisterStub("libc", "feof", libc_feof)
 }

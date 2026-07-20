@@ -246,3 +246,10 @@ func (b *SpvBuilder) EmitFOrdGreaterThan(resultType, op1, op2 SpirvId) SpirvId {
 	b.instr(&b.code, spec.SpvOpFOrdGreaterThan, uint32(resultType), uint32(id), uint32(op1), uint32(op2))
 	return id
 }
+
+// EmitFOrdGreaterThanEqual emits OpFOrdGreaterThanEqual and returns the result ID.
+func (b *SpvBuilder) EmitFOrdGreaterThanEqual(resultType, op1, op2 SpirvId) SpirvId {
+	id := b.AllocId()
+	b.instr(&b.code, spec.SpvOpFOrdGreaterThanEqual, uint32(resultType), uint32(id), uint32(op1), uint32(op2))
+	return id
+}

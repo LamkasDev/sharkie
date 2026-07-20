@@ -24,6 +24,7 @@ func EmitVOP3(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 			Neg:   details.Neg,
 			OMod:  details.OMod,
 			Clamp: details.Clamp,
+			Src2:  details.Src2,
 		}
 		EmitVOPC(b, instr, ctx)
 	case details.Op >= gcnSpec.Vop3OpCndmaskB32 && details.Op <= gcnSpec.Vop3OpCvtPkI16I32: // VOP2
@@ -37,6 +38,7 @@ func EmitVOP3(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 			Neg:   details.Neg,
 			OMod:  details.OMod,
 			Clamp: details.Clamp,
+			Src2:  details.Src2,
 		}
 		EmitVOP2(b, instr, ctx)
 	case details.Op >= gcnSpec.Vop3OpNop && details.Op <= gcnSpec.Vop3OpMovrelsdB32: // VOP1
@@ -49,6 +51,7 @@ func EmitVOP3(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 			Neg:   details.Neg,
 			OMod:  details.OMod,
 			Clamp: details.Clamp,
+			Src2:  details.Src2,
 		}
 		EmitVOP1(b, instr, ctx)
 	case details.Op == gcnSpec.Vop3OpMadF32:

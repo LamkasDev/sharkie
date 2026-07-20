@@ -48,6 +48,10 @@ func CreateDispatcher(goFn any) asm.StubDispatcher {
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn(fs.FileDescriptor(ctx.DI)))
 		}
+	case func(Cstring) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(Cstring(ctx.DI)))
+		}
 	case func(int, int) uintptr:
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn(int(ctx.DI), int(ctx.SI)))
@@ -80,6 +84,10 @@ func CreateDispatcher(goFn any) asm.StubDispatcher {
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn(Cstring(ctx.DI), ctx.SI))
 		}
+	case func(Cstring, uintptr) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(Cstring(ctx.DI), ctx.SI))
+		}
 	case func(fs.FileDescriptor, int64) int32:
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn(fs.FileDescriptor(ctx.DI), int64(ctx.SI)))
@@ -103,6 +111,10 @@ func CreateDispatcher(goFn any) asm.StubDispatcher {
 	case func(Cstring, Cstring) uintptr:
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn(Cstring(ctx.DI), Cstring(ctx.SI)))
+		}
+	case func(fs.FileDescriptor, Cstring) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(fs.FileDescriptor(ctx.DI), Cstring(ctx.SI)))
 		}
 	case func(int, int, int) uintptr:
 		return func(ctx *asm.RegContext) uintptr {
@@ -143,6 +155,10 @@ func CreateDispatcher(goFn any) asm.StubDispatcher {
 	case func(uintptr, uintptr, int64) uintptr:
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn(ctx.DI, ctx.SI, int64(ctx.DX)))
+		}
+	case func(fs.FileDescriptor, FileOperation, uintptr) int64:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(fs.FileDescriptor(ctx.DI), FileOperation(ctx.SI), ctx.DX))
 		}
 	case func(fs.FileDescriptor, uintptr, uint64, int64) int64:
 		return func(ctx *asm.RegContext) uintptr {

@@ -78,7 +78,7 @@ func TryGetSymbolAddress(s *elf.ElfSymbol, module *elf.Elf) (uintptr, bool) {
 		return 0, false
 	}
 	for _, exportedLibrary := range module.DynamicInfo.ExportLibraries {
-		if s.LibraryName != exportedLibrary.Name {
+		if exportedLibrary == nil || s.LibraryName != exportedLibrary.Name {
 			continue
 		}
 		for _, symbol := range module.SymbolTable.Symbols {

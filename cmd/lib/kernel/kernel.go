@@ -3,7 +3,6 @@ package kernel
 import (
 	"github.com/LamkasDev/sharkie/cmd/elf"
 	"github.com/LamkasDev/sharkie/cmd/emu"
-	"github.com/LamkasDev/sharkie/cmd/lib/posix"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
@@ -71,14 +70,8 @@ func RegisterKernelStubs() {
 	elf.RegisterStub("libkernel", "sceKernelOpen", libKernel_sceKernelOpen)
 	elf.RegisterStub("libkernel", "sceKernelClose", libKernel_sceKernelClose)
 	elf.RegisterStub("libkernel", "sceKernelRead", libKernel_sceKernelRead)
-	elf.RegisterStub("libkernel", "pread_0", libKernel_pread_0)
-	elf.RegisterStub("libkernel", "pread", libKernel_pread)
 	elf.RegisterStub("libkernel", "sceKernelPread", libKernel_sceKernelPread)
-	elf.RegisterStub("libkernel", "write", libKernel_write)
-	elf.RegisterStub("libkernel", "_write", libKernel__write)
 	elf.RegisterStub("libkernel", "sceKernelWrite", libKernel_sceKernelWrite)
-	elf.RegisterStub("libkernel", "pwrite_0", libKernel_pwrite_0)
-	elf.RegisterStub("libkernel", "pwrite", libKernel_pwrite)
 	elf.RegisterStub("libkernel", "sceKernelPwrite", libKernel_sceKernelPwrite)
 	elf.RegisterStub("libkernel", "ioctl", libKernel_ioctl)
 	elf.RegisterStub("libkernel", "_ioctl", libKernel_ioctl)
@@ -217,7 +210,6 @@ func RegisterKernelStubs() {
 	elf.RegisterStub("libkernel", "sceKernelClockGettime", libKernel_sceKernelClockGettime)
 	elf.RegisterStub("libkernel", "sceKernelGetProcessTime", libKernel_sceKernelGetProcessTime)
 	elf.RegisterStub("libkernel", "sceKernelGettimeofday", libKernel_sceKernelGettimeofday)
-	elf.RegisterStub("libkernel", "clock_gettime", posix.Clock_gettime)
 
 	// Signal functions.
 	elf.RegisterStub("libkernel", "sigprocmask", libKernel_sigprocmask)

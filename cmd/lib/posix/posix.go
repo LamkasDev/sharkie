@@ -9,36 +9,53 @@ import (
 
 func RegisterPosixStubs() {
 	// Semaphore functions.
-	elf.RegisterStub("libScePosix", "sem_post", libScePosix_sem_post)
-	elf.RegisterStub("libScePosix", "sem_wait", libScePosix_sem_wait)
-	elf.RegisterStub("libScePosix", "sem_timedwait", libScePosix_sem_timedwait)
-	elf.RegisterStub("libScePosix", "sem_destroy", libScePosix_stub)
-	elf.RegisterStub("libScePosix", "sem_init", libScePosix_sem_init)
+	RegisterPosixStub("sem_post", libScePosix_sem_post)
+	RegisterPosixStub("sem_wait", libScePosix_sem_wait)
+	RegisterPosixStub("sem_timedwait", libScePosix_sem_timedwait)
+	RegisterPosixStub("sem_destroy", libScePosix_stub)
+	RegisterPosixStub("sem_init", libScePosix_sem_init)
 
 	// Clock functions.
-	elf.RegisterStub("libScePosix", "clock_gettime", libScePosix_clock_gettime)
-	elf.RegisterStub("libScePosix", "clock_gettimeofday", libScePosix_clock_gettimeofday)
+	RegisterPosixStub("clock_gettime", libScePosix_clock_gettime)
+	RegisterPosixStub("clock_gettimeofday", libScePosix_clock_gettimeofday)
 
 	// Process functions.
-	elf.RegisterStub("libScePosix", "usleep", libScePosix_usleep)
-	elf.RegisterStub("libScePosix", "nanosleep", libScePosix_nanosleep)
+	RegisterPosixStub("usleep", libScePosix_usleep)
+	RegisterPosixStub("nanosleep", libScePosix_nanosleep)
 
 	// Thread functions.
-	elf.RegisterStub("libScePosix", "pthread_create", libScePosix_pthread_create)
-	elf.RegisterStub("libScePosix", "pthread_create_name_np", libScePosix_pthread_create_name_np)
-	elf.RegisterStub("libScePosix", "pthread_setschedparam", libScePosix_stub)
+	RegisterPosixStub("pthread_create", libScePosix_pthread_create)
+	RegisterPosixStub("pthread_create_name_np", libScePosix_pthread_create_name_np)
+	RegisterPosixStub("pthread_setschedparam", libScePosix_stub)
 
 	// Mutex functions.
-	elf.RegisterStub("libScePosix", "pthread_mutex_init", libScePosix_pthread_mutex_init)
-	elf.RegisterStub("libScePosix", "pthread_mutex_lock", libScePosix_pthread_mutex_lock)
-	elf.RegisterStub("libScePosix", "pthread_mutex_unlock", libScePosix_pthread_mutex_unlock)
-	elf.RegisterStub("libScePosix", "pthread_mutex_destroy", libScePosix_pthread_mutex_destroy)
+	RegisterPosixStub("pthread_mutex_init", libScePosix_pthread_mutex_init)
+	RegisterPosixStub("pthread_mutex_lock", libScePosix_pthread_mutex_lock)
+	RegisterPosixStub("pthread_mutex_unlock", libScePosix_pthread_mutex_unlock)
+	RegisterPosixStub("pthread_mutex_destroy", libScePosix_pthread_mutex_destroy)
 
 	// IO functions.
-	elf.RegisterStub("libScePosix", "open", libScePosix_open)
-	elf.RegisterStub("libScePosix", "read", libScePosix_read)
-	elf.RegisterStub("libScePosix", "lseek", libScePosix_lseek)
-	elf.RegisterStub("libScePosix", "close", libScePosix_close)
+	RegisterPosixStub("open", libScePosix_open)
+	RegisterPosixStub("_open", libScePosix_open)
+	RegisterPosixStub("read", libScePosix_read)
+	RegisterPosixStub("_read", libScePosix_read)
+	RegisterPosixStub("pread", libScePosix_pread)
+	RegisterPosixStub("pread_0", libScePosix_pread)
+	RegisterPosixStub("write", libScePosix_write)
+	RegisterPosixStub("_write", libScePosix_write)
+	RegisterPosixStub("pwrite", libScePosix_pwrite)
+	RegisterPosixStub("pwrite_0", libScePosix_pwrite)
+	RegisterPosixStub("fcntl", libScePosix_fcntl)
+	RegisterPosixStub("lseek", libScePosix_lseek)
+	RegisterPosixStub("lseek_0", libScePosix_lseek)
+	RegisterPosixStub("close", libScePosix_close)
+	RegisterPosixStub("_close", libScePosix_close)
+}
+
+// We need these functions to be available in kernel; libraries take them from there.
+func RegisterPosixStub(symbolName string, goFn any) {
+	elf.RegisterStub("libScePosix", symbolName, goFn)
+	elf.RegisterStub("libkernel", symbolName, goFn)
 }
 
 func libScePosix_stub() uintptr {

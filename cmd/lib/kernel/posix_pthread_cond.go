@@ -86,7 +86,7 @@ func libKernel_pthread_cond_destroy(condHandlePtr uintptr) uintptr {
 	logger.Printf("%-132s %s destroyed cond %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("pthread_cond_destroy"),
-		GetCondNameText(cond, condAddr),
+		color.Yellow.Sprintf("0x%X", condAddr),
 	)
 	return 0
 }
