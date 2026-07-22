@@ -34,6 +34,10 @@ const (
 	BlockContextIdPtrUniformSampledImage
 	BlockContextIdTypeStorageImage
 	BlockContextIdPtrUniformStorageImage
+	BlockContextIdTypeImageBuffer
+	BlockContextIdTypeSampledImageBuffer
+	BlockContextIdPtrUniformSampledImageBuffer
+	BlockContextIdStaticSampledBuffers
 	BlockContextIdPtrPcPsbUint
 	BlockContextIdPtrPcUint64
 	BlockContextIdPtrPcUint
@@ -128,7 +132,6 @@ const (
 	BlockContextIdVertexIndex
 	BlockContextIdInstanceIndex
 	BlockContextIdFragCoord
-	BlockContextIdTypeImageBuffer
 
 	BlockContextIdWorkgroupId
 	BlockContextIdLocalInvocationId

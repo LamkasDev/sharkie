@@ -6,8 +6,9 @@ const (
 
 const (
 	// Bindings for DescriptorSetSlotStatic (Set 0)
-	StaticBindingSampledImages = 0
-	StaticBindingStorageImages = 1
+	StaticBindingSampledImages  = 0
+	StaticBindingStorageImages  = 1
+	StaticBindingSampledBuffers = 2
 
 	MaxStaticBindings = 32
 )

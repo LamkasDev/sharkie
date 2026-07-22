@@ -4,9 +4,12 @@ import (
 	"fmt"
 	"math"
 
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/gcn"
+	gcnSpec "github.com/LamkasDev/sharkie/cmd/lib_structs/gcn/spec"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/gpu"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/LamkasDev/sharkie/cmd/spirv"
+	spirvCommon "github.com/LamkasDev/sharkie/cmd/spirv/common"
 	spirvStructs "github.com/LamkasDev/sharkie/cmd/spirv/structs"
 	"github.com/LamkasDev/sharkie/cmd/vulkan"
 	vk "github.com/goki/vulkan"
@@ -86,20 +89,40 @@ func (t *GpuTranslator) BindPipeline(frame uint64, bind *gpu.LiverpoolBindPipeli
 		return
 	}
 
+	// Get buffer addresses.
+	t.userDataBuffersMutex.Lock()
+	userData, _ := gpu.GlobalUserDataSnapshots[bind.UserDataHash]
+	t.userDataBuffersMutex.Unlock()
+
+	// Parse fetch shader layout.
+	var fetchLayout spirvCommon.FetchShaderLayout
+	var fetchInstrs []*gcnSpec.Instruction
+	fetchPC := GetFetchShaderPC(bind.VertexShader, userData[:])
+	if fetchPC != 0 {
+		fetchShader := gpu.GlobalLiverpool.GetShader(gcn.GcnShaderStageVertex, fetchPC)
+		if fetchShader != nil {
+			fetchLayout, fetchInstrs = ParseFetchShaderLayout(fetchShader, userData[:])
+		}
+	}
+
 	// Get shader modules.
-	vsSpirv := t.GetShader(bind.VertexShader)
+	vsSpirv, vsKey := t.GetShaderWithContext(bind.VertexShader, spirv.SpirvShaderContext{
+		FetchLayout:     fetchLayout,
+		FetchInstrs:     fetchInstrs,
+		FetchLayoutHash: uint64(fetchLayout.Hash()),
+	})
 	t.activeVertexShader = vsSpirv
-	vsModule, err := t.GetShaderModule(vsSpirv)
+	vsModule, err := t.GetShaderModule(vsKey, vsSpirv)
 	if err != nil {
 		return
 	}
-	psSpirv := t.GetShaderWithContext(bind.PixelShader, spirv.SpirvShaderContext{
+	psSpirv, psKey := t.GetShaderWithContext(bind.PixelShader, spirv.SpirvShaderContext{
 		PsInControl:     bind.PsInControl,
 		PsInputAddress:  bind.PsInputAddress,
 		PsInputControls: bind.PsInputControls,
 	})
 	t.activeFragmentShader = psSpirv
-	psModule, err := t.GetShaderModule(psSpirv)
+	psModule, err := t.GetShaderModule(psKey, psSpirv)
 	if err != nil {
 		return
 	}
@@ -115,8 +138,8 @@ func (t *GpuTranslator) BindPipeline(frame uint64, bind *gpu.LiverpoolBindPipeli
 			return
 		}
 	} else if bind.GeometryShader != nil {
-		gsSpirv := t.GetShader(bind.GeometryShader)
-		gsModule, err = t.GetShaderModule(gsSpirv)
+		gsSpirv, gsKey := t.GetShaderWithContext(bind.GeometryShader, spirv.SpirvShaderContext{})
+		gsModule, err = t.GetShaderModule(gsKey, gsSpirv)
 		if err != nil {
 			return
 		}
@@ -148,6 +171,7 @@ func (t *GpuTranslator) BindPipeline(frame uint64, bind *gpu.LiverpoolBindPipeli
 		RenderPass:        fb.RenderPass,
 		GraphicsPipelineKey: vulkan.GraphicsPipelineKey{
 			VertexModuleAddress:   bind.VertexShader.Address,
+			FetchLayoutHash:       vsKey.FetchLayoutHash,
 			FragmentModuleAddress: bind.PixelShader.Address,
 			RenderTargetAddress:   rtAddress,
 			DepthTargetAddress:    dbAddress,

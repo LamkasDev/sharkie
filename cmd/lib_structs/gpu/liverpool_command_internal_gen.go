@@ -10,8 +10,8 @@ import (
 func (z *LiverpoolBindPipelineInternal) MarshalHash() (o []byte, err error) {
 	var b []byte
 	o = hsp.Require(b, z.Msgsize())
-	// map header, size 77
-	o = append(o, 0xde, 0x0, 0x4d)
+	// map header, size 78
+	o = append(o, 0xde, 0x0, 0x4e)
 	o = hsp.AppendBool(o, z.CullBack)
 	o = hsp.AppendBool(o, z.CullFront)
 	o = hsp.AppendBool(o, z.DbAlphaToMaskDisable)
@@ -89,6 +89,7 @@ func (z *LiverpoolBindPipelineInternal) MarshalHash() (o []byte, err error) {
 	o = hsp.AppendUint32(o, z.RtSlice)
 	o = hsp.AppendUint32(o, z.RtTargetMask)
 	o = hsp.AppendUint32(o, z.RtView)
+	o = hsp.AppendUint32(o, z.UserDataHash)
 	o = hsp.AppendUint64(o, uint64(z.VertexShaderAddress))
 	o = hsp.AppendBool(o, z.VpScissorEnable)
 	o = hsp.AppendBool(o, z.WindowOffsetEnable)
@@ -97,7 +98,7 @@ func (z *LiverpoolBindPipelineInternal) MarshalHash() (o []byte, err error) {
 
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
 func (z *LiverpoolBindPipelineInternal) Msgsize() (s int) {
-	s = 3 + 9 + hsp.BoolSize + 10 + hsp.BoolSize + 21 + hsp.BoolSize + 22 + hsp.Uint32Size + 23 + hsp.BoolSize + 20 + hsp.BoolSize + 19 + hsp.BoolSize + 18 + hsp.Uint32Size + 15 + hsp.Uint32Size + 12 + hsp.BoolSize + 12 + hsp.Uint32Size + 17 + hsp.BoolSize + 13 + hsp.BoolSize + 13 + hsp.BoolSize + 19 + hsp.BoolSize + 21 + hsp.BoolSize + 20 + hsp.Uint32Size + 17 + hsp.Uint32Size + 14 + hsp.BoolSize + 27 + hsp.BoolSize + 17 + hsp.Uint32Size + 19 + hsp.Uint32Size + 29 + hsp.BoolSize + 16 + hsp.BoolSize + 10 + hsp.Uint32Size + 9 + hsp.Uint32Size + 13 + hsp.Uint32Size + hsp.Uint64Size + 5 + hsp.BoolSize + hsp.Uint64Size + hsp.Uint64Size + 18 + hsp.BoolSize + 19 + hsp.Uint32Size + 23 + hsp.Uint32Size + 11 + hsp.BoolSize + 20 + hsp.Uint32Size + 23 + hsp.BoolSize + 22 + hsp.Uint32Size + hsp.Uint64Size + 9 + hsp.Uint32Size + 18 + hsp.Uint32Size + 19 + hsp.Uint32Size + 21 + hsp.BoolSize + 22 + hsp.BoolSize + 21 + hsp.BoolSize + 9 + hsp.Uint32Size + 20 + hsp.BoolSize + 12 + hsp.Uint32Size + 15 + hsp.Uint32Size + 16 + hsp.ArrayHeaderSize + (int(32) * (hsp.Uint32Size)) + 9 + hsp.Uint32Size + 7 + hsp.Uint32Size + 14 + hsp.BoolSize + 13 + hsp.BoolSize + 15 + hsp.Uint32Size + 23 + hsp.Uint32Size + 20 + hsp.Uint32Size + 13 + hsp.Uint32Size + 13 + hsp.Uint32Size + 16 + hsp.BoolSize + 15 + hsp.Uint32Size + 11 + hsp.Uint32Size + 14 + hsp.BoolSize + 12 + hsp.BoolSize + 22 + hsp.BoolSize + 9 + hsp.Uint32Size + 16 + hsp.BoolSize + 13 + hsp.Uint32Size + 8 + hsp.Uint32Size + 12 + hsp.Uint32Size + 14 + hsp.BoolSize + 8 + hsp.Uint32Size + 13 + hsp.Uint32Size + 7 + hsp.Uint32Size + hsp.Uint64Size + 16 + hsp.BoolSize + 19 + hsp.BoolSize
+	s = 3 + 9 + hsp.BoolSize + 10 + hsp.BoolSize + 21 + hsp.BoolSize + 22 + hsp.Uint32Size + 23 + hsp.BoolSize + 20 + hsp.BoolSize + 19 + hsp.BoolSize + 18 + hsp.Uint32Size + 15 + hsp.Uint32Size + 12 + hsp.BoolSize + 12 + hsp.Uint32Size + 17 + hsp.BoolSize + 13 + hsp.BoolSize + 13 + hsp.BoolSize + 19 + hsp.BoolSize + 21 + hsp.BoolSize + 20 + hsp.Uint32Size + 17 + hsp.Uint32Size + 14 + hsp.BoolSize + 27 + hsp.BoolSize + 17 + hsp.Uint32Size + 19 + hsp.Uint32Size + 29 + hsp.BoolSize + 16 + hsp.BoolSize + 10 + hsp.Uint32Size + 9 + hsp.Uint32Size + 13 + hsp.Uint32Size + hsp.Uint64Size + 5 + hsp.BoolSize + hsp.Uint64Size + hsp.Uint64Size + 18 + hsp.BoolSize + 19 + hsp.Uint32Size + 23 + hsp.Uint32Size + 11 + hsp.BoolSize + 20 + hsp.Uint32Size + 23 + hsp.BoolSize + 22 + hsp.Uint32Size + hsp.Uint64Size + 9 + hsp.Uint32Size + 18 + hsp.Uint32Size + 19 + hsp.Uint32Size + 21 + hsp.BoolSize + 22 + hsp.BoolSize + 21 + hsp.BoolSize + 9 + hsp.Uint32Size + 20 + hsp.BoolSize + 12 + hsp.Uint32Size + 15 + hsp.Uint32Size + 16 + hsp.ArrayHeaderSize + (int(32) * (hsp.Uint32Size)) + 9 + hsp.Uint32Size + 7 + hsp.Uint32Size + 14 + hsp.BoolSize + 13 + hsp.BoolSize + 15 + hsp.Uint32Size + 23 + hsp.Uint32Size + 20 + hsp.Uint32Size + 13 + hsp.Uint32Size + 13 + hsp.Uint32Size + 16 + hsp.BoolSize + 15 + hsp.Uint32Size + 11 + hsp.Uint32Size + 14 + hsp.BoolSize + 12 + hsp.BoolSize + 22 + hsp.BoolSize + 9 + hsp.Uint32Size + 16 + hsp.BoolSize + 13 + hsp.Uint32Size + 8 + hsp.Uint32Size + 12 + hsp.Uint32Size + 14 + hsp.BoolSize + 8 + hsp.Uint32Size + 13 + hsp.Uint32Size + 7 + hsp.Uint32Size + 13 + hsp.Uint32Size + hsp.Uint64Size + 16 + hsp.BoolSize + 19 + hsp.BoolSize
 	return
 }
 

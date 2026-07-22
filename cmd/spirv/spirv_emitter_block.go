@@ -34,6 +34,22 @@ func emitBlock(b *SpvBuilder, block *GcnShaderCfgBlock, ctx *SpirvBlockContext) 
 			ctx.SetGcnSgprId(b, i, value)
 		}
 
+		// Initialize EXEC and VCC.
+		// EXEC is initialized to the subgroup's active mask.
+		b.EmitString("initialize exec and vcc")
+		typeV4Uint := ctx.GetId(BlockContextIdTypeV4Uint)
+		idC3 := ctx.GetConstId(ConstIdUint3) // Subgroup
+		ballot := b.EmitGroupNonUniformBallot(typeV4Uint, idC3, ctx.GetId(BlockContextIdTrue))
+		execLo := b.EmitCompositeExtract(typeUint, ballot, 0)
+		execHi := b.EmitCompositeExtract(typeUint, ballot, 1)
+		ctx.StoreRegisterPointer(b, gcnSpec.OpExecLo, execLo)
+		ctx.StoreRegisterPointer(b, gcnSpec.OpExecHi, execHi)
+
+		// VCC is initialized to 0.
+		b.EmitString("set vcc to 0")
+		ctx.StoreRegisterPointer(b, gcnSpec.OpVccLo, idC0)
+		ctx.StoreRegisterPointer(b, gcnSpec.OpVccHi, idC0)
+
 		// Load vertex index and instance index into v0 and v1.
 		if ctx.Stage == GcnShaderStageVertex {
 			b.EmitString("load vertex and instance index")
@@ -41,6 +57,14 @@ func emitBlock(b *SpvBuilder, block *GcnShaderCfgBlock, ctx *SpirvBlockContext) 
 			ctx.SetGcnVgprId(b, 0, v0)
 			v1 := b.EmitLoad(ctx.GetId(BlockContextIdTypeUint), ctx.GetId(BlockContextIdInstanceIndex))
 			ctx.SetGcnVgprId(b, 1, v1)
+
+			// Inline Fetch Shader reads
+			if len(ctx.FetchInstrs) > 0 {
+				b.EmitString("inline fetch shader loads")
+				for _, instr := range ctx.FetchInstrs {
+					emitInstruction(b, instr, ctx)
+				}
+			}
 		}
 
 		// Initialize barycentrics for fragment shader.
@@ -99,22 +123,6 @@ func emitBlock(b *SpvBuilder, block *GcnShaderCfgBlock, ctx *SpirvBlockContext) 
 			ctx.SetGcnVgprId(b, 1, b.EmitCompositeExtract(ctx.GetId(BlockContextIdTypeUint), localVec, 1))
 			ctx.SetGcnVgprId(b, 2, b.EmitCompositeExtract(ctx.GetId(BlockContextIdTypeUint), localVec, 2))
 		}
-
-		// Initialize EXEC and VCC.
-		// EXEC is initialized to the subgroup's active mask.
-		b.EmitString("initialize exec and vcc")
-		typeV4Uint := ctx.GetId(BlockContextIdTypeV4Uint)
-		idC3 := ctx.GetConstId(ConstIdUint3) // Subgroup
-		ballot := b.EmitGroupNonUniformBallot(typeV4Uint, idC3, ctx.GetId(BlockContextIdTrue))
-		execLo := b.EmitCompositeExtract(typeUint, ballot, 0)
-		execHi := b.EmitCompositeExtract(typeUint, ballot, 1)
-		ctx.StoreRegisterPointer(b, gcnSpec.OpExecLo, execLo)
-		ctx.StoreRegisterPointer(b, gcnSpec.OpExecHi, execHi)
-
-		// VCC is initialized to 0.
-		b.EmitString("set vcc to 0")
-		ctx.StoreRegisterPointer(b, gcnSpec.OpVccLo, idC0)
-		ctx.StoreRegisterPointer(b, gcnSpec.OpVccHi, idC0)
 	}
 
 	// Reset condition ID.

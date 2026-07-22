@@ -62,7 +62,6 @@ func EmitVOP2(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 		val0 := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
 		val1 := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src1, 0, 1)
 		valD := b.EmitBitcast(typeFloat, ctx.LoadRegisterPointer(b, details.Vdst+gcnSpec.OpVgpr0))
-		valD = applyVop3Modifiers(b, ctx, valD, details.Abs, details.Neg, 2) // TODO: ????
 
 		isZero0 := b.EmitFOrdEqual(typeBool, val0, idZeroF)
 		isZero1 := b.EmitFOrdEqual(typeBool, val1, idZeroF)
@@ -101,7 +100,6 @@ func EmitVOP2(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 		val0 := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
 		val1 := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src1, 0, 1)
 		valD := b.EmitBitcast(ctx.GetId(BlockContextIdTypeFloat), ctx.LoadRegisterPointer(b, details.Vdst+gcnSpec.OpVgpr0))
-		valD = applyVop3Modifiers(b, ctx, valD, details.Abs, details.Neg, 2) // TODO: ????
 		resF := b.EmitExtInst(ctx.GetId(BlockContextIdTypeFloat), ctx.GetId(BlockContextIdGlsl), spec.SpvGlslOpFma, val0, val1, valD)
 		StoreRegisterPointerMaskedModified(b, ctx, details.Clamp, details.OMod, details.Vdst+gcnSpec.OpVgpr0, resF, true)
 	case gcnSpec.Vop2OpCvtPkrtzF16F32:

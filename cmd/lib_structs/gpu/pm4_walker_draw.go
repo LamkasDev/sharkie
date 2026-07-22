@@ -132,6 +132,8 @@ func (l *Liverpool) recordDraw(stream *LiverpoolCommandStream, count uint32, isI
 
 			MultiPrimIbResetEnable: l.Registers.Context[GREG_MM_VGT_MULTI_PRIM_IB_RESET_EN]&1 == 1,
 			MultiPrimIbResetIndex:  l.Registers.Context[GREG_MM_VGT_MULTI_PRIM_IB_RESET_INDX],
+
+			UserDataHash: l.SnapshotUserData(),
 		},
 	}
 	copy(bindPipeline.PsInputControls[:], l.Registers.Context[GREG_MM_SPI_PS_INPUT_CNTL_0:GREG_MM_SPI_PS_INPUT_CNTL_31+1])
@@ -255,7 +257,7 @@ func (l *Liverpool) recordDraw(stream *LiverpoolCommandStream, count uint32, isI
 			DbDepthClearValue:    l.Registers.Context[GREG_MM_DB_DEPTH_CLEAR],
 			DbStencilClearValue:  l.Registers.Context[GREG_MM_DB_STENCIL_CLEAR],
 
-			UserDataHash: l.SnapshotUserData(),
+			UserDataHash: bindPipeline.UserDataHash,
 		},
 	}
 

@@ -23,6 +23,10 @@ func CreateDescriptorPool(handles *VulkanHandles, staticLayout vk.DescriptorSetL
 				Type:            vk.DescriptorTypeStorageBuffer,
 				DescriptorCount: 256,
 			},
+			{
+				Type:            vk.DescriptorTypeUniformTexelBuffer,
+				DescriptorCount: 256,
+			},
 		},
 		PoolSizeCount: 3,
 		MaxSets:       8192,

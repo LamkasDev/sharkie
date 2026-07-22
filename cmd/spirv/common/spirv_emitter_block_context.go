@@ -25,6 +25,8 @@ type SpirvBlockContext struct {
 	StaticLayout []ShaderResourceBinding
 
 	PsInputControls [32]uint32
+	FetchLayout     FetchShaderLayout
+	FetchInstrs     []*gcnSpec.Instruction
 }
 
 type ShaderResourceBinding struct {

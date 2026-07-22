@@ -20,6 +20,10 @@ type SpirvShaderContext struct {
 	PsInControl     uint32
 	PsInputAddress  uint32
 	PsInputControls [32]uint32
+
+	FetchLayout     FetchShaderLayout
+	FetchInstrs     []*gcnSpec.Instruction
+	FetchLayoutHash uint64
 }
 
 type SpirvShader struct {
@@ -181,6 +185,16 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	b.EmitName(typeStaticStorageTexturesVar, "static_storage_textures")
 	b.EmitDecorate(typeStaticStorageTexturesVar, spec.SpvDecorationDescriptorSet, DescriptorSetSlotStatic)
 	b.EmitDecorate(typeStaticStorageTexturesVar, spec.SpvDecorationBinding, StaticBindingStorageImages)
+
+	typeImageBuffer := b.EmitTypeImage(typeUint, 5, 0, 0, 0, 1, 0) // DimBuffer=5, Depth=0, Arrayed=0, MS=0, Sampled=1, FormatUnknown=0
+	typeSampledImageBuffer := b.EmitTypeSampledImage(typeImageBuffer)
+	typePtrUniformSampledImageBuffer := b.EmitTypePointer(spec.SpvStorageUniformConstant, typeSampledImageBuffer)
+	typeStaticSampledBufferArray := b.EmitTypeArray(typeSampledImageBuffer, idStaticCount)
+	typePtrUniformStaticSampledBufferArray := b.EmitTypePointer(spec.SpvStorageUniformConstant, typeStaticSampledBufferArray)
+	typeStaticSampledBuffersVar := b.EmitVariable(typePtrUniformStaticSampledBufferArray, spec.SpvStorageUniformConstant)
+	b.EmitName(typeStaticSampledBuffersVar, "static_sampled_buffers")
+	b.EmitDecorate(typeStaticSampledBuffersVar, spec.SpvDecorationDescriptorSet, DescriptorSetSlotStatic)
+	b.EmitDecorate(typeStaticSampledBuffersVar, spec.SpvDecorationBinding, StaticBindingSampledBuffers)
 
 	idZeroF := b.EmitConstantFloat(typeFloat, 0.0)
 	idOneF := b.EmitConstantFloat(typeFloat, 1.0)
@@ -410,35 +424,39 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 		BlockContextIdTypeV2Int:   {Id: typeV2Int, Name: "v2int_t"},
 		BlockContextIdTypeV4Int:   {Id: typeV4Int, Name: "v4int_t"},
 
-		BlockContextIdTypeV4Float:               {Id: typeV4Float, Name: "v4float_t"},
-		BlockContextIdTypeV2Uint:                {Id: typeV2Uint, Name: "v2uint_t"},
-		BlockContextIdTypeV3Uint:                {Id: typeV3Uint, Name: "v3uint_t"},
-		BlockContextIdTypeV4Uint:                {Id: typeV4Uint, Name: "v4uint_t"},
-		BlockContextIdTypeStructUintUint:        {Id: typeStructUintUint, Name: "struct_uint_uint_t"},
-		BlockContextIdTypeSampledImage:          {Id: typeSampledImage2d, Name: "sampled_image_2d_t"},
-		BlockContextIdTypeImage:                 {Id: typeImage2d, Name: "image_2d_t"},
-		BlockContextIdPtrUniformSampledImage:    {Id: typePtrUniformSampledImage2d, Name: "ptr_uniform_sampled_image_2d_t"},
-		BlockContextIdTypeStorageImage:          {Id: typeStorageImage2d, Name: "storage_image_2d_t"},
-		BlockContextIdPtrUniformStorageImage:    {Id: typePtrUniformStorageImage2d, Name: "ptr_uniform_storage_image_2d_t"},
-		BlockContextIdPtrPcPsbUint:              {Id: typePtrPcPsbUint, Name: "ptr_pc_psb_uint_t"},
-		BlockContextIdPtrPcUint:                 {Id: typePtrPcUint, Name: "ptr_pc_uint_t"},
-		BlockContextIdPtrPcUint64:               {Id: typePtrPcUint64, Name: "ptr_pc_uint64_t"},
-		BlockContextIdPtrPcFloat:                {Id: typePtrPcFloat, Name: "ptr_pc_float_t"},
-		BlockContextIdPtrPsbUint:                {Id: typePtrPsbUint, Name: "ptr_pc_psb_uint_t"},
-		BlockContextIdPtrPsbV2Uint:              {Id: typePtrPsbV2Uint, Name: "ptr_pc_psb_v2_uint_t"},
-		BlockContextIdPtrPsbV3Uint:              {Id: typePtrPsbV3Uint, Name: "ptr_pc_psb_v3_uint_t"},
-		BlockContextIdPtrPsbV4Uint:              {Id: typePtrPsbV4Uint, Name: "ptr_pc_psb_v4_uint_t"},
-		BlockContextIdPtrFnUint:                 {Id: typePtrFnUint, Name: "ptr_fn_uint_t"},
-		BlockContextIdPosOut:                    {Id: typePosOut, Name: "pos_out_t"},
-		BlockContextIdFragDepthOut:              {Id: typeFragDepthOut, Name: "frag_depth_out_t"},
-		BlockContextIdZeroVec4:                  {Id: typeZeroVec4, Name: "zero_vec4_t"},
-		BlockContextIdStaticTextures:            {Id: typeStaticTexturesVar, Name: "static_textures_var_t"},
-		BlockContextIdStaticStorageTextures:     {Id: typeStaticStorageTexturesVar, Name: "static_storage_textures_var_t"},
-		BlockContextIdPcVar:                     {Id: pcVar, Name: "pc_var_t"},
-		BlockContextIdGlsl:                      {Id: typeGLSL, Name: "glsl_t"},
-		BlockContextIdSubgroupLocalInvocationId: {Id: typeSubgroupLocalInvocationId, Name: "subgroup_local_invocation_id_t"},
-		BlockContextIdVertexIndex:               {Id: typeVertexIndex, Name: "vertex_index_t"},
-		BlockContextIdInstanceIndex:             {Id: typeInstanceIndex, Name: "instance_index_t"},
+		BlockContextIdTypeV4Float:                  {Id: typeV4Float, Name: "v4float_t"},
+		BlockContextIdTypeV2Uint:                   {Id: typeV2Uint, Name: "v2uint_t"},
+		BlockContextIdTypeV3Uint:                   {Id: typeV3Uint, Name: "v3uint_t"},
+		BlockContextIdTypeV4Uint:                   {Id: typeV4Uint, Name: "v4uint_t"},
+		BlockContextIdTypeStructUintUint:           {Id: typeStructUintUint, Name: "struct_uint_uint_t"},
+		BlockContextIdTypeSampledImage:             {Id: typeSampledImage2d, Name: "sampled_image_2d_t"},
+		BlockContextIdTypeImage:                    {Id: typeImage2d, Name: "image_2d_t"},
+		BlockContextIdPtrUniformSampledImage:       {Id: typePtrUniformSampledImage2d, Name: "ptr_uniform_sampled_image_2d_t"},
+		BlockContextIdTypeStorageImage:             {Id: typeStorageImage2d, Name: "storage_image_2d_t"},
+		BlockContextIdPtrUniformStorageImage:       {Id: typePtrUniformStorageImage2d, Name: "ptr_uniform_storage_image_2d_t"},
+		BlockContextIdPtrPcPsbUint:                 {Id: typePtrPcPsbUint, Name: "ptr_pc_psb_uint_t"},
+		BlockContextIdPtrPcUint:                    {Id: typePtrPcUint, Name: "ptr_pc_uint_t"},
+		BlockContextIdPtrPcUint64:                  {Id: typePtrPcUint64, Name: "ptr_pc_uint64_t"},
+		BlockContextIdPtrPcFloat:                   {Id: typePtrPcFloat, Name: "ptr_pc_float_t"},
+		BlockContextIdPtrPsbUint:                   {Id: typePtrPsbUint, Name: "ptr_pc_psb_uint_t"},
+		BlockContextIdPtrPsbV2Uint:                 {Id: typePtrPsbV2Uint, Name: "ptr_pc_psb_v2_uint_t"},
+		BlockContextIdPtrPsbV3Uint:                 {Id: typePtrPsbV3Uint, Name: "ptr_pc_psb_v3_uint_t"},
+		BlockContextIdPtrPsbV4Uint:                 {Id: typePtrPsbV4Uint, Name: "ptr_pc_psb_v4_uint_t"},
+		BlockContextIdPtrFnUint:                    {Id: typePtrFnUint, Name: "ptr_fn_uint_t"},
+		BlockContextIdPosOut:                       {Id: typePosOut, Name: "pos_out_t"},
+		BlockContextIdFragDepthOut:                 {Id: typeFragDepthOut, Name: "frag_depth_out_t"},
+		BlockContextIdZeroVec4:                     {Id: typeZeroVec4, Name: "zero_vec4_t"},
+		BlockContextIdStaticTextures:               {Id: typeStaticTexturesVar, Name: "static_textures_var_t"},
+		BlockContextIdStaticStorageTextures:        {Id: typeStaticStorageTexturesVar, Name: "static_storage_textures_var_t"},
+		BlockContextIdStaticSampledBuffers:         {Id: typeStaticSampledBuffersVar, Name: "static_sampled_buffers_var_t"},
+		BlockContextIdTypeImageBuffer:              {Id: typeImageBuffer, Name: "image_buffer_t"},
+		BlockContextIdTypeSampledImageBuffer:       {Id: typeSampledImageBuffer, Name: "sampled_image_buffer_t"},
+		BlockContextIdPtrUniformSampledImageBuffer: {Id: typePtrUniformSampledImageBuffer, Name: "ptr_uniform_sampled_image_buffer_t"},
+		BlockContextIdPcVar:                        {Id: pcVar, Name: "pc_var_t"},
+		BlockContextIdGlsl:                         {Id: typeGLSL, Name: "glsl_t"},
+		BlockContextIdSubgroupLocalInvocationId:    {Id: typeSubgroupLocalInvocationId, Name: "subgroup_local_invocation_id_t"},
+		BlockContextIdVertexIndex:                  {Id: typeVertexIndex, Name: "vertex_index_t"},
+		BlockContextIdInstanceIndex:                {Id: typeInstanceIndex, Name: "instance_index_t"},
 
 		BlockContextIdWorkgroupId:       {Id: idWorkgroupId, Name: "workgroup_id_t"},
 		BlockContextIdLocalInvocationId: {Id: idLocalInvocationId, Name: "local_invocation_id"},
@@ -475,6 +493,8 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 		Resources:       resources,
 		StaticLayout:    staticLayout,
 		PsInputControls: ctx.PsInputControls,
+		FetchLayout:     ctx.FetchLayout,
+		FetchInstrs:     ctx.FetchInstrs,
 	}
 
 	// Function body.

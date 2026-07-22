@@ -47,7 +47,7 @@ type GpuTranslator struct {
 
 	// VkShaderModules created from SPIR-V shaders.
 	shaderModulesMutex       sync.Mutex
-	shaderModules            map[uintptr]vk.ShaderModule
+	shaderModules            map[SpirvShaderKey]vk.ShaderModule
 	rectlistTescShaderModule vk.ShaderModule
 	rectlistTeseShaderModule vk.ShaderModule
 
@@ -129,7 +129,7 @@ func NewGpuTranslator(handles vulkan.VulkanHandles, bknd backend.Backend[glfwvul
 		shadersMutex:         sync.Mutex{},
 		shaders:              map[SpirvShaderKey]*spirv.SpirvShader{},
 		shaderModulesMutex:   sync.Mutex{},
-		shaderModules:        map[uintptr]vk.ShaderModule{},
+		shaderModules:        map[SpirvShaderKey]vk.ShaderModule{},
 
 		pipelinesMutex: sync.Mutex{},
 		pipelines:      map[vulkan.GraphicsPipelineKey]vk.Pipeline{},

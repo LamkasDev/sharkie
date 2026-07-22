@@ -28,12 +28,12 @@ func (t *GpuTranslator) Dispatch(frame uint64, dispatch *gpu.LiverpoolDispatch) 
 	)
 
 	// Get scoped compute shader.
-	csSpirv := t.GetShaderWithContext(dispatch.ComputeShader, spirv.SpirvShaderContext{
+	csSpirv, csKey := t.GetShaderWithContext(dispatch.ComputeShader, spirv.SpirvShaderContext{
 		ThreadX: dispatch.ThreadX,
 		ThreadY: dispatch.ThreadY,
 		ThreadZ: dispatch.ThreadZ,
 	})
-	csModule, err := t.GetShaderModule(csSpirv)
+	csModule, err := t.GetShaderModule(csKey, csSpirv)
 	if err != nil {
 		panic(err)
 	}

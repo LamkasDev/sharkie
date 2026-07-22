@@ -8,9 +8,11 @@ import (
 
 func EmitFormatUnpackHelper(b *SpvBuilder, ctx *SpirvBlockContext, baseAddress, byteOffset, dw3 SpirvId, op uint32) SpirvId {
 	typeUint := ctx.GetId(BlockContextIdTypeUint)
+	typeInt := ctx.GetId(BlockContextIdTypeInt)
 	typeUint64 := ctx.GetId(BlockContextIdTypeUint64)
 	typeFloat := ctx.GetId(BlockContextIdTypeFloat)
 	typeVec4 := ctx.GetId(BlockContextIdTypeV4Float)
+	typeVec2 := ctx.GetId(BlockContextIdTypeV2Float)
 	typeBool := ctx.GetId(BlockContextIdTypeBool)
 	typePtrPsbUint := ctx.GetId(BlockContextIdPtrPsbUint)
 	cFF := ctx.GetConstId(ConstIdUint255)
@@ -22,11 +24,16 @@ func EmitFormatUnpackHelper(b *SpvBuilder, ctx *SpirvBlockContext, baseAddress, 
 	totalAddress := b.EmitIAdd(typeUint64, baseAddress, byteOffset64)
 	translatedAddress := ctx.TranslateAddress(b, totalAddress)
 
+	// Shift if unaligned access.
+	mod4 := b.EmitBitwiseAnd(typeUint, byteOffset, b.EmitConstantUint(typeUint, 3))
+	bitShift := b.EmitIMul(typeUint, mod4, b.EmitConstantUint(typeUint, 8))
+
 	// Load number of components based on instruction.
 	loadWord := func(offset SpirvId) SpirvId {
 		addr := b.EmitIAdd(typeUint64, translatedAddress, ctx.GetConstId(offset))
 		ptr := b.EmitConvertUToPtr(typePtrPsbUint, addr)
-		return b.EmitLoad(typeUint, ptr, spec.SpvMemoryAccessAligned, 4)
+		rawVal := b.EmitLoad(typeUint, ptr, spec.SpvMemoryAccessAligned, 4)
+		return b.EmitShiftRightLogical(typeUint, rawVal, bitShift)
 	}
 	word0 := loadWord(ConstId64Uint0)
 	f0 := b.EmitBitcast(typeFloat, word0)
@@ -56,10 +63,11 @@ func EmitFormatUnpackHelper(b *SpvBuilder, ctx *SpirvBlockContext, baseAddress, 
 			b.EmitIEqual(typeBool, numFormat, ctx.GetConstId(ConstIdUint1))) // Treat snorm as unorm
 		isUscaled := b.EmitIEqual(typeBool, numFormat, ctx.GetConstId(ConstIdUint2))
 		isSscaled := b.EmitIEqual(typeBool, numFormat, ctx.GetConstId(ConstIdUint3))
-		isUint := b.EmitLogicalOr(typeBool,
-			b.EmitIEqual(typeBool, numFormat, ctx.GetConstId(ConstIdUint4)),
-			b.EmitIEqual(typeBool, numFormat, ctx.GetConstId(ConstIdUint5))) // Treat sint as uint
+		isUint := b.EmitIEqual(typeBool, numFormat, ctx.GetConstId(ConstIdUint4))
+		isSint := b.EmitIEqual(typeBool, numFormat, ctx.GetConstId(ConstIdUint5))
+		isFloat := b.EmitIEqual(typeBool, numFormat, ctx.GetConstId(ConstIdUint7))
 		isAnyIntOrNorm := b.EmitLogicalOr(typeBool, b.EmitLogicalOr(typeBool, isUnorm, isUint), b.EmitLogicalOr(typeBool, isUscaled, isSscaled))
+		isAnyIntOrNorm = b.EmitLogicalOr(typeBool, isAnyIntOrNorm, b.EmitLogicalOr(typeBool, isSint, isFloat))
 
 		// 8 (DataFormat 1)
 		is8 := b.EmitIEqual(typeBool, dataFormat, ctx.GetConstId(ConstIdUint1))
@@ -141,35 +149,74 @@ func EmitFormatUnpackHelper(b *SpvBuilder, ctx *SpirvBlockContext, baseAddress, 
 		comp2UintF := b.EmitBitcast(typeFloat, raw2)
 		comp3UintF := b.EmitBitcast(typeFloat, raw3)
 
-		// Scaled values (u/s scaled use integer-to-float conversion).
-		signBitMask := b.EmitSelect(typeUint, is16BitSize, b.EmitConstantUint(typeUint, 0x8000), b.EmitConstantUint(typeUint, 0x80))
-		signExtendMask := b.EmitSelect(typeUint, is16BitSize, b.EmitConstantUint(typeUint, 0xFFFF0000), b.EmitConstantUint(typeUint, 0xFFFFFF00))
-		makeSigned := func(v SpirvId) SpirvId {
-			hasSign := b.EmitINotEqual(typeBool, b.EmitBitwiseAnd(typeUint, v, signBitMask), ctx.GetConstId(ConstIdUint0))
-			return b.EmitSelect(typeUint, hasSign, b.EmitBitwiseOr(typeUint, v, signExtendMask), v)
+		// For 16-bit, shift left 16 then arithmetic shift right 16. For 8-bit, use 24.
+		extendShift := b.EmitSelect(typeUint, is16BitSize, ctx.GetConstId(ConstIdUint16), ctx.GetConstId(ConstIdUint24))
+		makeSigned := func(raw SpirvId) SpirvId {
+			shiftedLeft := b.EmitShiftLeftLogical(typeUint, raw, extendShift)
+			intShifted := b.EmitBitcast(typeInt, shiftedLeft)
+			return b.EmitShiftRightArithmetic(typeInt, intShifted, extendShift)
 		}
+
 		raw0Signed := makeSigned(raw0)
 		raw1Signed := makeSigned(raw1)
 		raw2Signed := makeSigned(raw2)
 		raw3Signed := makeSigned(raw3)
+
+		// Sint values.
+		comp0SintF := b.EmitBitcast(typeFloat, raw0Signed)
+		comp1SintF := b.EmitBitcast(typeFloat, raw1Signed)
+		comp2SintF := b.EmitBitcast(typeFloat, raw2Signed)
+		comp3SintF := b.EmitBitcast(typeFloat, raw3Signed)
+
+		// Uscaled values.
 		comp0Uscaled := b.EmitConvertUToF(typeFloat, raw0)
 		comp1Uscaled := b.EmitConvertUToF(typeFloat, raw1)
 		comp2Uscaled := b.EmitConvertUToF(typeFloat, raw2)
 		comp3Uscaled := b.EmitConvertUToF(typeFloat, raw3)
+
+		// Sscaled values.
 		comp0Sscaled := b.EmitConvertSToF(typeFloat, b.EmitBitcast(ctx.GetId(BlockContextIdTypeInt), raw0Signed))
 		comp1Sscaled := b.EmitConvertSToF(typeFloat, b.EmitBitcast(ctx.GetId(BlockContextIdTypeInt), raw1Signed))
 		comp2Sscaled := b.EmitConvertSToF(typeFloat, b.EmitBitcast(ctx.GetId(BlockContextIdTypeInt), raw2Signed))
 		comp3Sscaled := b.EmitConvertSToF(typeFloat, b.EmitBitcast(ctx.GetId(BlockContextIdTypeInt), raw3Signed))
 
-		// Final component values.
+		// If it's a 32-bit float, raw0 is already a 32-bit float. We only unpack 16-bit.
+		unpackHalf := func(raw SpirvId) SpirvId {
+			vec2 := b.EmitExtInst(typeVec2, ctx.GetId(BlockContextIdGlsl), spec.SpvGlslOpUnpackHalf2x16, raw)
+			return b.EmitCompositeExtract(typeFloat, vec2, 0)
+		}
+		comp0Float16 := unpackHalf(raw0)
+		comp1Float16 := unpackHalf(raw1)
+		comp2Float16 := unpackHalf(raw2)
+		comp3Float16 := unpackHalf(raw3)
+
+		// Float values.
+		comp0Float := b.EmitSelect(typeFloat, is16BitSize, comp0Float16, comp0UintF)
+		comp1Float := b.EmitSelect(typeFloat, is16BitSize, comp1Float16, comp1UintF)
+		comp2Float := b.EmitSelect(typeFloat, is16BitSize, comp2Float16, comp2UintF)
+		comp3Float := b.EmitSelect(typeFloat, is16BitSize, comp3Float16, comp3UintF)
+
+		// Selection chain.
 		comp0 := b.EmitSelect(typeFloat, isUnorm, comp0Unorm, comp0UintF)
 		comp1 := b.EmitSelect(typeFloat, isUnorm, comp1Unorm, comp1UintF)
 		comp2 := b.EmitSelect(typeFloat, isUnorm, comp2Unorm, comp2UintF)
 		comp3 := b.EmitSelect(typeFloat, isUnorm, comp3Unorm, comp3UintF)
+
+		comp0 = b.EmitSelect(typeFloat, isSint, comp0SintF, comp0)
+		comp1 = b.EmitSelect(typeFloat, isSint, comp1SintF, comp1)
+		comp2 = b.EmitSelect(typeFloat, isSint, comp2SintF, comp2)
+		comp3 = b.EmitSelect(typeFloat, isSint, comp3SintF, comp3)
+
+		comp0 = b.EmitSelect(typeFloat, isFloat, comp0Float, comp0)
+		comp1 = b.EmitSelect(typeFloat, isFloat, comp1Float, comp1)
+		comp2 = b.EmitSelect(typeFloat, isFloat, comp2Float, comp2)
+		comp3 = b.EmitSelect(typeFloat, isFloat, comp3Float, comp3)
+
 		comp0 = b.EmitSelect(typeFloat, isUscaled, comp0Uscaled, comp0)
 		comp1 = b.EmitSelect(typeFloat, isUscaled, comp1Uscaled, comp1)
 		comp2 = b.EmitSelect(typeFloat, isUscaled, comp2Uscaled, comp2)
 		comp3 = b.EmitSelect(typeFloat, isUscaled, comp3Uscaled, comp3)
+
 		comp0 = b.EmitSelect(typeFloat, isSscaled, comp0Sscaled, comp0)
 		comp1 = b.EmitSelect(typeFloat, isSscaled, comp1Sscaled, comp1)
 		comp2 = b.EmitSelect(typeFloat, isSscaled, comp2Sscaled, comp2)

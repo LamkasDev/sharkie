@@ -15,8 +15,9 @@ func CreateStubPipelineLayout(handles *VulkanHandles) (vk.PipelineLayout, vk.Des
 		PBindingFlags: []vk.DescriptorBindingFlags{
 			vk.DescriptorBindingFlags(vk.DescriptorBindingUpdateAfterBindBit | vk.DescriptorBindingPartiallyBoundBit),
 			vk.DescriptorBindingFlags(vk.DescriptorBindingUpdateAfterBindBit | vk.DescriptorBindingPartiallyBoundBit),
+			vk.DescriptorBindingFlags(vk.DescriptorBindingUpdateAfterBindBit | vk.DescriptorBindingPartiallyBoundBit),
 		},
-		BindingCount: 2,
+		BindingCount: 3,
 	}
 	result := vk.CreateDescriptorSetLayout(handles.Device, &vk.DescriptorSetLayoutCreateInfo{
 		SType: vk.StructureTypeDescriptorSetLayoutCreateInfo,
@@ -36,8 +37,15 @@ func CreateStubPipelineLayout(handles *VulkanHandles) (vk.PipelineLayout, vk.Des
 				StageFlags:         vk.ShaderStageFlags(vk.ShaderStageAllGraphics | vk.ShaderStageComputeBit),
 				PImmutableSamplers: nil,
 			},
+			{
+				Binding:            spirvStructs.StaticBindingSampledBuffers,
+				DescriptorType:     vk.DescriptorTypeUniformTexelBuffer,
+				DescriptorCount:    spirvStructs.MaxStaticBindings,
+				StageFlags:         vk.ShaderStageFlags(vk.ShaderStageVertexBit | vk.ShaderStageComputeBit),
+				PImmutableSamplers: nil,
+			},
 		},
-		BindingCount: 2,
+		BindingCount: 3,
 		Flags:        vk.DescriptorSetLayoutCreateFlags(vk.DescriptorSetLayoutCreateUpdateAfterBindPoolBit),
 	}, nil, &staticLayout)
 	if err := NewError(result); err != nil {

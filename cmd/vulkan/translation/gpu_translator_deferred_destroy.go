@@ -6,10 +6,13 @@ import (
 )
 
 type deferredDestroyQueue struct {
-	surfaces     []*vulkan.VulkanSurface
-	images       []*vulkan.VulkanImage
-	imageViews   []*vulkan.VulkanImageView
-	framebuffers []*vulkan.VulkanFramebuffer
+	surfaces       []*vulkan.VulkanSurface
+	images         []*vulkan.VulkanImage
+	imageViews     []*vulkan.VulkanImageView
+	framebuffers   []*vulkan.VulkanFramebuffer
+	bufferViews    []vk.BufferView
+	buffers        []vk.Buffer
+	bufferMemories []vk.DeviceMemory
 }
 
 // deferDestroySurface queues a surface for destruction after the current frame's GPU work completes.
@@ -49,6 +52,25 @@ func (t *GpuTranslator) deferDestroyFramebuffer(fb *vulkan.VulkanFramebuffer) {
 	t.deferredDestroyMutex.Unlock()
 }
 
+func (t *GpuTranslator) deferDestroyBufferView(view vk.BufferView) {
+	if view == vk.NullBufferView {
+		return
+	}
+	t.deferredDestroyMutex.Lock()
+	t.deferredDestroy.bufferViews = append(t.deferredDestroy.bufferViews, view)
+	t.deferredDestroyMutex.Unlock()
+}
+
+func (t *GpuTranslator) deferDestroyBuffer(buffer vk.Buffer, mem vk.DeviceMemory) {
+	if buffer == vk.NullBuffer {
+		return
+	}
+	t.deferredDestroyMutex.Lock()
+	t.deferredDestroy.buffers = append(t.deferredDestroy.buffers, buffer)
+	t.deferredDestroy.bufferMemories = append(t.deferredDestroy.bufferMemories, mem)
+	t.deferredDestroyMutex.Unlock()
+}
+
 func (t *GpuTranslator) invalidateFramebuffersForAddress(addr uintptr) {
 	t.framebuffersMutex.Lock()
 	var stale []*vulkan.VulkanFramebuffer
@@ -80,6 +102,15 @@ func (t *GpuTranslator) FlushDeferredDestruction() {
 	}
 	for _, view := range batch.imageViews {
 		view.Destroy(device)
+	}
+	for _, view := range batch.bufferViews {
+		vk.DestroyBufferView(device, view, nil)
+	}
+	for _, buffer := range batch.buffers {
+		vk.DestroyBuffer(device, buffer, nil)
+	}
+	for _, mem := range batch.bufferMemories {
+		vk.FreeMemory(device, mem, nil)
 	}
 	for _, image := range batch.images {
 		image.Destroy(device)

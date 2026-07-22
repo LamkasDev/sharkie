@@ -110,6 +110,9 @@ type LiverpoolBindPipelineInternal struct {
 	// Multi primitive index buffer reset.
 	MultiPrimIbResetEnable bool
 	MultiPrimIbResetIndex  uint32
+
+	// Hash of user data registers.
+	UserDataHash uint32
 }
 
 type LiverpoolSetDynamicStateInternal struct {

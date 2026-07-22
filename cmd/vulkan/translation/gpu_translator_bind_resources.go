@@ -3,6 +3,8 @@ package translation
 import (
 	"fmt"
 
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/gcn"
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/gpu"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/LamkasDev/sharkie/cmd/spirv"
 	spirvCommon "github.com/LamkasDev/sharkie/cmd/spirv/common"
@@ -54,11 +56,11 @@ func (t *GpuTranslator) BindResources(shaders []*spirv.SpirvShader, userData spi
 		case spirvCommon.BindingAccessSampledRead:
 			t.EndRenderPass()
 			view.Image.BarrierSampledRead(t.commandBuffer)
-			t.updateStaticDescriptorBinding(activeStaticSet, binding.BindingIndex, view.ImageView, vk.NullImageView, sampler)
+			t.updateStaticDescriptorBinding(activeStaticSet, binding.BindingIndex, view.ImageView, vk.NullImageView, sampler, vk.NullBufferView)
 		case spirvCommon.BindingAccessStorageWrite:
 			t.EndRenderPass()
 			view.Image.BarrierComputeStorageWrite(t.commandBuffer)
-			t.updateStaticDescriptorBinding(activeStaticSet, binding.BindingIndex, vk.NullImageView, view.StorageImageView, sampler)
+			t.updateStaticDescriptorBinding(activeStaticSet, binding.BindingIndex, vk.NullImageView, view.StorageImageView, sampler, vk.NullBufferView)
 		}
 		boundText += fmt.Sprintf(" %s %d (0x%X/%dx%d)", binding.Access, binding.BindingIndex, access.Descriptor.BaseAddress, access.Descriptor.Width, access.Descriptor.Height)
 	}
@@ -71,6 +73,24 @@ func (t *GpuTranslator) BindResources(shaders []*spirv.SpirvShader, userData spi
 	storeTargets, err := t.StoreTargets(allAccesses)
 	if err != nil {
 		return nil, vk.NullDescriptorSet, err
+	}
+
+	// Bind buffer resources if a fetch shader is present.
+	if t.activeVertexShader != nil && t.activeVertexShader.GcnShader != nil {
+		fetchPC := GetFetchShaderPC(t.activeVertexShader.GcnShader, userData[:])
+		if fetchPC != 0 {
+			fetchShader := gpu.GlobalLiverpool.GetShader(gcn.GcnShaderStageVertex, fetchPC)
+			if fetchShader != nil {
+				bufferAccesses := ResolveBufferResources(fetchShader, userData[:])
+				for i, access := range bufferAccesses {
+					view, err := t.GetBufferView(access.Descriptor)
+					if err != nil {
+						return nil, vk.NullDescriptorSet, err
+					}
+					t.updateStaticDescriptorBinding(activeStaticSet, uint32(i), vk.NullImageView, vk.NullImageView, vk.NullSampler, view)
+				}
+			}
+		}
 	}
 
 	return storeTargets, activeStaticSet, nil
@@ -115,12 +135,22 @@ func (t *GpuTranslator) allocateStaticDescriptorSet() vk.DescriptorSet {
 			DstArrayElement: 0,
 			DescriptorCount: spirvStructs.MaxStaticBindings,
 		},
+		{
+			SType:           vk.StructureTypeCopyDescriptorSet,
+			SrcSet:          t.staticDescriptorSet,
+			SrcBinding:      spirvStructs.StaticBindingSampledBuffers,
+			SrcArrayElement: 0,
+			DstSet:          set,
+			DstBinding:      spirvStructs.StaticBindingSampledBuffers,
+			DstArrayElement: 0,
+			DescriptorCount: spirvStructs.MaxStaticBindings,
+		},
 	})
 
 	return set
 }
 
-func (t *GpuTranslator) updateStaticDescriptorBinding(set vk.DescriptorSet, index uint32, sampledView, storageView vk.ImageView, sampler vk.Sampler) {
+func (t *GpuTranslator) updateStaticDescriptorBinding(set vk.DescriptorSet, index uint32, sampledView, storageView vk.ImageView, sampler vk.Sampler, bufferView vk.BufferView) {
 	if sampledView != vk.NullImageView {
 		vk.UpdateDescriptorSets(t.handles.Device, 1, []vk.WriteDescriptorSet{{
 			SType:           vk.StructureTypeWriteDescriptorSet,
@@ -148,6 +178,17 @@ func (t *GpuTranslator) updateStaticDescriptorBinding(set vk.DescriptorSet, inde
 				ImageView:   storageView,
 				ImageLayout: vk.ImageLayoutGeneral,
 			}},
+		}}, 0, nil)
+	}
+	if bufferView != vk.NullBufferView {
+		vk.UpdateDescriptorSets(t.handles.Device, 1, []vk.WriteDescriptorSet{{
+			SType:            vk.StructureTypeWriteDescriptorSet,
+			DstSet:           set,
+			DstBinding:       spirvStructs.StaticBindingSampledBuffers,
+			DstArrayElement:  index,
+			DescriptorCount:  1,
+			DescriptorType:   vk.DescriptorTypeUniformTexelBuffer,
+			PTexelBufferView: []vk.BufferView{bufferView},
 		}}, 0, nil)
 	}
 }

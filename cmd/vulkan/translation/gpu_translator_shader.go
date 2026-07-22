@@ -24,10 +24,13 @@ type SpirvShaderKey struct {
 	PsInControl     uint32
 	PsInputAddress  uint32
 	PsInputControls [32]uint32
+
+	FetchLayoutHash uint64
 }
 
 func (t *GpuTranslator) GetShader(gcnShader *gcn.GcnShader) *spirv.SpirvShader {
-	return t.GetShaderWithContext(gcnShader, spirv.SpirvShaderContext{})
+	shader, _ := t.GetShaderWithContext(gcnShader, spirv.SpirvShaderContext{})
+	return shader
 }
 
 func (t *GpuTranslator) GetShaderAt(address uintptr) *spirv.SpirvShader {
@@ -42,7 +45,7 @@ func (t *GpuTranslator) GetShaderAt(address uintptr) *spirv.SpirvShader {
 	return nil
 }
 
-func (t *GpuTranslator) GetShaderWithContext(gcnShader *gcn.GcnShader, context spirv.SpirvShaderContext) *spirv.SpirvShader {
+func (t *GpuTranslator) GetShaderWithContext(gcnShader *gcn.GcnShader, context spirv.SpirvShaderContext) (*spirv.SpirvShader, SpirvShaderKey) {
 	key := SpirvShaderKey{
 		Address: gcnShader.Address,
 		ThreadX: context.ThreadX,
@@ -52,6 +55,8 @@ func (t *GpuTranslator) GetShaderWithContext(gcnShader *gcn.GcnShader, context s
 		PsInControl:     context.PsInControl,
 		PsInputAddress:  context.PsInputAddress,
 		PsInputControls: context.PsInputControls,
+
+		FetchLayoutHash: context.FetchLayoutHash,
 	}
 
 	// Get already loaded shader.
@@ -59,7 +64,7 @@ func (t *GpuTranslator) GetShaderWithContext(gcnShader *gcn.GcnShader, context s
 	shader, ok := t.shaders[key]
 	t.shadersMutex.Unlock()
 	if ok {
-		return shader
+		return shader, key
 	}
 
 	// Load the shader.
@@ -68,13 +73,13 @@ func (t *GpuTranslator) GetShaderWithContext(gcnShader *gcn.GcnShader, context s
 	if err != nil {
 		panic(err)
 	}
-	if err = t.DumpShaderOnce(shader); err != nil {
+	if err = t.DumpShaderOnce(key, shader); err != nil {
 		panic(err)
 	}
 	t.shaders[key] = shader
 	t.shadersMutex.Unlock()
 
-	return shader
+	return shader, key
 }
 
 func (t *GpuTranslator) GetShaderModuleFromBytes(bytecode []uint32, name string) (vk.ShaderModule, error) {
@@ -92,10 +97,10 @@ func (t *GpuTranslator) GetShaderModuleFromBytes(bytecode []uint32, name string)
 	return module, nil
 }
 
-func (t *GpuTranslator) GetShaderModule(spirvShader *spirv.SpirvShader) (vk.ShaderModule, error) {
+func (t *GpuTranslator) GetShaderModule(key SpirvShaderKey, spirvShader *spirv.SpirvShader) (vk.ShaderModule, error) {
 	// Get already created shader module.
 	t.shaderModulesMutex.Lock()
-	mod, ok := t.shaderModules[spirvShader.GcnShader.Address]
+	mod, ok := t.shaderModules[key]
 	t.shaderModulesMutex.Unlock()
 	if ok {
 		return mod, nil
@@ -113,14 +118,14 @@ func (t *GpuTranslator) GetShaderModule(spirvShader *spirv.SpirvShader) (vk.Shad
 	}
 	vulkan.SetDebugUtilsObjectName(t.handles.Instance, t.handles.Device, vk.ObjectTypeShaderModule, uint64(uintptr(unsafe.Pointer(module))), fmt.Sprintf("Shader 0x%X", spirvShader.GcnShader.Address))
 	t.shaderModulesMutex.Lock()
-	t.shaderModules[spirvShader.GcnShader.Address] = module
+	t.shaderModules[key] = module
 	t.shaderModulesMutex.Unlock()
 
 	return module, nil
 }
 
 // DumpShaderOnce prints shader byte-code to a file.
-func (t *GpuTranslator) DumpShaderOnce(spirvShader *spirv.SpirvShader) error {
+func (t *GpuTranslator) DumpShaderOnce(key SpirvShaderKey, spirvShader *spirv.SpirvShader) error {
 	// Check if tools available, otherwise skip.
 	spirvValCheckCmd := exec.Command("spirv-val", "--help")
 	if err := spirvValCheckCmd.Run(); err != nil {
@@ -132,7 +137,7 @@ func (t *GpuTranslator) DumpShaderOnce(spirvShader *spirv.SpirvShader) error {
 	if err := os.MkdirAll(shaderDir, 0755); err != nil {
 		return err
 	}
-	textFilename := filepath.Join(shaderDir, fmt.Sprintf("shader_0x%X_%s.spv", spirvShader.GcnShader.Address, spirvShader.GcnShader.Stage))
+	textFilename := filepath.Join(shaderDir, fmt.Sprintf("shader_0x%X_%X_%s.spv", spirvShader.GcnShader.Address, key.FetchLayoutHash, spirvShader.GcnShader.Stage))
 	if err := os.WriteFile(textFilename, common.SpvWordsToBytes(spirvShader.Code), 0777); err != nil {
 		return err
 	}
