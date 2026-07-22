@@ -231,7 +231,7 @@ func libSceLibcInternal_ftell(filePtr uintptr) uintptr {
 		return EOF
 	}
 	var pos uintptr
-	err := libSceLibcInternal_fgetpos(filePtr, uintptr(unsafe.Pointer(pos)))
+	err := libSceLibcInternal_fgetpos(filePtr, uintptr(unsafe.Pointer(&pos)))
 	if err == ERR_PTR {
 		return ERR_PTR
 	}

@@ -1,4 +1,4 @@
-package gpu
+package pm4
 
 // PM4 type-3 packet opcodes for Liverpool GPU.
 const (

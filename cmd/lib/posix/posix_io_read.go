@@ -39,11 +39,12 @@ func libScePosix_read(fd FileDescriptor, bufPtr uintptr, length uint64) int64 {
 	}
 
 	if logger.LogFilesystem {
-		logger.Printf("%-132s %s read %s bytes (fd=%s, length=%s).\n",
+		logger.Printf("%-132s %s read %s bytes (fd=%s, bufPtr=%s, length=%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("read"),
 			color.Yellow.Sprintf("0x%X", readBytes),
 			color.Yellow.Sprintf("0x%X", fd),
+			color.Yellow.Sprintf("0x%X", bufPtr),
 			color.Yellow.Sprintf("0x%X", length),
 		)
 	}
@@ -85,12 +86,13 @@ func libScePosix_pread(fd FileDescriptor, bufPtr uintptr, length uint64, offset 
 	}
 
 	if logger.LogFilesystem {
-		logger.Printf("%-132s %s read %s bytes at offset %s (fd=%s, length=%s).\n",
+		logger.Printf("%-132s %s read %s bytes at offset %s (fd=%s, bufPtr=%s, length=%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("pread"),
 			color.Yellow.Sprintf("0x%X", readBytes),
 			color.Yellow.Sprintf("0x%X", offset),
 			color.Yellow.Sprintf("0x%X", fd),
+			color.Yellow.Sprintf("0x%X", bufPtr),
 			color.Yellow.Sprintf("0x%X", length),
 		)
 	}

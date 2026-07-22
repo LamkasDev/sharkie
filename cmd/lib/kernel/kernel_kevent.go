@@ -6,8 +6,6 @@ import (
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
-	"github.com/LamkasDev/sharkie/cmd/lib_structs/dce"
-	"github.com/LamkasDev/sharkie/cmd/lib_structs/gpu"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/time"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
@@ -48,74 +46,10 @@ func libKernel_kevent(equeueHandle, changelistPtr, nchanges, eventlistPtr, neven
 func processKeventChange(equeue *Equeue, event KernelEvent) {
 	if (event.Flags&EV_ADD) != 0 || (event.Flags&EV_ENABLE) != 0 {
 		switch event.Filter {
-		case EVFILT_VBLANK:
-			go func() {
-				// 60 FPS = ~16.66ms per frame
-				ticker := time.NewTicker(16666 * time.Microsecond)
-				defer ticker.Stop()
-
-				vblankCount := uint64(0)
-				counter := uint64(0)
-				vblankEvent := KernelEvent{
-					Id:          event.Id,
-					Filter:      event.Filter,
-					Flags:       0,
-					FilterFlags: event.FilterFlags,
-					UserData:    event.UserData,
-				}
-
-				for {
-					select {
-					case <-ticker.C:
-						vblankCount++
-
-						// Iterate displays and submit flips.
-						for _, handle := range dce.GlobalDisplayCoreEngine.Handles {
-							if handle.StagingFlip == nil {
-								select {
-								case nextFlip := <-handle.NextFlip:
-									handle.StagingFlip = nextFlip
-								default:
-								}
-							}
-							if handle.StagingFlip != nil {
-								labelSlot := (*uint64)(unsafe.Pointer(handle.LabelBufferAddress + uintptr(handle.StagingFlip.BufferIndex)*8))
-								if *labelSlot == 1 {
-									gpu.GlobalLiverpool.OnFlip(handle.StagingFlip)
-									if handle.CurrentFlip != nil {
-										oldLabelAddress := handle.LabelBufferAddress + uintptr(handle.CurrentFlip.BufferIndex)*8
-										oldLabelSlot := (*uint64)(unsafe.Pointer(oldLabelAddress))
-										*oldLabelSlot = 0
-									}
-									handle.CurrentFlip = handle.StagingFlip
-									handle.StagingFlip = nil
-								}
-							}
-						}
-
-						// Lower 12-bits of TSC ticks, small counter (up to 15), total events shifted by 16-bits.
-						timeBits := uint64(readTsc() & 0xFFF)
-						if counter != 0xF {
-							counter++
-						}
-						counterBits := counter << 12
-						vblankHint := vblankCount << 16
-						flipArgBits := vblankHint & 0xFFFFFFFFFFFF0000
-						vblankEvent.FilterData = timeBits | counterBits | flipArgBits
-
-						select {
-						case equeue.Events <- vblankEvent:
-							// Event sent.
-						default:
-							// Queue full, frame dropped.
-						}
-					}
-				}
-			}()
-			logger.Printf("%-132s %s starting v-blank ticker on %s.\n",
+		case EVFILT_VIDEO_OUT:
+			logger.Printf("%-132s %s ignoring video out event registration for now.\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("processKeventChange"),
-				color.Blue.Sprint(equeue.Name),
 			)
 			return
 		}

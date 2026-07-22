@@ -88,7 +88,8 @@ func RunWithCommandBuffer(handles *VulkanHandles, fence vk.Fence, fn func(buffer
 		PCommandBuffers:    []vk.CommandBuffer{commandBuffer.CommandBuffer},
 	}}, fence)
 	handles.QueueMutex.Unlock()
-	if err := NewError(result); err != nil {
+	if err = NewError(result); err != nil {
+		return err
 	}
 	vk.WaitForFences(handles.Device, 1, []vk.Fence{fence}, vk.True, vk.MaxUint64)
 	commandBuffer.Destroy(handles)

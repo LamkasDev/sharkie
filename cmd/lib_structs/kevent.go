@@ -12,8 +12,9 @@ const (
 )
 
 const (
-	EVFILT_VBLANK = -13
-	EVFILT_USER   = 0
+	EVFILT_VIDEO_OUT     = -13
+	EVFILT_GRAPHICS_CORE = -11
+	EVFILT_USER          = 0
 )
 
 type KernelEvent struct {

@@ -1,4 +1,4 @@
-package gpu
+package pm4
 
 const (
 	GNM_PREPARE_FLIP_MAGIC         = uint32(0xC03E1000)
@@ -14,4 +14,26 @@ const (
 // NewPM4TypedHeader builds a type-3 packet header.
 func NewPM4TypedHeader(opcode, numDWords uint32) uint32 {
 	return 0xC0000000 | ((numDWords - 1) << 16) | (opcode << 8)
+}
+
+type PM4CmdWriteData struct {
+	Header      uint32
+	Control     uint32
+	AddressLow  uint32
+	AddressHigh uint32
+	Data        [1]uint32
+}
+
+type PM4CmdNop struct {
+	Header    uint32
+	DataBlock [1]uint32
+}
+
+type PM4CmdEventWriteEop struct {
+	Header       uint32
+	EventControl uint32
+	AddressLow   uint32
+	DataControl  uint32
+	DataLow      uint32
+	DataHigh     uint32
 }

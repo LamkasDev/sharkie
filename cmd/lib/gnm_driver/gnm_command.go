@@ -9,6 +9,7 @@ import (
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/gc"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/gpu"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/gpu/pm4"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
 )
@@ -228,12 +229,12 @@ func libSceGnmDriver_sceGnmRequestFlipAndSubmitDoneForWorkload(ctxPtr, dcbPtr, r
 	}
 
 	// Write the minimal prepare flip header into the caller's buffer.
-	pkt := (*[64]uint32)(unsafe.Pointer(dcbPtr))
-	pkt[0] = GNM_PREPARE_FLIP_MAGIC
-	pkt[1] = GNM_PREPARE_FLIP_VARIANT_BASE
+	nop := (*PM4CmdNop)(unsafe.Pointer(dcbPtr))
+	nop.Header = GNM_PREPARE_FLIP_MAGIC
+	nop.DataBlock[0] = GNM_PREPARE_FLIP_VARIANT_BASE
 
 	// Patch prepare flip packet.
-	newDcbSizeDW, err := gnmPatchPrepareFlip(dcbPtr, uint32(len(pkt)), uint32(videoOutHandle), uint32(bufferIndex), uint32(flipMode), int64(flipArg))
+	newDcbSizeDW, err := gnmPatchPrepareFlip(dcbPtr, 64, uint32(videoOutHandle), uint32(bufferIndex), uint32(flipMode), int64(flipArg))
 	if err != nil {
 		logger.Printf("%-132s %s failed due to gnmPatchPrepareFlip error (%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -288,19 +289,14 @@ func gnmPatchPrepareFlip(lastDcbAddress uintptr, lastDcbSizeDW, videoOutHandle, 
 	if packetBase[0] != GNM_PREPARE_FLIP_MAGIC {
 		return 0, fmt.Errorf("prepare flip header mismatch at DCB+%d (got 0x%X, want 0x%X)", packetDWOffset, packetBase[0], GNM_PREPARE_FLIP_MAGIC)
 	}
-	variant := packetBase[1]
-	if variant < GNM_PREPARE_FLIP_VARIANT_BASE || variant > GNM_PREPARE_FLIP_VARIANT_MAX {
-		return 0, fmt.Errorf("unknown prepare flip variant 0x%X", variant)
-	}
-	if variant == GNM_PREPARE_FLIP_VARIANT_ADDR && (packetBase[2]&3) != 0 {
-		return 0, fmt.Errorf("prepare flip variant ADDR gpu address 0x%X is not 4-byte aligned", packetBase[2])
-	}
+	previous := make([]uint32, 7)
+	copy(previous, packetBase[:7])
+	variant := previous[1]
 
 	// Get the handle's label buffer base address to build the WRITE_DATA target.
 	var labelBase uintptr
 	labelResult := video_out.SceVideoOutGetBufferLabelAddress(uintptr(videoOutHandle), uintptr(unsafe.Pointer(&labelBase)))
 	if labelResult != 0 || labelBase == 0 {
-		// Label address unavailable - skip the WRITE_DATA patch.
 		logger.Printf(
 			"%-132s %s skipping WRITE_DATA patch.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -308,24 +304,67 @@ func gnmPatchPrepareFlip(lastDcbAddress uintptr, lastDcbSizeDW, videoOutHandle, 
 		)
 		return packetDWOffset, nil
 	}
-
-	// Patch the prepare flip packet to a PM4 WRITE_DATA packet.
 	labelAddress := labelBase + uintptr(bufferIndex)*8
-	packetBase[0] = PM4_WRITE_DATA_HEADER
-	packetBase[1] = PM4_WRITE_DATA_CONTROL
-	packetBase[2] = uint32(labelAddress)
-	packetBase[3] = uint32(labelAddress >> 32)
-	packetBase[4] = 1
+
+	// Write data packet to signal surface.
+	writeLock := (*PM4CmdWriteData)(unsafe.Pointer(packetPtr))
+	writeLock.Header = NewPM4TypedHeader(PM4_IT_WRITE_DATA, 4)
+	writeLock.Control = 0x500
+	writeLock.AddressLow = uint32(labelAddress)
+	writeLock.AddressHigh = uint32(labelAddress >> 32)
+	writeLock.Data[0] = 1
+
+	// NOP packet.
+	nop := (*PM4CmdNop)(unsafe.Pointer(packetPtr + 5*4))
+
+	switch variant {
+	case 0x68750777: // PrepareFlip.
+		nop.Header = NewPM4TypedHeader(PM4_IT_NOP, 0x3A)
+		nop.DataBlock[0] = 0x68750776 // PatchedFlip.
+	case 0x68750778: // PrepareFlipLabel.
+		nop.Header = NewPM4TypedHeader(PM4_IT_NOP, 0x35)
+		nop.DataBlock[0] = 0x68750776 // PatchedFlip.
+
+		writeLabel := (*PM4CmdWriteData)(unsafe.Pointer(packetPtr + 0x3B*4))
+		writeLabel.Header = NewPM4TypedHeader(PM4_IT_WRITE_DATA, 4)
+		writeLabel.Control = 0x500
+		writeLabel.AddressLow = previous[2] & 0xFFFFFFFC
+		writeLabel.AddressHigh = previous[3]
+		writeLabel.Data[0] = previous[4]
+	case 0x68750779: // PrepareFlipInterruptLabel.
+		nop.Header = NewPM4TypedHeader(PM4_IT_NOP, 0x34)
+		nop.DataBlock[0] = 0x68750776 // PatchedFlip.
+
+		writeEop := (*PM4CmdEventWriteEop)(unsafe.Pointer(packetPtr + 0x3A*4))
+		writeEop.Header = NewPM4TypedHeader(PM4_IT_EVENT_WRITE_EOP, 5)
+		writeEop.EventControl = (previous[5] & 0x3F) + 0x500 + (previous[6]&0x3F)*0x1000
+		writeEop.AddressLow = previous[2] & 0xFFFFFFFC
+		writeEop.DataControl = (previous[3] & 0xFFFF) | 0x22000000
+		writeEop.DataLow = previous[4]
+		writeEop.DataHigh = 0
+	case 0x6875077A: // PrepareFlipInterrupt.
+		nop.Header = NewPM4TypedHeader(PM4_IT_NOP, 0x34)
+		nop.DataBlock[0] = 0x68750776 // PatchedFlip.
+
+		writeEop := (*PM4CmdEventWriteEop)(unsafe.Pointer(packetPtr + 0x3A*4))
+		writeEop.Header = NewPM4TypedHeader(PM4_IT_EVENT_WRITE_EOP, 5)
+		writeEop.EventControl = (previous[2] & 0x3F) + 0x500 + (previous[3]&0x3F)*0x1000
+		writeEop.AddressLow = 0
+		writeEop.DataControl = 0x02000000
+		writeEop.DataLow = 0
+		writeEop.DataHigh = 0
+	}
 
 	if logger.LogGraphics {
-		logger.Printf("%-132s %s patched prepare flip to WRITE_DATA at %s (label=%s).\n",
+		logger.Printf("%-132s %s patched prepare flip variant %s at %s (label=%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("gnmPatchPrepareFlip"),
+			color.Yellow.Sprintf("0x%X", variant),
 			color.Yellow.Sprintf("0x%X", packetPtr),
 			color.Yellow.Sprintf("0x%X", labelAddress),
 		)
 	}
-	return packetDWOffset + 5, nil
+	return packetDWOffset + 64, nil
 }
 
 // 0x0000000000001720

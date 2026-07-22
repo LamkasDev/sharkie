@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/gcn"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/gpu/pm4"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/video"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"

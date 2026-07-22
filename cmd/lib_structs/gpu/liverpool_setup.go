@@ -4,6 +4,7 @@ import (
 	"unsafe"
 
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/gcn"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/gpu/pm4"
 	spirvStructs "github.com/LamkasDev/sharkie/cmd/spirv/structs"
 )
 

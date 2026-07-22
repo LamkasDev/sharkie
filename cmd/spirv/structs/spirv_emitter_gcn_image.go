@@ -43,5 +43,5 @@ func (z *ImageDescriptor) Hash() uint64 {
 }
 
 func GetPhysicalGpuAddress(virtualAddress uintptr) uintptr {
-	return virtualAddress & ^uintptr(0x02000000) // Temporary. */
+	return virtualAddress
 }

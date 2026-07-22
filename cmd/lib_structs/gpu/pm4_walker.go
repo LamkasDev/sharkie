@@ -4,6 +4,7 @@ import (
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/asm"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/gpu/pm4"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
 )
@@ -132,7 +133,11 @@ func (l *Liverpool) dispatchType3Packet(stream *LiverpoolCommandStream, opcode u
 	)
 }
 
-func (l *Liverpool) handleNop(stream *LiverpoolCommandStream, payload []uint32) {}
+func (l *Liverpool) handleNop(stream *LiverpoolCommandStream, payload []uint32) {
+	if len(payload) > 0 && payload[0] == 0x68750776 /* PatchedFlip */ {
+		stream.Commands = append(stream.Commands, LiverpoolCommand{Type: LiverpoolCommandTypeFlip})
+	}
+}
 
 func (l *Liverpool) handleContextControl(stream *LiverpoolCommandStream, payload []uint32) {
 	if len(payload) < 2 {

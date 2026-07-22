@@ -1,6 +1,7 @@
 package structs
 
 import (
+	"fmt"
 	"slices"
 	"sync"
 	"syscall"
@@ -103,7 +104,10 @@ func (m *MemoryManager) UpdateTraps(address, size uintptr, protState int) {
 	}
 
 	mprotectSlice := unsafe.Slice((*byte)(unsafe.Pointer(alignedAddress)), alignedSize)
-	syscall.Mprotect(mprotectSlice, sysProt)
+	err := syscall.Mprotect(mprotectSlice, sysProt)
+	if err != nil {
+		fmt.Printf("failed mprotect on %X (size %X): %v\n", alignedAddress, alignedSize, err)
+	}
 }
 
 func (m *MemoryManager) Track(address, size uintptr, resource interface{}) {

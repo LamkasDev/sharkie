@@ -17,4 +17,7 @@ func RegisterGnmDriverStubs() {
 	elf.RegisterStub("libSceGnmDriver", "sceGnmSubmitDone", libSceGnmDriver_sceGnmSubmitDone)
 	elf.RegisterStub("libSceGnmDriver", "sceGnmDingDong", libSceGnmDriver_sceGnmDingDong)
 	elf.RegisterStub("libSceGnmDriver", "sceGnmDingDongForWorkload", libSceGnmDriver_sceGnmDingDongForWorkload)
+
+	// Equeue commands.
+	elf.RegisterStub("libSceGnmDriver", "sceGnmAddEqEvent", libSceGnmDriver_sceGnmAddEqEvent)
 }

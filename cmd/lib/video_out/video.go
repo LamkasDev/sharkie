@@ -15,6 +15,7 @@ func RegisterVideoOutStubs() {
 
 	// Command functions.
 	elf.RegisterStub("libSceVideoOut", "sceVideoOutAddFlipEvent", libSceVideoOut_sceVideoOutAddFlipEvent)
+	elf.RegisterStub("libSceVideoOut", "sceVideoOutAddVblankEvent", libSceVideoOut_sceVideoOutAddVblankEvent)
 	elf.RegisterStub("libSceVideoOut", "sceVideoOutSetFlipRate", libSceVideoOut_sceVideoOutSetFlipRate)
 	elf.RegisterStub("libSceVideoOut", "sceVideoOutSubmitEopFlip", libSceVideoOut_sceVideoOutSubmitEopFlip)
 

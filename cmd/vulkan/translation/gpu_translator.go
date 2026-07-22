@@ -13,6 +13,7 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/lib_structs"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/gpu"
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/irq"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/LamkasDev/sharkie/cmd/spirv"
 	"github.com/LamkasDev/sharkie/cmd/structs"
@@ -178,7 +179,7 @@ func NewGpuTranslator(handles vulkan.VulkanHandles, bknd backend.Backend[glfwvul
 
 	garlicBuffer, garlicMemory, err := vulkan.AllocateExternalBuffer(&t.handles, vk.DeviceSize(GlobalGpuAllocator.Size),
 		vk.BufferUsageFlags(vk.BufferUsageShaderDeviceAddressBit|vk.BufferUsageStorageBufferBit|vk.BufferUsageVertexBufferBit|vk.BufferUsageIndexBufferBit|vk.BufferUsageTransferSrcBit|vk.BufferUsageTransferDstBit),
-		vk.MemoryPropertyFlags(vk.MemoryPropertyHostVisibleBit|vk.MemoryPropertyHostCoherentBit))
+		vk.MemoryPropertyFlags(vk.MemoryPropertyHostVisibleBit|vk.MemoryPropertyHostCoherentBit|vk.MemoryPropertyHostCachedBit))
 	if err != nil {
 		return nil, fmt.Errorf("GpuTranslator: garlic buffer: %w", err)
 	}
@@ -374,6 +375,8 @@ func (t *GpuTranslator) Translate(frame uint64, stream *gpu.LiverpoolCommandStre
 			t.WriteData(&stream.WriteDatas[command.Index])
 		case gpu.LiverpoolCommandTypeWaitRegMemory:
 			t.WaitRegMemory(&stream.WaitRegMems[command.Index])
+		case gpu.LiverpoolCommandTypeFlip:
+			irq.GlobalInterruptHandler.Signal(irq.InterruptGraphicsFlip)
 		}
 		stream.CommandIndex++
 	}

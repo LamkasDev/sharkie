@@ -1,6 +1,7 @@
 package translation
 
 import (
+	"github.com/LamkasDev/sharkie/cmd/logger"
 	spirvStructs "github.com/LamkasDev/sharkie/cmd/spirv/structs"
 	"github.com/LamkasDev/sharkie/cmd/vulkan"
 	vk "github.com/goki/vulkan"
@@ -33,7 +34,9 @@ func (t *GpuTranslator) GetImage(descriptor spirvStructs.ImageDescriptor, format
 				_ = image.CopyToImage(&t.handles, newImage, t.currentGuestFrame)
 			}
 			if newImage.ShouldUploadToVkImage(t.currentGuestFrame) {
-				_ = newImage.UploadToVkImage(&t.handles, t.GetLinearBuffer, t.currentGuestFrame)
+				if err = newImage.UploadToVkImage(&t.handles, t.GetLinearBuffer, t.currentGuestFrame); err != nil {
+					logger.Printf("failed to upload image: %v\n", err)
+				}
 			}
 			return newImage, nil, true
 		}
@@ -42,7 +45,9 @@ func (t *GpuTranslator) GetImage(descriptor spirvStructs.ImageDescriptor, format
 			image.IsSurface = true
 		}
 		if image.ShouldUploadToVkImage(t.currentGuestFrame) {
-			_ = image.UploadToVkImage(&t.handles, t.GetLinearBuffer, t.currentGuestFrame)
+			if err := image.UploadToVkImage(&t.handles, t.GetLinearBuffer, t.currentGuestFrame); err != nil {
+				logger.Printf("failed to upload image: %v\n", err)
+			}
 		}
 		return image, nil, false
 	}

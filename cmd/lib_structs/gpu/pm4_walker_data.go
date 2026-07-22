@@ -16,7 +16,7 @@ func (l *Liverpool) handleWriteData(stream *LiverpoolCommandStream, payload []ui
 	// Check if we support the write destination.
 	destSelection := (payload[0] >> 8) & 0x7
 	switch destSelection {
-	case 0, 1, 5:
+	case 2, 5:
 	default:
 		logger.Printf("[%s] failed write data on non-memory destination %s.\n",
 			color.Green.Sprintf("PM4-%s/%d", stream.Name, len(payload)),

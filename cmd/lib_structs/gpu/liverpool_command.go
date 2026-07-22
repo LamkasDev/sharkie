@@ -15,6 +15,7 @@ const (
 	LiverpoolCommandTypeSetDynamicState
 	LiverpoolCommandTypeWriteData
 	LiverpoolCommandTypeWaitRegMemory
+	LiverpoolCommandTypeFlip
 )
 
 type LiverpoolCommand struct {

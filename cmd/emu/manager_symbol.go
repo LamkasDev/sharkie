@@ -32,8 +32,6 @@ func GetSymbolAddress(s *elf.ElfSymbol) (uintptr, bool) {
 		}
 	}
 
-	// libSceVideoOut:sceVideoOutSubmitEopFlip is at 0x0
-	// libSceVideoOut:sceVideoOutGetBufferLabelAddress is at 0x0
 	for _, module := range GlobalModuleManager.Modules {
 		if module == nil {
 			continue
