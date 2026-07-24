@@ -106,3 +106,11 @@ func libc_fclose(filePtr uintptr) uintptr {
 func libc_feof(filePtr uintptr) uintptr {
 	return libSceLibcInternal_feof(filePtr)
 }
+
+func libc__Lockfilelock(filePtr uintptr) uintptr {
+	return libSceLibcInternal__Lockfilelock(filePtr)
+}
+
+func libc__Unlockfilelock(filePtr uintptr) uintptr {
+	return libSceLibcInternal__Unlockfilelock(filePtr)
+}

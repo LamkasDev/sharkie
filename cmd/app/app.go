@@ -240,11 +240,13 @@ func (app *Application) VulkanDeviceCreateNext() unsafe.Pointer {
 		StorageBuffer8BitAccess:           vk.True,
 		UniformAndStorageBuffer8BitAccess: vk.True,
 		StoragePushConstant8:              vk.True,
+		ShaderInt8:                        vk.True,
 	}
 	features2 := &vk.PhysicalDeviceFeatures2{
 		SType: vk.StructureTypePhysicalDeviceFeatures2,
 		PNext: unsafe.Pointer(vulkan12Features),
 		Features: vk.PhysicalDeviceFeatures{
+			ShaderInt16:                          vk.True,
 			ShaderInt64:                          vk.True,
 			SampleRateShading:                    vk.True,
 			IndependentBlend:                     vk.True,
@@ -256,6 +258,7 @@ func (app *Application) VulkanDeviceCreateNext() unsafe.Pointer {
 			DepthClamp:                           vk.True,
 			TextureCompressionBC:                 vk.True,
 			LogicOp:                              vk.True,
+			SamplerAnisotropy:                    vk.True,
 		},
 	}
 	pageableDeviceLocalMemoryFeatures := &vulkan.VkPhysicalDevicePageableDeviceLocalMemoryFeaturesEXT{

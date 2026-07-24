@@ -50,6 +50,7 @@ func RegisterPosixStubs() {
 	RegisterPosixStub("lseek_0", libScePosix_lseek)
 	RegisterPosixStub("close", libScePosix_close)
 	RegisterPosixStub("_close", libScePosix_close)
+	RegisterPosixStub("stat", libScePosix_stat)
 }
 
 // We need these functions to be available in kernel; libraries take them from there.

@@ -38,9 +38,6 @@ func (t *GpuTranslator) createDummyTexture() {
 }
 
 func (t *GpuTranslator) initStaticDescriptorSet(imageView vk.ImageView, sampler vk.Sampler) {
-	if t.staticDescriptorSet == vk.NullDescriptorSet || imageView == vk.NullImageView {
-		return
-	}
 	sampledInfos := make([]vk.DescriptorImageInfo, spirvStructs.MaxStaticBindings)
 	storageInfos := make([]vk.DescriptorImageInfo, spirvStructs.MaxStaticBindings)
 	for i := range sampledInfos {
@@ -57,7 +54,7 @@ func (t *GpuTranslator) initStaticDescriptorSet(imageView vk.ImageView, sampler 
 	vk.UpdateDescriptorSets(t.handles.Device, 2, []vk.WriteDescriptorSet{
 		{
 			SType:           vk.StructureTypeWriteDescriptorSet,
-			DstSet:          t.staticDescriptorSet,
+			DstSet:          t.staticDescriptorPool.Pools[0].DefaultSet,
 			DstBinding:      spirvStructs.StaticBindingSampledImages,
 			DstArrayElement: 0,
 			DescriptorCount: spirvStructs.MaxStaticBindings,
@@ -66,7 +63,7 @@ func (t *GpuTranslator) initStaticDescriptorSet(imageView vk.ImageView, sampler 
 		},
 		{
 			SType:           vk.StructureTypeWriteDescriptorSet,
-			DstSet:          t.staticDescriptorSet,
+			DstSet:          t.staticDescriptorPool.Pools[0].DefaultSet,
 			DstBinding:      spirvStructs.StaticBindingStorageImages,
 			DstArrayElement: 0,
 			DescriptorCount: spirvStructs.MaxStaticBindings,

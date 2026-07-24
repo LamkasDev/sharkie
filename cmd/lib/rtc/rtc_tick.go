@@ -33,6 +33,28 @@ func libSceRtc_sceRtcGetCurrentTick(tickPtr uintptr) uintptr {
 	return 0
 }
 
+// 0x00000000000006F0
+// __int64 __fastcall sceRtcGetCurrentRawNetworkTick(_QWORD *)
+func libSceRtc_sceRtcGetCurrentRawNetworkTick(tickPtr uintptr) uintptr {
+	if tickPtr == 0 {
+		logger.Printf("%-132s %s failed due to invalid tick pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceRtcGetCurrentRawNetworkTick"),
+		)
+		return 0x7FFEF9FE
+	}
+	tick := (*RtcTick)(unsafe.Pointer(tickPtr))
+
+	var timestamp Timestamp
+	err := kernel.SceKernelClockGettime(0, uintptr(unsafe.Pointer(&timestamp)))
+	if err == 0 {
+		epochMicros := (1000000 * timestamp.Seconds) + (timestamp.Nanoseconds / 1000)
+		tick.Tick = uint64(epochMicros + UnixEpochTicks)
+	}
+
+	return 0
+}
+
 func SceRtcSetTick(datetimePtr, tickPtr uintptr) uintptr {
 	return libSceRtc_sceRtcSetTick(datetimePtr, tickPtr)
 }
@@ -136,6 +158,23 @@ func libSceRtc_sceRtcGetTick(datetimePtr, tickPtr uintptr) uintptr {
 	return 0
 }
 
+// 0x0000000000003370
+// __int64 __fastcall sceRtcTickAddHours(_QWORD *, _QWORD *, int)
+func libSceRtc_sceRtcTickAddHours(tick1Ptr, tick2Ptr uintptr, add int64) uintptr {
+	if tick1Ptr == 0 || tick2Ptr == 0 {
+		logger.Printf("%-132s %s failed due to invalid tick pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceRtcTickAddHours"),
+		)
+		return 0x80B50002
+	}
+	tick1 := (*RtcTick)(unsafe.Pointer(tick1Ptr))
+	tick2 := (*RtcTick)(unsafe.Pointer(tick2Ptr))
+	tick1.Tick = uint64(int64(tick2.Tick) + (add * 3600000000))
+
+	return 0
+}
+
 func SceRtcTickAddMinutes(tick1Ptr, tick2Ptr uintptr, add int64) uintptr {
 	return libSceRtc_sceRtcTickAddMinutes(tick1Ptr, tick2Ptr, add)
 }
@@ -153,6 +192,23 @@ func libSceRtc_sceRtcTickAddMinutes(tick1Ptr, tick2Ptr uintptr, add int64) uintp
 	tick1 := (*RtcTick)(unsafe.Pointer(tick1Ptr))
 	tick2 := (*RtcTick)(unsafe.Pointer(tick2Ptr))
 	tick1.Tick = uint64(int64(tick2.Tick) + (add * 60000000))
+
+	return 0
+}
+
+// 0x00000000000032E0
+// __int64 __fastcall sceRtcTickAddSeconds(_QWORD *, _QWORD *, __int64)
+func libSceRtc_sceRtcTickAddSeconds(tick1Ptr, tick2Ptr uintptr, add int64) uintptr {
+	if tick1Ptr == 0 || tick2Ptr == 0 {
+		logger.Printf("%-132s %s failed due to invalid tick pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceRtcTickAddSeconds"),
+		)
+		return 0x80B50002
+	}
+	tick1 := (*RtcTick)(unsafe.Pointer(tick1Ptr))
+	tick2 := (*RtcTick)(unsafe.Pointer(tick2Ptr))
+	tick1.Tick = uint64(int64(tick2.Tick) + (add * 1000000))
 
 	return 0
 }

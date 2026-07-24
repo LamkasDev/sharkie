@@ -3,8 +3,6 @@ package translation
 import (
 	"fmt"
 
-	"github.com/LamkasDev/sharkie/cmd/lib_structs/gcn"
-	"github.com/LamkasDev/sharkie/cmd/lib_structs/gpu"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/LamkasDev/sharkie/cmd/spirv"
 	spirvCommon "github.com/LamkasDev/sharkie/cmd/spirv/common"
@@ -32,8 +30,11 @@ func (t *GpuTranslator) BindResources(shaders []*spirv.SpirvShader, userData spi
 		accessByOffset[access.InstructionOffset] = access
 	}
 
-	// Allocate a static set, bind resources to slots.
-	activeStaticSet := t.allocateStaticDescriptorSet()
+	// Get a static descriptor set, bind resources to slots.
+	activeStaticSet, err := t.staticDescriptorPool.Get(t.handles, t.currentGuestFrame)
+	if err != nil {
+		return nil, vk.NullDescriptorSet, err
+	}
 	boundText := fmt.Sprintf("[Frame %d] Bound slot", t.currentGuestFrame)
 	for _, binding := range allLayouts {
 		access := accessByOffset[binding.InstructionOffset]
@@ -76,7 +77,7 @@ func (t *GpuTranslator) BindResources(shaders []*spirv.SpirvShader, userData spi
 	}
 
 	// Bind buffer resources if a fetch shader is present.
-	if t.activeVertexShader != nil && t.activeVertexShader.GcnShader != nil {
+	/* if t.activeVertexShader != nil && t.activeVertexShader.GcnShader != nil {
 		fetchPC := GetFetchShaderPC(t.activeVertexShader.GcnShader, userData[:])
 		if fetchPC != 0 {
 			fetchShader := gpu.GlobalLiverpool.GetShader(gcn.GcnShaderStageVertex, fetchPC)
@@ -91,63 +92,9 @@ func (t *GpuTranslator) BindResources(shaders []*spirv.SpirvShader, userData spi
 				}
 			}
 		}
-	}
+	} */
 
 	return storeTargets, activeStaticSet, nil
-}
-
-func (t *GpuTranslator) allocateStaticDescriptorSet() vk.DescriptorSet {
-	if t.staticDescriptorSetIdx >= len(t.staticDescriptorSets) {
-		var newSet vk.DescriptorSet
-		result := vk.AllocateDescriptorSets(t.handles.Device, &vk.DescriptorSetAllocateInfo{
-			SType:              vk.StructureTypeDescriptorSetAllocateInfo,
-			DescriptorPool:     t.descriptorPool,
-			DescriptorSetCount: 1,
-			PSetLayouts:        []vk.DescriptorSetLayout{t.staticDescriptorSetLayout},
-		}, &newSet)
-		if result != vk.Success {
-			fmt.Printf("WARNING: out of static descriptor sets (%v), falling back to shared set\n", result)
-			return t.staticDescriptorSet // fallback to the shared one if out of memory
-		}
-		t.staticDescriptorSets = append(t.staticDescriptorSets, newSet)
-	}
-	set := t.staticDescriptorSets[t.staticDescriptorSetIdx]
-	t.staticDescriptorSetIdx++
-
-	vk.UpdateDescriptorSets(t.handles.Device, 0, nil, 2, []vk.CopyDescriptorSet{
-		{
-			SType:           vk.StructureTypeCopyDescriptorSet,
-			SrcSet:          t.staticDescriptorSet,
-			SrcBinding:      spirvStructs.StaticBindingSampledImages,
-			SrcArrayElement: 0,
-			DstSet:          set,
-			DstBinding:      spirvStructs.StaticBindingSampledImages,
-			DstArrayElement: 0,
-			DescriptorCount: spirvStructs.MaxStaticBindings,
-		},
-		{
-			SType:           vk.StructureTypeCopyDescriptorSet,
-			SrcSet:          t.staticDescriptorSet,
-			SrcBinding:      spirvStructs.StaticBindingStorageImages,
-			SrcArrayElement: 0,
-			DstSet:          set,
-			DstBinding:      spirvStructs.StaticBindingStorageImages,
-			DstArrayElement: 0,
-			DescriptorCount: spirvStructs.MaxStaticBindings,
-		},
-		{
-			SType:           vk.StructureTypeCopyDescriptorSet,
-			SrcSet:          t.staticDescriptorSet,
-			SrcBinding:      spirvStructs.StaticBindingSampledBuffers,
-			SrcArrayElement: 0,
-			DstSet:          set,
-			DstBinding:      spirvStructs.StaticBindingSampledBuffers,
-			DstArrayElement: 0,
-			DescriptorCount: spirvStructs.MaxStaticBindings,
-		},
-	})
-
-	return set
 }
 
 func (t *GpuTranslator) updateStaticDescriptorBinding(set vk.DescriptorSet, index uint32, sampledView, storageView vk.ImageView, sampler vk.Sampler, bufferView vk.BufferView) {

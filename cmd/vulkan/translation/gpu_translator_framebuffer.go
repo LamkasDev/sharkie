@@ -10,7 +10,7 @@ func (t *GpuTranslator) GetFramebuffer(request vulkan.FramebufferRequest) (*vulk
 		return fb, nil
 	}
 
-	fb, err := vulkan.CreateFramebuffer(&t.handles, request)
+	fb, err := vulkan.CreateFramebuffer(t.handles, request)
 	if err != nil {
 		return nil, err
 	}

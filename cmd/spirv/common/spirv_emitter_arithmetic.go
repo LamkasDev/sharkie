@@ -191,6 +191,13 @@ func (b *SpvBuilder) EmitULessThan(resultType, op1, op2 SpirvId) SpirvId {
 	return id
 }
 
+// EmitULessThanEqual emits OpULessThan and returns the result ID.
+func (b *SpvBuilder) EmitULessThanEqual(resultType, op1, op2 SpirvId) SpirvId {
+	id := b.AllocId()
+	b.instr(&b.code, spec.SpvOpULessThanEqual, uint32(resultType), uint32(id), uint32(op1), uint32(op2))
+	return id
+}
+
 // EmitBitFieldUExtract emits OpBitFieldUExtract and returns the result ID.
 func (b *SpvBuilder) EmitBitFieldUExtract(resultType, base, offset, count SpirvId) SpirvId {
 	id := b.AllocId()
@@ -244,6 +251,13 @@ func (b *SpvBuilder) EmitFOrdLessThan(resultType, op1, op2 SpirvId) SpirvId {
 func (b *SpvBuilder) EmitFOrdGreaterThan(resultType, op1, op2 SpirvId) SpirvId {
 	id := b.AllocId()
 	b.instr(&b.code, spec.SpvOpFOrdGreaterThan, uint32(resultType), uint32(id), uint32(op1), uint32(op2))
+	return id
+}
+
+// EmitFOrdLessThanEqual emits OpFFOrdLessThanEqual and returns the result ID.
+func (b *SpvBuilder) EmitFOrdLessThanEqual(resultType, op1, op2 SpirvId) SpirvId {
+	id := b.AllocId()
+	b.instr(&b.code, spec.SpvOpFOrdLessThanEqual, uint32(resultType), uint32(id), uint32(op1), uint32(op2))
 	return id
 }
 

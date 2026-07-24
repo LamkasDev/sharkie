@@ -13,23 +13,33 @@ import (
 // __int64 sceKernelGetTscFrequency()
 func libKernel_sceKernelGetTscFrequency() uintptr {
 	freq := uintptr(lib_structs.TSC_FREQUENCY)
-	logger.Printf("%-132s %s returned frequency %s.\n",
-		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprint("sceKernelGetTscFrequency"),
-		color.Yellow.Sprintf("0x%X", freq),
-	)
+
+	if logger.LogMisc {
+		logger.Printf("%-132s %s returned frequency %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceKernelGetTscFrequency"),
+			color.Yellow.Sprintf("0x%X", freq),
+		)
+	}
 	return freq
+}
+
+func SceKernelReadTsc() uintptr {
+	return libKernel_sceKernelReadTsc()
 }
 
 // 0x000000000001A690
 // unsigned __int64 sceKernelReadTsc()
 func libKernel_sceKernelReadTsc() uintptr {
 	ticks := readTsc()
-	logger.Printf("%-132s %s returned %s ticks.\n",
-		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprint("sceKernelReadTsc"),
-		color.Green.Sprint(ticks),
-	)
+
+	if logger.LogMisc {
+		logger.Printf("%-132s %s returned %s ticks.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceKernelReadTsc"),
+			color.Green.Sprint(ticks),
+		)
+	}
 	return ticks
 }
 

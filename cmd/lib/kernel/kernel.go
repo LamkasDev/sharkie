@@ -82,7 +82,6 @@ func RegisterKernelStubs() {
 	elf.RegisterStub("libkernel", "ftruncate_0", libKernel_ftruncate_0)
 	elf.RegisterStub("libkernel", "sceKernelFtruncate", libKernel_sceKernelFtruncate)
 	elf.RegisterStub("libkernel", "sceKernelLseek", libKernel_sceKernelLseek)
-	elf.RegisterStub("libkernel", "stat", libKernel_stat)
 	elf.RegisterStub("libkernel", "sceKernelStat", libKernel_sceKernelStat)
 	elf.RegisterStub("libkernel", "fstat", libKernel_fstat)
 	elf.RegisterStub("libkernel", "sceKernelFstat", libKernel_sceKernelFstat)

@@ -340,3 +340,11 @@ func libSceLibcInternal_feof(filePtr uintptr) uintptr {
 	}
 	return eof
 }
+
+func libSceLibcInternal__Lockfilelock(filePtr uintptr) uintptr {
+	return 0
+}
+
+func libSceLibcInternal__Unlockfilelock(filePtr uintptr) uintptr {
+	return 0
+}

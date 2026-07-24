@@ -5,6 +5,7 @@ import (
 
 	gcnSpec "github.com/LamkasDev/sharkie/cmd/lib_structs/gcn/spec"
 	. "github.com/LamkasDev/sharkie/cmd/spirv/common"
+	"github.com/LamkasDev/sharkie/cmd/spirv/spec"
 )
 
 func EmitSOPP(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext) {
@@ -25,6 +26,14 @@ func EmitSOPP(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 	case gcnSpec.SoppOpCbranchScc0:
 		val32 := ctx.GetOperandUintValue(b, gcnSpec.OpScc, 0)
 		ctx.GcnConditionId = b.EmitIEqual(ctx.GetId(BlockContextIdTypeBool), val32, ctx.GetConstId(ConstIdUint0))
+	case gcnSpec.SoppOpCbranchScc1:
+		val32 := ctx.GetOperandUintValue(b, gcnSpec.OpScc, 0)
+		ctx.GcnConditionId = b.EmitIEqual(ctx.GetId(BlockContextIdTypeBool), val32, ctx.GetConstId(ConstIdUint1))
+	case gcnSpec.SoppOpBarrier:
+		b.EmitControlBarrier(
+			b.EmitConstantUint(ctx.GetId(BlockContextIdTypeUint), spec.SpvScopeWorkgroup),
+			b.EmitConstantUint(ctx.GetId(BlockContextIdTypeUint), spec.SpvScopeWorkgroup),
+			b.EmitConstantUint(ctx.GetId(BlockContextIdTypeUint), spec.SpvMemorySemanticsAcquireRelease|spec.SpvMemorySemanticsWorkgroupMemory))
 	case gcnSpec.SoppOpEndpgm:
 		// Not sure about this lol.
 	default:

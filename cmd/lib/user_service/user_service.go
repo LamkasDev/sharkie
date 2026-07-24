@@ -5,8 +5,15 @@ import (
 )
 
 func RegisterUserServiceStubs() {
-	elf.RegisterStub("libSceUserService", "sceUserServiceInitialize", SceUserServiceInitialize)
-	elf.RegisterStub("libSceUserService", "sceUserServiceGetInitialUser", SceUserServiceGetInitialUser)
-	elf.RegisterStub("libSceUserService", "sceUserServiceGetUserName", SceUserServiceGetUserName)
+	// Setup functions.
+	elf.RegisterStub("libSceUserService", "sceUserServiceInitialize", libSceUserService_sceUserServiceInitialize)
+
+	// Event functions.
 	// elf.RegisterStub("libSceUserService", "sceUserServiceGetEvent", SceUserServiceGetEvent)
+
+	// User functions.
+	elf.RegisterStub("libSceUserService", "sceUserServiceGetInitialUser", libSceUserService_sceUserServiceGetInitialUser)
+	elf.RegisterStub("libSceUserService", "sceUserServiceGetUserName", libSceUserService_sceUserServiceGetUserName)
+	elf.RegisterStub("libSceUserService", "sceUserServiceGetUserColor", libSceUserService_sceUserServiceGetUserColor)
+	elf.RegisterStub("libSceUserService", "sceUserServiceGetLoginUserIdList", libSceUserService_sceUserServiceGetLoginUserIdList)
 }

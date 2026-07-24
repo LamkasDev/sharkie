@@ -33,6 +33,8 @@ func libScePosix_pthread_mutex_lock(mutexHandlePtr uintptr) uintptr {
 	if mutexAddr <= ThrMutexDestroyed {
 		MutexLock.Lock()
 		if mutexAddr == ThrMutexDestroyed {
+			a := emu.SprintStackTrace()
+			_ = a
 			logger.Printf("%-132s %s failed trying to lock destroyed mutex.\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("pthread_mutex_lock"),

@@ -10,6 +10,7 @@ import (
 	. "github.com/LamkasDev/sharkie/cmd/spirv/common"
 	"github.com/LamkasDev/sharkie/cmd/spirv/spec"
 	. "github.com/LamkasDev/sharkie/cmd/spirv/structs"
+	"go101.org/nstd"
 )
 
 type SpirvShaderContext struct {
@@ -21,9 +22,8 @@ type SpirvShaderContext struct {
 	PsInputAddress  uint32
 	PsInputControls [32]uint32
 
-	FetchLayout     FetchShaderLayout
-	FetchInstrs     []*gcnSpec.Instruction
-	FetchLayoutHash uint64
+	FetchShaderAddress      uintptr
+	FetchShaderInstructions []*gcnSpec.Instruction
 }
 
 type SpirvShader struct {
@@ -40,6 +40,8 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 
 	// Capabilities.
 	b.EmitCapability(spec.SpvCapShader)
+	b.EmitCapability(spec.SpvCapInt8)
+	b.EmitCapability(spec.SpvCapInt16)
 	b.EmitCapability(spec.SpvCapInt64)
 	b.EmitCapability(spec.SpvCapSampled1D)
 	b.EmitCapability(spec.SpvCapSampledBuffer)
@@ -69,6 +71,8 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	typeInt := b.EmitTypeInt(32, true)
 	typeInt64 := b.EmitTypeInt(64, true)
 	typeUint := b.EmitTypeInt(32, false)
+	typeUint8 := b.EmitTypeInt(8, false)
+	typeUint16 := b.EmitTypeInt(16, false)
 	typeUint64 := b.EmitTypeInt(64, false)
 	idFnType := b.EmitTypeFunction(typeVoid)
 
@@ -117,10 +121,14 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 
 	// Push constant types.
 	typePtrPsbUint := b.EmitTypePointer(spec.SpvStoragePhysicalStorageBuffer, typeUint)
+	typePtrPsbUint8 := b.EmitTypePointer(spec.SpvStoragePhysicalStorageBuffer, typeUint8)
+	typePtrPsbUint16 := b.EmitTypePointer(spec.SpvStoragePhysicalStorageBuffer, typeUint16)
 	typePtrPsbV2Uint := b.EmitTypePointer(spec.SpvStoragePhysicalStorageBuffer, typeV2Uint)
 	typePtrPsbV3Uint := b.EmitTypePointer(spec.SpvStoragePhysicalStorageBuffer, typeV3Uint)
 	typePtrPsbV4Uint := b.EmitTypePointer(spec.SpvStoragePhysicalStorageBuffer, typeV4Uint)
 	b.EmitDecorate(typePtrPsbUint, spec.SpvDecorationArrayStride, 4)
+	b.EmitDecorate(typePtrPsbUint8, spec.SpvDecorationArrayStride, 1)
+	b.EmitDecorate(typePtrPsbUint16, spec.SpvDecorationArrayStride, 2)
 	b.EmitDecorate(typePtrPsbV2Uint, spec.SpvDecorationArrayStride, 8)
 	b.EmitDecorate(typePtrPsbV3Uint, spec.SpvDecorationArrayStride, 12)
 	b.EmitDecorate(typePtrPsbV4Uint, spec.SpvDecorationArrayStride, 16)
@@ -309,7 +317,7 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 			b.EmitExecutionMode(idMain, spec.SpvExecModeDepthReplacing)
 		}
 	case GcnShaderStageCompute:
-		b.EmitExecutionMode(idMain, spec.SpvExecModeLocalSize, ctx.ThreadX, ctx.ThreadY, ctx.ThreadZ)
+		b.EmitExecutionMode(idMain, spec.SpvExecModeLocalSize, nstd.Clamp(ctx.ThreadX, 0, 1024), ctx.ThreadY, ctx.ThreadZ)
 	}
 
 	// Register GCN SGPRs and VGPRs.
@@ -407,6 +415,8 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	constIds[ConstIdFloat4] = SpirvUsedId{Id: b.AllocId(), Value: math.Float32bits(4.0), Name: "4.0"}
 	constIds[ConstIdFloat255] = SpirvUsedId{Id: b.AllocId(), Value: math.Float32bits(255.0), Name: "255.0"}
 	constIds[ConstIdFloat65535] = SpirvUsedId{Id: b.AllocId(), Value: math.Float32bits(65535.0), Name: "65535.0"}
+	constIds[ConstIdFloatMin] = SpirvUsedId{Id: b.AllocId(), Value: math.Float32bits(-math.MaxFloat32), Name: "-MaxFloat32"}
+	constIds[ConstIdFloatMax] = SpirvUsedId{Id: b.AllocId(), Value: math.Float32bits(math.MaxFloat32), Name: "MaxFloat32"}
 
 	// Prepare internal IDs.
 	ids := map[SpirvId]SpirvUsedId{
@@ -416,6 +426,8 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 		BlockContextIdTypeFloat:   {Id: typeFloat, Name: "float_t"},
 		BlockContextIdTypeInt:     {Id: typeInt, Name: "int_t"},
 		BlockContextIdTypeUint:    {Id: typeUint, Name: "uint_t"},
+		BlockContextIdTypeUint8:   {Id: typeUint8, Name: "uint8_t"},
+		BlockContextIdTypeUint16:  {Id: typeUint16, Name: "uint16_t"},
 		BlockContextIdTypeUint64:  {Id: typeUint64, Name: "uint64_t"},
 		BlockContextIdTypeInt64:   {Id: typeInt64, Name: "int64_t"},
 		BlockContextIdTypeVoid:    {Id: typeVoid, Name: "void_t"},
@@ -439,6 +451,8 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 		BlockContextIdPtrPcUint64:                  {Id: typePtrPcUint64, Name: "ptr_pc_uint64_t"},
 		BlockContextIdPtrPcFloat:                   {Id: typePtrPcFloat, Name: "ptr_pc_float_t"},
 		BlockContextIdPtrPsbUint:                   {Id: typePtrPsbUint, Name: "ptr_pc_psb_uint_t"},
+		BlockContextIdPtrPsbUint8:                  {Id: typePtrPsbUint8, Name: "ptr_pc_psb_uint8_t"},
+		BlockContextIdPtrPsbUint16:                 {Id: typePtrPsbUint16, Name: "ptr_pc_psb_uint16_t"},
 		BlockContextIdPtrPsbV2Uint:                 {Id: typePtrPsbV2Uint, Name: "ptr_pc_psb_v2_uint_t"},
 		BlockContextIdPtrPsbV3Uint:                 {Id: typePtrPsbV3Uint, Name: "ptr_pc_psb_v3_uint_t"},
 		BlockContextIdPtrPsbV4Uint:                 {Id: typePtrPsbV4Uint, Name: "ptr_pc_psb_v4_uint_t"},
@@ -481,20 +495,28 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 
 	// Prepare block context with all GCN and our internal IDs.
 	blockContext := SpirvBlockContext{
-		Stage:           shader.Stage,
-		Address:         shader.Address,
-		LabelIds:        labelIds,
-		Ids:             ids,
-		ConstIds:        constIds,
-		GcnSgprArrayId:  idSgprArrayVar,
-		GcnVgprArrayId:  idVgprArrayVar,
-		GcnSpecialIds:   gcnSpecialIds,
-		GcnConstIds:     gcnConstIds,
-		Resources:       resources,
-		StaticLayout:    staticLayout,
+		Stage:          shader.Stage,
+		Address:        shader.Address,
+		LabelIds:       labelIds,
+		Ids:            ids,
+		ConstIds:       constIds,
+		GcnSgprArrayId: idSgprArrayVar,
+		GcnVgprArrayId: idVgprArrayVar,
+		GcnSpecialIds:  gcnSpecialIds,
+		GcnConstIds:    gcnConstIds,
+		StaticLayout:   staticLayout,
+
+		// SpirvShaderContext contents.
+		ThreadX: ctx.ThreadX,
+		ThreadY: ctx.ThreadY,
+		ThreadZ: ctx.ThreadZ,
+
+		PsInControl:     ctx.PsInControl,
+		PsInputAddress:  ctx.PsInputAddress,
 		PsInputControls: ctx.PsInputControls,
-		FetchLayout:     ctx.FetchLayout,
-		FetchInstrs:     ctx.FetchInstrs,
+
+		FetchShaderAddress:      ctx.FetchShaderAddress,
+		FetchShaderInstructions: ctx.FetchShaderInstructions,
 	}
 
 	// Function body.

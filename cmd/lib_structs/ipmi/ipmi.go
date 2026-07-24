@@ -82,17 +82,15 @@ func NewIpmiManager() *IpmiManager {
 func SetupImpiManager() {
 	GlobalIpmiManager = NewIpmiManager()
 	CreateImpiServer("SceLncService", 0)
-	CreateImpiServer("SceShellCoreUtil", 0)
+	shellCoreUtil := CreateImpiServer("SceShellCoreUtil", 0)
+	shellCoreUtil.CreateEventFlag(fmt.Sprintf("SceShellCoreUtil%x", GlobalAppInfo.AppId))
 	CreateDefaultEventFlags([]string{
-		fmt.Sprintf("SceShellCoreUtil%x", GlobalAppInfo.AppId),
 		"SceShellCoreUtilAppFocus",
 		"SceShellCoreUtilCtrlFocus",
 		"SceShellCoreUtilPowerControl",
 	})
-	CreateImpiServer("SceAppMessaging", 0)
-	CreateDefaultEventFlags([]string{
-		fmt.Sprintf("SceAppMessaging%x", GlobalAppInfo.AppId),
-	})
+	appMessaging := CreateImpiServer("SceAppMessaging", 0)
+	appMessaging.CreateEventFlag(fmt.Sprintf("SceAppMessaging%x", GlobalAppInfo.AppId))
 	CreateSemaphore(fmt.Sprintf("SceAppMessaging%x", GlobalAppInfo.AppId), 0, 0, 255)
 	npMgrIpc := CreateImpiServer("SceNpMgrIpc", 0)
 	npMgrIpc.CreateEventFlag("SceNpMgrEvf")
@@ -107,7 +105,17 @@ func SetupImpiManager() {
 	CreateImpiServer("SceSysAudioSystemIpc", 0)
 	avSetting := CreateImpiServer("SceAvSettingIpc", 0)
 	avSetting.CreateEventFlag("SceAvSettingEvf")
+	avCapture := CreateImpiServer("SceAvCaptureIpc", 0)
+	avCapture.CreateEventFlag("SceAvCaptureIpc")
 	CreateImpiServer("SceSaveData", 0)
 	CreateImpiServer("SceUserService", 0)
 	CreateImpiServer("SceRemoteplayIpc", 0)
+	CreateImpiServer("SceScreenShot", 0)
+	CreateImpiServer("SceGlsIpc", 0)
+	CreateDefaultEventFlags([]string{
+		"SceGameLiveStreamingSpectator", "SceGameLiveStreamingUserId",
+		"SceGameLiveStreamingMsgCount", "SceGameLiveStreamingBCCtrl",
+		"SceGameLiveStreamingEvntArg",
+	})
+	CreateImpiServer("SceSharePlayIpc", 0)
 }

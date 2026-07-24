@@ -6,7 +6,7 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/spirv/spec"
 )
 
-func EmitFormatUnpackHelper(b *SpvBuilder, ctx *SpirvBlockContext, baseAddress, byteOffset, dw3 SpirvId, op uint32) SpirvId {
+func EmitFormatUnpackHelper(b *SpvBuilder, ctx *SpirvBlockContext, baseAddress, byteOffset, dataFormat, numFormat, outOfRange SpirvId, op uint32) SpirvId {
 	typeUint := ctx.GetId(BlockContextIdTypeUint)
 	typeInt := ctx.GetId(BlockContextIdTypeInt)
 	typeUint64 := ctx.GetId(BlockContextIdTypeUint64)
@@ -29,10 +29,11 @@ func EmitFormatUnpackHelper(b *SpvBuilder, ctx *SpirvBlockContext, baseAddress, 
 	bitShift := b.EmitIMul(typeUint, mod4, b.EmitConstantUint(typeUint, 8))
 
 	// Load number of components based on instruction.
+	inRange := b.EmitLogicalNot(typeBool, outOfRange)
 	loadWord := func(offset SpirvId) SpirvId {
 		addr := b.EmitIAdd(typeUint64, translatedAddress, ctx.GetConstId(offset))
 		ptr := b.EmitConvertUToPtr(typePtrPsbUint, addr)
-		rawVal := b.EmitLoad(typeUint, ptr, spec.SpvMemoryAccessAligned, 4)
+		rawVal := b.EmitLoadConditional(typeUint, ptr, inRange, ctx.GetConstId(ConstIdUint0), spec.SpvMemoryAccessAligned, 4)
 		return b.EmitShiftRightLogical(typeUint, rawVal, bitShift)
 	}
 	word0 := loadWord(ConstId64Uint0)
@@ -55,9 +56,7 @@ func EmitFormatUnpackHelper(b *SpvBuilder, ctx *SpirvBlockContext, baseAddress, 
 	// Format unpacking logic.
 	switch op {
 	case gcnSpec.MubufOpLoadFormatX, gcnSpec.MubufOpLoadFormatXy, gcnSpec.MubufOpLoadFormatXyz, gcnSpec.MubufOpLoadFormatXyzw:
-		dataFormat := b.EmitBitFieldUExtract(typeUint, dw3, ctx.GetConstId(ConstIdUint15), ctx.GetConstId(ConstIdUint4))
-		numFormat := b.EmitBitFieldUExtract(typeUint, dw3, ctx.GetConstId(ConstIdUint12), ctx.GetConstId(ConstIdUint3))
-
+		// Resolve number formats.
 		isUnorm := b.EmitLogicalOr(typeBool,
 			b.EmitIEqual(typeBool, numFormat, ctx.GetConstId(ConstIdUint0)),
 			b.EmitIEqual(typeBool, numFormat, ctx.GetConstId(ConstIdUint1))) // Treat snorm as unorm
@@ -69,45 +68,31 @@ func EmitFormatUnpackHelper(b *SpvBuilder, ctx *SpirvBlockContext, baseAddress, 
 		isAnyIntOrNorm := b.EmitLogicalOr(typeBool, b.EmitLogicalOr(typeBool, isUnorm, isUint), b.EmitLogicalOr(typeBool, isUscaled, isSscaled))
 		isAnyIntOrNorm = b.EmitLogicalOr(typeBool, isAnyIntOrNorm, b.EmitLogicalOr(typeBool, isSint, isFloat))
 
-		// 8 (DataFormat 1)
+		// Resolve data formats.
 		is8 := b.EmitIEqual(typeBool, dataFormat, ctx.GetConstId(ConstIdUint1))
 		is8Format := b.EmitLogicalAnd(typeBool, is8, isAnyIntOrNorm)
-
-		// 16 (DataFormat 2)
 		is16 := b.EmitIEqual(typeBool, dataFormat, ctx.GetConstId(ConstIdUint2))
 		is16Format := b.EmitLogicalAnd(typeBool, is16, isAnyIntOrNorm)
-
-		// 8_8 (DataFormat 3)
 		is88 := b.EmitIEqual(typeBool, dataFormat, ctx.GetConstId(ConstIdUint3))
 		is88Format := b.EmitLogicalAnd(typeBool, is88, isAnyIntOrNorm)
-
-		// 32 (DataFormat 4)
 		is32 := b.EmitIEqual(typeBool, dataFormat, ctx.GetConstId(ConstIdUint4))
 		is32Format := b.EmitLogicalAnd(typeBool, is32, isAnyIntOrNorm)
-
-		// 16_16 (DataFormat 5)
 		is1616 := b.EmitIEqual(typeBool, dataFormat, ctx.GetConstId(ConstIdUint5))
 		is1616Format := b.EmitLogicalAnd(typeBool, is1616, isAnyIntOrNorm)
-
-		// 8_8_8_8 (DataFormat 10)
 		is8888 := b.EmitIEqual(typeBool, dataFormat, ctx.GetConstId(ConstIdUint10))
 		is8888Format := b.EmitLogicalAnd(typeBool, is8888, isAnyIntOrNorm)
-
-		// 32_32 (DataFormat 11)
 		is3232 := b.EmitIEqual(typeBool, dataFormat, ctx.GetConstId(ConstIdUint11))
 		is3232Format := b.EmitLogicalAnd(typeBool, is3232, isAnyIntOrNorm)
-
-		// 16_16_16_16 (DataFormat 12)
 		is16161616 := b.EmitIEqual(typeBool, dataFormat, ctx.GetConstId(ConstIdUint12))
 		is16161616Format := b.EmitLogicalAnd(typeBool, is16161616, isAnyIntOrNorm)
-
-		// 32_32_32 (DataFormat 13)
 		is323232 := b.EmitIEqual(typeBool, dataFormat, ctx.GetConstId(ConstIdUint13))
 		is323232Format := b.EmitLogicalAnd(typeBool, is323232, isAnyIntOrNorm)
-
-		// 32_32_32_32 (DataFormat 14)
 		is32323232 := b.EmitIEqual(typeBool, dataFormat, ctx.GetConstId(ConstIdUint14))
 		is32323232Format := b.EmitLogicalAnd(typeBool, is32323232, isAnyIntOrNorm)
+
+		// Select raw values based on format.
+		is16BitSize := b.EmitLogicalOr(typeBool, b.EmitLogicalOr(typeBool, is16Format, is1616Format), is16161616Format)
+		is32BitSize := b.EmitLogicalOr(typeBool, b.EmitLogicalOr(typeBool, is32Format, is3232Format), b.EmitLogicalOr(typeBool, is323232Format, is32323232Format))
 
 		// Extract bytes for 8-bit formats.
 		comp0Byte := b.EmitBitwiseAnd(typeUint, word0, cFF)
@@ -122,10 +107,6 @@ func EmitFormatUnpackHelper(b *SpvBuilder, ctx *SpirvBlockContext, baseAddress, 
 		word1 := b.EmitBitcast(typeUint, f1)
 		comp2Short := b.EmitBitwiseAnd(typeUint, word1, cFFFF)
 		comp3Short := b.EmitShiftRightLogical(typeUint, word1, ctx.GetConstId(ConstIdUint16))
-
-		// Select raw values based on format.
-		is16BitSize := b.EmitLogicalOr(typeBool, b.EmitLogicalOr(typeBool, is16Format, is1616Format), is16161616Format)
-		is32BitSize := b.EmitLogicalOr(typeBool, b.EmitLogicalOr(typeBool, is32Format, is3232Format), b.EmitLogicalOr(typeBool, is323232Format, is32323232Format))
 
 		word2 := b.EmitBitcast(typeUint, f2)
 		word3 := b.EmitBitcast(typeUint, f3)
@@ -197,30 +178,18 @@ func EmitFormatUnpackHelper(b *SpvBuilder, ctx *SpirvBlockContext, baseAddress, 
 		comp3Float := b.EmitSelect(typeFloat, is16BitSize, comp3Float16, comp3UintF)
 
 		// Selection chain.
-		comp0 := b.EmitSelect(typeFloat, isUnorm, comp0Unorm, comp0UintF)
-		comp1 := b.EmitSelect(typeFloat, isUnorm, comp1Unorm, comp1UintF)
-		comp2 := b.EmitSelect(typeFloat, isUnorm, comp2Unorm, comp2UintF)
-		comp3 := b.EmitSelect(typeFloat, isUnorm, comp3Unorm, comp3UintF)
-
-		comp0 = b.EmitSelect(typeFloat, isSint, comp0SintF, comp0)
-		comp1 = b.EmitSelect(typeFloat, isSint, comp1SintF, comp1)
-		comp2 = b.EmitSelect(typeFloat, isSint, comp2SintF, comp2)
-		comp3 = b.EmitSelect(typeFloat, isSint, comp3SintF, comp3)
-
-		comp0 = b.EmitSelect(typeFloat, isFloat, comp0Float, comp0)
-		comp1 = b.EmitSelect(typeFloat, isFloat, comp1Float, comp1)
-		comp2 = b.EmitSelect(typeFloat, isFloat, comp2Float, comp2)
-		comp3 = b.EmitSelect(typeFloat, isFloat, comp3Float, comp3)
-
-		comp0 = b.EmitSelect(typeFloat, isUscaled, comp0Uscaled, comp0)
-		comp1 = b.EmitSelect(typeFloat, isUscaled, comp1Uscaled, comp1)
-		comp2 = b.EmitSelect(typeFloat, isUscaled, comp2Uscaled, comp2)
-		comp3 = b.EmitSelect(typeFloat, isUscaled, comp3Uscaled, comp3)
-
-		comp0 = b.EmitSelect(typeFloat, isSscaled, comp0Sscaled, comp0)
-		comp1 = b.EmitSelect(typeFloat, isSscaled, comp1Sscaled, comp1)
-		comp2 = b.EmitSelect(typeFloat, isSscaled, comp2Sscaled, comp2)
-		comp3 = b.EmitSelect(typeFloat, isSscaled, comp3Sscaled, comp3)
+		selectComp := func(compUnorm, compSint, compFloat, compUscaled, compSscaled, compUint SpirvId) SpirvId {
+			comp := b.EmitSelect(typeFloat, isUnorm, compUnorm, compUint)
+			comp = b.EmitSelect(typeFloat, isSint, compSint, comp)
+			comp = b.EmitSelect(typeFloat, isFloat, compFloat, comp)
+			comp = b.EmitSelect(typeFloat, isUscaled, compUscaled, comp)
+			comp = b.EmitSelect(typeFloat, isSscaled, compSscaled, comp)
+			return comp
+		}
+		comp0 := selectComp(comp0Unorm, comp0SintF, comp0Float, comp0Uscaled, comp0Sscaled, comp0UintF)
+		comp1 := selectComp(comp1Unorm, comp1SintF, comp1Float, comp1Uscaled, comp1Sscaled, comp1UintF)
+		comp2 := selectComp(comp2Unorm, comp2SintF, comp2Float, comp2Uscaled, comp2Sscaled, comp2UintF)
+		comp3 := selectComp(comp3Unorm, comp3SintF, comp3Float, comp3Uscaled, comp3Sscaled, comp3UintF)
 
 		// Apply based on format match.
 		isAny1Comp := b.EmitLogicalOr(typeBool, b.EmitLogicalOr(typeBool, is8Format, is16Format), is32Format)

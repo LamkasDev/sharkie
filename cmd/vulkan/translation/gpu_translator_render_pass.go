@@ -15,10 +15,8 @@ func (t *GpuTranslator) EndRenderPass() {
 }
 
 // StartRenderPass ends any active pass, flushes barriers, and starts a new one.
-func (t *GpuTranslator) StartRenderPass(pass vk.RenderPass, passNoClear vk.RenderPass, fb vk.Framebuffer, pipeline vk.Pipeline, clearValues []vk.ClearValue, width, height uint32, excludeAddress uintptr) {
+func (t *GpuTranslator) StartRenderPass(pass vk.RenderPass, passNoClear vk.RenderPass, fb vk.Framebuffer, pipeline vk.Pipeline, clearValues []vk.ClearValue, width, height uint32) {
 	t.EndRenderPass()
-	t.FlushPendingResourceBarriers(t.commandBuffer, excludeAddress)
-
 	vk.CmdBeginRenderPass(t.commandBuffer.CommandBuffer, &vk.RenderPassBeginInfo{
 		SType:           vk.StructureTypeRenderPassBeginInfo,
 		RenderPass:      pass,
@@ -46,9 +44,7 @@ func (t *GpuTranslator) ResumeActiveRenderPass() {
 
 	t.StartRenderPass(t.activePassNoClear, t.activePassNoClear, t.activeFramebuffer, t.activePipeline, nil,
 		uint32(t.activeSurface.ImageView.Image.FirstDescriptor.Width),
-		uint32(t.activeSurface.ImageView.Image.FirstDescriptor.Height),
-		t.activeSurface.Address)
-
+		uint32(t.activeSurface.ImageView.Image.FirstDescriptor.Height))
 	if t.activeDynamicState != nil {
 		t.SetDynamicState(t.activeDynamicState)
 	}
@@ -58,19 +54,6 @@ func (t *GpuTranslator) ResumeActiveRenderPass() {
 func (t *GpuTranslator) FlushPendingResourceBarriers(commandBuffer *vulkan.VulkanCommandBuffer, excludeAddress uintptr) {
 	if t.activePass != vk.NullRenderPass {
 		return
-	}
-
-	if t.pendingComputeBarrier {
-		vk.CmdPipelineBarrier(commandBuffer.CommandBuffer,
-			vk.PipelineStageFlags(vk.PipelineStageComputeShaderBit),
-			vk.PipelineStageFlags(vk.PipelineStageAllGraphicsBit),
-			0, 1, []vk.MemoryBarrier{{
-				SType:         vk.StructureTypeMemoryBarrier,
-				SrcAccessMask: vk.AccessFlags(vk.AccessShaderWriteBit),
-				DstAccessMask: vk.AccessFlags(vk.AccessColorAttachmentWriteBit | vk.AccessShaderReadBit | vk.AccessIndirectCommandReadBit | vk.AccessIndexReadBit | vk.AccessVertexAttributeReadBit),
-			}}, 0, nil, 0, nil,
-		)
-		t.pendingComputeBarrier = false
 	}
 
 	t.imagesMutex.Lock()

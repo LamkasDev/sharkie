@@ -97,7 +97,7 @@ func (l *Liverpool) handleSetRegs(stream *LiverpoolCommandStream, bank []uint32,
 		bankIndex := int(offset) + index
 		if bankIndex < len(bank) {
 			bank[bankIndex] = value
-			if true && !slices.Contains(ImplementedContextRegisters, bankRegNames[uint32(bankIndex)]) {
+			if false && bankName == "context" && !slices.Contains(ImplementedContextRegisters, bankRegNames[uint32(bankIndex)]) {
 				logger.Printf("[%s] set %s/%s to %s.\n",
 					color.Green.Sprintf("PM4-%s/%d", stream.Name, len(payload)),
 					color.Blue.Sprint(bankName),

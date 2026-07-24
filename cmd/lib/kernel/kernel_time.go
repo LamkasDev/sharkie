@@ -12,6 +12,10 @@ import (
 	"github.com/gookit/color"
 )
 
+func SceKernelGetProcessTime() uintptr {
+	return libKernel_sceKernelGetProcessTime()
+}
+
 // 0x0000000000014D50
 // __int64 sceKernelGetProcessTime()
 func libKernel_sceKernelGetProcessTime() uintptr {

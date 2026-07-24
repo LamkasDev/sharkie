@@ -21,11 +21,6 @@ func init() {
 }
 
 func (t *GpuTranslator) Draw(frame uint64, draw *gpu.LiverpoolDraw) {
-	if t.pendingComputeBarrier {
-		t.EndRenderPass()
-		t.ResumeActiveRenderPass()
-	}
-
 	// Get buffer addresses.
 	t.userDataBuffersMutex.Lock()
 	userDataOffset := t.userDataOffsets[draw.UserDataHash]
@@ -33,7 +28,7 @@ func (t *GpuTranslator) Draw(frame uint64, draw *gpu.LiverpoolDraw) {
 	t.userDataBuffersMutex.Unlock()
 
 	// Bind resources.
-	staticSetToBind := t.staticDescriptorSet
+	staticSetToBind := t.staticDescriptorPool.DefaultSet(frame)
 	_, activeStaticSet, err := t.BindResources([]*spirv.SpirvShader{t.activeVertexShader, t.activeFragmentShader}, userData)
 	if err != nil {
 		panic(err)
@@ -41,15 +36,15 @@ func (t *GpuTranslator) Draw(frame uint64, draw *gpu.LiverpoolDraw) {
 	if activeStaticSet != vk.NullDescriptorSet {
 		staticSetToBind = activeStaticSet
 	}
+
+	// Resume render pass if needed.
+	t.ResumeActiveRenderPass()
 	vk.CmdBindDescriptorSets(
 		t.commandBuffer.CommandBuffer, vk.PipelineBindPointGraphics,
 		t.pipelineLayout, spirvStructs.DescriptorSetSlotStatic,
 		1, []vk.DescriptorSet{staticSetToBind},
 		0, nil,
 	)
-
-	// Resume render pass if needed.
-	t.ResumeActiveRenderPass()
 
 	// Perform depth/stencil clears before rendering the draw
 	if draw.DbDepthClearEnable || draw.DbStencilClearEnable {

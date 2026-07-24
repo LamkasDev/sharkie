@@ -107,7 +107,9 @@ func (m *ModuleManager) _RecursiveLoadModule(name string) error {
 		if strings.HasPrefix(needed, "libSceGnmDriver_padebug") ||
 			strings.HasPrefix(needed, "libSceDbgAddressSanitizer") ||
 			strings.HasPrefix(needed, "libSceDipsw") ||
-			strings.HasPrefix(needed, "libSceOttvCapture") {
+			strings.HasPrefix(needed, "libSceOttvCapture") ||
+			strings.HasPrefix(needed, "libSceCamera") ||
+			strings.HasPrefix(needed, "libSceVrTracker") {
 			continue
 		}
 		if err = m._RecursiveLoadModule(needed); err != nil {

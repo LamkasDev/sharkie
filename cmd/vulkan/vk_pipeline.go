@@ -20,7 +20,7 @@ type GraphicsPipelineRequest struct {
 
 type GraphicsPipelineKey struct {
 	VertexModuleAddress   uintptr
-	FetchLayoutHash       uint64
+	FetchShaderAddress    uintptr
 	FragmentModuleAddress uintptr
 	RenderTargetAddress   uintptr
 	DepthTargetAddress    uintptr

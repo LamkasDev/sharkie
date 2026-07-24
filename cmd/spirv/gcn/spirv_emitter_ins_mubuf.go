@@ -5,6 +5,7 @@ import (
 
 	gcnSpec "github.com/LamkasDev/sharkie/cmd/lib_structs/gcn/spec"
 	. "github.com/LamkasDev/sharkie/cmd/spirv/common"
+	"github.com/LamkasDev/sharkie/cmd/spirv/spec"
 	"github.com/LamkasDev/sharkie/cmd/spirv/structs"
 )
 
@@ -12,6 +13,7 @@ func EmitMUBUF(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext
 	details := instr.Details.(*gcnSpec.MubufDetails)
 	typeUint := ctx.GetId(BlockContextIdTypeUint)
 	typeFloat := ctx.GetId(BlockContextIdTypeFloat)
+	typeVec4 := ctx.GetId(BlockContextIdTypeV4Float)
 
 	// index = (inst_idxen ? vgpr_index : 0).
 	index := ctx.GetConstId(ConstIdUint0)
@@ -56,11 +58,9 @@ func EmitMUBUF(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext
 	// Byte address for coordinated access (buffer_offset + mem_offset).
 	byteOffset := b.EmitIAdd(typeUint, bufferOffset, sgprOffset)
 
-	// Fetch the components and unpack.
-	fetchedVec4 := structs.EmitFormatUnpackHelper(b, ctx, res.BaseAddress, byteOffset, res.Dw3, uint32(details.Op))
-
-	// Determine how many components to store.
+	// Determine operation type and how many components to process.
 	var count uint32
+	isStore := false
 	switch details.Op {
 	case gcnSpec.MubufOpLoadFormatX, gcnSpec.MubufOpLoadDword:
 		count = 1
@@ -70,42 +70,82 @@ func EmitMUBUF(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext
 		count = 3
 	case gcnSpec.MubufOpLoadFormatXyzw, gcnSpec.MubufOpLoadDwordx4:
 		count = 4
+	case gcnSpec.MubufOpStoreFormatX, gcnSpec.MubufOpStoreDword:
+		count = 1
+		isStore = true
+	case gcnSpec.MubufOpStoreFormatXy, gcnSpec.MubufOpStoreDwordx2:
+		count = 2
+		isStore = true
+	case gcnSpec.MubufOpStoreFormatXyz, gcnSpec.MubufOpStoreDwordx3:
+		count = 3
+		isStore = true
+	case gcnSpec.MubufOpStoreFormatXyzw, gcnSpec.MubufOpStoreDwordx4:
+		count = 4
+		isStore = true
 	default:
 		panic(fmt.Sprintf("unknown mubuf op %s", gcnSpec.Mnemotics[gcnSpec.EncMUBUF][details.Op]))
 	}
 
-	// Pre-extract all 4 components.
-	compR := b.EmitCompositeExtract(typeFloat, fetchedVec4, 0)
-	compG := b.EmitCompositeExtract(typeFloat, fetchedVec4, 1)
-	compB := b.EmitCompositeExtract(typeFloat, fetchedVec4, 2)
-	compA := b.EmitCompositeExtract(typeFloat, fetchedVec4, 3)
+	if isStore {
+		// Gather registers into Vec4.
+		var comps [4]SpirvId
+		for i := 0; i < 4; i++ {
+			if i < int(count) {
+				rawVgpr := ctx.GetOperandUintValue(b, gcnSpec.OpVgpr0+details.Vdata+uint32(i), 0)
+				comps[i] = b.EmitBitcast(typeFloat, rawVgpr)
+			} else {
+				comps[i] = ctx.GetConstId(ConstIdFloat0)
+			}
+		}
+		storeVec4 := b.EmitCompositeConstruct(typeVec4, comps[0], comps[1], comps[2], comps[3])
 
-	// Put components in correct slots.
-	for i := range count {
-		// Extract destination selector for current channel.
-		shiftAmount := ctx.GetConstId(ConstIdUint0 + SpirvId(i*3))
-		shiftedDword := b.EmitShiftRightLogical(typeUint, res.Dw3, shiftAmount)
-		dstSel := b.EmitBitwiseAnd(typeUint, shiftedDword, b.EmitConstantUint(typeUint, 7))
+		// Branch around the store if we are out of bounds.
+		storeLabel := b.AllocId()
+		mergeLabel := b.AllocId()
+		b.EmitSelectionMerge(mergeLabel, spec.SpvSelectionControlNone)
+		b.EmitBranchConditional(outOfRange, mergeLabel, storeLabel)
 
-		// Generate conditions for selectors.
-		is0 := b.EmitIEqual(typeBool, dstSel, ctx.GetConstId(ConstIdUint0))
-		is1 := b.EmitIEqual(typeBool, dstSel, ctx.GetConstId(ConstIdUint1))
-		isR := b.EmitIEqual(typeBool, dstSel, ctx.GetConstId(ConstIdUint4))
-		isG := b.EmitIEqual(typeBool, dstSel, ctx.GetConstId(ConstIdUint5))
-		isB := b.EmitIEqual(typeBool, dstSel, ctx.GetConstId(ConstIdUint6))
+		// Store values.
+		b.EmitLabel(storeLabel)
+		structs.EmitFormatPackHelper(b, ctx, res.BaseAddress, byteOffset, res.DataFormat, res.NumFormat, uint32(details.Op), storeVec4)
+		b.EmitBranch(mergeLabel)
 
-		// Build selection chain (default to A).
-		compFloat := compA
-		compFloat = b.EmitSelect(typeFloat, isB, compB, compFloat)
-		compFloat = b.EmitSelect(typeFloat, isG, compG, compFloat)
-		compFloat = b.EmitSelect(typeFloat, isR, compR, compFloat)
-		compFloat = b.EmitSelect(typeFloat, is1, ctx.GetConstId(ConstIdFloat1), compFloat)
-		compFloat = b.EmitSelect(typeFloat, is0, ctx.GetConstId(ConstIdFloat0), compFloat)
+		// Merge.
+		b.EmitLabel(mergeLabel)
+	} else {
+		// Fetch the components and unpack.
+		fetchedVec4 := structs.EmitFormatUnpackHelper(b, ctx, res.BaseAddress, byteOffset, res.DataFormat, res.NumFormat, outOfRange, uint32(details.Op))
 
-		// Select between 0.0 and the fetched value.
-		selectedFloat := b.EmitSelect(typeFloat, outOfRange, ctx.GetConstId(ConstIdFloat0), compFloat)
+		// Pre-extract all 4 components.
+		compR := b.EmitCompositeExtract(typeFloat, fetchedVec4, 0)
+		compG := b.EmitCompositeExtract(typeFloat, fetchedVec4, 1)
+		compB := b.EmitCompositeExtract(typeFloat, fetchedVec4, 2)
+		compA := b.EmitCompositeExtract(typeFloat, fetchedVec4, 3)
 
-		// Store results back into VGPRs.
-		ctx.StoreRegisterPointerMasked(b, gcnSpec.OpVgpr0+details.Vdata+i, b.EmitBitcast(typeUint, selectedFloat))
+		// Put components in correct slots.
+		for i := uint32(0); i < count; i++ {
+			// Extract destination selector for current channel.
+			shiftAmount := ctx.GetConstId(ConstIdUint0 + SpirvId(i*3))
+			shiftedDword := b.EmitShiftRightLogical(typeUint, res.Dw3, shiftAmount)
+			dstSel := b.EmitBitwiseAnd(typeUint, shiftedDword, b.EmitConstantUint(typeUint, 7))
+
+			// Generate conditions for selectors.
+			is0 := b.EmitIEqual(typeBool, dstSel, ctx.GetConstId(ConstIdUint0))
+			is1 := b.EmitIEqual(typeBool, dstSel, ctx.GetConstId(ConstIdUint1))
+			isR := b.EmitIEqual(typeBool, dstSel, ctx.GetConstId(ConstIdUint4))
+			isG := b.EmitIEqual(typeBool, dstSel, ctx.GetConstId(ConstIdUint5))
+			isB := b.EmitIEqual(typeBool, dstSel, ctx.GetConstId(ConstIdUint6))
+
+			// Build selection chain (default to A).
+			compFloat := compA
+			compFloat = b.EmitSelect(typeFloat, isB, compB, compFloat)
+			compFloat = b.EmitSelect(typeFloat, isG, compG, compFloat)
+			compFloat = b.EmitSelect(typeFloat, isR, compR, compFloat)
+			compFloat = b.EmitSelect(typeFloat, is1, ctx.GetConstId(ConstIdFloat1), compFloat)
+			compFloat = b.EmitSelect(typeFloat, is0, ctx.GetConstId(ConstIdFloat0), compFloat)
+
+			// Store results back into VGPRs.
+			ctx.StoreRegisterPointerMasked(b, gcnSpec.OpVgpr0+details.Vdata+i, b.EmitBitcast(typeUint, compFloat))
+		}
 	}
 }

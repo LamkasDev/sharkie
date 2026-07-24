@@ -35,6 +35,12 @@ func CreateCommandBuffer(handles *VulkanHandles) (*VulkanCommandBuffer, error) {
 	}, nil
 }
 
+func (commandBuffer *VulkanCommandBuffer) End(handles *VulkanHandles) {
+	handles.UploadPoolMutex.Lock()
+	vk.EndCommandBuffer(commandBuffer.CommandBuffer)
+	handles.UploadPoolMutex.Unlock()
+}
+
 func (commandBuffer *VulkanCommandBuffer) Destroy(handles *VulkanHandles) {
 	handles.UploadPoolMutex.Lock()
 	vk.FreeCommandBuffers(handles.Device, handles.UploadPool, 1, []vk.CommandBuffer{commandBuffer.CommandBuffer})
@@ -65,7 +71,7 @@ func (commandBuffer *VulkanCommandBuffer) CanSubmit(frame uint64) bool {
 }
 
 // RunWithCommandBuffer records GPU work into a one-off command buffer and waits (image creation / readback).
-func RunWithCommandBuffer(handles *VulkanHandles, fence vk.Fence, fn func(buffer *VulkanCommandBuffer)) error {
+func RunWithCommandBuffer(handles *VulkanHandles, fn func(buffer *VulkanCommandBuffer), frame uint64) error {
 	commandBuffer, err := CreateCommandBuffer(handles)
 	if err != nil {
 		return err
@@ -75,12 +81,9 @@ func RunWithCommandBuffer(handles *VulkanHandles, fence vk.Fence, fn func(buffer
 		Flags: vk.CommandBufferUsageFlags(vk.CommandBufferUsageOneTimeSubmitBit),
 	})
 	fn(commandBuffer)
-	vk.EndCommandBuffer(commandBuffer.CommandBuffer)
+	commandBuffer.End(handles)
 
-	status := vk.GetFenceStatus(handles.Device, fence)
-	if status == vk.Success {
-		vk.ResetFences(handles.Device, 1, []vk.Fence{fence})
-	}
+	fence, err := handles.FencePool.Get(handles, frame)
 	handles.QueueMutex.Lock()
 	result := vk.QueueSubmit(handles.GraphicsQueue, 1, []vk.SubmitInfo{{
 		SType:              vk.StructureTypeSubmitInfo,
@@ -92,6 +95,7 @@ func RunWithCommandBuffer(handles *VulkanHandles, fence vk.Fence, fn func(buffer
 		return err
 	}
 	vk.WaitForFences(handles.Device, 1, []vk.Fence{fence}, vk.True, vk.MaxUint64)
+	handles.FencePool.Put(handles, fence, frame)
 	commandBuffer.Destroy(handles)
 
 	return nil

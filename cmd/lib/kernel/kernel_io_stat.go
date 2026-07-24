@@ -4,6 +4,7 @@ import (
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
+	"github.com/LamkasDev/sharkie/cmd/lib/posix"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/fs"
 	"github.com/LamkasDev/sharkie/cmd/logger"
@@ -13,40 +14,12 @@ import (
 // 0x00000000000163D0
 // __int64 __fastcall sceKernelStat(__int64, __int64)
 func libKernel_sceKernelStat(pathPtr Cstring, statPtr uintptr) int32 {
-	err := libKernel_stat(pathPtr, statPtr)
+	err := posix.Stat(pathPtr, statPtr)
 	if err != 0 {
 		return int32(emu.GetErrno() - SonyErrorOffset)
 	}
 
 	return 0
-}
-
-// 0x0000000000000850
-// __int64 __fastcall stat()
-func libKernel_stat(pathPtr Cstring, statPtr uintptr) int32 {
-	if pathPtr == nil {
-		logger.Printf("%-132s %s failed due to invalid path pointer.\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("stat"),
-		)
-		return 0
-	}
-
-	path := GetUsablePath(GoString(pathPtr))
-	fd, err := GlobalFilesystem.Open(path, 0, 0)
-	defer GlobalFilesystem.Close(fd)
-	if err != nil {
-		logger.Printf("%-132s %s failed due to open error on %s (%s).\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("stat"),
-			color.Blue.Sprint(path),
-			err.Error(),
-		)
-		emu.SetErrno(ENOENT)
-		return ERR_PTRI
-	}
-
-	return libKernel_fstat(fd, statPtr)
 }
 
 // 0x0000000000016400

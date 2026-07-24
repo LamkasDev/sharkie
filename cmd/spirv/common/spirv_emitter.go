@@ -159,14 +159,28 @@ func (b *SpvBuilder) EmitBitcast(resultType, operand SpirvId) SpirvId {
 	return id
 }
 
-// EmitConvertUToF emits EmitConvertUToF and returns the result ID.
+// EmitConvertUToF emits OpConvertUToF and returns the result ID.
 func (b *SpvBuilder) EmitConvertUToF(resultType, operand SpirvId) SpirvId {
 	id := b.AllocId()
 	b.instr(&b.code, spec.SpvOpConvertUToF, uint32(resultType), uint32(id), uint32(operand))
 	return id
 }
 
-// EmitConvertSToF emits EmitConvertSToF and returns the result ID.
+// EmitConvertFToU emits OpConvertFToU and returns the result ID.
+func (b *SpvBuilder) EmitConvertFToU(resultType, operand SpirvId) SpirvId {
+	id := b.AllocId()
+	b.instr(&b.code, spec.SpvOpConvertFToU, uint32(resultType), uint32(id), uint32(operand))
+	return id
+}
+
+// EmitConvertFToS emits OpConvertFToS and returns the result ID.
+func (b *SpvBuilder) EmitConvertFToS(resultType, operand SpirvId) SpirvId {
+	id := b.AllocId()
+	b.instr(&b.code, spec.SpvOpConvertFToS, uint32(resultType), uint32(id), uint32(operand))
+	return id
+}
+
+// EmitConvertSToF emits OpConvertSToF and returns the result ID.
 func (b *SpvBuilder) EmitConvertSToF(resultType, operand SpirvId) SpirvId {
 	id := b.AllocId()
 	b.instr(&b.code, spec.SpvOpConvertSToF, uint32(resultType), uint32(id), uint32(operand))

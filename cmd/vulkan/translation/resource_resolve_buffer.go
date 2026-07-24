@@ -7,10 +7,8 @@ import (
 	spirvStructs "github.com/LamkasDev/sharkie/cmd/spirv/structs"
 )
 
-func ParseFetchShaderLayout(shader *gcn.GcnShader, userData []uint32) (spirvCommon.FetchShaderLayout, []*gcnSpec.Instruction) {
-	var layout spirvCommon.FetchShaderLayout
-	var instrs []*gcnSpec.Instruction
-
+func ParseFetchShaderInstructions(shader *gcn.GcnShader, userData []uint32) []*gcnSpec.Instruction {
+	var instructions []*gcnSpec.Instruction
 	stageBase := spirvStructs.GcnStageToUserDataOffset[shader.Stage]
 	registers := gcnSpec.GcnRegisters{}
 	for i := range uint32(16) {
@@ -23,29 +21,19 @@ func ParseFetchShaderLayout(shader *gcn.GcnShader, userData []uint32) (spirvComm
 	for _, blockId := range shader.Cfg.ReversePostOrder() {
 		block := &shader.Cfg.Blocks[blockId]
 		for i := range block.Instructions {
-			instr := &block.Instructions[i]
-			instrs = append(instrs, instr)
-			switch instr.Encoding {
+			instruction := &block.Instructions[i]
+			instructions = append(instructions, instruction)
+			switch instruction.Encoding {
 			case gcnSpec.EncSOP1:
-				applySOP1(instr, &registers)
-				details := instr.Details.(*gcnSpec.ScalarDetails)
+				details := instruction.Details.(*gcnSpec.ScalarDetails)
 				if details.Op == gcnSpec.Sop1OpSetpcB64 {
-					return layout, instrs
-				}
-			case gcnSpec.EncSOP2:
-				applySOP2(instr, &registers)
-			case gcnSpec.EncSOPC:
-				applySOPC(instr, &registers)
-			case gcnSpec.EncSMRD:
-				applySMRD(instr, &registers)
-			case gcnSpec.EncMUBUF:
-				if attr := resolveMUBUFQuick(instr, &registers); attr != nil {
-					layout = append(layout, *attr)
+					return instructions
 				}
 			}
 		}
 	}
-	return layout, instrs
+
+	return instructions
 }
 
 func resolveMUBUFQuick(instr *gcnSpec.Instruction, registers *gcnSpec.GcnRegisters) *spirvCommon.FetchAttribute {
@@ -93,12 +81,9 @@ func GetFetchShaderPC(shader *gcn.GcnShader, userData []uint32) uintptr {
 				applySOP1(instr, &registers)
 				details := instr.Details.(*gcnSpec.ScalarDetails)
 				if details.Op == gcnSpec.Sop1OpSwappcB64 {
-					sgpr := details.Src0 - gcnSpec.OpSgpr0
-					if int(sgpr)+1 < len(registers) {
-						fetchPCLo := registers[sgpr]
-						fetchPCHi := registers[sgpr+1]
-						return uintptr(fetchPCLo) | (uintptr(fetchPCHi) << 32)
-					}
+					fetchPCLo := registers[details.Src0]
+					fetchPCHi := registers[details.Src0+1]
+					return uintptr(fetchPCLo) | (uintptr(fetchPCHi) << 32)
 				}
 			case gcnSpec.EncSOP2:
 				applySOP2(instr, &registers)

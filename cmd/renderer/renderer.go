@@ -19,7 +19,7 @@ import (
 )
 
 type Renderer struct {
-	Handles        vulkan.VulkanHandles
+	Handles        *vulkan.VulkanHandles
 	Backend        backend.Backend[glfwvulkanbackend.GLFWWindowFlags]
 	GpuTranslator  *translation.GpuTranslator
 	RingWorkSource *RingWorkSource
@@ -90,7 +90,7 @@ func (r *Renderer) Render() {
 func (r *Renderer) DrawFramebuffer() {
 	imgui.SetNextWindowPos(imgui.Vec2{X: 0, Y: 0})
 	imgui.SetNextWindowSize(imgui.Vec2{X: float32(r.SwapchainDimensions.Width), Y: float32(r.SwapchainDimensions.Height)})
-	imgui.PushStyleColorVec4(imgui.ColWindowBg, imgui.Vec4{X: 10 / 255.0, Y: 10 / 255.0, Z: 12 / 255.0, W: 1.0})
+	imgui.PushStyleColorVec4(imgui.ColWindowBg, imgui.Vec4{X: 0, Y: 0, Z: 0, W: 1.0})
 	if imgui.BeginV("##fb", nil, ImguiOverlayFlags|imgui.WindowFlagsNoBringToFrontOnFocus) {
 		if r.DisplayTextureId.CData != nil {
 			imgui.Image(r.DisplayTextureId, imgui.Vec2{
@@ -129,7 +129,7 @@ func (r *Renderer) ConsumeRingWork(done chan struct{}) {
 		// Submit command buffer.
 		r.GpuTranslator.EndCommandBuffer()
 		r.GpuTranslator.SubmitCommandBuffers()
-		r.GpuTranslator.FlushDeferredDestruction()
+		r.Handles.FlushDeferredDestruction()
 
 		// Signal that we're done.
 		r.GpuTranslator.SignalFence()
@@ -150,9 +150,9 @@ func (r *Renderer) ConsumeFlips(done chan struct{}) {
 		// Transition surface and update texture ID for display.
 		surface := r.GpuTranslator.GetSurfaceByAddress(structs.GetPhysicalGpuAddress(frame.Flip.GpuAddress))
 		if surface != nil {
-			err := vulkan.RunWithCommandBuffer(&r.Handles, r.Handles.FlipFence, func(commandBuffer *vulkan.VulkanCommandBuffer) {
+			err := vulkan.RunWithCommandBuffer(r.Handles, func(commandBuffer *vulkan.VulkanCommandBuffer) {
 				surface.ImageView.Image.BarrierGeneralShaderAccess(commandBuffer)
-			})
+			}, frame.Number)
 			if err != nil {
 				panic(err)
 			}

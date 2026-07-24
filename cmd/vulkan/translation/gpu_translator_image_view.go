@@ -25,13 +25,16 @@ func (t *GpuTranslator) GetImageView(descriptor spirvStructs.ImageDescriptor) (*
 	if ok && view.Image == image && view.Image.Generation == image.Generation {
 		t.imagesMutex.Unlock()
 		if image.ShouldUploadToVkImage(t.currentGuestFrame) {
-			_ = image.UploadToVkImage(&t.handles, t.GetLinearBuffer, t.currentGuestFrame)
+			t.EndRenderPass()
+			if err = image.UploadToVkImage(t.handles, t.commandBuffer, t.GetLinearBuffer, t.currentGuestFrame); err != nil {
+				return nil, err, false
+			}
 		}
 
 		return view, nil, false
 	}
 	recreated := created || ok
-	if ok && !t.isOwnedSurfaceImageView(view) {
+	if ok && !t.IsOwnedSurfaceImageView(view) {
 		view.Destroy(t.handles.Device)
 	}
 	if ok {
@@ -39,7 +42,7 @@ func (t *GpuTranslator) GetImageView(descriptor spirvStructs.ImageDescriptor) (*
 	}
 	t.imagesMutex.Unlock()
 
-	view, err = vulkan.CreateImageView(&t.handles, vulkan.VulkanImageViewRequest{
+	view, err = vulkan.CreateImageView(t.handles, vulkan.VulkanImageViewRequest{
 		Image:      image,
 		Descriptor: descriptor,
 	})

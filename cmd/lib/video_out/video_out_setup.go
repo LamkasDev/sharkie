@@ -8,6 +8,7 @@ import (
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
+	"github.com/LamkasDev/sharkie/cmd/lib/kernel"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/dce"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/gpu"
@@ -19,11 +20,7 @@ import (
 // 0x000000000000AAD0
 // __int64 __fastcall sceVideoOutOpen(unsigned int, unsigned int, unsigned int, _DWORD *, __m128 _XMM0)
 func libSceVideoOut_sceVideoOutOpen() uintptr {
-	handle := &VideoOutHandle{
-		Id:                 GlobalDisplayCoreEngine.NextHandle,
-		LabelBufferAddress: GlobalGoAllocator.Malloc(uintptr(VideoOutMaxBuffers) * 8),
-		NextFlip:           make(chan *VideoOutFlip, VideoOutMaxBuffers),
-	}
+	handle := NewVideoOutHandle(GlobalDisplayCoreEngine.NextHandle)
 	GlobalDisplayCoreEngine.Handles[handle.Id] = handle
 	GlobalDisplayCoreEngine.NextHandle++
 
@@ -48,27 +45,34 @@ func displayVblankTicker(handle *VideoOutHandle) {
 		vblankCount++
 
 		// Pull flip requests.
-		if handle.StagingFlip == nil {
+		if handle.CurrentFlip == nil {
 			select {
 			case nextFlip := <-handle.NextFlip:
-				handle.StagingFlip = nextFlip
+				handle.CurrentFlip = nextFlip
 			default:
 			}
 		}
+		if handle.CurrentFlip == nil {
+			continue
+		}
 
 		// Submit flip to Vulkan if ready.
-		if handle.StagingFlip != nil {
-			labelSlot := (*uint64)(unsafe.Pointer(handle.LabelBufferAddress + uintptr(handle.StagingFlip.BufferIndex)*8))
-			if *labelSlot == 1 {
-				gpu.GlobalLiverpool.OnFlip(handle.StagingFlip)
-				if handle.CurrentFlip != nil {
-					oldLabelAddress := handle.LabelBufferAddress + uintptr(handle.CurrentFlip.BufferIndex)*8
-					*(*uint64)(unsafe.Pointer(oldLabelAddress)) = 0
-				}
-				handle.CurrentFlip = handle.StagingFlip
-				handle.StagingFlip = nil
-			}
+		labelSlot := (*uint64)(unsafe.Pointer(handle.LabelBufferAddress + uintptr(handle.CurrentFlip.BufferIndex)*8))
+		if *labelSlot == 0 {
+			continue
 		}
+		gpu.GlobalLiverpool.OnFlip(handle.CurrentFlip)
+		oldLabelAddress := handle.LabelBufferAddress + uintptr(handle.CurrentFlip.BufferIndex)*8
+		*(*uint64)(unsafe.Pointer(oldLabelAddress)) = 0
+
+		// Update flip status.
+		handle.FlipStatus.Count++
+		handle.FlipStatus.ProcessTime = uint64(kernel.SceKernelGetProcessTime())
+		handle.FlipStatus.Tsc = uint64(kernel.SceKernelReadTsc())
+		handle.FlipStatus.FlipArg = handle.CurrentFlip.FlipArg
+		handle.FlipStatus.CurrentBuffer = handle.CurrentFlip.BufferIndex
+		handle.FlipStatus.GcQueueNumber--
+		handle.FlipStatus.FlipPendingNumber--
 
 		// Construct filter data components.
 		timeBits := uint64(time.Now().UnixNano() & 0xFFF)
@@ -78,11 +82,7 @@ func displayVblankTicker(handle *VideoOutHandle) {
 		counterBits := counter << 12
 
 		// Send flip events.
-		var currentFlipArg uint64
-		if handle.CurrentFlip != nil {
-			currentFlipArg = handle.CurrentFlip.FlipArg
-		}
-		flipData := timeBits | counterBits | ((currentFlipArg << 16) & 0xFFFFFFFFFFFF0000)
+		flipData := timeBits | counterBits | ((uint64(handle.CurrentFlip.FlipArg) << 16) & 0xFFFFFFFFFFFF0000)
 		for _, listener := range handle.FlipEvents {
 			if equeue := GetEqueue(listener.EqueueHandle); equeue != nil {
 				kevent := KernelEvent{
@@ -114,5 +114,39 @@ func displayVblankTicker(handle *VideoOutHandle) {
 				}
 			}
 		}
+
+		// Reset flip.
+		handle.CurrentFlip = nil
 	}
+}
+
+// 0x000000000000BE60
+// __int64 __fastcall sceVideoOutGetResolutionStatus(int, __int64)
+func libSceVideoOut_sceVideoOutGetResolutionStatus(rawHandle, resolutionStatusPtr uintptr) uintptr {
+	if resolutionStatusPtr == 0 {
+		logger.Printf("%-132s %s failed due to invalid resolution status pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceVideoOutGetResolutionStatus"),
+		)
+		return 0x80290002
+	}
+	handle, ok := GlobalDisplayCoreEngine.Handles[uint32(rawHandle)]
+	if !ok {
+		logger.Printf("%-132s %s failed due to invalid handle.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceVideoOutGetResolutionStatus"),
+		)
+		return SCE_VIDEO_OUT_ERROR_INVALID_HANDLE
+	}
+	resolutionStatus := (*VideoOutResolutionStatus)(unsafe.Pointer(resolutionStatusPtr))
+	*resolutionStatus = handle.Resolution
+
+	if logger.LogGraphics {
+		logger.Printf("%-132s %s returned %s's resolution status.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceVideoOutGetResolutionStatus"),
+			color.Yellow.Sprintf("0x%X", handle.Id),
+		)
+	}
+	return 0
 }

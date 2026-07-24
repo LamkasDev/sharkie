@@ -17,6 +17,8 @@ const (
 	BlockContextIdTypeFloat
 	BlockContextIdTypeInt
 	BlockContextIdTypeUint
+	BlockContextIdTypeUint8
+	BlockContextIdTypeUint16
 	BlockContextIdTypeUint64
 	BlockContextIdTypeInt64
 	BlockContextIdTypeVoid
@@ -43,6 +45,8 @@ const (
 	BlockContextIdPtrPcUint
 	BlockContextIdPtrPcFloat
 	BlockContextIdPtrPsbUint
+	BlockContextIdPtrPsbUint8
+	BlockContextIdPtrPsbUint16
 	BlockContextIdPtrPsbV2Uint
 	BlockContextIdPtrPsbV3Uint
 	BlockContextIdPtrPsbV4Uint
@@ -190,6 +194,8 @@ const (
 	ConstIdFloat4                  = SpirvId(275)
 	ConstIdFloat255                = SpirvId(276)
 	ConstIdFloat65535              = SpirvId(277)
+	ConstIdFloatMin                = SpirvId(278)
+	ConstIdFloatMax                = SpirvId(279)
 )
 
 const (

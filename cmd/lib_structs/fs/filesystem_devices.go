@@ -33,6 +33,9 @@ func (shFs *SharkieFilesystem) InitializeSystemFiles() error {
 	if _, err := shFs.Create(GetUsablePath("/dev/dce")); err != nil {
 		return err
 	}
+	if _, err := shFs.Create(GetUsablePath("/dev/camera")); err != nil {
+		return err
+	}
 
 	// Daemon files.
 	if _, err := shFs.Write(GetUsablePath("SceNpTpip"), make([]byte, 4096)); err != nil {

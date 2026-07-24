@@ -84,7 +84,9 @@ type BufferResource struct {
 	IndexStride  SpirvId
 	AddTidEnable SpirvId
 
-	Dw3 SpirvId
+	Dw3        SpirvId
+	DataFormat SpirvId
+	NumFormat  SpirvId
 }
 
 func NewBufferResource(b *SpvBuilder, ctx *SpirvBlockContext, srsrc uint32) BufferResource {
@@ -104,7 +106,9 @@ func NewBufferResource(b *SpvBuilder, ctx *SpirvBlockContext, srsrc uint32) Buff
 		IndexStride:  GetResourceIndexStride(b, ctx, dw3),
 		AddTidEnable: GetResourceAddTidEnable(b, ctx, dw3),
 
-		Dw3: dw3,
+		Dw3:        dw3,
+		DataFormat: GetResourceDataFormat(b, ctx, dw3),
+		NumFormat:  GetResourceNumFormat(b, ctx, dw3),
 	}
 }
 
@@ -132,10 +136,6 @@ func GetResourceNumRecords(b *SpvBuilder, ctx *SpirvBlockContext, dw2 SpirvId) S
 	return dw2
 }
 
-func GetResourceAddTidEnable(b *SpvBuilder, ctx *SpirvBlockContext, dw3 SpirvId) SpirvId {
-	return ctx.TestMask(b, dw3, 1<<23)
-}
-
 func GetResourceElementSize(b *SpvBuilder, ctx *SpirvBlockContext, dw3 SpirvId) SpirvId {
 	typeUint := ctx.GetId(BlockContextIdTypeUint)
 
@@ -148,6 +148,22 @@ func GetResourceIndexStride(b *SpvBuilder, ctx *SpirvBlockContext, dw3 SpirvId) 
 
 	bits := b.EmitBitFieldUExtract(typeUint, dw3, ctx.GetConstId(ConstIdUint21), ctx.GetConstId(ConstIdUint2))
 	return b.EmitShiftLeftLogical(typeUint, ctx.GetConstId(ConstIdUint8), bits)
+}
+
+func GetResourceAddTidEnable(b *SpvBuilder, ctx *SpirvBlockContext, dw3 SpirvId) SpirvId {
+	return ctx.TestMask(b, dw3, 1<<23)
+}
+
+func GetResourceDataFormat(b *SpvBuilder, ctx *SpirvBlockContext, dw3 SpirvId) SpirvId {
+	typeUint := ctx.GetId(BlockContextIdTypeUint)
+
+	return b.EmitBitFieldUExtract(typeUint, dw3, ctx.GetConstId(ConstIdUint15), ctx.GetConstId(ConstIdUint4))
+}
+
+func GetResourceNumFormat(b *SpvBuilder, ctx *SpirvBlockContext, dw3 SpirvId) SpirvId {
+	typeUint := ctx.GetId(BlockContextIdTypeUint)
+
+	return b.EmitBitFieldUExtract(typeUint, dw3, ctx.GetConstId(ConstIdUint12), ctx.GetConstId(ConstIdUint3))
 }
 
 // CalculateBufferOffset calculates the byte offset into a buffer resource according to linear or swizzled addressing.

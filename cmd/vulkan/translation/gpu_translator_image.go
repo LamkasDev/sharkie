@@ -19,22 +19,26 @@ func (t *GpuTranslator) GetImage(descriptor spirvStructs.ImageDescriptor, format
 			gen := image.Generation
 			t.EvictResourcesAtAddress(descriptor.BaseAddress)
 
-			newImage, err := vulkan.CreateImage(&t.handles, vulkan.VulkanImageRequest{
+			newImage, err := vulkan.CreateImage(t.handles, vulkan.VulkanImageRequest{
 				Descriptor: descriptor,
 				Format:     format,
 				IsSurface:  isSurface,
-			}, t.commandBuffer)
+			}, t.commandBuffer, t.currentGuestFrame)
 			if err != nil {
 				return nil, err, false
 			}
 			newImage.Generation = gen + 1
-			t.registerImage(newImage, false)
+			t.registerImage(newImage)
 
 			if copyOld {
-				_ = image.CopyToImage(&t.handles, newImage, t.currentGuestFrame)
+				t.EndRenderPass()
+				if err = image.CopyToImage(t.handles, t.commandBuffer, newImage, t.currentGuestFrame); err != nil {
+					logger.Printf("failed to copy image: %v\n", err)
+				}
 			}
 			if newImage.ShouldUploadToVkImage(t.currentGuestFrame) {
-				if err = newImage.UploadToVkImage(&t.handles, t.GetLinearBuffer, t.currentGuestFrame); err != nil {
+				t.EndRenderPass()
+				if err = newImage.UploadToVkImage(t.handles, t.commandBuffer, t.GetLinearBuffer, t.currentGuestFrame); err != nil {
 					logger.Printf("failed to upload image: %v\n", err)
 				}
 			}
@@ -45,25 +49,29 @@ func (t *GpuTranslator) GetImage(descriptor spirvStructs.ImageDescriptor, format
 			image.IsSurface = true
 		}
 		if image.ShouldUploadToVkImage(t.currentGuestFrame) {
-			if err := image.UploadToVkImage(&t.handles, t.GetLinearBuffer, t.currentGuestFrame); err != nil {
+			t.EndRenderPass()
+			if err := image.UploadToVkImage(t.handles, t.commandBuffer, t.GetLinearBuffer, t.currentGuestFrame); err != nil {
 				logger.Printf("failed to upload image: %v\n", err)
 			}
 		}
 		return image, nil, false
 	}
 
-	image, err := vulkan.CreateImage(&t.handles, vulkan.VulkanImageRequest{
+	image, err := vulkan.CreateImage(t.handles, vulkan.VulkanImageRequest{
 		Descriptor: descriptor,
 		Format:     format,
 		IsSurface:  isSurface,
-	}, t.commandBuffer)
+	}, t.commandBuffer, t.currentGuestFrame)
 	if err != nil {
 		return nil, err, false
 	}
-	t.registerImage(image, false)
+	t.registerImage(image)
 
 	if image.ShouldUploadToVkImage(t.currentGuestFrame) {
-		_ = image.UploadToVkImage(&t.handles, t.GetLinearBuffer, t.currentGuestFrame)
+		t.EndRenderPass()
+		if err = image.UploadToVkImage(t.handles, t.commandBuffer, t.GetLinearBuffer, t.currentGuestFrame); err != nil {
+			logger.Printf("failed to upload image: %v\n", err)
+		}
 	}
 	return image, nil, true
 }
@@ -75,28 +83,56 @@ func (t *GpuTranslator) EvictResourcesAtAddress(address uintptr) {
 		if t.activeSurface != nil && t.activeSurface.Address == address {
 			t.activeSurface = nil
 		}
-		t.deferDestroySurface(surface)
+		t.handles.DeferDestroySurface(surface)
 	}
 	t.surfacesMutex.Unlock()
-
-	t.invalidateFramebuffersForAddress(address)
+	t.InvalidateFramebuffersForAddress(address)
 
 	t.imagesMutex.Lock()
 	image, ok := t.images[address]
 	t.imagesMutex.Unlock()
 	if ok {
 		t.unregisterImage(image)
-		t.deferDestroyImage(image)
+		t.handles.DeferDestroyImage(image)
 	}
 
 	t.imagesMutex.Lock()
 	for hash, view := range t.imageViews {
 		if view.Image != nil && view.Image.Address == address {
 			delete(t.imageViews, hash)
-			t.deferDestroyImageView(view)
+			t.handles.DeferDestroyImageView(view)
 		}
 	}
 	t.imagesMutex.Unlock()
+}
+
+func (t *GpuTranslator) InvalidateFramebuffersForAddress(addr uintptr) {
+	t.framebuffersMutex.Lock()
+	var stale []*vulkan.VulkanFramebuffer
+	for req, fb := range t.framebuffers {
+		if req.GpuAddress != addr && req.DepthGpuAddress != addr {
+			continue
+		}
+		delete(t.framebuffers, req)
+		stale = append(stale, fb)
+	}
+	t.framebuffersMutex.Unlock()
+
+	for _, fb := range stale {
+		t.handles.DeferDestroyFramebuffer(fb)
+	}
+}
+
+func (t *GpuTranslator) IsOwnedSurfaceImageView(view *vulkan.VulkanImageView) bool {
+	t.surfacesMutex.Lock()
+	defer t.surfacesMutex.Unlock()
+	for _, surface := range t.surfaces {
+		if surface.ImageView == view {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (t *GpuTranslator) ClearAllResources() {

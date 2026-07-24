@@ -13,6 +13,9 @@ func RegisterLibcStubs() {
 	elf.RegisterStub("libc", "calloc", libc_calloc)
 	elf.RegisterStub("libc", "free", libc_free)
 	elf.RegisterStub("libc", "realloc", libc_realloc)
+	elf.RegisterStub("libc", "aligned_alloc", libSceLibcInternal_stub)
+	elf.RegisterStub("libc", "reallocalign", libSceLibcInternal_stub)
+	elf.RegisterStub("libc", "aligned_alloc", libSceLibcInternal_stub)
 	elf.RegisterStub("libc", "sceLibcMspaceMalloc", libc_sceLibcMspaceMalloc)
 	elf.RegisterStub("libc", "sceLibcMspaceCalloc", libc_sceLibcMspaceCalloc)
 	elf.RegisterStub("libc", "sceLibcMspaceFree", libc_sceLibcMspaceFree)
@@ -25,6 +28,8 @@ func RegisterLibcStubs() {
 	elf.RegisterStub("libc", "sceLibcMspaceIsHeapEmpty", libc_sceLibcMspaceIsHeapEmpty)
 	elf.RegisterStub("libc", "sceLibcMspaceMallocStats", libc_sceLibcMspaceMallocStats)
 	elf.RegisterStub("libc", "sceLibcMspaceMallocStatsFast", libc_sceLibcMspaceMallocStatsFast)
+	elf.RegisterStub("libc", "sceLibcPafMspaceIsHeapEmpty", libSceLibcInternal_stub)
+	elf.RegisterStub("libc", "sceLibcMspaceAlignedAlloc", libSceLibcInternal_stub)
 
 	// IO functions.
 	elf.RegisterStub("libc", "fopen", libc_fopen)
@@ -45,4 +50,6 @@ func RegisterLibcStubs() {
 	elf.RegisterStub("libc", "setvbuf", libc_setvbuf)
 	elf.RegisterStub("libc", "fclose", libc_fclose)
 	elf.RegisterStub("libc", "feof", libc_feof)
+	elf.RegisterStub("libc", "_Lockfilelock", libc__Lockfilelock)
+	elf.RegisterStub("libc", "_Unlockfilelock", libc__Unlockfilelock)
 }

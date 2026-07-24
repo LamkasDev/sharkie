@@ -22,18 +22,19 @@ type VulkanHandles struct {
 	FormatProperties         map[vk.Format]vk.FormatProperties
 	SubgroupSizeProperties   VkPhysicalDeviceSubgroupSizeControlPropertiesEXT
 
-	UploadPool  vk.CommandPool
-	MainFence   vk.Fence
-	FlipFence   vk.Fence
-	WorkerFence vk.Fence
+	UploadPool vk.CommandPool
+	FencePool  *VulkanFencePool2
 
 	QueueMutex      *sync.Mutex
 	UploadPoolMutex sync.Mutex
+
+	DeferredDestroyMutex sync.Mutex
+	DeferredDestroy      deferredDestroyQueue
 }
 
 // NewVulkanHandles extracts handles from the vulkan context and creates our upload command pool.
-func NewVulkanHandles(context *VulkanContext, queueMutex *sync.Mutex) VulkanHandles {
-	vkh := VulkanHandles{
+func NewVulkanHandles(context *VulkanContext, queueMutex *sync.Mutex) *VulkanHandles {
+	vkh := &VulkanHandles{
 		Context: context,
 		Device:  context.Device,
 
@@ -46,6 +47,8 @@ func NewVulkanHandles(context *VulkanContext, queueMutex *sync.Mutex) VulkanHand
 
 		QueueMutex:      queueMutex,
 		UploadPoolMutex: sync.Mutex{},
+
+		DeferredDestroyMutex: sync.Mutex{},
 	}
 	vkh.MemoryProperties.Deref()
 
@@ -71,27 +74,17 @@ func NewVulkanHandles(context *VulkanContext, queueMutex *sync.Mutex) VulkanHand
 	defer pinner.Unpin()
 	GetPhysicalDeviceProperties2(vkh.Instance, vkh.PhysicalDevice, unsafe.Pointer(&props2))
 
-	pool, err := CreateCommandPool(&vkh)
+	pool, err := CreateCommandPool(vkh)
 	if err != nil {
 		panic(err)
 	}
 	vkh.UploadPool = pool
 
-	mainFence, err := CreateFence(&vkh)
+	fencePool, err := CreateFencePool2(vkh, 8)
 	if err != nil {
 		panic(err)
 	}
-	vkh.MainFence = mainFence
-	flipFence, err := CreateFence(&vkh)
-	if err != nil {
-		panic(err)
-	}
-	vkh.FlipFence = flipFence
-	workerFence, err := CreateFence(&vkh)
-	if err != nil {
-		panic(err)
-	}
-	vkh.WorkerFence = workerFence
+	vkh.FencePool = fencePool
 
 	return vkh
 }

@@ -61,6 +61,7 @@ func main() {
 
 	// Add game directories to module linker paths.
 	emu.GlobalModuleManager.LinkPaths = []string{
+		filepath.Join(config.GameDirectory, "Image0", "Media", "Modules"),
 		filepath.Join(config.GameDirectory, "Image0", "sce_module"),
 		filepath.Join(config.GameDirectory, "Image0"),
 		config.GetLibDir(),

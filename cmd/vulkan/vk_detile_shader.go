@@ -12,19 +12,17 @@ package vulkan
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"unsafe"
 
 	vk "github.com/goki/vulkan"
 )
 
 type DetilePipeline struct {
-	Pipeline         vk.Pipeline
-	PipelineLayout   vk.PipelineLayout
-	DescriptorLayout vk.DescriptorSetLayout
-	Module           vk.ShaderModule
-	DescriptorPool   vk.DescriptorPool
-	DescriptorSet    vk.DescriptorSet
+	Pipeline       vk.Pipeline
+	PipelineLayout vk.PipelineLayout
+	Module         vk.ShaderModule
+	DescriptorPool *VulkanDescriptorPool2
 }
 
 var detilePipelines map[string]*DetilePipeline
@@ -34,7 +32,7 @@ func init() {
 }
 
 func createDetileShaderModule(device vk.Device, path string) (vk.ShaderModule, error) {
-	code, err := ioutil.ReadFile(path)
+	code, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
@@ -49,10 +47,17 @@ func createDetileShaderModule(device vk.Device, path string) (vk.ShaderModule, e
 		CodeSize: uint64(len(code)),
 		PCode:    codeUint32,
 	}, nil, &module)
-	if err := NewError(result); err != nil {
+	if err = NewError(result); err != nil {
 		return nil, err
 	}
+
 	return module, nil
+}
+
+func ResetDetilePipelines(frame uint64) {
+	for _, pipeline := range detilePipelines {
+		pipeline.DescriptorPool.Reset(frame)
+	}
 }
 
 func GetDetilePipeline(handles *VulkanHandles, bpp int, isMicro bool, isDisplayMicro bool) (*DetilePipeline, error) {
@@ -98,41 +103,14 @@ func GetDetilePipeline(handles *VulkanHandles, bpp int, isMicro bool, isDisplayM
 		return nil, err
 	}
 
-	var pool vk.DescriptorPool
-	result = vk.CreateDescriptorPool(handles.Device, &vk.DescriptorPoolCreateInfo{
-		SType: vk.StructureTypeDescriptorPoolCreateInfo,
-		PPoolSizes: []vk.DescriptorPoolSize{
-			{
-				Type:            vk.DescriptorTypeStorageBuffer,
-				DescriptorCount: 2,
-			},
-		},
-		PoolSizeCount: 1,
-		MaxSets:       1,
-	}, nil, &pool)
-	if err := NewError(result); err != nil {
-		return nil, err
-	}
-
-	var descSet vk.DescriptorSet
-	descSets := make([]vk.DescriptorSet, 1)
-	result = vk.AllocateDescriptorSets(handles.Device, &vk.DescriptorSetAllocateInfo{
-		SType:              vk.StructureTypeDescriptorSetAllocateInfo,
-		DescriptorPool:     pool,
-		DescriptorSetCount: 1,
-		PSetLayouts:        []vk.DescriptorSetLayout{descLayout},
-	}, &descSets[0])
-	if err := NewError(result); err != nil {
-		return nil, err
-	}
-	descSet = descSets[0]
-
-	pushConstantRanges := []vk.PushConstantRange{
+	pool2, err := CreateDescriptorPool2(handles, descLayout, []vk.DescriptorPoolSize{
 		{
-			StageFlags: vk.ShaderStageFlags(vk.ShaderStageComputeBit),
-			Offset:     0,
-			Size:       128, // Max size needed by any detile shader (e.g. micro_32bpp needs 76 bytes)
+			Type:            vk.DescriptorTypeStorageBuffer,
+			DescriptorCount: 1024,
 		},
+	}, 16)
+	if err = NewError(result); err != nil {
+		return nil, err
 	}
 
 	var pipelineLayout vk.PipelineLayout
@@ -141,13 +119,18 @@ func GetDetilePipeline(handles *VulkanHandles, bpp int, isMicro bool, isDisplayM
 		SetLayoutCount:         1,
 		PSetLayouts:            []vk.DescriptorSetLayout{descLayout},
 		PushConstantRangeCount: 1,
-		PPushConstantRanges:    pushConstantRanges,
+		PPushConstantRanges: []vk.PushConstantRange{
+			{
+				StageFlags: vk.ShaderStageFlags(vk.ShaderStageComputeBit),
+				Offset:     0,
+				Size:       128,
+			},
+		},
 	}, nil, &pipelineLayout)
-	if err := NewError(result); err != nil {
+	if err = NewError(result); err != nil {
 		return nil, err
 	}
 
-	pipelineName := []byte("main\x00")
 	pipelines := make([]vk.Pipeline, 1)
 	result = vk.CreateComputePipelines(handles.Device, nil, 1, []vk.ComputePipelineCreateInfo{
 		{
@@ -156,23 +139,20 @@ func GetDetilePipeline(handles *VulkanHandles, bpp int, isMicro bool, isDisplayM
 				SType:  vk.StructureTypePipelineShaderStageCreateInfo,
 				Stage:  vk.ShaderStageComputeBit,
 				Module: module,
-				PName:  string(pipelineName),
+				PName:  "main\x00",
 			},
 			Layout: pipelineLayout,
 		},
 	}, nil, pipelines)
-	if err := NewError(result); err != nil {
+	if err = NewError(result); err != nil {
 		return nil, err
 	}
 
-	var pipeline = pipelines[0]
 	detilePipelines[key] = &DetilePipeline{
-		Pipeline:         pipeline,
-		PipelineLayout:   pipelineLayout,
-		DescriptorLayout: descLayout,
-		Module:           module,
-		DescriptorPool:   pool,
-		DescriptorSet:    descSet,
+		Pipeline:       pipelines[0],
+		PipelineLayout: pipelineLayout,
+		Module:         module,
+		DescriptorPool: pool2,
 	}
 
 	return detilePipelines[key], nil

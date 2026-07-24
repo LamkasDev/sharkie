@@ -1,7 +1,6 @@
 package libc
 
 import (
-	"time"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
@@ -19,8 +18,6 @@ func libSceLibcInternal__malloc_init() uintptr {
 	)
 	return 0
 }
-
-var timeTemp = time.Now()
 
 // 0x0000000000028D60
 // __int64 malloc()
@@ -56,6 +53,10 @@ func libSceLibcInternal_memcpy(dst, src, n uintptr) uintptr {
 	srcSlice := unsafe.Slice((*byte)(unsafe.Pointer(src)), n)
 	copy(dstSlice, srcSlice)
 
+	if dst >= GlobalGpuAllocator.Base && dst < GlobalGpuAllocator.Base+uintptr(GlobalGpuAllocator.Size) {
+		logger.Printf("[memcpy] 0x%X -> 0x%X (len %d)\n", src, dst, n)
+	}
+
 	return dst
 }
 
@@ -72,24 +73,29 @@ func libSceLibcInternal_memset(dst, c, n uintptr) uintptr {
 		dstSlice[i] = fillValue
 	}
 
+	if dst >= GlobalGpuAllocator.Base && dst < GlobalGpuAllocator.Base+uintptr(GlobalGpuAllocator.Size) {
+		logger.Printf("[memset] 0x%X (len %d)\n", dst, n)
+	}
+
 	return dst
 }
 
 // 0x0000000000028D80
 // __int64 calloc()
 func libSceLibcInternal_calloc(nmemb, size uintptr) uintptr {
-	size *= nmemb
-	return libSceLibcInternal_malloc(size)
+	totalSize := nmemb * size
+	address := libSceLibcInternal_malloc(totalSize)
+	if address != 0 {
+		libSceLibcInternal_memset(address, 0, totalSize)
+	}
+
+	return address
 }
 
 // 0x0000000000028D70
 // __int64 __fastcall free(_QWORD)
 func libSceLibcInternal_free(ptr uintptr) uintptr {
 	if ptr == 0 {
-		logger.Printf("%-132s %s failed due to invalid pointer.\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("free"),
-		)
 		return 0
 	}
 

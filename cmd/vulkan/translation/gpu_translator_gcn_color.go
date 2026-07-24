@@ -234,15 +234,18 @@ func translateClearColor(word0 uint32, word1 uint32, format uint32, numberType u
 	return []float32{r, g, b, a}
 }
 
-func colorBufferHeight(pitch, slice uint32) uint32 {
-	width := ((pitch & 0x7FF) + 1) * 8
-	if width == 0 {
-		return 1080
-	}
-	height := ((slice & 0x3FFFFF) + 1) * 64 / width
-	if height < 16 {
+func colorBufferPitch(pitchReg uint32) uint32 {
+	tileMax := pitchReg & 0x7FF
+	return (tileMax + 1) * 8
+}
+
+func colorBufferHeight(pitchReg, sliceReg uint32) uint32 {
+	sliceTileMax := sliceReg & 0x3FFFFF
+	totalTiles := sliceTileMax + 1
+	pitch := colorBufferPitch(pitchReg)
+	if pitch == 0 {
 		return 1080
 	}
 
-	return 1080 // TODO: fix
+	return (totalTiles * 64) / pitch
 }

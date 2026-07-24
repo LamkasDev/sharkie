@@ -14,6 +14,8 @@ const (
 	SpvCapShader                              = uint32(1)
 	SpvCapAddresses                           = uint32(4)
 	SpvCapInt64                               = uint32(11)
+	SpvCapInt16                               = uint32(22)
+	SpvCapInt8                                = uint32(39)
 	SpvCapSampled1D                           = uint32(43)
 	SpvCapSampledBuffer                       = uint32(46)
 	SpvCapImageQuery                          = uint32(50)
@@ -92,7 +94,8 @@ const (
 
 // SPIR-V scopes.
 const (
-	SpvScopeSubgroup = uint32(3)
+	SpvScopeWorkgroup = uint32(2)
+	SpvScopeSubgroup  = uint32(3)
 )
 
 // SPIR-V decorations.
@@ -125,6 +128,12 @@ const (
 	SpvMemoryAccessVolatile    = uint32(1)
 	SpvMemoryAccessAligned     = uint32(2)
 	SpvMemoryAccessNontemporal = uint32(4)
+)
+
+// SPIR-V memory semantics masks.
+const (
+	SpvMemorySemanticsAcquireRelease  = uint32(8)
+	SpvMemorySemanticsWorkgroupMemory = uint32(256)
 )
 
 // SPIR-V image operand masks.
@@ -185,6 +194,8 @@ const (
 	SpvOpImageRead              = uint32(98)
 	SpvOpImageWrite             = uint32(99)
 	SpvOpImage                  = uint32(100)
+	SpvOpConvertFToU            = uint32(109)
+	SpvOpConvertFToS            = uint32(110)
 	SpvOpConvertSToF            = uint32(111)
 	SpvOpConvertUToF            = uint32(112)
 	SpvOpUConvert               = uint32(113)
@@ -212,10 +223,12 @@ const (
 	SpvOpUGreaterThan           = uint32(172)
 	SpvOpUGreaterThanEqual      = uint32(174)
 	SpvOpULessThan              = uint32(176)
+	SpvOpULessThanEqual         = uint32(178)
 	SpvOpFOrdEqual              = uint32(180)
 	SpvOpFUnordNotEqual         = uint32(183)
 	SpvOpFOrdLessThan           = uint32(184)
 	SpvOpFOrdGreaterThan        = uint32(186)
+	SpvOpFOrdLessThanEqual      = uint32(188)
 	SpvOpFOrdGreaterThanEqual   = uint32(190)
 	SpvOpShiftRightLogical      = uint32(194)
 	SpvOpShiftRightArithmetic   = uint32(195)
@@ -226,6 +239,7 @@ const (
 	SpvOpNot                    = uint32(200)
 	SpvOpBitFieldSExtract       = uint32(202)
 	SpvOpBitFieldUExtract       = uint32(203)
+	SpvOpControlBarrier         = uint32(224)
 	SpvOpMemoryBarrier          = uint32(225)
 	SpvOpAtomicLoad             = uint32(227)
 	SpvOpAtomicStore            = uint32(228)

@@ -25,7 +25,7 @@ func (t *GpuTranslator) GetSurface(descriptor spirvStructs.ImageDescriptor, form
 		return nil, err
 	}
 
-	surface, err = vulkan.CreateSurface(&t.handles, vulkan.VulkanSurfaceRequest{
+	surface, err = vulkan.CreateSurface(t.handles, vulkan.VulkanSurfaceRequest{
 		Descriptor: descriptor,
 		Format:     format,
 		Image:      image,

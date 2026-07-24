@@ -34,3 +34,15 @@ type ImageDescriptor struct {
 	LastArray  uint16
 	MinLodWarn uint16
 }
+
+func (z *ImageDescriptor) BlockDimensions() (bool, uint16, uint16) {
+	isBlock := z.DataFormat >= 35 && z.DataFormat <= 41
+	pitch := z.Pitch
+	height := z.Height
+	if isBlock {
+		pitch >>= 2
+		height >>= 2
+	}
+
+	return isBlock, pitch, height
+}

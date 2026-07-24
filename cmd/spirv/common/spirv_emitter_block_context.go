@@ -20,13 +20,19 @@ type SpirvBlockContext struct {
 	GcnSpecialIds  [27]SpirvUsedId
 	GcnConstIds    [120]SpirvUsedId
 	GcnConditionId SpirvId
-	Resources      []SpirvShaderResource
+	StaticLayout   []ShaderResourceBinding
 
-	StaticLayout []ShaderResourceBinding
+	// SpirvShaderContext contents.
+	ThreadX uint32
+	ThreadY uint32
+	ThreadZ uint32
 
+	PsInControl     uint32
+	PsInputAddress  uint32
 	PsInputControls [32]uint32
-	FetchLayout     FetchShaderLayout
-	FetchInstrs     []*gcnSpec.Instruction
+
+	FetchShaderAddress      uintptr
+	FetchShaderInstructions []*gcnSpec.Instruction
 }
 
 type ShaderResourceBinding struct {
@@ -348,9 +354,11 @@ func (ctx *SpirvBlockContext) TranslateAddress(b *SpvBuilder, address SpirvId) S
 	typeUint64 := ctx.GetId(BlockContextIdTypeUint64)
 	onionCpuBase := ctx.GetConstId(ConstId64UintOnionBaseAddress)
 	garlicCpuBase := ctx.GetConstId(ConstId64UintGarlicBaseAddress)
+	mask := b.EmitConstantUint64(typeUint64, 0xFFFFFFFFF)
+	cleanAddress := b.EmitBitwiseAnd(typeUint64, address, mask)
 
 	// Garlic address is >= 0xFE0000000.
-	isGarlic := b.EmitUGreaterThanEqual(typeBool, address, garlicCpuBase)
+	isGarlic := b.EmitUGreaterThanEqual(typeBool, cleanAddress, garlicCpuBase)
 
 	// Translation labels.
 	garlicLabel := b.AllocId()
@@ -362,14 +370,14 @@ func (ctx *SpirvBlockContext) TranslateAddress(b *SpvBuilder, address SpirvId) S
 	// Garlic translation.
 	b.EmitLabel(garlicLabel)
 	garlicGpuBase := ctx.LoadPushConstantValue(b, PushConstantGarlicMemoryBaseAddress)
-	garlicGpuOffset := b.EmitISub(typeUint64, address, garlicCpuBase)
+	garlicGpuOffset := b.EmitISub(typeUint64, cleanAddress, garlicCpuBase)
 	translatedGarlic := b.EmitIAdd(typeUint64, garlicGpuBase, garlicGpuOffset)
 	b.EmitBranch(mergeLabel)
 
 	// Onion translation.
 	b.EmitLabel(onionLabel)
 	onionGpuBase := ctx.LoadPushConstantValue(b, PushConstantOnionMemoryBaseAddress)
-	onionGpuOffset := b.EmitISub(typeUint64, address, onionCpuBase)
+	onionGpuOffset := b.EmitISub(typeUint64, cleanAddress, onionCpuBase)
 	translatedOnion := b.EmitIAdd(typeUint64, onionGpuBase, onionGpuOffset)
 	b.EmitBranch(mergeLabel)
 

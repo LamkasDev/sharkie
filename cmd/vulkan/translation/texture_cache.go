@@ -6,25 +6,16 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/vulkan"
 )
 
-func (t *GpuTranslator) registerImage(image *vulkan.VulkanImage, isUpgrade bool) {
+func (t *GpuTranslator) registerImage(image *vulkan.VulkanImage) {
 	t.imagesMutex.Lock()
 	t.images[image.Address] = image
 	t.imagesMutex.Unlock()
 	structs.GlobalMemoryManager.Track(image.Address, image.GuestSize, image)
-	if !isUpgrade {
-		image.MarkCpuModified(t.currentGuestFrame)
-	} else {
-		if image.HasSync(vulkan.ImageSyncCpuModified) {
-			image.MarkCpuModified(t.currentGuestFrame)
-		} else if image.HasSync(vulkan.ImageSyncGpuModified) {
-			image.MarkGpuModified(t.currentGuestFrame)
-		} else {
-			image.MarkSynced(t.currentGuestFrame)
-		}
-	}
+	image.MarkCpuModified(t.currentGuestFrame)
 
-	logger.Printf("registered image at 0x%X (%dx%d).\n",
+	logger.Printf("registered image at 0x%X (%dx%d, 0x%X bytes).\n",
 		image.Address, image.FirstDescriptor.Width, image.FirstDescriptor.Height,
+		image.GuestSize,
 	)
 }
 
@@ -33,6 +24,11 @@ func (t *GpuTranslator) unregisterImage(image *vulkan.VulkanImage) {
 	t.imagesMutex.Lock()
 	delete(t.images, image.Address)
 	t.imagesMutex.Unlock()
+	/* deferFunc, err := image.DownloadFromVkImage(t.handles, t.commandBuffer, t.currentGuestFrame)
+	if err != nil {
+		panic(err)
+	}
+	t.handles.DeferDestroyFunction(deferFunc) */
 
 	logger.Printf("deleted image at 0x%X (%dx%d).\n",
 		image.Address, image.FirstDescriptor.Width, image.FirstDescriptor.Height,

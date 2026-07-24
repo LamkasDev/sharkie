@@ -12,12 +12,16 @@ func RegisterVideoOutStubs() {
 	elf.RegisterStub("libSceVideoOut", "sceVideoOutOpen", libSceVideoOut_sceVideoOutOpen)
 	elf.RegisterStub("libSceVideoOut", "sceVideoOutAdjustColor_", libSceVideoOut_stub)
 	elf.RegisterStub("libSceVideoOut", "sceVideoOutColorSettingsSetGamma_", libSceVideoOut_stub)
+	elf.RegisterStub("libSceVideoOut", "sceVideoOutGetResolutionStatus", libSceVideoOut_sceVideoOutGetResolutionStatus)
 
-	// Command functions.
+	// Flip functions.
 	elf.RegisterStub("libSceVideoOut", "sceVideoOutAddFlipEvent", libSceVideoOut_sceVideoOutAddFlipEvent)
-	elf.RegisterStub("libSceVideoOut", "sceVideoOutAddVblankEvent", libSceVideoOut_sceVideoOutAddVblankEvent)
 	elf.RegisterStub("libSceVideoOut", "sceVideoOutSetFlipRate", libSceVideoOut_sceVideoOutSetFlipRate)
 	elf.RegisterStub("libSceVideoOut", "sceVideoOutSubmitEopFlip", libSceVideoOut_sceVideoOutSubmitEopFlip)
+	elf.RegisterStub("libSceVideoOut", "sceVideoOutGetFlipStatus", libSceVideoOut_sceVideoOutGetFlipStatus)
+
+	// V-blank functions.
+	elf.RegisterStub("libSceVideoOut", "sceVideoOutAddVblankEvent", libSceVideoOut_sceVideoOutAddVblankEvent)
 
 	// Buffer functions.
 	elf.RegisterStub("libSceVideoOut", "sceVideoOutRegisterBuffers", libSceVideoOut_sceVideoOutRegisterBuffers)

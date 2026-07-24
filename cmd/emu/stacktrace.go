@@ -8,7 +8,6 @@ import (
 
 	"github.com/LamkasDev/sharkie/cmd/asm"
 	"github.com/LamkasDev/sharkie/cmd/elf"
-	"github.com/LamkasDev/sharkie/cmd/lib_structs"
 	"github.com/gookit/color"
 )
 
@@ -65,15 +64,10 @@ func SprintStackTrace() string {
 
 // SprintStackTraceFromSP prints stack trace starting from a given stack pointer.
 func SprintStackTraceFromSP(stackPtr uintptr) (result string) {
-	thread := GetCurrentThread()
 	if stackPtr <= 0x1000 {
 		return result
 	}
-	stackTop := thread.Stack.Address + lib_structs.StackDefaultSize
 	for i := 0; i < 40; i++ {
-		if stackPtr >= stackTop {
-			break
-		}
 		address := *(*uint64)(unsafe.Pointer(stackPtr))
 		result += SprintAddress(uintptr(address))
 

@@ -58,10 +58,10 @@ func emitBlock(b *SpvBuilder, block *GcnShaderCfgBlock, ctx *SpirvBlockContext) 
 			v1 := b.EmitLoad(ctx.GetId(BlockContextIdTypeUint), ctx.GetId(BlockContextIdInstanceIndex))
 			ctx.SetGcnVgprId(b, 1, v1)
 
-			// Inline Fetch Shader reads
-			if len(ctx.FetchInstrs) > 0 {
+			// Inline fetch shader instructions.
+			if len(ctx.FetchShaderInstructions) > 0 {
 				b.EmitString("inline fetch shader loads")
-				for _, instr := range ctx.FetchInstrs {
+				for _, instr := range ctx.FetchShaderInstructions {
 					emitInstruction(b, instr, ctx)
 				}
 			}
@@ -95,7 +95,14 @@ func emitBlock(b *SpvBuilder, block *GcnShaderCfgBlock, ctx *SpirvBlockContext) 
 			// TGID.X (bit 7)
 			// condX := b.EmitBitwiseAnd(typeUint, b.EmitShiftRightLogical(typeUint, rsrc2, ctx.GetConstId(ConstIdUint7)), ctx.GetConstId(ConstIdUint1))
 			ptrX := b.EmitAccessChain(typePtrFnUint, ctx.GcnSgprArrayId, sgprIdx)
-			b.EmitStore(ptrX, b.EmitCompositeExtract(typeUint, workgroupVec, 0))
+			wgXRaw := b.EmitCompositeExtract(typeUint, workgroupVec, 0)
+			wgXFinal := wgXRaw
+			if ctx.ThreadX > 1024 {
+				// Restore original Workgroup ID.
+				splitFactor := b.EmitConstantUint(typeUint, (ctx.ThreadX+1023)/1024)
+				wgXFinal = b.EmitUDiv(typeUint, wgXRaw, splitFactor)
+			}
+			b.EmitStore(ptrX, wgXFinal)
 			sgprIdx = b.EmitIAdd(typeUint, sgprIdx, ctx.GetConstId(ConstIdUint1))
 
 			// TGID.Y (bit 8)
@@ -118,10 +125,19 @@ func emitBlock(b *SpvBuilder, block *GcnShaderCfgBlock, ctx *SpirvBlockContext) 
 
 			// Builtin local invocation ID.
 			localVec := b.EmitLoad(ctx.GetId(BlockContextIdTypeV3Uint), ctx.GetId(BlockContextIdLocalInvocationId))
+			localXRaw := b.EmitCompositeExtract(typeUint, localVec, 0)
+			localXFinal := localXRaw
+			if ctx.ThreadX > 1024 {
+				// Restore original Local ID.
+				splitFactor := b.EmitConstantUint(typeUint, (ctx.ThreadX+1023)/1024)
+				wgMod := b.EmitUMod(typeUint, wgXRaw, splitFactor)
+				offset := b.EmitIMul(typeUint, wgMod, b.EmitConstantUint(typeUint, 1024))
+				localXFinal = b.EmitIAdd(typeUint, localXRaw, offset)
+			}
 
-			ctx.SetGcnVgprId(b, 0, b.EmitCompositeExtract(ctx.GetId(BlockContextIdTypeUint), localVec, 0))
-			ctx.SetGcnVgprId(b, 1, b.EmitCompositeExtract(ctx.GetId(BlockContextIdTypeUint), localVec, 1))
-			ctx.SetGcnVgprId(b, 2, b.EmitCompositeExtract(ctx.GetId(BlockContextIdTypeUint), localVec, 2))
+			ctx.SetGcnVgprId(b, 0, localXFinal)
+			ctx.SetGcnVgprId(b, 1, b.EmitCompositeExtract(typeUint, localVec, 1))
+			ctx.SetGcnVgprId(b, 2, b.EmitCompositeExtract(typeUint, localVec, 2))
 		}
 	}
 

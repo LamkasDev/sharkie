@@ -13,7 +13,10 @@ func RegisterRtcStubs() {
 
 	// Tick functions.
 	elf.RegisterStub("libSceRtc", "sceRtcGetCurrentTick", libSceRtc_sceRtcGetCurrentTick)
+	elf.RegisterStub("libSceRtc", "sceRtcGetCurrentRawNetworkTick", libSceRtc_sceRtcGetCurrentRawNetworkTick)
 	elf.RegisterStub("libSceRtc", "sceRtcSetTick", libSceRtc_sceRtcSetTick)
 	elf.RegisterStub("libSceRtc", "sceRtcGetTick", libSceRtc_sceRtcGetTick)
+	elf.RegisterStub("libSceRtc", "sceRtcTickAddHours", libSceRtc_sceRtcTickAddHours)
 	elf.RegisterStub("libSceRtc", "sceRtcTickAddMinutes", libSceRtc_sceRtcTickAddMinutes)
+	elf.RegisterStub("libSceRtc", "sceRtcTickAddSeconds", libSceRtc_sceRtcTickAddSeconds)
 }

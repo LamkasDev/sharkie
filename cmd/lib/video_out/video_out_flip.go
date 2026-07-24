@@ -1,6 +1,8 @@
 package video_out
 
 import (
+	"unsafe"
+
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/dce"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/video"
@@ -28,30 +30,6 @@ func libSceVideoOut_sceVideoOutAddFlipEvent(equeueHandle, rawHandle, userData ui
 	logger.Printf("%-132s %s added flip event to %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sceVideoOutAddFlipEvent"),
-		color.Yellow.Sprintf("0x%X", handle.Id),
-	)
-	return 0
-}
-
-// __int64 __fastcall sceVideoOutAddVblankEvent(unsigned int, int, __int64)
-func libSceVideoOut_sceVideoOutAddVblankEvent(equeueHandle, rawHandle, userData uintptr) uintptr {
-	handle, ok := GlobalDisplayCoreEngine.Handles[uint32(rawHandle)]
-	if !ok {
-		logger.Printf("%-132s %s failed due to invalid handle.\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("sceVideoOutAddVblankEvent"),
-		)
-		return SCE_VIDEO_OUT_ERROR_INVALID_HANDLE
-	}
-
-	handle.VblankEvents = append(handle.VblankEvents, VideoOutEvent{
-		EqueueHandle: equeueHandle,
-		UserData:     userData,
-	})
-
-	logger.Printf("%-132s %s added vblank event to %s.\n",
-		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprint("sceVideoOutAddVblankEvent"),
 		color.Yellow.Sprintf("0x%X", handle.Id),
 	)
 	return 0
@@ -114,14 +92,11 @@ func libSceVideoOut_sceVideoOutSubmitEopFlip(rawHandle, bufferIndex, flipMode, f
 	}
 
 	// Ask GPU to present new buffer.
-	select {
-	case handle.NextFlip <- &VideoOutFlip{
-		BufferIndex: uint32(bufferIndex),
-		FlipArg:     uint64(flipArg),
+	handle.SubmitFlip(&VideoOutFlip{
+		BufferIndex: int32(bufferIndex),
+		FlipArg:     int64(flipArg),
 		GpuAddress:  buffer.GpuAddress,
-	}:
-	default:
-	}
+	})
 
 	if logger.LogGraphics {
 		logger.Printf("%-132s %s submitted %s's EOP flip (bufferIndex=%s, flipMode=%s, flipArg=%s, eopSignalCtx=%s).\n",
@@ -132,6 +107,37 @@ func libSceVideoOut_sceVideoOutSubmitEopFlip(rawHandle, bufferIndex, flipMode, f
 			color.Yellow.Sprintf("0x%X", flipMode),
 			color.Yellow.Sprintf("0x%X", flipArg),
 			color.Yellow.Sprintf("0x%X", eopSignalCtx),
+		)
+	}
+	return 0
+}
+
+// 0x000000000000BA20
+// __int64 __fastcall sceVideoOutGetFlipStatus(int, __int64)
+func libSceVideoOut_sceVideoOutGetFlipStatus(rawHandle, flipStatusPtr uintptr) uintptr {
+	if flipStatusPtr == 0 {
+		logger.Printf("%-132s %s failed due to invalid flip status pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceVideoOutGetFlipStatus"),
+		)
+		return 0x80290002
+	}
+	handle, ok := GlobalDisplayCoreEngine.Handles[uint32(rawHandle)]
+	if !ok {
+		logger.Printf("%-132s %s failed due to invalid handle.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceVideoOutGetFlipStatus"),
+		)
+		return SCE_VIDEO_OUT_ERROR_INVALID_HANDLE
+	}
+	flipStatus := (*VideoOutFlipStatus)(unsafe.Pointer(flipStatusPtr))
+	*flipStatus = handle.FlipStatus
+
+	if logger.LogGraphics {
+		logger.Printf("%-132s %s returned %s's flip status.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceVideoOutGetFlipStatus"),
+			color.Yellow.Sprintf("0x%X", handle.Id),
 		)
 	}
 	return 0

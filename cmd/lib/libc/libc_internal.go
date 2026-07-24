@@ -5,6 +5,7 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
 	"github.com/LamkasDev/sharkie/cmd/logger"
+	"github.com/gookit/color"
 )
 
 func RegisterSceLibcInternalStubs() {
@@ -18,6 +19,9 @@ func RegisterSceLibcInternalStubs() {
 	elf.RegisterStub("libSceLibcInternal", "calloc", libSceLibcInternal_calloc)
 	elf.RegisterStub("libSceLibcInternal", "free", libSceLibcInternal_free)
 	elf.RegisterStub("libSceLibcInternal", "realloc", libSceLibcInternal_realloc)
+	elf.RegisterStub("libSceLibcInternal", "aligned_alloc", libSceLibcInternal_stub)
+	elf.RegisterStub("libSceLibcInternal", "reallocalign", libSceLibcInternal_stub)
+	elf.RegisterStub("libSceLibcInternal", "aligned_alloc", libSceLibcInternal_stub)
 	elf.RegisterStub("libSceLibcInternal", "sceLibcMspaceMalloc", libSceLibcInternal_sceLibcMspaceMalloc)
 	elf.RegisterStub("libSceLibcInternal", "sceLibcMspaceCalloc", libSceLibcInternal_sceLibcMspaceCalloc)
 	elf.RegisterStub("libSceLibcInternal", "sceLibcMspaceFree", libSceLibcInternal_sceLibcMspaceFree)
@@ -31,6 +35,7 @@ func RegisterSceLibcInternalStubs() {
 	elf.RegisterStub("libSceLibcInternal", "sceLibcMspaceMallocStats", libSceLibcInternal_sceLibcMspaceMallocStats)
 	elf.RegisterStub("libSceLibcInternal", "sceLibcMspaceMallocStatsFast", libSceLibcInternal_sceLibcMspaceMallocStatsFast)
 	elf.RegisterStub("libSceLibcInternal", "sceLibcPafMspaceIsHeapEmpty", libSceLibcInternal_sceLibcPafMspaceIsHeapEmpty)
+	elf.RegisterStub("libSceLibcInternal", "sceLibcMspaceAlignedAlloc", libSceLibcInternal_stub)
 
 	// IO functions.
 	elf.RegisterStub("libSceLibcInternal", "fopen", libSceLibcInternal_fopen)
@@ -51,6 +56,8 @@ func RegisterSceLibcInternalStubs() {
 	elf.RegisterStub("libSceLibcInternal", "setvbuf", libSceLibcInternal_setvbuf)
 	elf.RegisterStub("libSceLibcInternal", "fclose", libSceLibcInternal_fclose)
 	elf.RegisterStub("libSceLibcInternal", "feof", libSceLibcInternal_feof)
+	elf.RegisterStub("libSceLibcInternal", "_Lockfilelock", libSceLibcInternal__Lockfilelock)
+	elf.RegisterStub("libSceLibcInternal", "_Unlockfilelock", libSceLibcInternal__Unlockfilelock)
 
 	// Standard files (should remove once we have proper support).
 	RegisterFileStubs("libSceLibcInternal")
@@ -86,6 +93,16 @@ func RegisterFileStubs(libraryName string) {
 	WriteAddress(stderr_0.Address, 2)
 	WriteAddress(stderr_1.Address, 2)
 	WriteAddress(stderr_2.Address, 2)
+}
+
+func libSceLibcInternal_stub() uintptr {
+	logger.Printf(
+		"%-132s hi from %s :3\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprintf("generic stub"),
+	)
+
+	return 0
 }
 
 func Abort() uintptr {

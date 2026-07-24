@@ -9,7 +9,6 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/gpu"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/LamkasDev/sharkie/cmd/spirv"
-	spirvCommon "github.com/LamkasDev/sharkie/cmd/spirv/common"
 	spirvStructs "github.com/LamkasDev/sharkie/cmd/spirv/structs"
 	"github.com/LamkasDev/sharkie/cmd/vulkan"
 	vk "github.com/goki/vulkan"
@@ -23,7 +22,7 @@ func (t *GpuTranslator) BindPipeline(frame uint64, bind *gpu.LiverpoolBindPipeli
 		return
 	}
 
-	rtWidth := ((bind.RtPitch & 0x7FF) + 1) * 8
+	rtWidth := colorBufferPitch(bind.RtPitch)
 	rtHeight := colorBufferHeight(bind.RtPitch, bind.RtSlice)
 
 	// Get or create surface.
@@ -76,8 +75,8 @@ func (t *GpuTranslator) BindPipeline(frame uint64, bind *gpu.LiverpoolBindPipeli
 			GpuAddress:      rtAddress,
 			DepthGpuAddress: dbAddress,
 			Format:          surface.ImageView.Image.ImageFormat,
-			Width:           uint32(surface.ImageView.Image.FirstDescriptor.Width),
-			Height:          uint32(surface.ImageView.Image.FirstDescriptor.Height),
+			Width:           rtWidth,
+			Height:          rtHeight,
 		},
 	}
 	if depthSurface != nil {
@@ -95,21 +94,19 @@ func (t *GpuTranslator) BindPipeline(frame uint64, bind *gpu.LiverpoolBindPipeli
 	t.userDataBuffersMutex.Unlock()
 
 	// Parse fetch shader layout.
-	var fetchLayout spirvCommon.FetchShaderLayout
-	var fetchInstrs []*gcnSpec.Instruction
-	fetchPC := GetFetchShaderPC(bind.VertexShader, userData[:])
-	if fetchPC != 0 {
-		fetchShader := gpu.GlobalLiverpool.GetShader(gcn.GcnShaderStageVertex, fetchPC)
+	var fetchInstructions []*gcnSpec.Instruction
+	fetchShaderAddress := GetFetchShaderPC(bind.VertexShader, userData[:])
+	if fetchShaderAddress != 0 {
+		fetchShader := gpu.GlobalLiverpool.GetShader(gcn.GcnShaderStageVertex, fetchShaderAddress)
 		if fetchShader != nil {
-			fetchLayout, fetchInstrs = ParseFetchShaderLayout(fetchShader, userData[:])
+			fetchInstructions = ParseFetchShaderInstructions(fetchShader, userData[:])
 		}
 	}
 
 	// Get shader modules.
 	vsSpirv, vsKey := t.GetShaderWithContext(bind.VertexShader, spirv.SpirvShaderContext{
-		FetchLayout:     fetchLayout,
-		FetchInstrs:     fetchInstrs,
-		FetchLayoutHash: uint64(fetchLayout.Hash()),
+		FetchShaderAddress:      fetchShaderAddress,
+		FetchShaderInstructions: fetchInstructions,
 	})
 	t.activeVertexShader = vsSpirv
 	vsModule, err := t.GetShaderModule(vsKey, vsSpirv)
@@ -171,7 +168,7 @@ func (t *GpuTranslator) BindPipeline(frame uint64, bind *gpu.LiverpoolBindPipeli
 		RenderPass:        fb.RenderPass,
 		GraphicsPipelineKey: vulkan.GraphicsPipelineKey{
 			VertexModuleAddress:   bind.VertexShader.Address,
-			FetchLayoutHash:       vsKey.FetchLayoutHash,
+			FetchShaderAddress:    vsKey.FetchShaderAddress,
 			FragmentModuleAddress: bind.PixelShader.Address,
 			RenderTargetAddress:   rtAddress,
 			DepthTargetAddress:    dbAddress,
@@ -246,7 +243,6 @@ func (t *GpuTranslator) BindPipeline(frame uint64, bind *gpu.LiverpoolBindPipeli
 		renderPass = fb.RenderPassLoadColorClearDepth
 		depthSurface.FrameUsed = frame
 	}
-	t.EndRenderPass()
 	surface.ImageView.Image.BarrierColorAttachment(t.commandBuffer)
 
 	if renderPass == fb.RenderPassNoClear {
@@ -260,7 +256,7 @@ func (t *GpuTranslator) BindPipeline(frame uint64, bind *gpu.LiverpoolBindPipeli
 
 	t.StartRenderPass(renderPass, fb.RenderPassNoClear, fb.Framebuffer, pipeline, clearValues,
 		uint32(surface.ImageView.Image.FirstDescriptor.Width),
-		uint32(surface.ImageView.Image.FirstDescriptor.Height), rtAddress)
+		uint32(surface.ImageView.Image.FirstDescriptor.Height))
 
 	if logger.LogRenderer {
 		logger.Printf("[%s] Bound pipeline (vertex=%s, fragment=%s, rtAddress=0x%X, rtPitch=%d, rtSize=%dx%d).\n",
@@ -282,7 +278,7 @@ func (t *GpuTranslator) GetPipeline(request vulkan.GraphicsPipelineRequest) (vk.
 	}
 
 	// Create the pipeline.
-	pipeline, err := vulkan.CreateGraphicsPipeline(&t.handles, request, request.RenderPass, t.pipelineLayout, vk.NullPipelineCache)
+	pipeline, err := vulkan.CreateGraphicsPipeline(t.handles, request, request.RenderPass, t.pipelineLayout, vk.NullPipelineCache)
 	if err != nil {
 		return vk.NullPipeline, fmt.Errorf("createGraphicsPipeline: %w", err)
 	}
@@ -303,7 +299,7 @@ func (t *GpuTranslator) GetComputePipeline(request vulkan.ComputePipelineRequest
 	}
 
 	// Create the pipeline.
-	pipeline, err := vulkan.CreateComputePipeline(&t.handles, request, t.pipelineLayout, vk.NullPipelineCache)
+	pipeline, err := vulkan.CreateComputePipeline(t.handles, request, t.pipelineLayout, vk.NullPipelineCache)
 	if err != nil {
 		return vk.NullPipeline, fmt.Errorf("createComputePipeline: %w", err)
 	}

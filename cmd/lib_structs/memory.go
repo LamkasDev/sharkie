@@ -1,7 +1,6 @@
 package lib_structs
 
 import (
-	"encoding/binary"
 	"fmt"
 	"sync"
 	"unsafe"
@@ -129,9 +128,8 @@ func (allocator *GoAllocator) Malloc(size uintptr) uintptr {
 	allocator.Allocations[address] = dataSlice
 
 	// Write header (0 - original pointer, 8 - allocated size).
-	headerSlice := unsafe.Slice((*byte)(unsafe.Pointer(headerAddress)), AllocationHeaderSize)
-	binary.LittleEndian.PutUint64(headerSlice, uint64(address))
-	binary.LittleEndian.PutUint64(headerSlice[8:], uint64(allocatedSize))
+	*(*uintptr)(unsafe.Pointer(headerAddress)) = address
+	*(*uintptr)(unsafe.Pointer(headerAddress + 8)) = uintptr(allocatedSize)
 
 	return alignedAddress
 }
@@ -146,8 +144,10 @@ func (allocator *GoAllocator) Free(ptr uintptr) bool {
 	// Read header (0 - original pointer, 8 - allocated size).
 	headerAddr := ptr - AllocationHeaderSize
 	address := *(*uintptr)(unsafe.Pointer(headerAddr))
-	allocatedSize := *(*uintptr)(unsafe.Pointer(headerAddr + 8))
-	dataSlice := unsafe.Slice((*byte)(unsafe.Pointer(address)), allocatedSize)
+	dataSlice, exists := allocator.Allocations[address]
+	if !exists {
+		panic("double free or unallocated address")
+	}
 	delete(allocator.Allocations, address)
 
 	return allocator.Allocator.Free(dataSlice)

@@ -25,7 +25,7 @@ type SpirvShaderKey struct {
 	PsInputAddress  uint32
 	PsInputControls [32]uint32
 
-	FetchLayoutHash uint64
+	FetchShaderAddress uintptr
 }
 
 func (t *GpuTranslator) GetShader(gcnShader *gcn.GcnShader) *spirv.SpirvShader {
@@ -56,7 +56,7 @@ func (t *GpuTranslator) GetShaderWithContext(gcnShader *gcn.GcnShader, context s
 		PsInputAddress:  context.PsInputAddress,
 		PsInputControls: context.PsInputControls,
 
-		FetchLayoutHash: context.FetchLayoutHash,
+		FetchShaderAddress: context.FetchShaderAddress,
 	}
 
 	// Get already loaded shader.
@@ -137,7 +137,7 @@ func (t *GpuTranslator) DumpShaderOnce(key SpirvShaderKey, spirvShader *spirv.Sp
 	if err := os.MkdirAll(shaderDir, 0755); err != nil {
 		return err
 	}
-	textFilename := filepath.Join(shaderDir, fmt.Sprintf("shader_0x%X_%X_%s.spv", spirvShader.GcnShader.Address, key.FetchLayoutHash, spirvShader.GcnShader.Stage))
+	textFilename := filepath.Join(shaderDir, fmt.Sprintf("shader_0x%X_%X_%s.spv", spirvShader.GcnShader.Address, key.FetchShaderAddress, spirvShader.GcnShader.Stage))
 	if err := os.WriteFile(textFilename, common.SpvWordsToBytes(spirvShader.Code), 0777); err != nil {
 		return err
 	}
