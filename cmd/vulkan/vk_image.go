@@ -169,7 +169,7 @@ func CreateImage(handles *VulkanHandles, request VulkanImageRequest, commandBuff
 	vk.BindImageMemory(handles.Device, image.Image, image.ImageMem, 0)
 
 	// Transition image.
-	err := RunWithCommandBuffer(handles, func(commandBuffer *VulkanCommandBuffer) {
+	err := RunWithCommandBuffer(handles.GraphicsQueue, handles, func(commandBuffer *VulkanCommandBuffer) {
 		ImageBarrier(commandBuffer, image, dstLayout, dstAccess, vk.PipelineStageFlags(vk.PipelineStageAllCommandsBit), aspectMask)
 	}, frame)
 	if err != nil {

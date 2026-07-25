@@ -78,7 +78,7 @@ func SetupApplication() error {
 		GlobalApplication.Renderer.Handles.Instance,
 		GlobalApplication.Renderer.Handles.Device,
 		GlobalApplication.Renderer.Handles.PhysicalDevice,
-		GlobalApplication.Renderer.Handles.GraphicsQueue,
+		GlobalApplication.Renderer.Handles.GraphicsQueue.Queue,
 		GlobalApplication.Renderer.PipelineCache,
 		GlobalApplication.Renderer.Handles.GraphicsQueueFamilyIndex,
 		GlobalApplication.Renderer.Handles.Context.SwapchainImageResources,
@@ -144,16 +144,15 @@ func RunApplication() error {
 
 			// Render UI and record command buffers .
 			GlobalApplication.Renderer.Render()
+			// cimgui-go-vulkan backend submits to GraphicsQueue manually, we must lock manually.
+			GlobalApplication.Renderer.Handles.GraphicsQueue.Lock.Lock()
 			GlobalApplication.Renderer.Backend.RenderFrame(imageIdx)
+			GlobalApplication.Renderer.Handles.GraphicsQueue.Lock.Unlock()
 
-			// Lock only for queue submission and presentation.
-			GlobalApplication.Renderer.QueueMutex.Lock()
 			if err = GlobalApplication.VulkanContext.Submit(imageIdx); err != nil {
-				GlobalApplication.Renderer.QueueMutex.Unlock()
 				panic(err)
 			}
 			_, err = GlobalApplication.VulkanContext.PresentImage(imageIdx)
-			GlobalApplication.Renderer.QueueMutex.Unlock()
 
 			if err != nil {
 				panic(fmt.Errorf("PresentImage: %w", err))

@@ -15,7 +15,6 @@ type VulkanHandles struct {
 
 	Instance                 vk.Instance
 	PhysicalDevice           vk.PhysicalDevice
-	GraphicsQueue            vk.Queue
 	GraphicsQueueFamilyIndex uint32
 	MemoryProperties         vk.PhysicalDeviceMemoryProperties
 	DeviceProperties         vk.PhysicalDeviceProperties
@@ -25,7 +24,9 @@ type VulkanHandles struct {
 	UploadPool vk.CommandPool
 	FencePool  *VulkanFencePool2
 
-	QueueMutex      *sync.Mutex
+	GraphicsQueue *VulkanQueue
+	DownloadQueue *VulkanQueue
+
 	UploadPoolMutex sync.Mutex
 
 	DeferredDestroyMutex sync.Mutex
@@ -33,19 +34,18 @@ type VulkanHandles struct {
 }
 
 // NewVulkanHandles extracts handles from the vulkan context and creates our upload command pool.
-func NewVulkanHandles(context *VulkanContext, queueMutex *sync.Mutex) *VulkanHandles {
+func NewVulkanHandles(context *VulkanContext) *VulkanHandles {
 	vkh := &VulkanHandles{
-		Context: context,
-		Device:  context.Device,
-
+		Context:                  context,
 		Instance:                 context.Instance,
 		PhysicalDevice:           context.PhysicalDevice,
+		Device:                   context.Device,
 		GraphicsQueue:            context.GraphicsQueue,
+		DownloadQueue:            context.DownloadQueue,
 		GraphicsQueueFamilyIndex: context.GraphicsQueueIndex,
 		MemoryProperties:         context.MemoryProperties,
 		FormatProperties:         map[vk.Format]vk.FormatProperties{},
 
-		QueueMutex:      queueMutex,
 		UploadPoolMutex: sync.Mutex{},
 
 		DeferredDestroyMutex: sync.Mutex{},

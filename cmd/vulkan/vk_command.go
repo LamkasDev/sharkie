@@ -71,7 +71,7 @@ func (commandBuffer *VulkanCommandBuffer) CanSubmit(frame uint64) bool {
 }
 
 // RunWithCommandBuffer records GPU work into a one-off command buffer and waits (image creation / readback).
-func RunWithCommandBuffer(handles *VulkanHandles, fn func(buffer *VulkanCommandBuffer), frame uint64) error {
+func RunWithCommandBuffer(queue *VulkanQueue, handles *VulkanHandles, fn func(buffer *VulkanCommandBuffer), frame uint64) error {
 	commandBuffer, err := CreateCommandBuffer(handles)
 	if err != nil {
 		return err
@@ -84,14 +84,12 @@ func RunWithCommandBuffer(handles *VulkanHandles, fn func(buffer *VulkanCommandB
 	commandBuffer.End(handles)
 
 	fence, err := handles.FencePool.Get(handles, frame)
-	handles.QueueMutex.Lock()
-	result := vk.QueueSubmit(handles.GraphicsQueue, 1, []vk.SubmitInfo{{
+	err = NewError(queue.Submit([]vk.SubmitInfo{{
 		SType:              vk.StructureTypeSubmitInfo,
 		CommandBufferCount: 1,
 		PCommandBuffers:    []vk.CommandBuffer{commandBuffer.CommandBuffer},
-	}}, fence)
-	handles.QueueMutex.Unlock()
-	if err = NewError(result); err != nil {
+	}}, fence))
+	if err != nil {
 		return err
 	}
 	vk.WaitForFences(handles.Device, 1, []vk.Fence{fence}, vk.True, vk.MaxUint64)

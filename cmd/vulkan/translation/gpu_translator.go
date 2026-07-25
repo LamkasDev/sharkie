@@ -429,14 +429,12 @@ func (t *GpuTranslator) FlushCommandBuffers() bool {
 		if err != nil {
 			panic(err)
 		}
-		t.handles.QueueMutex.Lock()
-		result := vk.QueueSubmit(t.handles.GraphicsQueue, 1, []vk.SubmitInfo{{
+		err = vulkan.NewError(t.handles.GraphicsQueue.Submit([]vk.SubmitInfo{{
 			SType:              vk.StructureTypeSubmitInfo,
 			CommandBufferCount: 1,
 			PCommandBuffers:    []vk.CommandBuffer{commandBuffer.CommandBuffer},
-		}}, fence)
-		t.handles.QueueMutex.Unlock()
-		if err := vulkan.NewError(result); err != nil {
+		}}, fence))
+		if err != nil {
 			panic(err)
 		}
 		vk.WaitForFences(t.handles.Device, 1, []vk.Fence{fence}, vk.True, vk.MaxUint64)

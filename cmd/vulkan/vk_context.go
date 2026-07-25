@@ -18,8 +18,9 @@ type VulkanContext struct {
 
 	GraphicsQueueIndex uint32
 	PresentQueueIndex  uint32
-	GraphicsQueue      vk.Queue
-	PresentQueue       vk.Queue
+	GraphicsQueue      *VulkanQueue
+	PresentQueue       *VulkanQueue
+	DownloadQueue      *VulkanQueue
 
 	MemoryProperties vk.PhysicalDeviceMemoryProperties
 	GpuProperties    vk.PhysicalDeviceProperties
@@ -185,11 +186,16 @@ func (c *VulkanContext) Init(cfg ContextConfig) error {
 		return errors.New("vulkan error: could not find a suitable queue family")
 	}
 
+	graphicsQueueCount := queueProperties[c.GraphicsQueueIndex].QueueCount
+	if graphicsQueueCount > 3 {
+		graphicsQueueCount = 3
+	}
+
 	queueInfos := []vk.DeviceQueueCreateInfo{{
 		SType:            vk.StructureTypeDeviceQueueCreateInfo,
 		QueueFamilyIndex: c.GraphicsQueueIndex,
-		QueueCount:       1,
-		PQueuePriorities: []float32{1.0},
+		QueueCount:       graphicsQueueCount,
+		PQueuePriorities: []float32{1.0, 1.0, 1.0}[:graphicsQueueCount],
 	}}
 	if separateQueue {
 		queueInfos = append(queueInfos, vk.DeviceQueueCreateInfo{
@@ -216,16 +222,36 @@ func (c *VulkanContext) Init(cfg ContextConfig) error {
 	}
 	c.Device = device
 
-	var queue vk.Queue
-	vk.GetDeviceQueue(c.Device, c.GraphicsQueueIndex, 0, &queue)
-	c.GraphicsQueue = queue
+	allocatedQueues := make([]*VulkanQueue, graphicsQueueCount)
+	for i := uint32(0); i < graphicsQueueCount; i++ {
+		var q vk.Queue
+		vk.GetDeviceQueue(c.Device, c.GraphicsQueueIndex, i, &q)
+		allocatedQueues[i] = &VulkanQueue{
+			Queue:       q,
+			FamilyIndex: c.GraphicsQueueIndex,
+		}
+	}
+
+	c.GraphicsQueue = allocatedQueues[0]
+	if graphicsQueueCount > 1 {
+		c.DownloadQueue = allocatedQueues[1]
+	} else {
+		c.DownloadQueue = c.GraphicsQueue
+	}
 
 	if separateQueue {
 		var presentQueue vk.Queue
 		vk.GetDeviceQueue(c.Device, c.PresentQueueIndex, 0, &presentQueue)
-		c.PresentQueue = presentQueue
+		c.PresentQueue = &VulkanQueue{
+			Queue:       presentQueue,
+			FamilyIndex: c.PresentQueueIndex,
+		}
 	} else {
-		c.PresentQueue = c.GraphicsQueue
+		if graphicsQueueCount > 2 {
+			c.PresentQueue = allocatedQueues[2]
+		} else {
+			c.PresentQueue = c.GraphicsQueue
+		}
 	}
 
 	c.PreparePresent()
@@ -557,12 +583,12 @@ func (c *VulkanContext) Prepare() {
 
 	vk.EndCommandBuffer(cmd[0])
 
-	vk.QueueSubmit(c.GraphicsQueue, 1, []vk.SubmitInfo{{
+	c.GraphicsQueue.Submit([]vk.SubmitInfo{{
 		SType:              vk.StructureTypeSubmitInfo,
 		CommandBufferCount: 1,
 		PCommandBuffers:    cmd,
 	}}, vk.NullFence)
-	vk.QueueWaitIdle(c.GraphicsQueue)
+	c.GraphicsQueue.WaitIdle()
 	vk.FreeCommandBuffers(c.Device, c.CmdPool, 1, cmd)
 }
 
@@ -630,7 +656,7 @@ func (c *VulkanContext) PresentImage(imageIdx int) (outdated bool, err error) {
 		semaphore = c.DrawCompleteSemaphores[imageIdx]
 	}
 
-	ret := vk.QueuePresent(c.PresentQueue, &vk.PresentInfo{
+	ret := c.PresentQueue.Present(&vk.PresentInfo{
 		SType:              vk.StructureTypePresentInfo,
 		WaitSemaphoreCount: 1,
 		PWaitSemaphores:    []vk.Semaphore{semaphore},
@@ -668,8 +694,7 @@ func (c *VulkanContext) Submit(imageIdx int) error {
 		},
 	}
 
-	ret := vk.QueueSubmit(c.GraphicsQueue, 1, []vk.SubmitInfo{submitInfo}, c.FrameFences[c.FrameIndex])
-	return NewError(ret)
+	return NewError(c.GraphicsQueue.Submit([]vk.SubmitInfo{submitInfo}, c.FrameFences[c.FrameIndex]))
 }
 
 func dbgCallbackFunc(flags vk.DebugReportFlags, objectType vk.DebugReportObjectType,

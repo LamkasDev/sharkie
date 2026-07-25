@@ -134,7 +134,6 @@ func (m *MemoryManager) Untrack(address, size uintptr, resource interface{}) {
 		}
 		if len(page.Resources) == 0 {
 			cUntrackPage(pageAddr)
-			m.UpdateTraps(pageAddr, lib_structs.SystemPageSize, 2)
 		}
 	}
 	m.Lock.Unlock()

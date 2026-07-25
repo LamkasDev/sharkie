@@ -2,7 +2,6 @@ package renderer
 
 import (
 	"runtime"
-	"sync"
 	"time"
 
 	"github.com/LamkasDev/cimgui-go-vulkan/backend"
@@ -31,12 +30,12 @@ type Renderer struct {
 	RenderPass          vk.RenderPass
 	PipelineCache       vk.PipelineCache
 
-	QueueMutex sync.Mutex
 	FrameReady chan struct{}
 
-	DisplayTextureId   imgui.TextureRef
-	DrawUI             func()
-	FramebufferOffsetY float32
+	DisplayTextureId       imgui.TextureRef
+	DisplayTextureModified bool
+	DrawUI                 func()
+	FramebufferOffsetY     float32
 }
 
 func NewRenderer(context *vulkan.VulkanContext, dimensions *backend.SwapchainDimensions) *Renderer {
@@ -44,9 +43,8 @@ func NewRenderer(context *vulkan.VulkanContext, dimensions *backend.SwapchainDim
 		SwapchainDimensions: dimensions,
 		RingWorkSource:      NewRingWorkSource(),
 		FrameSource:         NewFlipSource(),
-		QueueMutex:          sync.Mutex{},
 	}
-	r.Handles = vulkan.NewVulkanHandles(context, &r.QueueMutex)
+	r.Handles = vulkan.NewVulkanHandles(context)
 
 	var err error
 	if r.Backend, err = backend.CreateBackend(glfwvulkanbackend.NewGLFWBackend()); err != nil {
@@ -98,10 +96,7 @@ func (r *Renderer) DrawFramebuffer() {
 	imgui.PushStyleColorVec4(imgui.ColWindowBg, imgui.Vec4{X: 0, Y: 0, Z: 0, W: 1.0})
 	imgui.PushStyleVarVec2(imgui.StyleVarWindowPadding, imgui.Vec2{X: 0, Y: 0})
 	if imgui.BeginV("##fb", nil, ImguiOverlayFlags|imgui.WindowFlagsNoBringToFrontOnFocus) {
-		r.QueueMutex.Lock()
 		texId := r.DisplayTextureId
-		r.QueueMutex.Unlock()
-
 		if texId.CData != nil {
 			imgui.Image(texId, imgui.Vec2{
 				X: float32(r.SwapchainDimensions.Width),
@@ -161,15 +156,13 @@ func (r *Renderer) ConsumeFlips(done chan struct{}) {
 		// Transition surface and update texture ID for display.
 		surface := r.GpuTranslator.GetSurfaceByAddress(structs.GetPhysicalGpuAddress(frame.Flip.GpuAddress))
 		if surface != nil {
-			err := vulkan.RunWithCommandBuffer(r.Handles, func(commandBuffer *vulkan.VulkanCommandBuffer) {
+			err := vulkan.RunWithCommandBuffer(r.Handles.GraphicsQueue, r.Handles, func(commandBuffer *vulkan.VulkanCommandBuffer) {
 				surface.ImageView.Image.BarrierGeneralShaderAccess(commandBuffer)
 			}, frame.Number)
 			if err != nil {
 				panic(err)
 			}
-			r.QueueMutex.Lock()
 			r.DisplayTextureId = r.GpuTranslator.GetSurfaceTexture(surface)
-			r.QueueMutex.Unlock()
 		}
 
 		// Wait on next frame.
