@@ -80,8 +80,13 @@ type VideoOutFlipStatus struct {
 	Reserved1         uint32
 }
 
-// TODO: finish this.
 type VideoOutVblankStatus struct {
+	Count       uint64
+	ProcessTime uint64
+	Tsc         uint64
+	Reserved    uint64
+	Flags       uint8
+	_           [7]uint8
 }
 
 type VideoOutResolutionStatus struct {

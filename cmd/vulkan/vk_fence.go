@@ -14,7 +14,7 @@ type VulkanFencePool2 struct {
 func CreateFencePool2(handles *VulkanHandles, initialCapacity int) (*VulkanFencePool2, error) {
 	var err error
 	pool := &VulkanFencePool2{
-		Pools: make([]*VulkanFencePool, 4),
+		Pools: make([]*VulkanFencePool, 6),
 	}
 	for i := range pool.Pools {
 		pool.Pools[i], err = CreateFencePool(handles, initialCapacity)
@@ -83,10 +83,10 @@ func (p *VulkanFencePool) Get(handles *VulkanHandles) (vk.Fence, error) {
 	p.Mutex.Lock()
 	defer p.Mutex.Unlock()
 
-	// Pop the last available fence.
+	// Pop the first available fence (FIFO queue).
 	if len(p.Available) > 0 {
-		fence := p.Available[len(p.Available)-1]
-		p.Available = p.Available[:len(p.Available)-1]
+		fence := p.Available[0]
+		p.Available = p.Available[1:]
 		return fence, nil
 	}
 
@@ -102,10 +102,8 @@ func (p *VulkanFencePool) Get(handles *VulkanHandles) (vk.Fence, error) {
 
 // Put resets the fence to an unsignaled state and returns it to the available pool.
 func (p *VulkanFencePool) Put(handles *VulkanHandles, fence vk.Fence) {
-	status := vk.GetFenceStatus(handles.Device, fence)
-	if status == vk.Success {
-		vk.ResetFences(handles.Device, 1, []vk.Fence{fence})
-	}
+	vk.ResetFences(handles.Device, 1, []vk.Fence{fence})
+
 	p.Mutex.Lock()
 	defer p.Mutex.Unlock()
 	p.Available = append(p.Available, fence)

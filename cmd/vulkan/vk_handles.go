@@ -80,7 +80,7 @@ func NewVulkanHandles(context *VulkanContext, queueMutex *sync.Mutex) *VulkanHan
 	}
 	vkh.UploadPool = pool
 
-	fencePool, err := CreateFencePool2(vkh, 8)
+	fencePool, err := CreateFencePool2(vkh, 32)
 	if err != nil {
 		panic(err)
 	}

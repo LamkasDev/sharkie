@@ -1,8 +1,7 @@
 package translation
 
 import (
-	"os"
-
+	"github.com/LamkasDev/sharkie"
 	"github.com/LamkasDev/sharkie/cmd/spirv/common"
 	vk "github.com/goki/vulkan"
 )
@@ -17,7 +16,7 @@ func (t *GpuTranslator) getAuxShaderModule(path, name string, cache *vk.ShaderMo
 		return *cache, nil
 	}
 
-	bytes, err := os.ReadFile(path)
+	bytes, err := sharkie.Assets.ReadFile(path)
 	if err != nil {
 		return vk.NullShaderModule, err
 	}

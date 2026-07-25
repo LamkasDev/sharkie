@@ -22,6 +22,7 @@ func RegisterVideoOutStubs() {
 
 	// V-blank functions.
 	elf.RegisterStub("libSceVideoOut", "sceVideoOutAddVblankEvent", libSceVideoOut_sceVideoOutAddVblankEvent)
+	elf.RegisterStub("libSceVideoOut", "sceVideoOutGetVblankStatus", libSceVideoOut_sceVideoOutGetVblankStatus)
 
 	// Buffer functions.
 	elf.RegisterStub("libSceVideoOut", "sceVideoOutRegisterBuffers", libSceVideoOut_sceVideoOutRegisterBuffers)

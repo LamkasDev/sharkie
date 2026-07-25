@@ -29,7 +29,7 @@ func libKernel_sceKernelGetProcessTime() uintptr {
 			color.Yellow.Sprintf("0x%X", micros),
 		)
 	}
-	return 0
+	return micros
 }
 
 // 0x0000000000014CE0

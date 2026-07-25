@@ -370,6 +370,16 @@ func (image *VulkanImage) UploadToVkImage(handles *VulkanHandles, commandBuffer 
 		}
 		width = uint32(image.FirstDescriptor.Width)
 		height = uint32(image.FirstDescriptor.Height)
+
+		// Wait for CPU writes to finish before reading the buffer.
+		vk.CmdPipelineBarrier(commandBuffer.CommandBuffer,
+			vk.PipelineStageFlags(vk.PipelineStageHostBit),
+			vk.PipelineStageFlags(vk.PipelineStageTransferBit),
+			0, 1, []vk.MemoryBarrier{{
+				SType:         vk.StructureTypeMemoryBarrier,
+				SrcAccessMask: vk.AccessFlags(vk.AccessHostWriteBit),
+				DstAccessMask: vk.AccessFlags(vk.AccessTransferReadBit),
+			}}, 0, nil, 0, nil)
 	} else {
 		// Tiled guest layouts must be detiled using compute shader.
 		mipLevel := int(image.FirstDescriptor.BaseLevel)
@@ -401,6 +411,7 @@ func (image *VulkanImage) UploadToVkImage(handles *VulkanHandles, commandBuffer 
 
 		// Prepare source image buffer.
 		srcBuffer = buffer
+		srcOffset = 0
 		texBuffer, texOffsetBase, err := getLinearBuffer(image.Address)
 		if err != nil {
 			return err
@@ -419,7 +430,7 @@ func (image *VulkanImage) UploadToVkImage(handles *VulkanHandles, commandBuffer 
 			return err
 		}
 
-		// Barrier and bind pipeline.
+		// Wait for CPU writes to finish before reading the buffer.
 		vk.CmdPipelineBarrier(commandBuffer.CommandBuffer,
 			vk.PipelineStageFlags(vk.PipelineStageHostBit),
 			vk.PipelineStageFlags(vk.PipelineStageComputeShaderBit),
@@ -428,9 +439,11 @@ func (image *VulkanImage) UploadToVkImage(handles *VulkanHandles, commandBuffer 
 				SrcAccessMask: vk.AccessFlags(vk.AccessHostWriteBit),
 				DstAccessMask: vk.AccessFlags(vk.AccessShaderReadBit),
 			}}, 0, nil, 0, nil)
+
+		// Bind detile pipeline.
 		vk.CmdBindPipeline(commandBuffer.CommandBuffer, vk.PipelineBindPointCompute, pipeline.Pipeline)
 
-		// Set both buffers.
+		// Set descriptor sets (input for detile pipeline).
 		vk.CmdBindDescriptorSets(
 			commandBuffer.CommandBuffer, vk.PipelineBindPointCompute,
 			pipeline.PipelineLayout, spirvStructs.DescriptorSetSlotStatic,
@@ -498,7 +511,7 @@ func (image *VulkanImage) UploadToVkImage(handles *VulkanHandles, commandBuffer 
 		groups := (texels + 63) / 64
 		vk.CmdDispatch(commandBuffer.CommandBuffer, groups, 1, 1)
 
-		// Pipeline for shader.
+		// Wait for compute shader to finish writing to the staging buffer.
 		vk.CmdPipelineBarrier(commandBuffer.CommandBuffer,
 			vk.PipelineStageFlags(vk.PipelineStageComputeShaderBit),
 			vk.PipelineStageFlags(vk.PipelineStageTransferBit),
@@ -511,14 +524,6 @@ func (image *VulkanImage) UploadToVkImage(handles *VulkanHandles, commandBuffer 
 	}
 
 	// Copy staging buffer to GPU.
-	vk.CmdPipelineBarrier(commandBuffer.CommandBuffer,
-		vk.PipelineStageFlags(vk.PipelineStageHostBit),
-		vk.PipelineStageFlags(vk.PipelineStageTransferBit),
-		0, 1, []vk.MemoryBarrier{{
-			SType:         vk.StructureTypeMemoryBarrier,
-			SrcAccessMask: vk.AccessFlags(vk.AccessHostWriteBit),
-			DstAccessMask: vk.AccessFlags(vk.AccessTransferReadBit),
-		}}, 0, nil, 0, nil)
 	image.BarrierTransferWrite(commandBuffer)
 	extentWidth := width
 	extentHeight := height
@@ -557,35 +562,30 @@ func (image *VulkanImage) CopyToImage(handles *VulkanHandles, commandBuffer *Vul
 	defer image.SyncLock.Unlock()
 	defer dst.SyncLock.Unlock()
 
-	ImageBarrier(commandBuffer, image,
-		vk.ImageLayoutTransferSrcOptimal,
-		vk.AccessFlags(vk.AccessTransferReadBit),
-		vk.PipelineStageFlags(vk.PipelineStageTransferBit),
-		vk.ImageAspectFlags(GetFormatAspectFlags(image.ImageFormat)))
-	ImageBarrier(commandBuffer, dst,
-		vk.ImageLayoutTransferDstOptimal,
-		vk.AccessFlags(vk.AccessTransferWriteBit),
-		vk.PipelineStageFlags(vk.PipelineStageTransferBit),
-		vk.ImageAspectFlags(GetFormatAspectFlags(dst.ImageFormat)))
-
-	mipCount := min(uint32(len(image.Layouts)), uint32(len(dst.Layouts)))
+	image.BarrierTransferSrc(commandBuffer)
+	dst.BarrierTransferWrite(commandBuffer)
 
 	var copies []vk.ImageCopy
+	mipCount := min(uint32(len(image.Layouts)), uint32(len(dst.Layouts)))
 	for mip := uint32(0); mip < mipCount; mip++ {
+		srcWidth := max(uint32(image.FirstDescriptor.Width)>>mip, 1)
+		srcHeight := max(uint32(image.FirstDescriptor.Height)>>mip, 1)
+		dstWidth := max(uint32(dst.FirstDescriptor.Width)>>mip, 1)
+		dstHeight := max(uint32(dst.FirstDescriptor.Height)>>mip, 1)
 		copies = append(copies, vk.ImageCopy{
 			SrcSubresource: vk.ImageSubresourceLayers{
-				AspectMask: vk.ImageAspectFlags(GetFormatAspectFlags(image.ImageFormat)),
+				AspectMask: GetFormatAspectFlags(image.ImageFormat),
 				MipLevel:   mip,
 				LayerCount: 1,
 			},
 			DstSubresource: vk.ImageSubresourceLayers{
-				AspectMask: vk.ImageAspectFlags(GetFormatAspectFlags(dst.ImageFormat)),
+				AspectMask: GetFormatAspectFlags(dst.ImageFormat),
 				MipLevel:   mip,
 				LayerCount: 1,
 			},
 			Extent: vk.Extent3D{
-				Width:  max(min(uint32(image.FirstDescriptor.Width)>>mip, uint32(dst.FirstDescriptor.Width)>>mip), 1),
-				Height: max(min(uint32(image.FirstDescriptor.Height)>>mip, uint32(dst.FirstDescriptor.Height)>>mip), 1),
+				Width:  min(srcWidth, dstWidth),
+				Height: min(srcHeight, dstHeight),
 				Depth:  1,
 			},
 		})
@@ -593,18 +593,20 @@ func (image *VulkanImage) CopyToImage(handles *VulkanHandles, commandBuffer *Vul
 
 	vk.CmdCopyImage(commandBuffer.CommandBuffer,
 		image.Image, vk.ImageLayoutTransferSrcOptimal,
-		dst.Image, vk.ImageLayoutTransferDstOptimal,
+		dst.Image, vk.ImageLayoutGeneral,
 		uint32(len(copies)), copies)
 
-	dstAccess := vk.AccessFlags(vk.AccessShaderReadBit | vk.AccessShaderWriteBit | vk.AccessColorAttachmentReadBit | vk.AccessColorAttachmentWriteBit)
+	image.BarrierGeneralShaderAccess(commandBuffer)
 	if IsDepthFormat(dst.ImageFormat) {
-		dstAccess = vk.AccessFlags(vk.AccessDepthStencilAttachmentReadBit | vk.AccessDepthStencilAttachmentWriteBit)
+		ImageBarrier(commandBuffer, dst,
+			vk.ImageLayoutDepthStencilAttachmentOptimal,
+			vk.AccessFlags(vk.AccessDepthStencilAttachmentReadBit|vk.AccessDepthStencilAttachmentWriteBit),
+			vk.PipelineStageFlags(vk.PipelineStageAllCommandsBit),
+			GetFormatAspectFlags(dst.ImageFormat),
+		)
+	} else {
+		dst.BarrierGeneralShaderAccess(commandBuffer)
 	}
-	dstLayout := vk.ImageLayoutGeneral
-	if IsDepthFormat(dst.ImageFormat) {
-		dstLayout = vk.ImageLayoutDepthStencilAttachmentOptimal
-	}
-	ImageBarrier(commandBuffer, dst, dstLayout, dstAccess, vk.PipelineStageFlags(vk.PipelineStageAllCommandsBit), vk.ImageAspectFlags(GetFormatAspectFlags(dst.ImageFormat)))
 
 	dst.MarkSynced(frame)
 	logger.Printf("[%s] copied image 0x%X (%dx%d) to 0x%X (%dx%d).\n",

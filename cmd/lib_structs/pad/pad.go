@@ -1,7 +1,13 @@
 package pad
 
+type PadDevice interface {
+	Read(data *PadData)
+	GetControllerInformation(info *PadControllerInformation)
+}
+
 type PadHandle struct {
-	Id uint32
+	Id     uint32
+	Device PadDevice
 }
 
 const (

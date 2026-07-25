@@ -133,7 +133,7 @@ func libSceVideoOut_sceVideoOutGetFlipStatus(rawHandle, flipStatusPtr uintptr) u
 	flipStatus := (*VideoOutFlipStatus)(unsafe.Pointer(flipStatusPtr))
 	*flipStatus = handle.FlipStatus
 
-	if logger.LogGraphics {
+	if false && logger.LogGraphics {
 		logger.Printf("%-132s %s returned %s's flip status.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceVideoOutGetFlipStatus"),

@@ -34,7 +34,9 @@ type Renderer struct {
 	QueueMutex sync.Mutex
 	FrameReady chan struct{}
 
-	DisplayTextureId imgui.TextureRef
+	DisplayTextureId   imgui.TextureRef
+	DrawUI             func()
+	FramebufferOffsetY float32
 }
 
 func NewRenderer(context *vulkan.VulkanContext, dimensions *backend.SwapchainDimensions) *Renderer {
@@ -85,21 +87,30 @@ func (r *Renderer) Destroy() {
 func (r *Renderer) Render() {
 	r.DrawFramebuffer()
 	r.Overlay.DrawOverlay(r.SwapchainDimensions.Width, r.SwapchainDimensions.Height)
+	if r.DrawUI != nil {
+		r.DrawUI()
+	}
 }
 
 func (r *Renderer) DrawFramebuffer() {
-	imgui.SetNextWindowPos(imgui.Vec2{X: 0, Y: 0})
-	imgui.SetNextWindowSize(imgui.Vec2{X: float32(r.SwapchainDimensions.Width), Y: float32(r.SwapchainDimensions.Height)})
+	imgui.SetNextWindowPos(imgui.Vec2{X: 0, Y: r.FramebufferOffsetY})
+	imgui.SetNextWindowSize(imgui.Vec2{X: float32(r.SwapchainDimensions.Width), Y: float32(r.SwapchainDimensions.Height) - r.FramebufferOffsetY})
 	imgui.PushStyleColorVec4(imgui.ColWindowBg, imgui.Vec4{X: 0, Y: 0, Z: 0, W: 1.0})
+	imgui.PushStyleVarVec2(imgui.StyleVarWindowPadding, imgui.Vec2{X: 0, Y: 0})
 	if imgui.BeginV("##fb", nil, ImguiOverlayFlags|imgui.WindowFlagsNoBringToFrontOnFocus) {
-		if r.DisplayTextureId.CData != nil {
-			imgui.Image(r.DisplayTextureId, imgui.Vec2{
+		r.QueueMutex.Lock()
+		texId := r.DisplayTextureId
+		r.QueueMutex.Unlock()
+
+		if texId.CData != nil {
+			imgui.Image(texId, imgui.Vec2{
 				X: float32(r.SwapchainDimensions.Width),
-				Y: float32(r.SwapchainDimensions.Height),
+				Y: float32(r.SwapchainDimensions.Height) - r.FramebufferOffsetY,
 			})
 		}
 		imgui.End()
 	}
+	imgui.PopStyleVar()
 	imgui.PopStyleColor()
 }
 

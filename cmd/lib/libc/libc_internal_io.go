@@ -215,8 +215,12 @@ func libSceLibcInternal_fseek(filePtr, offset, whence uintptr) uintptr {
 		emu.SetErrno(EBADF)
 		return EOF
 	}
+	newOffset := posix.Lseek(getFileDescriptor(filePtr), int64(offset), int32(whence))
+	if newOffset == ERR_PTRI {
+		return EOF
+	}
 
-	return uintptr(posix.Lseek(getFileDescriptor(filePtr), int64(offset), int32(whence)))
+	return 0
 }
 
 // 0x000000000000AFE0

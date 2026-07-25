@@ -2,8 +2,9 @@ package symbol
 
 import (
 	"bufio"
-	"os"
 	"strings"
+
+	"github.com/LamkasDev/sharkie"
 )
 
 // https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain/wiki/PS4-ELF-Specification---Dynlib-Data#nid-table
@@ -13,7 +14,7 @@ var symbolMap = make(map[string]string)
 
 // LoadSymbolMap loads the symbol map from the given CSV file (ex. aerolib.csv).
 func LoadSymbolMap(path string) {
-	file, err := os.Open(path)
+	file, err := sharkie.Assets.Open(path)
 	if err != nil {
 		return
 	}

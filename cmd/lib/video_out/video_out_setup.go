@@ -40,9 +40,41 @@ func displayVblankTicker(handle *VideoOutHandle) {
 	ticker := time.NewTicker(16666 * time.Microsecond)
 	defer ticker.Stop()
 
-	var vblankCount, counter uint64
+	var counter uint64
 	for range ticker.C {
-		vblankCount++
+		// Construct filter data components.
+		timeBits := uint64(time.Now().UnixNano() & 0xFFF)
+		if counter != 0xF {
+			counter++
+		}
+		counterBits := counter << 12
+
+		// Send v-blank events.
+		vblankData := timeBits | counterBits | ((handle.VblankStatus.Count << 16) & 0xFFFFFFFFFFFF0000)
+		for _, listener := range handle.VblankEvents {
+			if equeue := GetEqueue(listener.EqueueHandle); equeue != nil {
+				kevent := KernelEvent{
+					Id:         VideoOutInternalEventIdVblank,
+					Filter:     EVFILT_VIDEO_OUT,
+					FilterData: vblankData,
+					UserData:   listener.UserData,
+				}
+				select {
+				case equeue.Events <- kevent:
+				default:
+				}
+			}
+		}
+
+		// Update vblank status.
+		handle.VblankStatus.Count++
+		handle.VblankStatus.ProcessTime = uint64(kernel.SceKernelGetProcessTime())
+		handle.VblankStatus.Tsc = uint64(kernel.SceKernelReadTsc())
+
+		// Check if we need to flip.
+		if handle.VblankStatus.Count%(uint64(handle.FlipRate)+1) != 0 {
+			continue
+		}
 
 		// Pull flip requests.
 		if handle.CurrentFlip == nil {
@@ -74,13 +106,6 @@ func displayVblankTicker(handle *VideoOutHandle) {
 		handle.FlipStatus.GcQueueNumber--
 		handle.FlipStatus.FlipPendingNumber--
 
-		// Construct filter data components.
-		timeBits := uint64(time.Now().UnixNano() & 0xFFF)
-		if counter != 0xF {
-			counter++
-		}
-		counterBits := counter << 12
-
 		// Send flip events.
 		flipData := timeBits | counterBits | ((uint64(handle.CurrentFlip.FlipArg) << 16) & 0xFFFFFFFFFFFF0000)
 		for _, listener := range handle.FlipEvents {
@@ -89,23 +114,6 @@ func displayVblankTicker(handle *VideoOutHandle) {
 					Id:         VideoOutInternalEventIdFlip,
 					Filter:     EVFILT_VIDEO_OUT,
 					FilterData: flipData,
-					UserData:   listener.UserData,
-				}
-				select {
-				case equeue.Events <- kevent:
-				default:
-				}
-			}
-		}
-
-		// Send v-blank events.
-		vblankData := timeBits | counterBits | ((vblankCount << 16) & 0xFFFFFFFFFFFF0000)
-		for _, listener := range handle.VblankEvents {
-			if equeue := GetEqueue(listener.EqueueHandle); equeue != nil {
-				kevent := KernelEvent{
-					Id:         VideoOutInternalEventIdVblank,
-					Filter:     EVFILT_VIDEO_OUT,
-					FilterData: vblankData,
 					UserData:   listener.UserData,
 				}
 				select {

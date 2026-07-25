@@ -354,7 +354,7 @@ func (ctx *SpirvBlockContext) TranslateAddress(b *SpvBuilder, address SpirvId) S
 	typeUint64 := ctx.GetId(BlockContextIdTypeUint64)
 	onionCpuBase := ctx.GetConstId(ConstId64UintOnionBaseAddress)
 	garlicCpuBase := ctx.GetConstId(ConstId64UintGarlicBaseAddress)
-	mask := b.EmitConstantUint64(typeUint64, 0xFFFFFFFFF)
+	mask := b.EmitConstantUint64(typeUint64, 0xFFFFFFFFFF)
 	cleanAddress := b.EmitBitwiseAnd(typeUint64, address, mask)
 
 	// Garlic address is >= 0xFE0000000.

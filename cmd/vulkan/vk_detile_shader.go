@@ -12,9 +12,9 @@ package vulkan
 
 import (
 	"fmt"
-	"os"
 	"unsafe"
 
+	"github.com/LamkasDev/sharkie"
 	vk "github.com/goki/vulkan"
 )
 
@@ -32,19 +32,21 @@ func init() {
 }
 
 func createDetileShaderModule(device vk.Device, path string) (vk.ShaderModule, error) {
-	code, err := os.ReadFile(path)
+	code, err := sharkie.Assets.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
 
+	// Copy code into aligned slice.
+	codeSize := len(code)
+	uint32Count := (codeSize + 3) / 4
+	codeUint32 := make([]uint32, uint32Count)
+	copy(unsafe.Slice((*byte)(unsafe.Pointer(&codeUint32[0])), codeSize), code)
+
 	var module vk.ShaderModule
-	var codeUint32 []uint32
-	if len(code) > 0 {
-		codeUint32 = unsafe.Slice((*uint32)(unsafe.Pointer(&code[0])), len(code)/4)
-	}
 	result := vk.CreateShaderModule(device, &vk.ShaderModuleCreateInfo{
 		SType:    vk.StructureTypeShaderModuleCreateInfo,
-		CodeSize: uint64(len(code)),
+		CodeSize: uint64(codeSize),
 		PCode:    codeUint32,
 	}, nil, &module)
 	if err = NewError(result); err != nil {
@@ -108,8 +110,8 @@ func GetDetilePipeline(handles *VulkanHandles, bpp int, isMicro bool, isDisplayM
 			Type:            vk.DescriptorTypeStorageBuffer,
 			DescriptorCount: 1024,
 		},
-	}, 16)
-	if err = NewError(result); err != nil {
+	}, 128)
+	if err != nil {
 		return nil, err
 	}
 

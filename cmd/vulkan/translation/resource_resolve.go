@@ -120,23 +120,28 @@ func applySMRD(instr *gcnSpec.Instruction, registers *gcnSpec.GcnRegisters) {
 	}
 	count := spirvGcn.SmrdLoadDwordCount(details.Op)
 
+	var offset uintptr
+	if details.ImmOff {
+		if instr.HasLiteral {
+			offset = uintptr(instr.Literal)
+		} else {
+			offset = uintptr(details.Offset * 4)
+		}
+	} else {
+		if details.Offset < uint32(len(registers)) {
+			offset = uintptr(registers[details.Offset])
+		}
+	}
+
 	var dwords []uint32
 	switch {
 	case details.Op >= gcnSpec.SmrdOpBufferLoadDword && details.Op <= gcnSpec.SmrdOpBufferLoadDwordx16:
 		base := details.Base * 2
 		address := uintptr(registers[base]) | (uintptr(registers[base+1]&0xFFFF) << 32)
-		dwords = unsafe.Slice((*uint32)(unsafe.Pointer(address)), count)
+		dwords = unsafe.Slice((*uint32)(unsafe.Pointer(address+offset)), count)
 	default:
 		base := details.Base * 2
 		address := uintptr(registers[base]) | (uintptr(registers[base+1]) << 32)
-		offset := uintptr(0)
-		if details.ImmOff {
-			if instr.HasLiteral {
-				offset = uintptr(instr.Literal)
-			} else {
-				offset = uintptr(details.Offset * 4)
-			}
-		}
 		dwords = unsafe.Slice((*uint32)(unsafe.Pointer(address+offset)), count)
 	}
 

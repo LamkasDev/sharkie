@@ -128,9 +128,7 @@ func RunApplication() error {
 			}
 			glfw.PollEvents()
 
-			GlobalApplication.Renderer.QueueMutex.Lock()
 			imageIdx, outdated, err := GlobalApplication.VulkanContext.AcquireNextImage()
-			GlobalApplication.Renderer.QueueMutex.Unlock()
 			if err != nil {
 				panic(err)
 			}
@@ -143,17 +141,24 @@ func RunApplication() error {
 			case <-GlobalApplication.Renderer.FrameReady:
 			default:
 			}
-			GlobalApplication.Renderer.QueueMutex.Lock()
+
+			// Render UI and record command buffers .
 			GlobalApplication.Renderer.Render()
 			GlobalApplication.Renderer.Backend.RenderFrame(imageIdx)
+
+			// Lock only for queue submission and presentation.
+			GlobalApplication.Renderer.QueueMutex.Lock()
 			if err = GlobalApplication.VulkanContext.Submit(imageIdx); err != nil {
+				GlobalApplication.Renderer.QueueMutex.Unlock()
 				panic(err)
 			}
 			_, err = GlobalApplication.VulkanContext.PresentImage(imageIdx)
+			GlobalApplication.Renderer.QueueMutex.Unlock()
+
 			if err != nil {
 				panic(fmt.Errorf("PresentImage: %w", err))
 			}
-			GlobalApplication.Renderer.QueueMutex.Unlock()
+
 			imgui.UpdatePlatformWindows()
 		}
 	}

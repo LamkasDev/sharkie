@@ -13,7 +13,7 @@ type VulkanDescriptorPool2 struct {
 func CreateDescriptorPool2(handles *VulkanHandles, layout vk.DescriptorSetLayout, poolSizes []vk.DescriptorPoolSize, maxSets uint32) (*VulkanDescriptorPool2, error) {
 	var err error
 	pool := &VulkanDescriptorPool2{
-		Pools: make([]*VulkanDescriptorPool, 4),
+		Pools: make([]*VulkanDescriptorPool, 6),
 	}
 	for i := range pool.Pools {
 		pool.Pools[i], err = CreateDescriptorPool(handles, layout, poolSizes, maxSets)

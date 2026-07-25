@@ -53,11 +53,10 @@ func libSceVideoOut_sceVideoOutGetVblankStatus(rawHandle, vblankStatusPtr uintpt
 		)
 		return SCE_VIDEO_OUT_ERROR_INVALID_HANDLE
 	}
-	// TODO: finish this.
 	vblankStatus := (*VideoOutVblankStatus)(unsafe.Pointer(vblankStatusPtr))
 	*vblankStatus = handle.VblankStatus
 
-	if logger.LogGraphics {
+	if false && logger.LogGraphics {
 		logger.Printf("%-132s %s returned %s's v-blank status.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceVideoOutGetVblankStatus"),

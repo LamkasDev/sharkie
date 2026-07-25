@@ -1,15 +1,17 @@
 package renderer
 
 import (
+	"bytes"
 	"fmt"
 	"image"
-	"os"
 	"path"
 	"sync/atomic"
+	"unsafe"
 
 	"github.com/LamkasDev/cimgui-go-vulkan/backend"
 	glfwvulkanbackend "github.com/LamkasDev/cimgui-go-vulkan/backend/glfwvulkan-backend"
 	"github.com/LamkasDev/cimgui-go-vulkan/imgui"
+	"github.com/LamkasDev/sharkie"
 	atomicc "go.uber.org/atomic"
 )
 
@@ -36,6 +38,8 @@ type ImguiOverlay struct {
 	Framerate     atomicc.Float64
 }
 
+var fontBytes []byte
+
 func NewImguiOverlay(bknd backend.Backend[glfwvulkanbackend.GLFWWindowFlags]) *ImguiOverlay {
 	overlay := &ImguiOverlay{}
 	overlay.ShowOverlay.Store(true)
@@ -43,11 +47,24 @@ func NewImguiOverlay(bknd backend.Backend[glfwvulkanbackend.GLFWWindowFlags]) *I
 	io := imgui.CurrentIO()
 	io.SetConfigFlags(io.ConfigFlags() & ^imgui.ConfigFlagsViewportsEnable)
 
-	overlay.Font = io.Fonts().AddFontFromFileTTF(path.Join("data", "JetBrainsMono-Regular.ttf"))
-	overlay.Font.SetLegacySize(15)
+	fontBytes, _ = sharkie.Assets.ReadFile(path.Join("data", "JetBrainsMono-Regular.ttf"))
+	cfg := imgui.NewFontConfig()
+	cfg.SetFontDataOwnedByAtlas(false)
+	overlay.Font = io.Fonts().AddFontFromMemoryTTFV(
+		uintptr(unsafe.Pointer(&fontBytes[0])),
+		int32(len(fontBytes)),
+		15.0,
+		cfg,
+		nil,
+	)
 	io.SetFontDefault(overlay.Font)
+	cfg.Destroy()
 
-	iconImage, err := LoadImage(path.Join("winres", "icon.png"))
+	iconBytes, err := sharkie.Assets.ReadFile(path.Join("winres", "icon.png"))
+	if err != nil {
+		panic(err)
+	}
+	iconImage, err := LoadImage(iconBytes)
 	if err != nil {
 		panic(err)
 	}
@@ -57,18 +74,11 @@ func NewImguiOverlay(bknd backend.Backend[glfwvulkanbackend.GLFWWindowFlags]) *I
 	return overlay
 }
 
-func LoadImage(path string) (image.Image, error) {
-	file, err := os.Open(path)
+func LoadImage(data []byte) (image.Image, error) {
+	img, _, err := image.Decode(bytes.NewReader(data))
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
-
-	img, _, err := image.Decode(file)
-	if err != nil {
-		return nil, err
-	}
-
 	return img, nil
 }
 

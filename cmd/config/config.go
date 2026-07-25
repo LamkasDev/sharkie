@@ -11,6 +11,7 @@ import (
 
 type Config struct {
 	LibraryDirectories []string `json:"library_directories"`
+	InputMode          string   `json:"input_mode"` // "keyboard" or "controller"
 }
 
 func NewDefaultConfig() (*Config, error) {
@@ -21,6 +22,7 @@ func NewDefaultConfig() (*Config, error) {
 
 	return &Config{
 		LibraryDirectories: []string{dataDir},
+		InputMode:          "keyboard",
 	}, nil
 }
 
