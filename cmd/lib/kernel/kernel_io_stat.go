@@ -1,8 +1,6 @@
 package kernel
 
 import (
-	"unsafe"
-
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	"github.com/LamkasDev/sharkie/cmd/lib/posix"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
@@ -13,8 +11,8 @@ import (
 
 // 0x00000000000163D0
 // __int64 __fastcall sceKernelStat(__int64, __int64)
-func libKernel_sceKernelStat(pathPtr Cstring, statPtr uintptr) int32 {
-	err := posix.Stat(pathPtr, statPtr)
+func libKernel_sceKernelStat(pathPtr Cstring, stat *FileStat) int32 {
+	err := posix.Stat(pathPtr, stat)
 	if err != 0 {
 		return int32(emu.GetErrno() - SonyErrorOffset)
 	}
@@ -24,8 +22,8 @@ func libKernel_sceKernelStat(pathPtr Cstring, statPtr uintptr) int32 {
 
 // 0x0000000000016400
 // __int64 __fastcall sceKernelFstat(__int64, __int64)
-func libKernel_sceKernelFstat(fd FileDescriptor, statPtr uintptr) int32 {
-	err := libKernel_fstat(fd, statPtr)
+func libKernel_sceKernelFstat(fd FileDescriptor, stat *FileStat) int32 {
+	err := libKernel_fstat(fd, stat)
 	if err != 0 {
 		return int32(emu.GetErrno() - SonyErrorOffset)
 	}
@@ -35,8 +33,8 @@ func libKernel_sceKernelFstat(fd FileDescriptor, statPtr uintptr) int32 {
 
 // 0x00000000000009D0
 // __int64 __fastcall fstat()
-func libKernel_fstat(fd FileDescriptor, statPtr uintptr) int32 {
-	if statPtr == 0 {
+func libKernel_fstat(fd FileDescriptor, stat *FileStat) int32 {
+	if stat == nil {
 		logger.Printf("%-132s %s failed due to invalid stat pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("fstat"),
@@ -61,8 +59,6 @@ func libKernel_fstat(fd FileDescriptor, statPtr uintptr) int32 {
 		}
 		return ERR_PTRI
 	}
-
-	stat := (*FileStat)(unsafe.Pointer(statPtr))
 	*stat = *fileStat
 
 	if logger.LogFilesystem {

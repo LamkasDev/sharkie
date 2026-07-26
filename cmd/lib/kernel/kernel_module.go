@@ -15,8 +15,8 @@ import (
 
 // 0x000000000002CD00
 // __int64 __fastcall sceKernelGetModuleInfoForUnwind(unsigned __int64, int, _QWORD *, __m128 _XMM0)
-func libKernel_sceKernelGetModuleInfoForUnwind(addr, flags, infoPtr uintptr) uintptr {
-	if infoPtr == 0 {
+func libKernel_sceKernelGetModuleInfoForUnwind(addr, flags uintptr, moduleInfoForUnwind *ModuleInfoForUnwind) uintptr {
+	if moduleInfoForUnwind == nil {
 		logger.Printf("%-132s %s failed due to invalid info pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceKernelGetModuleInfoForUnwind"),
@@ -35,7 +35,6 @@ func libKernel_sceKernelGetModuleInfoForUnwind(addr, flags, infoPtr uintptr) uin
 	}
 	textSection, _ := emu.GetModuleSections(module)
 
-	moduleInfoForUnwind := (*ModuleInfoForUnwind)(unsafe.Pointer(infoPtr))
 	CString(Cstring(&moduleInfoForUnwind.Name[0]), module.Name)
 	moduleInfoForUnwind.ExceptionFrameHeaderAddress = module.ExceptionFrameSection.Address
 	moduleInfoForUnwind.ExceptionFrameAddress = module.ExceptionFrameDataAddress
@@ -68,8 +67,8 @@ func libKernel_sceKernelGetExecutableModuleHandle() uintptr {
 
 // 0x000000000002C920
 // __int64 __fastcall sceKernelGetModuleInfo(unsigned int, __int64)
-func libKernel_sceKernelGetModuleInfo(handle, infoPtr uintptr) uintptr {
-	if infoPtr == 0 {
+func libKernel_sceKernelGetModuleInfo(handle uintptr, info *ModuleInfo) uintptr {
+	if info == nil {
 		logger.Printf("%-132s %s failed due to invalid info pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceKernelGetModuleInfo"),
@@ -87,7 +86,6 @@ func libKernel_sceKernelGetModuleInfo(handle, infoPtr uintptr) uintptr {
 		return SCE_KERNEL_ERROR_ENOENT
 	}
 
-	info := (*ModuleInfo)(unsafe.Pointer(infoPtr))
 	info.Size = uint64(ModuleInfoSize)
 	CString(Cstring(&info.Name[0]), module.Name)
 	segIndex := uint32(0)
@@ -107,11 +105,10 @@ func libKernel_sceKernelGetModuleInfo(handle, infoPtr uintptr) uintptr {
 	}
 	info.SegmentsCount = segIndex
 
-	logger.Printf("%-132s %s returned module info for %s (infoPtr=%s).\n",
+	logger.Printf("%-132s %s returned module info for %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sceKernelGetModuleInfo"),
 		color.Blue.Sprint(module.Name),
-		color.Yellow.Sprintf("0x%X", infoPtr),
 	)
 	return 0
 }

@@ -2,7 +2,6 @@ package posix
 
 import (
 	"time"
-	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
@@ -11,12 +10,12 @@ import (
 	"github.com/gookit/color"
 )
 
-func Clock_gettime(clockId uint32, timestampPtr uintptr) uintptr {
-	return libScePosix_clock_gettime(clockId, timestampPtr)
+func Clock_gettime(clockId ClockId, timestamp *Timestamp) uintptr {
+	return libScePosix_clock_gettime(clockId, timestamp)
 }
 
-func libScePosix_clock_gettime(clockId uint32, timestampPtr uintptr) uintptr {
-	if timestampPtr == 0 {
+func libScePosix_clock_gettime(clockId ClockId, timestamp *Timestamp) uintptr {
+	if timestamp == nil {
 		logger.Printf("%-132s %s failed due to invalid time pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("clock_gettime"),
@@ -26,7 +25,6 @@ func libScePosix_clock_gettime(clockId uint32, timestampPtr uintptr) uintptr {
 	}
 
 	now := time.Now()
-	timestamp := (*Timestamp)(unsafe.Pointer(timestampPtr))
 	timestamp.Seconds = now.Unix()
 	timestamp.Nanoseconds = now.UnixNano()
 
@@ -40,20 +38,18 @@ func libScePosix_clock_gettime(clockId uint32, timestampPtr uintptr) uintptr {
 	return 0
 }
 
-func Clock_gettimeofday(timevaluePtr, timezonePtr uintptr) uintptr {
-	return libScePosix_clock_gettimeofday(timevaluePtr, timezonePtr)
+func Clock_gettimeofday(timevalue *Timevalue, timezone *Timezone) uintptr {
+	return libScePosix_clock_gettimeofday(timevalue, timezone)
 }
 
-func libScePosix_clock_gettimeofday(timevaluePtr, timezonePtr uintptr) uintptr {
+func libScePosix_clock_gettimeofday(timevalue *Timevalue, timezone *Timezone) uintptr {
 	now := time.Now()
-	if timevaluePtr != 0 {
-		timevalue := (*Timevalue)(unsafe.Pointer(timevaluePtr))
+	if timevalue != nil {
 		timevalue.Seconds = now.Unix()
 		timevalue.Microseconds = now.UnixMicro()
 	}
-	if timezonePtr != 0 {
+	if timezone != nil {
 		_, offset := now.Zone()
-		timezone := (*Timezone)(unsafe.Pointer(timezonePtr))
 		timezone.MinutesWest = int32(-offset / 60)
 		if now.IsDST() {
 			timezone.DstTime = 1

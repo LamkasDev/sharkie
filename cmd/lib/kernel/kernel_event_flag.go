@@ -116,8 +116,8 @@ func libKernel_sceKernelOpenEventFlag(handlePtr uintptr, namePtr Cstring) uintpt
 
 // 0x0000000000023240
 // __int64 __fastcall sceKernelWaitEventFlag(unsigned int, __int64, unsigned int, __int64, __int64)
-func libKernel_sceKernelWaitEventFlag(handle uintptr, waitPattern uint64, waitMode uint32, outPatternPtr, timeoutPtr uintptr) uintptr {
-	err := libKernel_sys_evf_wait(handle, waitPattern, waitMode, outPatternPtr, timeoutPtr)
+func libKernel_sceKernelWaitEventFlag(handle uintptr, waitPattern uint64, waitMode uint32, outPatternPtr uintptr, timeout *Timeout) uintptr {
+	err := libKernel_sys_evf_wait(handle, waitPattern, waitMode, outPatternPtr, timeout)
 	if err == ERR_PTR {
 		return emu.GetErrno() - SonyErrorOffset
 	}
@@ -125,7 +125,7 @@ func libKernel_sceKernelWaitEventFlag(handle uintptr, waitPattern uint64, waitMo
 	return 0
 }
 
-func libKernel_sys_evf_wait(handle uintptr, waitPattern uint64, waitMode uint32, outPatternPtr, timeoutPtr uintptr) uintptr {
+func libKernel_sys_evf_wait(handle uintptr, waitPattern uint64, waitMode uint32, outPatternPtr uintptr, timeout *Timeout) uintptr {
 	eventFlag := GetEventFlag(handle)
 	if eventFlag == nil {
 		logger.Printf("%-132s %s failed due to unknown event flag handle %s.\n",
@@ -136,10 +136,9 @@ func libKernel_sys_evf_wait(handle uintptr, waitPattern uint64, waitMode uint32,
 		return SCE_KERNEL_ERROR_ESRCH
 	}
 
-	timeout := time.Duration(-1)
-	if timeoutPtr != 0 {
-		timeoutObj := (*Timeout)(unsafe.Pointer(timeoutPtr))
-		timeout = time.Duration(timeoutObj.Microseconds) * time.Microsecond
+	timeoutDuration := time.Duration(-1)
+	if timeout != nil {
+		timeoutDuration = time.Duration(timeout.Microseconds) * time.Microsecond
 	}
 
 	start := time.Now()
@@ -173,8 +172,8 @@ func libKernel_sys_evf_wait(handle uintptr, waitPattern uint64, waitMode uint32,
 		eventFlag.Cond.Mutex.Unlock()
 
 		var remaining time.Duration
-		if timeout != -1 {
-			remaining = timeout - time.Since(start)
+		if timeoutDuration != -1 {
+			remaining = timeoutDuration - time.Since(start)
 			if remaining <= 0 {
 				if logger.LogSyncingFail {
 					logger.Printf("%-132s %s timed out event flag %s.\n",
@@ -193,10 +192,10 @@ func libKernel_sys_evf_wait(handle uintptr, waitPattern uint64, waitMode uint32,
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("sys_evf_wait"),
 				GetEventFlagName(eventFlag),
-				color.Yellow.Sprintf("0x%X", timeout.Microseconds()),
+				color.Yellow.Sprintf("0x%X", timeoutDuration.Microseconds()),
 			)
 		}
-		if timeout == -1 {
+		if timeoutDuration == -1 {
 			<-w
 		} else {
 			select {

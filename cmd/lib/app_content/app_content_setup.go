@@ -95,7 +95,7 @@ func libSceAppContent_sceAppContentInitialize(initParamPtr, bootParamPtr uintptr
 
 // 0x0000000000001630
 // __int64 __fastcall sceAppContentAppParamGetInt(unsigned int, __int64)
-func libSceAppContent_sceAppContentAppParamGetInt(paramIdVal, outValuePtr uintptr) uintptr {
+func libSceAppContent_sceAppContentAppParamGetInt(paramId AppContentAppParamId, outValuePtr uintptr) uintptr {
 	if outValuePtr == 0 {
 		logger.Printf("%-132s %s failed due to invalid pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -103,7 +103,6 @@ func libSceAppContent_sceAppContentAppParamGetInt(paramIdVal, outValuePtr uintpt
 		)
 		return 0x809E0000
 	}
-	paramId := AppContentAppParamId(paramIdVal)
 	if GlobalAppContentInstance.ParamSfo == nil {
 		logger.Printf("%-132s %s failed due to missing param.sfo.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),

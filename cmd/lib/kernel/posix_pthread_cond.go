@@ -16,7 +16,7 @@ import (
 
 // 0x0000000000004CA0
 // __int64 __fastcall pthread_cond_init(_QWORD *, _DWORD **)
-func libKernel_pthread_cond_init(condHandlePtr, attrHandlePtr uintptr) uintptr {
+func libKernel_pthread_cond_init(condHandlePtr, attrHandlePtr *uintptr) uintptr {
 	condAddr := GlobalGoAllocator.Malloc(PthreadCondSize)
 	if condAddr == 0 {
 		return ENOMEM
@@ -28,7 +28,7 @@ func libKernel_pthread_cond_init(condHandlePtr, attrHandlePtr uintptr) uintptr {
 	cond.Flags = 0
 
 	// Copy the pointer back to condHandlePtr.
-	WriteAddress(condHandlePtr, condAddr)
+	*condHandlePtr = condAddr
 
 	logger.Printf("%-132s %s created cond at %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
@@ -38,7 +38,7 @@ func libKernel_pthread_cond_init(condHandlePtr, attrHandlePtr uintptr) uintptr {
 	return 0
 }
 
-func libKernel_initStaticCond(condHandlePtr uintptr) uintptr {
+func libKernel_initStaticCond(condHandlePtr *uintptr) uintptr {
 	condAddr := GlobalGoAllocator.Malloc(PthreadCondSize)
 	if condAddr == 0 {
 		return ENOMEM
@@ -50,7 +50,7 @@ func libKernel_initStaticCond(condHandlePtr uintptr) uintptr {
 	cond.Flags = 0
 
 	// Copy the pointer back to condHandlePtr.
-	WriteAddress(condHandlePtr, condAddr)
+	*condHandlePtr = condAddr
 
 	logger.Printf("%-132s %s created cond at %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
@@ -62,7 +62,7 @@ func libKernel_initStaticCond(condHandlePtr uintptr) uintptr {
 
 // 0x0000000000004D60
 // __int64 __fastcall pthread_cond_destroy(__int64 *)
-func libKernel_pthread_cond_destroy(condHandlePtr uintptr) uintptr {
+func libKernel_pthread_cond_destroy(condHandlePtr *uintptr) uintptr {
 	// Resolve the handle.
 	cond, err := ResolveHandle[PthreadCond](condHandlePtr)
 	if err != 0 {
@@ -91,14 +91,14 @@ func libKernel_pthread_cond_destroy(condHandlePtr uintptr) uintptr {
 	return 0
 }
 
-func Pthread_cond_broadcast(condHandlePtr uintptr) uintptr {
+func Pthread_cond_broadcast(condHandlePtr *uintptr) uintptr {
 	return libKernel_pthread_cond_broadcast(condHandlePtr)
 }
 
 // 0x0000000000006150
 // __int64 __fastcall pthread_cond_broadcast(__int64 *, __int64, int, int, int, int)
-func libKernel_pthread_cond_broadcast(condHandlePtr uintptr) uintptr {
-	if condHandlePtr == 0 {
+func libKernel_pthread_cond_broadcast(condHandlePtr *uintptr) uintptr {
+	if condHandlePtr == nil {
 		logger.Printf("%-132s %s failed due to invalid cond pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("pthread_cond_broadcast"),
@@ -107,7 +107,7 @@ func libKernel_pthread_cond_broadcast(condHandlePtr uintptr) uintptr {
 	}
 
 	// Try initializing a cond, if it wasn't initialized yet.
-	condAddr := *(*uintptr)(unsafe.Pointer(condHandlePtr))
+	condAddr := *condHandlePtr
 	if condAddr == PthreadCondInitializer {
 		CondLock.Lock()
 		if err := libKernel_initStaticCond(condHandlePtr); err != 0 {
@@ -115,7 +115,7 @@ func libKernel_pthread_cond_broadcast(condHandlePtr uintptr) uintptr {
 			return err
 		}
 		CondLock.Unlock()
-		condAddr = *(*uintptr)(unsafe.Pointer(condHandlePtr))
+		condAddr = *condHandlePtr
 	}
 	cond := (*PthreadCond)(unsafe.Pointer(condAddr))
 
@@ -135,8 +135,8 @@ func libKernel_pthread_cond_broadcast(condHandlePtr uintptr) uintptr {
 
 // 0x0000000000005AD0
 // __int64 __fastcall pthread_cond_signal(__int64 *, __m128, __m128, __m128, __m128, __m128, __m128, __m128, __m128, __int64, __int64, __int64, __int64, __int64)
-func libKernel_pthread_cond_signal(condHandlePtr uintptr) uintptr {
-	if condHandlePtr == 0 {
+func libKernel_pthread_cond_signal(condHandlePtr *uintptr) uintptr {
+	if condHandlePtr == nil {
 		logger.Printf("%-132s %s failed due to invalid cond pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("pthread_cond_signal"),
@@ -145,7 +145,7 @@ func libKernel_pthread_cond_signal(condHandlePtr uintptr) uintptr {
 	}
 
 	// Try initializing a cond, if it wasn't initialized yet.
-	condAddr := *(*uintptr)(unsafe.Pointer(condHandlePtr))
+	condAddr := *condHandlePtr
 	if condAddr == PthreadCondInitializer {
 		CondLock.Lock()
 		if err := libKernel_initStaticCond(condHandlePtr); err != 0 {
@@ -153,7 +153,7 @@ func libKernel_pthread_cond_signal(condHandlePtr uintptr) uintptr {
 			return err
 		}
 		CondLock.Unlock()
-		condAddr = *(*uintptr)(unsafe.Pointer(condHandlePtr))
+		condAddr = *condHandlePtr
 	}
 	cond := (*PthreadCond)(unsafe.Pointer(condAddr))
 
@@ -173,8 +173,8 @@ func libKernel_pthread_cond_signal(condHandlePtr uintptr) uintptr {
 
 // 0x0000000000005550
 // __int64 __fastcall pthread_cond_wait(__int64 *, unsigned __int64 *, __int64, __int64, __int64, int)
-func libKernel_pthread_cond_wait(condHandlePtr, mutexHandlePtr uintptr) uintptr {
-	if condHandlePtr == 0 {
+func libKernel_pthread_cond_wait(condHandlePtr, mutexHandlePtr *uintptr) uintptr {
+	if condHandlePtr == nil {
 		logger.Printf("%-132s %s failed due to invalid cond pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("pthread_cond_wait"),
@@ -183,7 +183,7 @@ func libKernel_pthread_cond_wait(condHandlePtr, mutexHandlePtr uintptr) uintptr 
 	}
 
 	// Try initializing a cond, if it wasn't initialized yet.
-	condAddr := *(*uintptr)(unsafe.Pointer(condHandlePtr))
+	condAddr := *condHandlePtr
 	if condAddr == PthreadCondInitializer {
 		CondLock.Lock()
 		if err := libKernel_initStaticCond(condHandlePtr); err != 0 {
@@ -191,7 +191,7 @@ func libKernel_pthread_cond_wait(condHandlePtr, mutexHandlePtr uintptr) uintptr 
 			return err
 		}
 		CondLock.Unlock()
-		condAddr = *(*uintptr)(unsafe.Pointer(condHandlePtr))
+		condAddr = *condHandlePtr
 	}
 	cond := (*PthreadCond)(unsafe.Pointer(condAddr))
 
@@ -221,8 +221,8 @@ func libKernel_pthread_cond_wait(condHandlePtr, mutexHandlePtr uintptr) uintptr 
 
 // 0x00000000000056B0
 // __int64 __fastcall pthread_cond_timedwait(__int64 *, unsigned __int64 *, __int64, __int64, __int64, int)
-func libKernel_pthread_cond_timedwait(condHandlePtr, mutexHandlePtr, timestampPtr uintptr) uintptr {
-	if condHandlePtr == 0 || timestampPtr == 0 {
+func libKernel_pthread_cond_timedwait(condHandlePtr, mutexHandlePtr *uintptr, timestamp *Timestamp) uintptr {
+	if condHandlePtr == nil || timestamp == nil {
 		logger.Printf("%-132s %s failed due to invalid cond pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("pthread_cond_timedwait"),
@@ -231,7 +231,7 @@ func libKernel_pthread_cond_timedwait(condHandlePtr, mutexHandlePtr, timestampPt
 	}
 
 	// Try initializing a cond, if it wasn't initialized yet.
-	condAddr := *(*uintptr)(unsafe.Pointer(condHandlePtr))
+	condAddr := *condHandlePtr
 	if condAddr == PthreadCondInitializer {
 		CondLock.Lock()
 		if err := libKernel_initStaticCond(condHandlePtr); err != 0 {
@@ -239,12 +239,11 @@ func libKernel_pthread_cond_timedwait(condHandlePtr, mutexHandlePtr, timestampPt
 			return err
 		}
 		CondLock.Unlock()
-		condAddr = *(*uintptr)(unsafe.Pointer(condHandlePtr))
+		condAddr = *condHandlePtr
 	}
 	cond := (*PthreadCond)(unsafe.Pointer(condAddr))
 
 	// Calculate actual timeout from absolute time.
-	timestamp := (*Timestamp)(unsafe.Pointer(timestampPtr))
 	targetTime := time.Unix(int64(timestamp.Seconds), int64(timestamp.Nanoseconds))
 	timeout := time.Until(targetTime)
 	if timeout <= 0 {
@@ -298,8 +297,8 @@ func libKernel_pthread_cond_timedwait(condHandlePtr, mutexHandlePtr, timestampPt
 
 // 0x00000000000057D0
 // __int64 __fastcall pthread_cond_reltimedwait_np(__int64 *, unsigned __int64 *, unsigned int, __int64, __int64, int)
-func libKernel_pthread_cond_reltimedwait_np(condHandlePtr, mutexHandlePtr, micros uintptr) uintptr {
-	if condHandlePtr == 0 {
+func libKernel_pthread_cond_reltimedwait_np(condHandlePtr, mutexHandlePtr *uintptr, micros uintptr) uintptr {
+	if condHandlePtr == nil {
 		logger.Printf("%-132s %s failed due to invalid cond pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("pthread_cond_reltimedwait_np"),
@@ -308,7 +307,7 @@ func libKernel_pthread_cond_reltimedwait_np(condHandlePtr, mutexHandlePtr, micro
 	}
 
 	// Try initializing a cond, if it wasn't initialized yet.
-	condAddr := *(*uintptr)(unsafe.Pointer(condHandlePtr))
+	condAddr := *condHandlePtr
 	if condAddr == PthreadCondInitializer {
 		CondLock.Lock()
 		if err := libKernel_initStaticCond(condHandlePtr); err != 0 {
@@ -316,7 +315,7 @@ func libKernel_pthread_cond_reltimedwait_np(condHandlePtr, mutexHandlePtr, micro
 			return err
 		}
 		CondLock.Unlock()
-		condAddr = *(*uintptr)(unsafe.Pointer(condHandlePtr))
+		condAddr = *condHandlePtr
 	}
 	cond := (*PthreadCond)(unsafe.Pointer(condAddr))
 

@@ -12,7 +12,7 @@ import (
 
 // 0x0000000000009360
 // __int64 __fastcall pthread_mutexattr_init(__int64 *)
-func libKernel_pthread_mutexattr_init(attrHandlePtr uintptr) uintptr {
+func libKernel_pthread_mutexattr_init(attrHandlePtr *uintptr) uintptr {
 	attrAddr := GlobalGoAllocator.Malloc(PthreadMutexAttrSize)
 	if attrAddr == 0 {
 		return ENOMEM
@@ -25,7 +25,7 @@ func libKernel_pthread_mutexattr_init(attrHandlePtr uintptr) uintptr {
 	attr.Ceiling = 0
 
 	// Copy the pointer back to attrHandlePtr.
-	WriteAddress(attrHandlePtr, attrAddr)
+	*attrHandlePtr = attrAddr
 
 	logger.Printf("%-132s %s created mutex attribute at %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
@@ -37,7 +37,7 @@ func libKernel_pthread_mutexattr_init(attrHandlePtr uintptr) uintptr {
 
 // 0x0000000000009450
 // __int64 __fastcall pthread_mutexattr_settype(_DWORD **, int)
-func libKernel_pthread_mutexattr_settype(attrHandlePtr, attrType uintptr) uintptr {
+func libKernel_pthread_mutexattr_settype(attrHandlePtr *uintptr, attrType uintptr) uintptr {
 	if attrType < 1 || attrType > 4 {
 		return EINVAL
 	}
@@ -65,7 +65,7 @@ func libKernel_pthread_mutexattr_settype(attrHandlePtr, attrType uintptr) uintpt
 
 // 0x0000000000009490
 // __int64 __fastcall scePthreadMutexattrDestroy(__int64 *)
-func libKernel_pthread_mutexattr_destroy(attrHandlePtr uintptr) uintptr {
+func libKernel_pthread_mutexattr_destroy(attrHandlePtr *uintptr) uintptr {
 	// Resolve the handle.
 	attr, err := ResolveHandle[PthreadMutexAttr](attrHandlePtr)
 	if err != 0 {
@@ -87,7 +87,7 @@ func libKernel_pthread_mutexattr_destroy(attrHandlePtr uintptr) uintptr {
 	}
 
 	// Copy NULL pointer to attrHandlePtr.
-	WriteAddress(attrHandlePtr, 0)
+	*attrHandlePtr = 0
 
 	logger.Printf("%-132s %s destroyed mutex attribute %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),

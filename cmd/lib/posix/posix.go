@@ -27,6 +27,9 @@ func RegisterPosixStubs() {
 	RegisterPosixStub("pthread_create", libScePosix_pthread_create)
 	RegisterPosixStub("pthread_create_name_np", libScePosix_pthread_create_name_np)
 	RegisterPosixStub("pthread_setschedparam", libScePosix_stub)
+	RegisterPosixStub("pthread_self", libScePosix_pthread_self)
+	RegisterPosixStub("pthread_equal", libScePosix_pthread_equal)
+	RegisterPosixStub("pthread_exit", libScePosix_pthread_exit)
 
 	// Mutex functions.
 	RegisterPosixStub("pthread_mutex_init", libScePosix_pthread_mutex_init)
@@ -51,6 +54,11 @@ func RegisterPosixStubs() {
 	RegisterPosixStub("close", libScePosix_close)
 	RegisterPosixStub("_close", libScePosix_close)
 	RegisterPosixStub("stat", libScePosix_stat)
+
+	// Memory functions.
+	RegisterPosixStub("mmap", libScePosix_mmap)
+	RegisterPosixStub("mmap_0", libScePosix_mmap)
+	RegisterPosixStub("munmap", libScePosix_munmap)
 }
 
 // We need these functions to be available in kernel; libraries take them from there.

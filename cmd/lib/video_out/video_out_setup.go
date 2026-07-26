@@ -69,7 +69,7 @@ func displayVblankTicker(handle *VideoOutHandle) {
 		// Update vblank status.
 		handle.VblankStatus.Count++
 		handle.VblankStatus.ProcessTime = uint64(kernel.SceKernelGetProcessTime())
-		handle.VblankStatus.Tsc = uint64(kernel.SceKernelReadTsc())
+		handle.VblankStatus.Tsc = uint64(ReadTsc())
 
 		// Check if we need to flip.
 		if handle.VblankStatus.Count%(uint64(handle.FlipRate)+1) != 0 {
@@ -100,7 +100,7 @@ func displayVblankTicker(handle *VideoOutHandle) {
 		// Update flip status.
 		handle.FlipStatus.Count++
 		handle.FlipStatus.ProcessTime = uint64(kernel.SceKernelGetProcessTime())
-		handle.FlipStatus.Tsc = uint64(kernel.SceKernelReadTsc())
+		handle.FlipStatus.Tsc = uint64(ReadTsc())
 		handle.FlipStatus.FlipArg = handle.CurrentFlip.FlipArg
 		handle.FlipStatus.CurrentBuffer = handle.CurrentFlip.BufferIndex
 		handle.FlipStatus.GcQueueNumber--
@@ -130,8 +130,8 @@ func displayVblankTicker(handle *VideoOutHandle) {
 
 // 0x000000000000BE60
 // __int64 __fastcall sceVideoOutGetResolutionStatus(int, __int64)
-func libSceVideoOut_sceVideoOutGetResolutionStatus(rawHandle, resolutionStatusPtr uintptr) uintptr {
-	if resolutionStatusPtr == 0 {
+func libSceVideoOut_sceVideoOutGetResolutionStatus(rawHandle uintptr, resolutionStatus *VideoOutResolutionStatus) uintptr {
+	if resolutionStatus == nil {
 		logger.Printf("%-132s %s failed due to invalid resolution status pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceVideoOutGetResolutionStatus"),
@@ -146,7 +146,6 @@ func libSceVideoOut_sceVideoOutGetResolutionStatus(rawHandle, resolutionStatusPt
 		)
 		return SCE_VIDEO_OUT_ERROR_INVALID_HANDLE
 	}
-	resolutionStatus := (*VideoOutResolutionStatus)(unsafe.Pointer(resolutionStatusPtr))
 	*resolutionStatus = handle.Resolution
 
 	if logger.LogGraphics {

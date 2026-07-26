@@ -12,12 +12,12 @@ import (
 	"github.com/gookit/color"
 )
 
-func Pthread_mutex_lock(mutexHandlePtr uintptr) uintptr {
+func Pthread_mutex_lock(mutexHandlePtr *uintptr) uintptr {
 	return libScePosix_pthread_mutex_lock(mutexHandlePtr)
 }
 
-func libScePosix_pthread_mutex_lock(mutexHandlePtr uintptr) uintptr {
-	if mutexHandlePtr == 0 {
+func libScePosix_pthread_mutex_lock(mutexHandlePtr *uintptr) uintptr {
+	if mutexHandlePtr == nil {
 		logger.Printf("%-132s %s failed due to invalid mutex pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("pthread_mutex_lock"),

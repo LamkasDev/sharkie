@@ -62,8 +62,10 @@ const (
 	GuardPageSize           = uint64(4096)        // 4KB
 )
 
+// Default alignment is 32 bytes.
+// https://lists.llvm.org/pipermail/cfe-commits/Week-of-Mon-20180305/221024.html.
 const (
-	AllocationAlignment  = 16
+	AllocationAlignment  = 32
 	AllocationHeaderSize = 16
 )
 

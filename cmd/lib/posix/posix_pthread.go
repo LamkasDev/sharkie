@@ -2,6 +2,7 @@ package posix
 
 import (
 	"context"
+	"runtime"
 	"runtime/pprof"
 	"unsafe"
 
@@ -12,19 +13,19 @@ import (
 	"github.com/gookit/color"
 )
 
-func Pthread_create(threadPtr, attrHandlePtr, entryPoint, arg uintptr) uintptr {
+func Pthread_create(threadPtr uintptr, attrHandlePtr *uintptr, entryPoint, arg uintptr) uintptr {
 	return libScePosix_pthread_create(threadPtr, attrHandlePtr, entryPoint, arg)
 }
 
-func libScePosix_pthread_create(threadPtr, attrHandlePtr, entryPoint, arg uintptr) uintptr {
+func libScePosix_pthread_create(threadPtr uintptr, attrHandlePtr *uintptr, entryPoint, arg uintptr) uintptr {
 	return libScePosix_pthread_create_name_np(threadPtr, attrHandlePtr, entryPoint, arg, nil)
 }
 
-func Pthread_create_name_np(threadPtr, attrHandlePtr, entryPoint, arg uintptr, namePtr Cstring) uintptr {
+func Pthread_create_name_np(threadPtr uintptr, attrHandlePtr *uintptr, entryPoint, arg uintptr, namePtr Cstring) uintptr {
 	return libScePosix_pthread_create_name_np(threadPtr, attrHandlePtr, entryPoint, arg, namePtr)
 }
 
-func libScePosix_pthread_create_name_np(threadPtr, attrHandlePtr, entryPoint, arg uintptr, namePtr Cstring) uintptr {
+func libScePosix_pthread_create_name_np(threadPtr uintptr, attrHandlePtr *uintptr, entryPoint, arg uintptr, namePtr Cstring) uintptr {
 	// Check if entry point is valid.
 	module := emu.GetModuleAtAddress(entryPoint)
 	if module == nil {
@@ -135,5 +136,44 @@ func libScePosix_pthread_join(threadPtr, retValPtr uintptr) uintptr {
 		color.Blue.Sprint(thread.Name),
 		color.Yellow.Sprintf("0x%X", exitCode),
 	)
+	return 0
+}
+
+func Pthread_self() uintptr {
+	return libScePosix_pthread_self()
+}
+
+func libScePosix_pthread_self() uintptr {
+	thread := emu.GetCurrentThread()
+	threadPtr := (uintptr)(unsafe.Pointer(thread.Tcb.Thread))
+	/* logger.Printf("%-132s %s returned thread %s.\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("pthread_self"),
+		color.Yellow.Sprintf("0x%X", thread),
+	) */
+	return threadPtr
+}
+
+func Pthread_equal(t1, t2 uintptr) uintptr {
+	return libScePosix_pthread_equal(t1, t2)
+}
+
+func libScePosix_pthread_equal(t1, t2 uintptr) uintptr {
+	if t1 == t2 {
+		return 1
+	}
+	return 0
+}
+
+func Pthread_exit(retValue uintptr) uintptr {
+	return libScePosix_pthread_exit(retValue)
+}
+
+func libScePosix_pthread_exit(retValue uintptr) uintptr {
+	// Mark thread as done and exit goroutine.
+	thread := emu.GetCurrentThread()
+	thread.Exit(retValue)
+	runtime.Goexit()
+
 	return 0
 }

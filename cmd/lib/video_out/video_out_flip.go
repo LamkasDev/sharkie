@@ -1,8 +1,6 @@
 package video_out
 
 import (
-	"unsafe"
-
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/dce"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/video"
@@ -114,8 +112,8 @@ func libSceVideoOut_sceVideoOutSubmitEopFlip(rawHandle, bufferIndex, flipMode, f
 
 // 0x000000000000BA20
 // __int64 __fastcall sceVideoOutGetFlipStatus(int, __int64)
-func libSceVideoOut_sceVideoOutGetFlipStatus(rawHandle, flipStatusPtr uintptr) uintptr {
-	if flipStatusPtr == 0 {
+func libSceVideoOut_sceVideoOutGetFlipStatus(rawHandle uintptr, flipStatus *VideoOutFlipStatus) uintptr {
+	if flipStatus == nil {
 		logger.Printf("%-132s %s failed due to invalid flip status pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceVideoOutGetFlipStatus"),
@@ -130,7 +128,6 @@ func libSceVideoOut_sceVideoOutGetFlipStatus(rawHandle, flipStatusPtr uintptr) u
 		)
 		return SCE_VIDEO_OUT_ERROR_INVALID_HANDLE
 	}
-	flipStatus := (*VideoOutFlipStatus)(unsafe.Pointer(flipStatusPtr))
 	*flipStatus = handle.FlipStatus
 
 	if false && logger.LogGraphics {

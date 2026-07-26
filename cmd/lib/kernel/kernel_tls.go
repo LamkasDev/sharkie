@@ -12,8 +12,8 @@ import (
 
 // 0x00000000000289C0
 // __int64 __fastcall _tls_get_addr(_QWORD *, __int64, __int64, __int64, __int64, int)
-func libKernel___tls_get_addr(tlsIndexPtr uintptr) uintptr {
-	if tlsIndexPtr == 0 {
+func libKernel___tls_get_addr(tlsIndex *TlsIndex) uintptr {
+	if tlsIndex == nil {
 		logger.Printf("%-132s %s failed due to invalid tls index pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("__tls_get_addr"),
@@ -23,7 +23,6 @@ func libKernel___tls_get_addr(tlsIndexPtr uintptr) uintptr {
 
 	// Find the DTV entry for module index.
 	currentThread := emu.GetCurrentThread()
-	tlsIndex := (*TlsIndex)(unsafe.Pointer(tlsIndexPtr))
 	dtvEntryPtr := uintptr(unsafe.Pointer(currentThread.Tcb.Dtv)) + (uintptr(tlsIndex.ModuleId+1) * DtvEntrySize)
 	dtvEntry := (*DtvEntry)(unsafe.Pointer(dtvEntryPtr))
 

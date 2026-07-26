@@ -1,8 +1,6 @@
 package kernel
 
 import (
-	"time"
-
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs"
 	"github.com/LamkasDev/sharkie/cmd/logger"
@@ -24,14 +22,10 @@ func libKernel_sceKernelGetTscFrequency() uintptr {
 	return freq
 }
 
-func SceKernelReadTsc() uintptr {
-	return libKernel_sceKernelReadTsc()
-}
-
 // 0x000000000001A690
 // unsigned __int64 sceKernelReadTsc()
 func libKernel_sceKernelReadTsc() uintptr {
-	ticks := readTsc()
+	ticks := lib_structs.ReadTsc()
 
 	if logger.LogMisc {
 		logger.Printf("%-132s %s returned %s ticks.\n",
@@ -41,9 +35,4 @@ func libKernel_sceKernelReadTsc() uintptr {
 		)
 	}
 	return ticks
-}
-
-func readTsc() uintptr {
-	elapsed := time.Since(lib_structs.TscStartTime)
-	return uintptr((elapsed.Nanoseconds() * int64(lib_structs.TSC_FREQUENCY)) / 1_000_000_000)
 }

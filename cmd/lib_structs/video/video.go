@@ -1,7 +1,6 @@
 package video
 
 import (
-	"github.com/LamkasDev/sharkie/cmd/lib/kernel"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
 )
 
@@ -52,7 +51,7 @@ func NewVideoOutHandle(id uint32) *VideoOutHandle {
 func (vh *VideoOutHandle) SubmitFlip(flip *VideoOutFlip) {
 	vh.FlipStatus.GcQueueNumber++
 	vh.FlipStatus.FlipPendingNumber++
-	vh.FlipStatus.SubmitTsc = uint64(kernel.SceKernelReadTsc())
+	vh.FlipStatus.SubmitTsc = uint64(ReadTsc())
 	vh.NextFlip <- flip
 }
 

@@ -1,8 +1,6 @@
 package user_service
 
 import (
-	"unsafe"
-
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/user"
@@ -12,8 +10,8 @@ import (
 
 // 0x0000000000003400
 // __int64 sceUserServiceGetInitialUser()
-func libSceUserService_sceUserServiceGetInitialUser(userIdPtr uintptr) uintptr {
-	if userIdPtr == 0 {
+func libSceUserService_sceUserServiceGetInitialUser(userId *UserId) uintptr {
+	if userId == nil {
 		logger.Printf("%-132s %s failed due to invalid user id pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceUserServiceGetInitialUser"),
@@ -21,7 +19,6 @@ func libSceUserService_sceUserServiceGetInitialUser(userIdPtr uintptr) uintptr {
 		return 0x80960005
 	}
 	user := GlobalUserManager.GetInitialUser()
-	userId := (*UserId)(unsafe.Pointer(userIdPtr))
 	*userId = user.UserId
 
 	logger.Printf("%-132s %s returned %s.\n",
@@ -34,15 +31,15 @@ func libSceUserService_sceUserServiceGetInitialUser(userIdPtr uintptr) uintptr {
 
 // 0x00000000000044F0
 // __int64 __fastcall sceUserServiceGetUserName(__int64, __int64, unsigned __int64)
-func libSceUserService_sceUserServiceGetUserName(userId int32, userNamePtr, size uintptr) uintptr {
-	if userId == -1 {
+func libSceUserService_sceUserServiceGetUserName(userId UserId, userNamePtr Cstring, size uintptr) uintptr {
+	if userId == UserIdInvalid {
 		logger.Printf("%-132s %s failed due to invalid user id.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceUserServiceGetUserName"),
 		)
 		return 0x80960005
 	}
-	if userNamePtr == 0 {
+	if userNamePtr == nil {
 		logger.Printf("%-132s %s failed due to invalid user name pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceUserServiceGetUserName"),
@@ -50,7 +47,7 @@ func libSceUserService_sceUserServiceGetUserName(userId int32, userNamePtr, size
 		return 0x80960005
 	}
 
-	user := GlobalUserManager.GetUser(UserId(userId))
+	user := GlobalUserManager.GetUser(userId)
 	if user == nil {
 		logger.Printf("%-132s %s failed due to unknown user id %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -59,7 +56,7 @@ func libSceUserService_sceUserServiceGetUserName(userId int32, userNamePtr, size
 		)
 		user = NewDefaultUser()
 	}
-	CString(Cstring(userNamePtr), user.UserName)
+	CString(userNamePtr, user.UserName)
 	// TODO: size check
 
 	logger.Printf("%-132s %s returned %s.\n",
@@ -72,15 +69,15 @@ func libSceUserService_sceUserServiceGetUserName(userId int32, userNamePtr, size
 
 // 0x00000000000037B0
 // __int64 sceUserServiceGetUserColor
-func libSceUserService_sceUserServiceGetUserColor(userId int32, userColorPtr uintptr) uintptr {
-	if userId == -1 {
+func libSceUserService_sceUserServiceGetUserColor(userId UserId, userColor *UserColor) uintptr {
+	if userId == UserIdInvalid {
 		logger.Printf("%-132s %s failed due to invalid user id.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceUserServiceGetUserColor"),
 		)
 		return 0x80960005
 	}
-	if userColorPtr == 0 {
+	if userColor == nil {
 		logger.Printf("%-132s %s failed due to invalid user name pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceUserServiceGetUserColor"),
@@ -88,7 +85,7 @@ func libSceUserService_sceUserServiceGetUserColor(userId int32, userColorPtr uin
 		return 0x80960005
 	}
 
-	user := GlobalUserManager.GetUser(UserId(userId))
+	user := GlobalUserManager.GetUser(userId)
 	if user == nil {
 		logger.Printf("%-132s %s failed due to unknown user id %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -97,7 +94,6 @@ func libSceUserService_sceUserServiceGetUserColor(userId int32, userColorPtr uin
 		)
 		user = NewDefaultUser()
 	}
-	userColor := (*UserColor)(unsafe.Pointer(userColorPtr))
 	*userColor = user.UserColor
 
 	logger.Printf("%-132s %s returned %s.\n",
@@ -110,15 +106,14 @@ func libSceUserService_sceUserServiceGetUserColor(userId int32, userColorPtr uin
 
 // 0x0000000000002C00
 // __int64 __fastcall sceUserServiceGetLoginUserIdList(_DWORD *)
-func libSceUserService_sceUserServiceGetLoginUserIdList(userIdListPtr uintptr) uintptr {
-	if userIdListPtr == 0 {
+func libSceUserService_sceUserServiceGetLoginUserIdList(userIdList *LoginUserIdList) uintptr {
+	if userIdList == nil {
 		logger.Printf("%-132s %s failed due to invalid user id list pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceUserServiceGetLoginUserIdList"),
 		)
 		return 0x80960005
 	}
-	userIdList := (*LoginUserIdList)(unsafe.Pointer(userIdListPtr))
 	for i := range userIdList.UserIds {
 		userIdList.UserIds[i] = UserIdInvalid
 	}

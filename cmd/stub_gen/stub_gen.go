@@ -3,15 +3,21 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"go/ast"
 	"go/format"
+	"go/parser"
+	"go/token"
 	"os"
+	"path/filepath"
+	"sort"
 	"strings"
 	"text/template"
 )
 
 type Signature struct {
-	FuncType string
-	Params   []Param
+	FuncType   string
+	Params     []Param
+	ReturnType string
 }
 
 type Param struct {
@@ -19,440 +25,7 @@ type Param struct {
 	Type string
 }
 
-var signatures = []Signature{
-	// No arguments.
-	{FuncType: "func() int32", Params: nil},
-	{FuncType: "func() int64", Params: nil},
-	{FuncType: "func() uint64", Params: nil},
-	{FuncType: "func() uintptr", Params: nil},
-
-	// 1 arguments.
-	{FuncType: "func(uint32) uintptr", Params: []Param{
-		{Name: "DI", Type: "uint32"},
-	}},
-	{FuncType: "func(uintptr) int32", Params: []Param{
-		{Name: "DI", Type: "uintptr"},
-	}},
-	{FuncType: "func(uintptr) uintptr", Params: []Param{
-		{Name: "DI", Type: "uintptr"},
-	}},
-	{FuncType: "func(fs.FileDescriptor) int32", Params: []Param{
-		{Name: "DI", Type: "fs.FileDescriptor"},
-	}},
-	{FuncType: "func(fs.FileDescriptor) uintptr", Params: []Param{
-		{Name: "DI", Type: "fs.FileDescriptor"},
-	}},
-	{FuncType: "func(Cstring) uintptr", Params: []Param{
-		{Name: "DI", Type: "Cstring"},
-	}},
-
-	// 2 arguments.
-	{FuncType: "func(int, int) uintptr", Params: []Param{
-		{Name: "DI", Type: "int"},
-		{Name: "SI", Type: "int"},
-	}},
-	{FuncType: "func(uintptr, Cstring) uintptr", Params: []Param{
-		{Name: "DI", Type: "uintptr"},
-		{Name: "SI", Type: "Cstring"},
-	}},
-	{FuncType: "func(uint32, uintptr) uintptr", Params: []Param{
-		{Name: "DI", Type: "uint32"},
-		{Name: "SI", Type: "uintptr"},
-	}},
-	{FuncType: "func(int32, uintptr) int64", Params: []Param{
-		{Name: "DI", Type: "int32"},
-		{Name: "SI", Type: "uintptr"},
-	}},
-	{FuncType: "func(int32, uintptr) uintptr", Params: []Param{
-		{Name: "DI", Type: "int32"},
-		{Name: "SI", Type: "uintptr"},
-	}},
-	{FuncType: "func(uint32, uint32) int64", Params: []Param{
-		{Name: "DI", Type: "uint32"},
-		{Name: "SI", Type: "uint32"},
-	}},
-	{FuncType: "func(uint32, uintptr) int32", Params: []Param{
-		{Name: "DI", Type: "uint32"},
-		{Name: "SI", Type: "uintptr"},
-	}},
-	{FuncType: "func(Cstring, int64) int32", Params: []Param{
-		{Name: "DI", Type: "Cstring"},
-		{Name: "SI", Type: "int64"},
-	}},
-	{FuncType: "func(Cstring, uintptr) int32", Params: []Param{
-		{Name: "DI", Type: "Cstring"},
-		{Name: "SI", Type: "uintptr"},
-	}},
-	{FuncType: "func(Cstring, uintptr) uintptr", Params: []Param{
-		{Name: "DI", Type: "Cstring"},
-		{Name: "SI", Type: "uintptr"},
-	}},
-	{FuncType: "func(fs.FileDescriptor, int64) int32", Params: []Param{
-		{Name: "DI", Type: "fs.FileDescriptor"},
-		{Name: "SI", Type: "int64"},
-	}},
-	{FuncType: "func(fs.FileDescriptor, uintptr) int32", Params: []Param{
-		{Name: "DI", Type: "fs.FileDescriptor"},
-		{Name: "SI", Type: "uintptr"},
-	}},
-	{FuncType: "func(uintptr, uint64) uintptr", Params: []Param{
-		{Name: "DI", Type: "uintptr"},
-		{Name: "SI", Type: "uint64"},
-	}},
-	{FuncType: "func(uintptr, int32) uintptr", Params: []Param{
-		{Name: "DI", Type: "uintptr"},
-		{Name: "SI", Type: "int32"},
-	}},
-	{FuncType: "func(uintptr, uintptr) uintptr", Params: []Param{
-		{Name: "DI", Type: "uintptr"},
-		{Name: "SI", Type: "uintptr"},
-	}},
-	{FuncType: "func(Cstring, Cstring) uintptr", Params: []Param{
-		{Name: "DI", Type: "Cstring"},
-		{Name: "SI", Type: "Cstring"},
-	}},
-	{FuncType: "func(fs.FileDescriptor, Cstring) uintptr", Params: []Param{
-		{Name: "DI", Type: "fs.FileDescriptor"},
-		{Name: "SI", Type: "Cstring"},
-	}},
-
-	// 3 arguments.
-	{FuncType: "func(int, int, int) uintptr", Params: []Param{
-		{Name: "DI", Type: "int"},
-		{Name: "SI", Type: "int"},
-		{Name: "DX", Type: "int"},
-	}},
-	{FuncType: "func(int32, uintptr, uintptr) uintptr", Params: []Param{
-		{Name: "DI", Type: "int32"},
-		{Name: "SI", Type: "uintptr"},
-		{Name: "DX", Type: "uintptr"},
-	}},
-	{FuncType: "func(uint32, uint32, uintptr) int64", Params: []Param{
-		{Name: "DI", Type: "uint32"},
-		{Name: "SI", Type: "uint32"},
-		{Name: "DX", Type: "uintptr"},
-	}},
-	{FuncType: "func(uintptr, uintptr, Cstring) uintptr", Params: []Param{
-		{Name: "DI", Type: "uintptr"},
-		{Name: "SI", Type: "uintptr"},
-		{Name: "DX", Type: "Cstring"},
-	}},
-	{FuncType: "func(Cstring, FileFlags, FileMode) int32", Params: []Param{
-		{Name: "DI", Type: "Cstring"},
-		{Name: "SI", Type: "FileFlags"},
-		{Name: "DX", Type: "FileMode"},
-	}},
-	{FuncType: "func(uintptr, uint64, Cstring) uintptr", Params: []Param{
-		{Name: "DI", Type: "uintptr"},
-		{Name: "SI", Type: "uint64"},
-		{Name: "DX", Type: "Cstring"},
-	}},
-	{FuncType: "func(uintptr, uint64, int32) uintptr", Params: []Param{
-		{Name: "DI", Type: "uintptr"},
-		{Name: "SI", Type: "uint64"},
-		{Name: "DX", Type: "int32"},
-	}},
-	{FuncType: "func(uintptr, int32, uintptr) uintptr", Params: []Param{
-		{Name: "DI", Type: "uintptr"},
-		{Name: "SI", Type: "int32"},
-		{Name: "DX", Type: "uintptr"},
-	}},
-	{FuncType: "func(uintptr, uintptr, uintptr) uintptr", Params: []Param{
-		{Name: "DI", Type: "uintptr"},
-		{Name: "SI", Type: "uintptr"},
-		{Name: "DX", Type: "uintptr"},
-	}},
-	{FuncType: "func(uintptr, uintptr, int64) uintptr", Params: []Param{
-		{Name: "DI", Type: "uintptr"},
-		{Name: "SI", Type: "uintptr"},
-		{Name: "DX", Type: "int64"},
-	}},
-	{FuncType: "func(fs.FileDescriptor, FileOperation, uintptr) int64", Params: []Param{
-		{Name: "DI", Type: "fs.FileDescriptor"},
-		{Name: "SI", Type: "FileOperation"},
-		{Name: "DX", Type: "uintptr"},
-	}},
-
-	// 4 arguments.
-	{FuncType: "func(fs.FileDescriptor, uintptr, uint64, int64) int64", Params: []Param{
-		{Name: "DI", Type: "fs.FileDescriptor"},
-		{Name: "SI", Type: "uintptr"},
-		{Name: "DX", Type: "uint64"},
-		{Name: "CX", Type: "int64"},
-	}},
-	{FuncType: "func(fs.FileDescriptor, uint64, uintptr) int32", Params: []Param{
-		{Name: "DI", Type: "fs.FileDescriptor"},
-		{Name: "SI", Type: "uint64"},
-		{Name: "DX", Type: "uintptr"},
-	}},
-	{FuncType: "func(fs.FileDescriptor, uintptr, uint64) int64", Params: []Param{
-		{Name: "DI", Type: "fs.FileDescriptor"},
-		{Name: "SI", Type: "uintptr"},
-		{Name: "DX", Type: "uint64"},
-	}},
-	{FuncType: "func(fs.FileDescriptor, int64, int32) int64", Params: []Param{
-		{Name: "DI", Type: "fs.FileDescriptor"},
-		{Name: "SI", Type: "int64"},
-		{Name: "DX", Type: "int32"},
-	}},
-	{FuncType: "func(fs.FileDescriptor, uintptr, uintptr, uintptr) uintptr", Params: []Param{
-		{Name: "DI", Type: "fs.FileDescriptor"},
-		{Name: "SI", Type: "uintptr"},
-		{Name: "DX", Type: "uintptr"},
-		{Name: "CX", Type: "uintptr"},
-	}},
-	{FuncType: "func(Cstring, uintptr, uintptr, uintptr) uintptr", Params: []Param{
-		{Name: "DI", Type: "Cstring"},
-		{Name: "SI", Type: "uintptr"},
-		{Name: "DX", Type: "uintptr"},
-		{Name: "CX", Type: "uintptr"},
-	}},
-	{FuncType: "func(uintptr, uint64, int32, int32) uintptr", Params: []Param{
-		{Name: "DI", Type: "uintptr"},
-		{Name: "SI", Type: "uint64"},
-		{Name: "DX", Type: "int32"},
-		{Name: "CX", Type: "int32"},
-	}},
-	{FuncType: "func(uintptr, uint64, uint32, uintptr) uintptr", Params: []Param{
-		{Name: "DI", Type: "uintptr"},
-		{Name: "SI", Type: "uint64"},
-		{Name: "DX", Type: "uint32"},
-		{Name: "CX", Type: "uintptr"},
-	}},
-	{FuncType: "func(uintptr, uintptr, uintptr, uintptr) uintptr", Params: []Param{
-		{Name: "DI", Type: "uintptr"},
-		{Name: "SI", Type: "uintptr"},
-		{Name: "DX", Type: "uintptr"},
-		{Name: "CX", Type: "uintptr"},
-	}},
-	{FuncType: "func(uintptr, uint64, int32, uint64) uintptr", Params: []Param{
-		{Name: "DI", Type: "uintptr"},
-		{Name: "SI", Type: "uint64"},
-		{Name: "DX", Type: "int32"},
-		{Name: "CX", Type: "uint64"},
-	}},
-
-	// 5 arguments.
-	{FuncType: "func(uint32, uintptr, uintptr, uintptr, uintptr) int64", Params: []Param{
-		{Name: "DI", Type: "uint32"},
-		{Name: "SI", Type: "uintptr"},
-		{Name: "DX", Type: "uintptr"},
-		{Name: "CX", Type: "uintptr"},
-		{Name: "R8", Type: "uintptr"},
-	}},
-	{FuncType: "func(uintptr, uintptr, uintptr, uintptr, Cstring) uintptr", Params: []Param{
-		{Name: "DI", Type: "uintptr"},
-		{Name: "SI", Type: "uintptr"},
-		{Name: "DX", Type: "uintptr"},
-		{Name: "CX", Type: "uintptr"},
-		{Name: "R8", Type: "Cstring"},
-	}},
-	{FuncType: "func(uintptr, Cstring, uintptr, uintptr, uintptr) uintptr", Params: []Param{
-		{Name: "DI", Type: "uintptr"},
-		{Name: "SI", Type: "Cstring"},
-		{Name: "DX", Type: "uintptr"},
-		{Name: "CX", Type: "uintptr"},
-		{Name: "R8", Type: "uintptr"},
-	}},
-	{FuncType: "func(uintptr, uint64, int32, int32, Cstring) uintptr", Params: []Param{
-		{Name: "DI", Type: "uintptr"},
-		{Name: "SI", Type: "uint64"},
-		{Name: "DX", Type: "int32"},
-		{Name: "CX", Type: "int32"},
-		{Name: "R8", Type: "Cstring"},
-	}},
-	{FuncType: "func(uintptr, uint64, uint32, uintptr, uintptr) uintptr", Params: []Param{
-		{Name: "DI", Type: "uintptr"},
-		{Name: "SI", Type: "uint64"},
-		{Name: "DX", Type: "uint32"},
-		{Name: "CX", Type: "uintptr"},
-		{Name: "R8", Type: "uintptr"},
-	}},
-	{FuncType: "func(uintptr, uintptr, uintptr, uintptr, uintptr) uintptr", Params: []Param{
-		{Name: "DI", Type: "uintptr"},
-		{Name: "SI", Type: "uintptr"},
-		{Name: "DX", Type: "uintptr"},
-		{Name: "CX", Type: "uintptr"},
-		{Name: "R8", Type: "uintptr"},
-	}},
-
-	// 6 arguments.
-	{FuncType: "func(uint32, uint32, uintptr, uintptr, uintptr, uintptr) int64", Params: []Param{
-		{Name: "DI", Type: "uint32"},
-		{Name: "SI", Type: "uint32"},
-		{Name: "DX", Type: "uintptr"},
-		{Name: "CX", Type: "uintptr"},
-		{Name: "R8", Type: "uintptr"},
-		{Name: "R9", Type: "uintptr"},
-	}},
-	{FuncType: "func(Cstring, uintptr, uintptr, uintptr, uintptr, uintptr) uintptr", Params: []Param{
-		{Name: "DI", Type: "Cstring"},
-		{Name: "SI", Type: "uintptr"},
-		{Name: "DX", Type: "uintptr"},
-		{Name: "CX", Type: "uintptr"},
-		{Name: "R8", Type: "uintptr"},
-		{Name: "R9", Type: "uintptr"},
-	}},
-	{FuncType: "func(uintptr, Cstring, uintptr, uintptr, uintptr, uintptr) uintptr", Params: []Param{
-		{Name: "DI", Type: "uintptr"},
-		{Name: "SI", Type: "Cstring"},
-		{Name: "DX", Type: "uintptr"},
-		{Name: "CX", Type: "uintptr"},
-		{Name: "R8", Type: "uintptr"},
-		{Name: "R9", Type: "uintptr"},
-	}},
-	{FuncType: "func(uintptr, uint64, int32, int32, uintptr, uintptr) uintptr", Params: []Param{
-		{Name: "DI", Type: "uintptr"},
-		{Name: "SI", Type: "uint64"},
-		{Name: "DX", Type: "int32"},
-		{Name: "CX", Type: "int32"},
-		{Name: "R8", Type: "uintptr"},
-		{Name: "R9", Type: "uintptr"},
-	}},
-	{FuncType: "func(uintptr, uint64, int32, int32, fs.FileDescriptor, uintptr) uintptr", Params: []Param{
-		{Name: "DI", Type: "uintptr"},
-		{Name: "SI", Type: "uint64"},
-		{Name: "DX", Type: "int32"},
-		{Name: "CX", Type: "int32"},
-		{Name: "R8", Type: "fs.FileDescriptor"},
-		{Name: "R9", Type: "uintptr"},
-	}},
-	{FuncType: "func(uintptr, uintptr, uint64, uint64, int32, uintptr) uintptr", Params: []Param{
-		{Name: "DI", Type: "uintptr"},
-		{Name: "SI", Type: "uintptr"},
-		{Name: "DX", Type: "uint64"},
-		{Name: "CX", Type: "uint64"},
-		{Name: "R8", Type: "int32"},
-		{Name: "R9", Type: "uintptr"},
-	}},
-	{FuncType: "func(uintptr, Cstring, uint32, int32, int32, uintptr) uintptr", Params: []Param{
-		{Name: "DI", Type: "uintptr"},
-		{Name: "SI", Type: "Cstring"},
-		{Name: "DX", Type: "uint32"},
-		{Name: "CX", Type: "int32"},
-		{Name: "R8", Type: "int32"},
-		{Name: "R9", Type: "uintptr"},
-	}},
-	{FuncType: "func(uintptr, uintptr, uintptr, uintptr, uintptr, uintptr) uintptr", Params: []Param{
-		{Name: "DI", Type: "uintptr"},
-		{Name: "SI", Type: "uintptr"},
-		{Name: "DX", Type: "uintptr"},
-		{Name: "CX", Type: "uintptr"},
-		{Name: "R8", Type: "uintptr"},
-		{Name: "R9", Type: "uintptr"},
-	}},
-
-	// 7 arguments.
-	{FuncType: "func(uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, Cstring) uintptr", Params: []Param{
-		{Name: "DI", Type: "uintptr"},
-		{Name: "SI", Type: "uintptr"},
-		{Name: "DX", Type: "uintptr"},
-		{Name: "CX", Type: "uintptr"},
-		{Name: "R8", Type: "uintptr"},
-		{Name: "R9", Type: "uintptr"},
-		{Name: "stack0", Type: "Cstring"},
-	}},
-	{FuncType: "func(uintptr, uint64, int32, int32, fs.FileDescriptor, uintptr, uintptr) uintptr", Params: []Param{
-		{Name: "DI", Type: "uintptr"},
-		{Name: "SI", Type: "uint64"},
-		{Name: "DX", Type: "int32"},
-		{Name: "CX", Type: "int32"},
-		{Name: "R8", Type: "fs.FileDescriptor"},
-		{Name: "R9", Type: "uintptr"},
-		{Name: "stack0", Type: "uintptr"},
-	}},
-	{FuncType: "func(uintptr, uint64, int32, int32, uintptr, uintptr, Cstring) uintptr", Params: []Param{
-		{Name: "DI", Type: "uintptr"},
-		{Name: "SI", Type: "uint64"},
-		{Name: "DX", Type: "int32"},
-		{Name: "CX", Type: "int32"},
-		{Name: "R8", Type: "uintptr"},
-		{Name: "R9", Type: "uintptr"},
-		{Name: "stack0", Type: "Cstring"},
-	}},
-	{FuncType: "func(uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr) uintptr", Params: []Param{
-		{Name: "DI", Type: "uintptr"},
-		{Name: "SI", Type: "uintptr"},
-		{Name: "DX", Type: "uintptr"},
-		{Name: "CX", Type: "uintptr"},
-		{Name: "R8", Type: "uintptr"},
-		{Name: "R9", Type: "uintptr"},
-		{Name: "stack0", Type: "uintptr"},
-	}},
-
-	// 8 arguments.
-	{FuncType: "func(uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr) uintptr", Params: []Param{
-		{Name: "DI", Type: "uintptr"},
-		{Name: "SI", Type: "uintptr"},
-		{Name: "DX", Type: "uintptr"},
-		{Name: "CX", Type: "uintptr"},
-		{Name: "R8", Type: "uintptr"},
-		{Name: "R9", Type: "uintptr"},
-		{Name: "stack0", Type: "uintptr"},
-		{Name: "stack1", Type: "uintptr"},
-	}},
-
-	// 9 arguments.
-	{FuncType: "func(uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, Cstring, uintptr) uintptr", Params: []Param{
-		{Name: "DI", Type: "uintptr"},
-		{Name: "SI", Type: "uintptr"},
-		{Name: "DX", Type: "uintptr"},
-		{Name: "CX", Type: "uintptr"},
-		{Name: "R8", Type: "uintptr"},
-		{Name: "R9", Type: "uintptr"},
-		{Name: "stack0", Type: "uintptr"},
-		{Name: "stack1", Type: "Cstring"},
-		{Name: "stack2", Type: "uintptr"},
-	}},
-	{FuncType: "func(uint32, uintptr, uintptr, uintptr, uintptr, uint32, uint32, uint32, int64) int64", Params: []Param{
-		{Name: "DI", Type: "uint32"},
-		{Name: "SI", Type: "uintptr"},
-		{Name: "DX", Type: "uintptr"},
-		{Name: "CX", Type: "uintptr"},
-		{Name: "R8", Type: "uintptr"},
-		{Name: "R9", Type: "uint32"},
-		{Name: "stack0", Type: "uint32"},
-		{Name: "stack1", Type: "uint32"},
-		{Name: "stack2", Type: "int64"},
-	}},
-	{FuncType: "func(uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr) uintptr", Params: []Param{
-		{Name: "DI", Type: "uintptr"},
-		{Name: "SI", Type: "uintptr"},
-		{Name: "DX", Type: "uintptr"},
-		{Name: "CX", Type: "uintptr"},
-		{Name: "R8", Type: "uintptr"},
-		{Name: "R9", Type: "uintptr"},
-		{Name: "stack0", Type: "uintptr"},
-		{Name: "stack1", Type: "uintptr"},
-		{Name: "stack2", Type: "uintptr"},
-	}},
-
-	// 10 arguments.
-	{FuncType: "func(uint32, uint32, uintptr, uintptr, uintptr, uintptr, uint32, uint32, uint32, int64) int64", Params: []Param{
-		{Name: "DI", Type: "uint32"},
-		{Name: "SI", Type: "uint32"},
-		{Name: "DX", Type: "uintptr"},
-		{Name: "CX", Type: "uintptr"},
-		{Name: "R8", Type: "uintptr"},
-		{Name: "R9", Type: "uintptr"},
-		{Name: "stack0", Type: "uint32"},
-		{Name: "stack1", Type: "uint32"},
-		{Name: "stack2", Type: "uint32"},
-		{Name: "stack3", Type: "int64"},
-	}},
-	{FuncType: "func(uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr) uintptr", Params: []Param{
-		{Name: "DI", Type: "uintptr"},
-		{Name: "SI", Type: "uintptr"},
-		{Name: "DX", Type: "uintptr"},
-		{Name: "CX", Type: "uintptr"},
-		{Name: "R8", Type: "uintptr"},
-		{Name: "R9", Type: "uintptr"},
-		{Name: "stack0", Type: "uintptr"},
-		{Name: "stack1", Type: "uintptr"},
-		{Name: "stack2", Type: "uintptr"},
-		{Name: "stack3", Type: "uintptr"},
-	}},
-}
+var regNames = []string{"DI", "SI", "DX", "CX", "R8", "R9"}
 
 const templateSrc = `// Code generated by stub_gen.go; DO NOT EDIT.
 
@@ -463,7 +36,17 @@ import (
 
 	"github.com/LamkasDev/sharkie/cmd/asm"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
-	"github.com/LamkasDev/sharkie/cmd/lib_structs/fs"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/fs"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/time"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/app_content"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/module"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/tcb"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/video"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/user"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/system_service"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/save_data"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/semaphore"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/pad"
 )
 
 func CreateDispatcher(goFn any) asm.StubDispatcher {
@@ -476,7 +59,11 @@ func CreateDispatcher(goFn any) asm.StubDispatcher {
 			arg{{add $i 1}} := *(*{{$p.Type}})(unsafe.Add(unsafe.Pointer(ctx), asm.RegContextSize+{{regOffset $i}}))
 	{{- end}}
 {{- end}}
-			return uintptr(fn({{range $i, $p := $sig.Params}}{{if hasPrefix $p.Name "stack"}}arg{{add $i 1}}{{else if eq $p.Type "uintptr"}}ctx.{{$p.Name}}{{else}}{{$p.Type}}(ctx.{{$p.Name}}){{end}}{{if ne $i (len $sig.Params | minusOne)}}, {{end}}{{end}}))		}
+{{- if hasPrefix $sig.ReturnType "*"}}
+			return uintptr(unsafe.Pointer(fn({{range $i, $p := $sig.Params}}{{if hasPrefix $p.Name "stack"}}arg{{add $i 1}}{{else if eq $p.Type "uintptr"}}ctx.{{$p.Name}}{{else if hasPrefix $p.Type "*" }}({{$p.Type}})(unsafe.Pointer(ctx.{{$p.Name}})){{else}}{{$p.Type}}(ctx.{{$p.Name}}){{end}}{{if ne $i (len $sig.Params | minusOne)}}, {{end}}{{end}})))		}
+{{- else}}
+			return uintptr(fn({{range $i, $p := $sig.Params}}{{if hasPrefix $p.Name "stack"}}arg{{add $i 1}}{{else if eq $p.Type "uintptr"}}ctx.{{$p.Name}}{{else if hasPrefix $p.Type "*" }}({{$p.Type}})(unsafe.Pointer(ctx.{{$p.Name}})){{else}}{{$p.Type}}(ctx.{{$p.Name}}){{end}}{{if ne $i (len $sig.Params | minusOne)}}, {{end}}{{end}}))		}
+{{- end}}
 {{- end}}
 	default:
 		panic("unsupported function type")
@@ -485,17 +72,105 @@ func CreateDispatcher(goFn any) asm.StubDispatcher {
 `
 
 func main() {
+	// Parse cmd/lib for stub files.
+	fset := token.NewFileSet()
+	packages := make(map[string]*ast.Package)
+	err := filepath.Walk("../lib", func(path string, info os.FileInfo, err error) error {
+		if err != nil || !info.IsDir() {
+			return nil
+		}
+		pkgs, err := parser.ParseDir(fset, path, nil, 0)
+		if err != nil {
+			return err
+		}
+		for _, pkg := range pkgs {
+			packages[path] = pkg
+		}
+		return nil
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	// Collect signatures from stub files.
+	sigsMap := make(map[string]Signature)
+	sigsMap["func() uintptr"] = Signature{FuncType: "func() uintptr", Params: nil, ReturnType: "uintptr"}
+	for _, pkg := range packages {
+		for _, file := range pkg.Files {
+			ast.Inspect(file, func(n ast.Node) bool {
+				call, ok := n.(*ast.CallExpr)
+				if !ok {
+					return true
+				}
+
+				var fnArg ast.Expr
+				if sel, ok := call.Fun.(*ast.SelectorExpr); ok {
+					id, ok := sel.X.(*ast.Ident)
+					if !ok || id.Name != "elf" {
+						return true
+					}
+					if sel.Sel.Name != "RegisterStub" && sel.Sel.Name != "RegisterMinecraftStub" && sel.Sel.Name != "RegisterAssemblyStub" {
+						return true
+					}
+					if len(call.Args) >= 3 {
+						fnArg = call.Args[2]
+					}
+				} else if id, ok := call.Fun.(*ast.Ident); ok {
+					if id.Name != "RegisterPosixStub" {
+						return true
+					}
+					if len(call.Args) >= 2 {
+						fnArg = call.Args[1]
+					}
+				}
+				if fnArg == nil {
+					return true
+				}
+
+				if fnId, ok := fnArg.(*ast.Ident); ok {
+					// Search by name in the same package.
+					for _, pfile := range pkg.Files {
+						for _, d := range pfile.Decls {
+							fd, ok := d.(*ast.FuncDecl)
+							if !ok || fd.Name.Name != fnId.Name {
+								continue
+							}
+							sig := extractSignature(fd.Type)
+							sigsMap[sig.FuncType] = sig
+						}
+					}
+				} else if fnLit, ok := fnArg.(*ast.FuncLit); ok {
+					sig := extractSignature(fnLit.Type)
+					sigsMap[sig.FuncType] = sig
+				}
+
+				return true
+			})
+		}
+	}
+
+	// Sort for deterministic output.
+	var signatures []Signature
+	for _, sig := range sigsMap {
+		signatures = append(signatures, sig)
+	}
+	sort.Slice(signatures, func(i, j int) bool {
+		return signatures[i].FuncType < signatures[j].FuncType
+	})
+
+	// Generate go file.
 	genTemplate := template.Must(template.New("gen").Funcs(template.FuncMap{
 		"hasPrefix": strings.HasPrefix,
 		"minusOne":  func(n int) int { return n - 1 },
 		"add":       func(a, b int) int { return a + b },
 		"regOffset": func(i int) int { return (i - 5) * 8 },
 	}).Parse(templateSrc))
-
 	var buffer bytes.Buffer
 	if err := genTemplate.Execute(&buffer, signatures); err != nil {
 		panic(err)
 	}
+
+	// Format and write file.
 	formatted, err := format.Source(buffer.Bytes())
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: gofmt failed: %v\n", err)
@@ -503,5 +178,75 @@ func main() {
 	}
 	if err = os.WriteFile("../elf/stub_dispatcher.go", formatted, 0644); err != nil {
 		panic(err)
+	}
+}
+
+func extractSignature(ft *ast.FuncType) Signature {
+	var params []Param
+	paramTypes := []string{}
+	if ft.Params != nil {
+		for _, field := range ft.Params.List {
+			typ := exprToString(field.Type)
+			count := len(field.Names)
+			if count == 0 {
+				count = 1
+			}
+			for i := 0; i < count; i++ {
+				paramTypes = append(paramTypes, typ)
+				idx := len(params)
+				name := ""
+				if idx < len(regNames) {
+					name = regNames[idx]
+				} else {
+					name = fmt.Sprintf("stack%d", idx-len(regNames))
+				}
+				params = append(params, Param{Name: name, Type: typ})
+			}
+		}
+	}
+
+	var results []string
+	if ft.Results != nil {
+		for _, field := range ft.Results.List {
+			typ := exprToString(field.Type)
+			count := len(field.Names)
+			if count == 0 {
+				count = 1
+			}
+			for i := 0; i < count; i++ {
+				results = append(results, typ)
+			}
+		}
+	}
+
+	resStr := ""
+	funcResStr := ""
+	if len(results) == 1 {
+		resStr = results[0]
+		funcResStr = " " + results[0]
+	} else if len(results) > 1 {
+		resStr = "(" + strings.Join(results, ", ") + ")"
+		funcResStr = " " + resStr
+	}
+
+	return Signature{
+		FuncType:   fmt.Sprintf("func(%s)%s", strings.Join(paramTypes, ", "), funcResStr),
+		Params:     params,
+		ReturnType: resStr,
+	}
+}
+
+func exprToString(expr ast.Expr) string {
+	switch e := expr.(type) {
+	case *ast.Ident:
+		return e.Name
+	case *ast.SelectorExpr:
+		return exprToString(e.X) + "." + e.Sel.Name
+	case *ast.StarExpr:
+		return "*" + exprToString(e.X)
+	case *ast.ArrayType:
+		return "[]" + exprToString(e.Elt)
+	default:
+		return "uintptr"
 	}
 }

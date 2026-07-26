@@ -101,16 +101,15 @@ func libKernel_sceKernelDeleteSema(handle uintptr) uintptr {
 
 // 0x0000000000023490
 // __int64 __fastcall sceKernelWaitSema(unsigned int, unsigned int, __int64)
-func libKernel_sceKernelWaitSema(handle uintptr, needed int32, timeoutPtr uintptr) uintptr {
+func libKernel_sceKernelWaitSema(handle uintptr, needed int32, timeout *Timeout) uintptr {
 	semaphore := GetSemaphore(handle)
 	if semaphore == nil {
 		return SCE_KERNEL_ERROR_ENOENT
 	}
 
-	timeout := time.Duration(-1)
-	if timeoutPtr != 0 {
-		timeoutObj := (*Timeout)(unsafe.Pointer(timeoutPtr))
-		timeout = time.Duration(timeoutObj.Microseconds) * time.Microsecond
+	timeoutDuration := time.Duration(-1)
+	if timeout != nil {
+		timeoutDuration = time.Duration(timeout.Microseconds) * time.Microsecond
 	}
 
 	start := time.Now()
@@ -134,8 +133,8 @@ func libKernel_sceKernelWaitSema(handle uintptr, needed int32, timeoutPtr uintpt
 		semaphore.Cond.Mutex.Unlock()
 
 		var remaining time.Duration
-		if timeout != -1 {
-			remaining = timeout - time.Since(start)
+		if timeoutDuration != -1 {
+			remaining = timeoutDuration - time.Since(start)
 			if remaining <= 0 {
 				if logger.LogSyncingFail {
 					logger.Printf("%-132s %s timed out semaphore %s.\n",
@@ -154,10 +153,10 @@ func libKernel_sceKernelWaitSema(handle uintptr, needed int32, timeoutPtr uintpt
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("sceKernelWaitSema"),
 				color.Blue.Sprint(semaphore.Name),
-				color.Yellow.Sprintf("0x%X", timeout.Microseconds()),
+				color.Yellow.Sprintf("0x%X", timeoutDuration.Microseconds()),
 			)
 		}
-		if timeout == -1 {
+		if timeoutDuration == -1 {
 			<-w
 		} else {
 			select {

@@ -1,8 +1,6 @@
 package posix
 
 import (
-	"unsafe"
-
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/fs"
@@ -10,11 +8,11 @@ import (
 	"github.com/gookit/color"
 )
 
-func Stat(pathPtr Cstring, statPtr uintptr) int32 {
-	return libScePosix_stat(pathPtr, statPtr)
+func Stat(pathPtr Cstring, stat *FileStat) int32 {
+	return libScePosix_stat(pathPtr, stat)
 }
 
-func libScePosix_stat(pathPtr Cstring, statPtr uintptr) int32 {
+func libScePosix_stat(pathPtr Cstring, stat *FileStat) int32 {
 	if pathPtr == nil {
 		logger.Printf("%-132s %s failed due to invalid path pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -35,7 +33,6 @@ func libScePosix_stat(pathPtr Cstring, statPtr uintptr) int32 {
 		emu.SetErrno(ENOENT)
 		return ERR_PTRI
 	}
-	stat := (*FileStat)(unsafe.Pointer(statPtr))
 	*stat = *fileStat
 
 	return 0

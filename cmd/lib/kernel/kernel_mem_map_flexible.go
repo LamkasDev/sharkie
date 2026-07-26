@@ -5,6 +5,7 @@ import (
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
+	"github.com/LamkasDev/sharkie/cmd/lib/posix"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
@@ -41,7 +42,7 @@ func libKernel_sceKernelMapFlexibleMemory(addrPtr uintptr, length uint64, prot, 
 	addrPtrSlice := unsafe.Slice((*byte)(unsafe.Pointer(addrPtr)), 8)
 	addr := uintptr(binary.LittleEndian.Uint64(addrPtrSlice))
 
-	allocatedAddr := libKernel_mmap(addr, length, prot, flags|MAP_ANON, ERR_PTRI, 0)
+	allocatedAddr := posix.Mmap(addr, length, prot, flags|MAP_ANON, ERR_PTRI, 0)
 	if allocatedAddr == ERR_PTR {
 		return emu.GetErrno() - SonyErrorOffset
 	}
@@ -70,7 +71,7 @@ func libKernel_sceKernelMapNamedSystemFlexibleMemory(addrPtr uintptr, length uin
 	addrPtrSlice := unsafe.Slice((*byte)(unsafe.Pointer(addrPtr)), 8)
 	addr := uintptr(binary.LittleEndian.Uint64(addrPtrSlice))
 
-	allocatedAddr := libKernel_mmap(addr, length, prot, flags|MAP_ANON|MAP_SYSTEM, ERR_PTRI, 0)
+	allocatedAddr := posix.Mmap(addr, length, prot, flags|MAP_ANON|MAP_SYSTEM, ERR_PTRI, 0)
 	if allocatedAddr == ERR_PTR {
 		return emu.GetErrno() - SonyErrorOffset
 	}

@@ -1,8 +1,6 @@
 package kernel
 
 import (
-	"unsafe"
-
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
 	"github.com/LamkasDev/sharkie/cmd/logger"
@@ -11,21 +9,19 @@ import (
 
 // 0x000000000000C090
 // __int64 __fastcall sigprocmask(unsigned int, _QWORD *, __int64)
-func libKernel_sigprocmask(op, maskPtr, oldMaskPtr uintptr) uintptr {
+func libKernel_sigprocmask(op uintptr, mask, oldMask *ThreadSignalMask) uintptr {
 	thread := emu.GetCurrentThread()
 
 	// Write back old mask.
-	if oldMaskPtr != 0 {
-		oldMask := (*ThreadSignalMask)(unsafe.Pointer(oldMaskPtr))
+	if oldMask != nil {
 		oldMask.Low = thread.SignalMask.Low
 		oldMask.High = thread.SignalMask.High
 	}
-	if maskPtr == 0 {
+	if mask == nil {
 		return 0
 	}
 
 	// Read new mask.
-	mask := (*ThreadSignalMask)(unsafe.Pointer(maskPtr))
 	maskLow := mask.Low
 	maskHigh := mask.High
 	if op != SIG_UNBLOCK {

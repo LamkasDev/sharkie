@@ -25,11 +25,11 @@ type SaveDataSearchInfo struct {
 type SaveDataDirNameSearchResult struct {
 	HitNum      uint32
 	_           uint32
-	DirNames    uintptr // *SaveDataDirName
+	DirNames    *[1024]SaveDataDirName
 	DirNamesNum uint32
 	SetNum      uint32
-	Params      uintptr // *SaveDataParam
-	Infos       uintptr // *SaveDataSearchInfo
+	Params      *[1024]SaveDataParam
+	Infos       *[1024]SaveDataSearchInfo
 	Reserved    [12]byte
 	_           uint32
 }

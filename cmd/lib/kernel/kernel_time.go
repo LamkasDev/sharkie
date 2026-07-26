@@ -2,7 +2,6 @@ package kernel
 
 import (
 	"time"
-	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	"github.com/LamkasDev/sharkie/cmd/lib/posix"
@@ -34,8 +33,8 @@ func libKernel_sceKernelGetProcessTime() uintptr {
 
 // 0x0000000000014CE0
 // __int64 __fastcall sceKernelGettimeofday(__int64)
-func libKernel_sceKernelGettimeofday(timevaluePtr uintptr) uintptr {
-	err := posix.Clock_gettimeofday(timevaluePtr, 0)
+func libKernel_sceKernelGettimeofday(timevalue *Timevalue) uintptr {
+	err := posix.Clock_gettimeofday(timevalue, nil)
 	if err != 0 {
 		return emu.GetErrno() - SonyErrorOffset
 	}
@@ -43,31 +42,30 @@ func libKernel_sceKernelGettimeofday(timevaluePtr uintptr) uintptr {
 	return 0
 }
 
-func SceKernelConvertUtcToLocaltime(utcTime int64, localTimePtr, timesecPtr, dstSecPtr uintptr) uintptr {
-	return libKernel_sceKernelConvertUtcToLocaltime(utcTime, localTimePtr, timesecPtr, dstSecPtr)
+func SceKernelConvertUtcToLocaltime(utcTime int64, localTimePtr *int64, timesec *Timesec, dstSecPtr *uint64) uintptr {
+	return libKernel_sceKernelConvertUtcToLocaltime(utcTime, localTimePtr, timesec, dstSecPtr)
 }
 
 // 0x00000000000151D0
 // __int64 __fastcall sceKernelConvertUtcToLocaltime(__int64, _QWORD *, __int64, _DWORD *)
-func libKernel_sceKernelConvertUtcToLocaltime(utcTime int64, localTimePtr, timesecPtr, dstSecPtr uintptr) uintptr {
+func libKernel_sceKernelConvertUtcToLocaltime(utcTime int64, localTimePtr *int64, timesec *Timesec, dstSecPtr *uint64) uintptr {
 	var timezone Timezone
-	err := posix.Clock_gettimeofday(0, uintptr(unsafe.Pointer(&timezone)))
+	err := posix.Clock_gettimeofday(nil, &timezone)
 	if err != 0 {
 		return emu.GetErrno() - SonyErrorOffset
 	}
 
 	localTime := utcTime + 60*(int64(timezone.MinutesWest)+int64(timezone.DstTime))
-	if localTimePtr != 0 {
-		*(*int64)(unsafe.Pointer(localTimePtr)) = localTime
+	if localTimePtr != nil {
+		*localTimePtr = localTime
 	}
-	if timesecPtr != 0 {
-		st := (*Timesec)(unsafe.Pointer(timesecPtr))
-		st.UtcTime = utcTime
-		st.WestSec = 60 * timezone.MinutesWest
-		st.DstSec = 60 * timezone.DstTime
+	if timesec != nil {
+		timesec.UtcTime = utcTime
+		timesec.WestSec = 60 * timezone.MinutesWest
+		timesec.DstSec = 60 * timezone.DstTime
 	}
-	if dstSecPtr != 0 {
-		*(*uint64)(unsafe.Pointer(dstSecPtr)) = uint64(60 * timezone.DstTime)
+	if dstSecPtr != nil {
+		*dstSecPtr = uint64(60 * timezone.DstTime)
 	}
 
 	return 0

@@ -4,6 +4,7 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	"github.com/LamkasDev/sharkie/cmd/lib/posix"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/time"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
 )
@@ -69,8 +70,8 @@ func libKernel_sceKernelUsleep(micros uint32) uintptr {
 
 // 0x0000000000014B50
 // __int64 __fastcall sceKernelNanosleep(__int128 *, __int64)
-func libKernel_sceKernelNanosleep(timestampPtr, remainingTimestampPtr uintptr) uintptr {
-	err := posix.Nanosleep(timestampPtr, remainingTimestampPtr)
+func libKernel_sceKernelNanosleep(timestamp, remainingTimestamp *Timestamp) uintptr {
+	err := posix.Nanosleep(timestamp, remainingTimestamp)
 	if err != 0 {
 		return emu.GetErrno() - SonyErrorOffset
 	}

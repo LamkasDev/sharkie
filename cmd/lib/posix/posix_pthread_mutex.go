@@ -10,7 +10,7 @@ import (
 	"github.com/gookit/color"
 )
 
-func InitStaticMutex(mutexHandlePtr, initType uintptr) uintptr {
+func InitStaticMutex(mutexHandlePtr *uintptr, initType uintptr) uintptr {
 	mutexAddr := GlobalGoAllocator.Malloc(PthreadMutexSize)
 	if mutexAddr == 0 {
 		return ENOMEM
@@ -32,7 +32,7 @@ func InitStaticMutex(mutexHandlePtr, initType uintptr) uintptr {
 	mutex.Protocol = PthreadMutexProtocolNone
 
 	// Copy the pointer back to mutexHandlePtr.
-	WriteAddress(mutexHandlePtr, mutexAddr)
+	*mutexHandlePtr = mutexAddr
 
 	logger.Printf("%-132s %s created mutex at %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
@@ -42,11 +42,11 @@ func InitStaticMutex(mutexHandlePtr, initType uintptr) uintptr {
 	return 0
 }
 
-func Pthread_mutex_init(mutexHandlePtr, attrHandlePtr uintptr) uintptr {
+func Pthread_mutex_init(mutexHandlePtr, attrHandlePtr *uintptr) uintptr {
 	return libScePosix_pthread_mutex_init(mutexHandlePtr, attrHandlePtr)
 }
 
-func libScePosix_pthread_mutex_init(mutexHandlePtr, attrHandlePtr uintptr) uintptr {
+func libScePosix_pthread_mutex_init(mutexHandlePtr, attrHandlePtr *uintptr) uintptr {
 	mutexAddr := GlobalGoAllocator.Malloc(PthreadMutexSize)
 	if mutexAddr == 0 {
 		emu.SetErrno(ENOMEM)
@@ -68,7 +68,7 @@ func libScePosix_pthread_mutex_init(mutexHandlePtr, attrHandlePtr uintptr) uintp
 	if err == 0 {
 		if attr.Type < PthreadMutexTypeErrorCheck || attr.Type > PthreadMutexTypeAdaptiveNp ||
 			attr.Protocol > PthreadMutexProtocolProtect {
-			tempHandleAddr := mutexAddr
+			tempHandleAddr := &mutexAddr
 			if err = libScePosix_pthread_mutex_destroy(tempHandleAddr); err != 0 {
 				return err
 			}
@@ -88,7 +88,7 @@ func libScePosix_pthread_mutex_init(mutexHandlePtr, attrHandlePtr uintptr) uintp
 	}
 
 	// Copy the pointer back to mutexHandlePtr.
-	WriteAddress(mutexHandlePtr, mutexAddr)
+	*mutexHandlePtr = mutexAddr
 
 	logger.Printf("%-132s %s created mutex at %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
@@ -98,11 +98,11 @@ func libScePosix_pthread_mutex_init(mutexHandlePtr, attrHandlePtr uintptr) uintp
 	return 0
 }
 
-func Pthread_mutex_destroy(mutexHandlePtr uintptr) uintptr {
+func Pthread_mutex_destroy(mutexHandlePtr *uintptr) uintptr {
 	return libScePosix_pthread_mutex_destroy(mutexHandlePtr)
 }
 
-func libScePosix_pthread_mutex_destroy(mutexHandlePtr uintptr) uintptr {
+func libScePosix_pthread_mutex_destroy(mutexHandlePtr *uintptr) uintptr {
 	// Resolve the handle.
 	mutex, err := ResolveHandle[PthreadMutex](mutexHandlePtr)
 	if err != 0 {

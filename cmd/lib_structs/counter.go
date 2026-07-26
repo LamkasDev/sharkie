@@ -6,3 +6,8 @@ const TSC_FREQUENCY = uint64(1_600_000_000)
 const PTC_FREQUENCY = uint64(1_600_000_000)
 
 var TscStartTime = time.Now()
+
+func ReadTsc() uintptr {
+	elapsed := time.Since(TscStartTime)
+	return uintptr((elapsed.Nanoseconds() * int64(TSC_FREQUENCY)) / 1_000_000_000)
+}

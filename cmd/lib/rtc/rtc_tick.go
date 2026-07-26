@@ -2,8 +2,6 @@ package rtc
 
 import "C"
 import (
-	"unsafe"
-
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	"github.com/LamkasDev/sharkie/cmd/lib/kernel"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/time"
@@ -13,18 +11,17 @@ import (
 
 // 0x0000000000000280
 // __int64 __fastcall sceRtcGetCurrentTick(_QWORD *)
-func libSceRtc_sceRtcGetCurrentTick(tickPtr uintptr) uintptr {
-	if tickPtr == 0 {
+func libSceRtc_sceRtcGetCurrentTick(tick *RtcTick) uintptr {
+	if tick == nil {
 		logger.Printf("%-132s %s failed due to invalid tick pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceRtcGetCurrentTick"),
 		)
 		return 0x7FFEF9FE
 	}
-	tick := (*RtcTick)(unsafe.Pointer(tickPtr))
 
 	var timestamp Timestamp
-	err := kernel.SceKernelClockGettime(0, uintptr(unsafe.Pointer(&timestamp)))
+	err := kernel.SceKernelClockGettime(0, &timestamp)
 	if err == 0 {
 		epochMicros := (1000000 * timestamp.Seconds) + (timestamp.Nanoseconds / 1000)
 		tick.Tick = uint64(epochMicros + UnixEpochTicks)
@@ -35,18 +32,17 @@ func libSceRtc_sceRtcGetCurrentTick(tickPtr uintptr) uintptr {
 
 // 0x00000000000006F0
 // __int64 __fastcall sceRtcGetCurrentRawNetworkTick(_QWORD *)
-func libSceRtc_sceRtcGetCurrentRawNetworkTick(tickPtr uintptr) uintptr {
-	if tickPtr == 0 {
+func libSceRtc_sceRtcGetCurrentRawNetworkTick(tick *RtcTick) uintptr {
+	if tick == nil {
 		logger.Printf("%-132s %s failed due to invalid tick pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceRtcGetCurrentRawNetworkTick"),
 		)
 		return 0x7FFEF9FE
 	}
-	tick := (*RtcTick)(unsafe.Pointer(tickPtr))
 
 	var timestamp Timestamp
-	err := kernel.SceKernelClockGettime(0, uintptr(unsafe.Pointer(&timestamp)))
+	err := kernel.SceKernelClockGettime(0, &timestamp)
 	if err == 0 {
 		epochMicros := (1000000 * timestamp.Seconds) + (timestamp.Nanoseconds / 1000)
 		tick.Tick = uint64(epochMicros + UnixEpochTicks)
@@ -55,26 +51,24 @@ func libSceRtc_sceRtcGetCurrentRawNetworkTick(tickPtr uintptr) uintptr {
 	return 0
 }
 
-func SceRtcSetTick(datetimePtr, tickPtr uintptr) uintptr {
-	return libSceRtc_sceRtcSetTick(datetimePtr, tickPtr)
+func SceRtcSetTick(datetime *RtcDateTime, tick *RtcTick) uintptr {
+	return libSceRtc_sceRtcSetTick(datetime, tick)
 }
 
 // 0x0000000000002950
 // __int64 __fastcall sceRtcSetTick(__int64, _QWORD *)
-func libSceRtc_sceRtcSetTick(datetimePtr, tickPtr uintptr) uintptr {
-	if datetimePtr == 0 || tickPtr == 0 {
+func libSceRtc_sceRtcSetTick(datetime *RtcDateTime, tick *RtcTick) uintptr {
+	if datetime == nil || tick == nil {
 		logger.Printf("%-132s %s failed due to invalid date time or tick pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceRtcSetTick"),
 		)
 		return 0x80B50002
 	}
-	datetime := (*RtcDateTime)(unsafe.Pointer(datetimePtr))
-	tick := (*RtcTick)(unsafe.Pointer(tickPtr)).Tick
 
 	// Separate days and microseconds.
-	days := tick / 86400000000
-	micros := tick % 86400000000
+	days := tick.Tick / 86400000000
+	micros := tick.Tick % 86400000000
 
 	// Perform fast Gregorian Calendar conversion.
 	days += 307
@@ -112,19 +106,17 @@ func libSceRtc_sceRtcSetTick(datetimePtr, tickPtr uintptr) uintptr {
 
 // 0x0000000000002D10
 // __int64 __fastcall sceRtcGetTick(int *, __int64)
-func libSceRtc_sceRtcGetTick(datetimePtr, tickPtr uintptr) uintptr {
-	if datetimePtr == 0 || tickPtr == 0 {
+func libSceRtc_sceRtcGetTick(datetime *RtcDateTime, tick *RtcTick) uintptr {
+	if datetime == nil || tick == nil {
 		logger.Printf("%-132s %s failed due to invalid date time or tick pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceRtcGetTick"),
 		)
 		return 0x80B50002
 	}
-	datetime := (*RtcDateTime)(unsafe.Pointer(datetimePtr))
-	tick := (*RtcTick)(unsafe.Pointer(tickPtr))
 
 	// Validate date.
-	err := libSceRtc_sceRtcCheckValid(datetimePtr)
+	err := libSceRtc_sceRtcCheckValid(datetime)
 	if err != 0 {
 		return err
 	}
@@ -160,37 +152,33 @@ func libSceRtc_sceRtcGetTick(datetimePtr, tickPtr uintptr) uintptr {
 
 // 0x0000000000003370
 // __int64 __fastcall sceRtcTickAddHours(_QWORD *, _QWORD *, int)
-func libSceRtc_sceRtcTickAddHours(tick1Ptr, tick2Ptr uintptr, add int64) uintptr {
-	if tick1Ptr == 0 || tick2Ptr == 0 {
+func libSceRtc_sceRtcTickAddHours(tick1, tick2 *RtcTick, add int64) uintptr {
+	if tick1 == nil || tick2 == nil {
 		logger.Printf("%-132s %s failed due to invalid tick pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceRtcTickAddHours"),
 		)
 		return 0x80B50002
 	}
-	tick1 := (*RtcTick)(unsafe.Pointer(tick1Ptr))
-	tick2 := (*RtcTick)(unsafe.Pointer(tick2Ptr))
 	tick1.Tick = uint64(int64(tick2.Tick) + (add * 3600000000))
 
 	return 0
 }
 
-func SceRtcTickAddMinutes(tick1Ptr, tick2Ptr uintptr, add int64) uintptr {
-	return libSceRtc_sceRtcTickAddMinutes(tick1Ptr, tick2Ptr, add)
+func SceRtcTickAddMinutes(tick1, tick2 *RtcTick, add int64) uintptr {
+	return libSceRtc_sceRtcTickAddMinutes(tick1, tick2, add)
 }
 
 // 0x0000000000003300
 // __int64 __fastcall sceRtcTickAddMinutes(_QWORD *, _QWORD *, __int64)
-func libSceRtc_sceRtcTickAddMinutes(tick1Ptr, tick2Ptr uintptr, add int64) uintptr {
-	if tick1Ptr == 0 || tick2Ptr == 0 {
+func libSceRtc_sceRtcTickAddMinutes(tick1, tick2 *RtcTick, add int64) uintptr {
+	if tick1 == nil || tick2 == nil {
 		logger.Printf("%-132s %s failed due to invalid tick pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceRtcTickAddMinutes"),
 		)
 		return 0x80B50002
 	}
-	tick1 := (*RtcTick)(unsafe.Pointer(tick1Ptr))
-	tick2 := (*RtcTick)(unsafe.Pointer(tick2Ptr))
 	tick1.Tick = uint64(int64(tick2.Tick) + (add * 60000000))
 
 	return 0
@@ -198,16 +186,14 @@ func libSceRtc_sceRtcTickAddMinutes(tick1Ptr, tick2Ptr uintptr, add int64) uintp
 
 // 0x00000000000032E0
 // __int64 __fastcall sceRtcTickAddSeconds(_QWORD *, _QWORD *, __int64)
-func libSceRtc_sceRtcTickAddSeconds(tick1Ptr, tick2Ptr uintptr, add int64) uintptr {
-	if tick1Ptr == 0 || tick2Ptr == 0 {
+func libSceRtc_sceRtcTickAddSeconds(tick1, tick2 *RtcTick, add int64) uintptr {
+	if tick1 == nil || tick2 == nil {
 		logger.Printf("%-132s %s failed due to invalid tick pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceRtcTickAddSeconds"),
 		)
 		return 0x80B50002
 	}
-	tick1 := (*RtcTick)(unsafe.Pointer(tick1Ptr))
-	tick2 := (*RtcTick)(unsafe.Pointer(tick2Ptr))
 	tick1.Tick = uint64(int64(tick2.Tick) + (add * 1000000))
 
 	return 0

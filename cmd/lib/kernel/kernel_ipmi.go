@@ -109,7 +109,7 @@ func libKernel_ipmimgr_call(op, handle, resultPtr, paramsPtr, paramsSize, magic,
 			return SCE_KERNEL_ERROR_EINVAL
 		}
 
-		return InvokeImpiClientMethod(client, resultPtr, paramsPtr, paramsSize, objPtr)
+		return InvokeImpiClientMethod(client, resultPtr, (*IpmiSyncMethod)(unsafe.Pointer(paramsPtr)), paramsSize, objPtr)
 
 	case IMPI_CONNECT:
 		if client == nil {
@@ -261,12 +261,11 @@ func libKernel_ipmimgr_call(op, handle, resultPtr, paramsPtr, paramsSize, magic,
 	return SCE_KERNEL_ERROR_ENOTSUP
 }
 
-func InvokeImpiClientMethod(client *IpmiClient, resultPtr, paramsPtr, paramsSize, objPtr uintptr) uintptr {
+func InvokeImpiClientMethod(client *IpmiClient, resultPtr uintptr, syncMethod *IpmiSyncMethod, paramsSize, objPtr uintptr) uintptr {
 	if paramsSize < IpmiSyncMethodSize {
 		return SCE_KERNEL_ERROR_EINVAL
 	}
 
-	syncMethod := (*IpmiSyncMethod)(unsafe.Pointer(paramsPtr))
 	if resultPtr != 0 {
 		WriteResult(resultPtr, 0)
 	}

@@ -1,8 +1,6 @@
 package kernel
 
 import (
-	"unsafe"
-
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	"github.com/LamkasDev/sharkie/cmd/lib/posix"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
@@ -28,13 +26,13 @@ func libKernel_scePthreadGetthreadid() uintptr {
 // 0x00000000000146E0
 // __int64 scePthreadSelf()
 func libKernel_scePthreadSelf() uintptr {
-	return libKernel_pthread_self()
+	return posix.Pthread_self()
 }
 
 // 0x0000000000013920
 // __int64 scePthreadEqual()
 func libKernel_scePthreadEqual(t1, t2 uintptr) uintptr {
-	err := libKernel_pthread_equal(t1, t2)
+	err := posix.Pthread_equal(t1, t2)
 	if err != 0 {
 		return err - SonyErrorOffset
 	}
@@ -44,7 +42,7 @@ func libKernel_scePthreadEqual(t1, t2 uintptr) uintptr {
 
 // 0x00000000000138E0
 // __int64 scePthreadCreate()
-func libKernel_scePthreadCreate(threadPtr, attrHandlePtr, entryPoint, arg uintptr, namePtr Cstring) uintptr {
+func libKernel_scePthreadCreate(threadPtr uintptr, attrHandlePtr *uintptr, entryPoint, arg uintptr, namePtr Cstring) uintptr {
 	err := posix.Pthread_create_name_np(threadPtr, attrHandlePtr, entryPoint, arg, namePtr)
 	if err != 0 {
 		return emu.GetErrno() - SonyErrorOffset
@@ -56,7 +54,7 @@ func libKernel_scePthreadCreate(threadPtr, attrHandlePtr, entryPoint, arg uintpt
 // 0x0000000000013940
 // void __fastcall __noreturn scePthreadExit(__int64)
 func libKernel_scePthreadExit(retValue uintptr) uintptr {
-	return libKernel_pthread_exit(retValue)
+	return posix.Pthread_exit(retValue)
 }
 
 // TODO: finish this
@@ -97,11 +95,11 @@ func libKernel_scePthreadRwlockUnlock() uintptr {
 
 // 0x0000000000798B20
 // __int64 scePthreadSetaffinity()
-func libKernel_scePthreadSetaffinity(threadPtr, mask uintptr) uintptr {
+func libKernel_scePthreadSetaffinity(threadPtr uintptr, mask uint64) uintptr {
 	cpuSet := ThreadCpuSet{
-		Low: uint64(mask),
+		Low: mask,
 	}
-	err := libKernel_pthread_setaffinity_np(threadPtr, ThreadCpuSetSize, uintptr(unsafe.Pointer(&cpuSet)))
+	err := libKernel_pthread_setaffinity_np(threadPtr, ThreadCpuSetSize, &cpuSet)
 	if err != 0 {
 		return err - SonyErrorOffset
 	}
@@ -111,13 +109,12 @@ func libKernel_scePthreadSetaffinity(threadPtr, mask uintptr) uintptr {
 
 // 0x0000000000014560
 // __int64 __fastcall scePthreadGetaffinity(signed __int32 *, _QWORD *)
-func libKernel_scePthreadGetaffinity(threadPtr, maskPtr uintptr) uintptr {
+func libKernel_scePthreadGetaffinity(threadPtr uintptr, mask *ThreadAffinityMask) uintptr {
 	cpuSet := ThreadCpuSet{}
-	err := libKernel_pthread_getaffinity_np(threadPtr, ThreadCpuSetSize, uintptr(unsafe.Pointer(&cpuSet)))
+	err := libKernel_pthread_getaffinity_np(threadPtr, ThreadCpuSetSize, &cpuSet)
 	if err != 0 {
 		return err - SonyErrorOffset
 	}
-	mask := (*ThreadAffinityMask)(unsafe.Pointer(maskPtr))
 	*mask = ThreadAffinityMask(cpuSet.Low)
 
 	return 0

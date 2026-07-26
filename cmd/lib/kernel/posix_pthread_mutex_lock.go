@@ -18,8 +18,8 @@ import (
 
 // 0x0000000000030FA0
 // __int64 __fastcall pthread_mutex_trylock(unsigned __int64 *, __int64, int, int, int, int)
-func libKernel_pthread_mutex_trylock(mutexHandlePtr uintptr) uintptr {
-	if mutexHandlePtr == 0 {
+func libKernel_pthread_mutex_trylock(mutexHandlePtr *uintptr) uintptr {
+	if mutexHandlePtr == nil {
 		logger.Printf("%-132s %s failed due to invalid mutex pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("pthread_mutex_trylock"),
@@ -30,7 +30,7 @@ func libKernel_pthread_mutex_trylock(mutexHandlePtr uintptr) uintptr {
 	// Try initializing a mutex, if it wasn't initialized yet.
 	thread := emu.GetCurrentThread()
 	threadPtr := (uintptr)(unsafe.Pointer(thread.Tcb.Thread))
-	mutexAddr := *(*uintptr)(unsafe.Pointer(mutexHandlePtr))
+	mutexAddr := *mutexHandlePtr
 	if mutexAddr <= ThrMutexDestroyed {
 		MutexLock.Lock()
 		if mutexAddr == ThrMutexDestroyed {
@@ -46,7 +46,7 @@ func libKernel_pthread_mutex_trylock(mutexHandlePtr uintptr) uintptr {
 			return err
 		}
 		MutexLock.Unlock()
-		mutexAddr = *(*uintptr)(unsafe.Pointer(mutexHandlePtr))
+		mutexAddr = *mutexHandlePtr
 	}
 
 	// Process special mutex types.
@@ -105,8 +105,8 @@ func libKernel_pthread_mutex_trylock(mutexHandlePtr uintptr) uintptr {
 
 // 0x0000000000030070
 // __int64 __fastcall pthread_mutex_timedlock(__int64 *, __int64, int, int, int, int)
-func libKernel_pthread_mutex_timedlock(mutexHandlePtr, timestampPtr uintptr) uintptr {
-	if mutexHandlePtr == 0 || timestampPtr == 0 {
+func libKernel_pthread_mutex_timedlock(mutexHandlePtr *uintptr, timestamp *Timestamp) uintptr {
+	if mutexHandlePtr == nil || timestamp == nil {
 		logger.Printf("%-132s %s failed due to invalid mutex pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("pthread_mutex_timedlock"),
@@ -117,7 +117,7 @@ func libKernel_pthread_mutex_timedlock(mutexHandlePtr, timestampPtr uintptr) uin
 	// Try initializing a mutex, if it wasn't initialized yet.
 	thread := emu.GetCurrentThread()
 	threadPtr := (uintptr)(unsafe.Pointer(thread.Tcb.Thread))
-	mutexAddr := *(*uintptr)(unsafe.Pointer(mutexHandlePtr))
+	mutexAddr := *mutexHandlePtr
 	if mutexAddr <= ThrMutexDestroyed {
 		if mutexAddr == ThrMutexDestroyed {
 			logger.Printf("%-132s %s failed trying to unlock destroyed mutex.\n",
@@ -200,7 +200,6 @@ func libKernel_pthread_mutex_timedlock(mutexHandlePtr, timestampPtr uintptr) uin
 	}
 
 	// Calculate actual timeout from absolute time.
-	timestamp := (*Timestamp)(unsafe.Pointer(timestampPtr))
 	targetTime := time.Unix(int64(timestamp.Seconds), int64(timestamp.Nanoseconds))
 	timeout := time.Until(targetTime)
 	if timeout <= 0 {
@@ -242,8 +241,8 @@ func libKernel_pthread_mutex_timedlock(mutexHandlePtr, timestampPtr uintptr) uin
 
 // 0x0000000000031FF0
 // __int64 __fastcall pthread_mutex_reltimedlock_np(__int64 *, unsigned int, int, int, int, int)
-func libKernel_pthread_mutex_reltimedlock_np(mutexHandlePtr, micros uintptr) uintptr {
-	if mutexHandlePtr == 0 {
+func libKernel_pthread_mutex_reltimedlock_np(mutexHandlePtr *uintptr, micros uintptr) uintptr {
+	if mutexHandlePtr == nil {
 		logger.Printf("%-132s %s failed due to invalid mutex pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("pthread_mutex_reltimedlock_np"),
@@ -254,7 +253,7 @@ func libKernel_pthread_mutex_reltimedlock_np(mutexHandlePtr, micros uintptr) uin
 	// Try initializing a mutex, if it wasn't initialized yet.
 	thread := emu.GetCurrentThread()
 	threadPtr := (uintptr)(unsafe.Pointer(thread.Tcb.Thread))
-	mutexAddr := *(*uintptr)(unsafe.Pointer(mutexHandlePtr))
+	mutexAddr := *mutexHandlePtr
 	if mutexAddr <= ThrMutexDestroyed {
 		if mutexAddr == ThrMutexDestroyed {
 			logger.Printf("%-132s %s failed trying to unlock destroyed mutex.\n",

@@ -26,16 +26,14 @@ func libSceSaveData_sceSaveDataInitialize(param uintptr) uintptr {
 
 // 0x0000000000028F00
 // __int64 __fastcall sceSaveDataDirNameSearch(int, int)
-func libSceSaveData_sceSaveDataDirNameSearch(condPtr, resultPtr uintptr) uintptr {
-	if condPtr == 0 || resultPtr == 0 {
+func libSceSaveData_sceSaveDataDirNameSearch(cond *SaveDataDirNameSearchCond, result *SaveDataDirNameSearchResult) uintptr {
+	if cond == nil || result == nil {
 		logger.Printf("%-132s %s failed due to invalid pointers.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceSaveDataDirNameSearch"),
 		)
 		return 0x809F0000
 	}
-	cond := (*SaveDataDirNameSearchCond)(unsafe.Pointer(condPtr))
-	result := (*SaveDataDirNameSearchResult)(unsafe.Pointer(resultPtr))
 
 	// Fetch save directories.
 	savesDir := config.GetGameSavesDir()
@@ -118,27 +116,24 @@ func libSceSaveData_sceSaveDataDirNameSearch(condPtr, resultPtr uintptr) uintptr
 	result.SetNum = uint32(maxCount)
 	for i := 0; i < maxCount; i++ {
 		res := searchResults[i]
-		if result.DirNames != 0 {
-			dirNames := (*[1024]SaveDataDirName)(unsafe.Pointer(result.DirNames))
-			copy(dirNames[i].Data[:], make([]byte, 32))
-			copy(dirNames[i].Data[:], res.DirName)
+		if result.DirNames != nil {
+			copy(result.DirNames[i].Data[:], make([]byte, 32))
+			copy(result.DirNames[i].Data[:], res.DirName)
 		}
-		if result.Params != 0 {
-			params := (*[1024]SaveDataParam)(unsafe.Pointer(result.Params))
-			copy(params[i].Title[:], make([]byte, 128))
-			copy(params[i].Subtitle[:], make([]byte, 128))
-			copy(params[i].Detail[:], make([]byte, 1024))
+		if result.Params != nil {
+			copy(result.Params[i].Title[:], make([]byte, 128))
+			copy(result.Params[i].Subtitle[:], make([]byte, 128))
+			copy(result.Params[i].Detail[:], make([]byte, 1024))
 
-			copy(params[i].Title[:], res.Psf.MapStrings[SaveParamMainTitle])
-			copy(params[i].Subtitle[:], res.Psf.MapStrings[SaveParamSubtitle])
-			copy(params[i].Detail[:], res.Psf.MapStrings[SaveParamDetail])
-			params[i].UserParam = uint32(res.Psf.MapIntegers[SaveParamSaveDataListParam])
-			params[i].MTime = res.SfoInfo.ModTime().Unix()
+			copy(result.Params[i].Title[:], res.Psf.MapStrings[SaveParamMainTitle])
+			copy(result.Params[i].Subtitle[:], res.Psf.MapStrings[SaveParamSubtitle])
+			copy(result.Params[i].Detail[:], res.Psf.MapStrings[SaveParamDetail])
+			result.Params[i].UserParam = uint32(res.Psf.MapIntegers[SaveParamSaveDataListParam])
+			result.Params[i].MTime = res.SfoInfo.ModTime().Unix()
 		}
-		if result.Infos != 0 {
-			infos := (*[1024]SaveDataSearchInfo)(unsafe.Pointer(result.Infos))
-			infos[i].Blocks = GetMaxBlocksFromSfo(res.Psf)
-			infos[i].FreeBlocks = infos[i].Blocks
+		if result.Infos != nil {
+			result.Infos[i].Blocks = GetMaxBlocksFromSfo(res.Psf)
+			result.Infos[i].FreeBlocks = result.Infos[i].Blocks
 		}
 	}
 
@@ -152,16 +147,14 @@ func libSceSaveData_sceSaveDataDirNameSearch(condPtr, resultPtr uintptr) uintptr
 
 // 0x0000000000027970
 // __int64 __fastcall sceSaveDataMount(__int64, int)
-func libSceSaveData_sceSaveDataMount(mountPtr, resultPtr uintptr) uintptr {
-	if mountPtr == 0 {
+func libSceSaveData_sceSaveDataMount(mount *SaveDataMount, mountResult *SaveDataMountResult) uintptr {
+	if mount == nil {
 		logger.Printf("%-132s %s failed due to invalid mount pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceSaveDataMount"),
 		)
 		return 0x809F0000
 	}
-
-	mount := (*SaveDataMount)(unsafe.Pointer(mountPtr))
 	if mount.UserId < 0 {
 		logger.Printf("%-132s %s failed due to invalid user id.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -176,23 +169,20 @@ func libSceSaveData_sceSaveDataMount(mountPtr, resultPtr uintptr) uintptr {
 		)
 		return 0x809F0000
 	}
-	mountResult := (*SaveDataMountResult)(unsafe.Pointer(resultPtr))
 
 	return saveDataMount(mount, mountResult)
 }
 
 // 0x0000000000027C50
 // __int64 __fastcall sceSaveDataMount2(__int64, int, __m128 _XMM0)
-func libSceSaveData_sceSaveDataMount2(mountPtr, resultPtr uintptr) uintptr {
-	if mountPtr == 0 {
+func libSceSaveData_sceSaveDataMount2(mount2 *SaveDataMount2, mountResult *SaveDataMountResult) uintptr {
+	if mount2 == nil {
 		logger.Printf("%-132s %s failed due to invalid mount pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceSaveDataMount2"),
 		)
 		return 0x809F0000
 	}
-
-	mount2 := (*SaveDataMount2)(unsafe.Pointer(mountPtr))
 	if mount2.UserId < 0 {
 		logger.Printf("%-132s %s failed due to invalid user id.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -207,10 +197,8 @@ func libSceSaveData_sceSaveDataMount2(mountPtr, resultPtr uintptr) uintptr {
 		)
 		return 0x809F0000
 	}
-	mount := mount2.To1()
-	mountResult := (*SaveDataMountResult)(unsafe.Pointer(resultPtr))
 
-	return saveDataMount(mount, mountResult)
+	return saveDataMount(mount2.To1(), mountResult)
 }
 
 func saveDataMount(mount *SaveDataMount, mountResult *SaveDataMountResult) uintptr {
@@ -310,15 +298,15 @@ func libSceSaveData_sceSaveDataUmount(mountPointPtr uintptr) uintptr {
 
 // 0x0000000000028C20
 // __int64 __fastcall sceSaveDataGetMountInfo(int, int)
-func libSceSaveData_sceSaveDataGetMountInfo(mountPointPtr, infoPtr uintptr) uintptr {
-	if mountPointPtr == 0 || infoPtr == 0 {
+func libSceSaveData_sceSaveDataGetMountInfo(mountPointPtr Cstring, info *SaveDataMountInfo) uintptr {
+	if mountPointPtr == nil || info == nil {
 		logger.Printf("%-132s %s failed due to invalid pointers.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceSaveDataGetMountInfo"),
 		)
 		return 0x809F0000
 	}
-	mountPoint := GoString(Cstring(mountPointPtr))
+	mountPoint := GoString(mountPointPtr)
 
 	// Find mounted save instance.
 	var saveInstance *SaveInstance
@@ -337,7 +325,6 @@ func libSceSaveData_sceSaveDataGetMountInfo(mountPointPtr, infoPtr uintptr) uint
 	}
 
 	// Populate result.
-	info := (*SaveDataMountInfo)(unsafe.Pointer(infoPtr))
 	info.Blocks = SaveDataBlocks(saveInstance.MaxBlocks)
 	info.FreeBlocks = info.Blocks
 
@@ -351,7 +338,7 @@ func libSceSaveData_sceSaveDataGetMountInfo(mountPointPtr, infoPtr uintptr) uint
 
 // 0x0000000000029200
 // __int64 __fastcall sceSaveDataGetParam(int, int, int, __int64, __int64)
-func libSceSaveData_sceSaveDataGetParam(mountPointPtr, paramTypeVal, paramBuf, paramBufSize, gotSizePtr uintptr) uintptr {
+func libSceSaveData_sceSaveDataGetParam(mountPointPtr, paramTypeVal, paramBuf, paramBufSize uintptr, gotSizePtr *uint64) uintptr {
 	if mountPointPtr == 0 || paramBuf == 0 || uint32(paramTypeVal) > uint32(SaveDataParamTypeMTime) {
 		logger.Printf("%-132s %s failed due to invalid pointers or paramType.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -397,8 +384,8 @@ func libSceSaveData_sceSaveDataGetParam(mountPointPtr, paramTypeVal, paramBuf, p
 		if sfoInfo, err := os.Stat(sfoPath); err == nil {
 			params.MTime = sfoInfo.ModTime().Unix()
 		}
-		if gotSizePtr != 0 {
-			*(*uint64)(unsafe.Pointer(gotSizePtr)) = uint64(unsafe.Sizeof(SaveDataParam{}))
+		if gotSizePtr != nil {
+			*gotSizePtr = uint64(unsafe.Sizeof(SaveDataParam{}))
 		}
 	case SaveDataParamTypeTitle, SaveDataParamTypeSubtitle, SaveDataParamTypeDetail:
 		key := ""
@@ -418,8 +405,8 @@ func libSceSaveData_sceSaveDataGetParam(mountPointPtr, paramTypeVal, paramBuf, p
 			bufSlice[paramBufSize-1] = 0
 			n = int(paramBufSize - 1)
 		}
-		if gotSizePtr != 0 {
-			*(*uint64)(unsafe.Pointer(gotSizePtr)) = uint64(n + 1)
+		if gotSizePtr != nil {
+			*gotSizePtr = uint64(n + 1)
 		}
 	case SaveDataParamTypeUserParam:
 		if paramBufSize < 4 {
@@ -430,8 +417,8 @@ func libSceSaveData_sceSaveDataGetParam(mountPointPtr, paramTypeVal, paramBuf, p
 			return 0x809F0000
 		}
 		*(*uint32)(unsafe.Pointer(paramBuf)) = uint32(saveInstance.ParamSfo.MapIntegers[SaveParamSaveDataListParam])
-		if gotSizePtr != 0 {
-			*(*uint64)(unsafe.Pointer(gotSizePtr)) = 4
+		if gotSizePtr != nil {
+			*gotSizePtr = 4
 		}
 	case SaveDataParamTypeMTime:
 		if paramBufSize < 8 {
@@ -447,8 +434,8 @@ func libSceSaveData_sceSaveDataGetParam(mountPointPtr, paramTypeVal, paramBuf, p
 		} else {
 			*(*int64)(unsafe.Pointer(paramBuf)) = 0
 		}
-		if gotSizePtr != 0 {
-			*(*uint64)(unsafe.Pointer(gotSizePtr)) = 8
+		if gotSizePtr != nil {
+			*gotSizePtr = 8
 		}
 	}
 
@@ -462,15 +449,15 @@ func libSceSaveData_sceSaveDataGetParam(mountPointPtr, paramTypeVal, paramBuf, p
 
 // 0x0000000000029140
 // __int64 __fastcall sceSaveDataSetParam(int, int, int, __int64)
-func libSceSaveData_sceSaveDataSetParam(mountPointPtr, paramTypeVal, paramBuf, paramBufSize uintptr) uintptr {
-	if mountPointPtr == 0 || paramBuf == 0 || uint32(paramTypeVal) > uint32(SaveDataParamTypeUserParam) {
+func libSceSaveData_sceSaveDataSetParam(mountPointPtr Cstring, paramTypeVal, paramBuf, paramBufSize uintptr) uintptr {
+	if mountPointPtr == nil || paramBuf == 0 || uint32(paramTypeVal) > uint32(SaveDataParamTypeUserParam) {
 		logger.Printf("%-132s %s failed due to invalid pointers or paramType.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceSaveDataSetParam"),
 		)
 		return 0x809F0000
 	}
-	mountPoint := GoString(Cstring(mountPointPtr))
+	mountPoint := GoString(mountPointPtr)
 	paramType := SaveDataParamType(paramTypeVal)
 
 	// Find mounted save instance.
@@ -549,19 +536,18 @@ func libSceSaveData_sceSaveDataSetParam(mountPointPtr, paramTypeVal, paramBuf, p
 
 // 0x00000000000292C0
 // __int64 __fastcall sceSaveDataSaveIcon(int, int)
-func libSceSaveData_sceSaveDataSaveIcon(mountPointPtr, iconPtr uintptr) uintptr {
-	if mountPointPtr == 0 || iconPtr == 0 {
+func libSceSaveData_sceSaveDataSaveIcon(mountPointPtr Cstring, icon *SaveDataIcon) uintptr {
+	if mountPointPtr == nil || icon == nil {
 		logger.Printf("%-132s %s failed due to invalid pointers.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceSaveDataSaveIcon"),
 		)
 		return 0x809F0000
 	}
-	icon := (*SaveDataIcon)(unsafe.Pointer(iconPtr))
 	if icon.Buf == 0 {
 		return 0x809F0000
 	}
-	mountPoint := GoString(Cstring(mountPointPtr))
+	mountPoint := GoString(mountPointPtr)
 
 	// Find save instance.
 	var saveInstance *SaveInstance
@@ -605,15 +591,14 @@ func libSceSaveData_sceSaveDataSaveIcon(mountPointPtr, iconPtr uintptr) uintptr 
 
 // 0x0000000000028CD0
 // __int64 __fastcall sceSaveDataDelete(int)
-func libSceSaveData_sceSaveDataDelete(delPtr uintptr) uintptr {
-	if delPtr == 0 {
+func libSceSaveData_sceSaveDataDelete(del *SaveDataDelete) uintptr {
+	if del == nil {
 		logger.Printf("%-132s %s failed due to invalid pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceSaveDataDelete"),
 		)
 		return 0x809F0000
 	}
-	del := (*SaveDataDelete)(unsafe.Pointer(delPtr))
 	if del.DirName == nil {
 		logger.Printf("%-132s %s failed due to invalid directory name pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),

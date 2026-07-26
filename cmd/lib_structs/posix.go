@@ -27,17 +27,17 @@ const ERR_HANDLE = ^uint32(0)
 
 // ResolveHandle converts a guest handle (double pointer) into a host structs pointer.
 // Returns the structs pointer and 0 on success, or nil and an error code (EINVAL).
-func ResolveHandle[T any](handlePtr uintptr) (*T, uintptr) {
-	if handlePtr == 0 {
+func ResolveHandle[T any](handlePtr *uintptr) (*T, uintptr) {
+	if handlePtr == nil {
 		return nil, EINVAL
 	}
 
-	ptr := *(*uint64)(unsafe.Pointer(handlePtr))
+	ptr := *handlePtr
 	if ptr == 0 {
 		return nil, EINVAL
 	}
 
-	return (*T)(unsafe.Pointer(uintptr(ptr))), 0
+	return (*T)(unsafe.Pointer(ptr)), 0
 }
 
 func WriteAddress(addressPtr uintptr, address uintptr) {

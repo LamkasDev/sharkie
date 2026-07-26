@@ -14,7 +14,7 @@ import (
 
 // 0x000000000000B620
 // __int64 __fastcall sceVideoOutRegisterBuffers(int, unsigned int, __int64, unsigned int, __int64)
-func libSceVideoOut_sceVideoOutRegisterBuffers(rawHandle, startIndex, addressesPtr, bufferNum, attrPtr uintptr) uintptr {
+func libSceVideoOut_sceVideoOutRegisterBuffers(handleId uint32, startIndex, addressesPtr, bufferNum uintptr, attribute *VideoOutBufferAttribute) uintptr {
 	if addressesPtr == 0 {
 		logger.Printf("%-132s %s failed due to invalid adresses pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -22,14 +22,14 @@ func libSceVideoOut_sceVideoOutRegisterBuffers(rawHandle, startIndex, addressesP
 		)
 		return SCE_VIDEO_OUT_ERROR_INVALID_VALUE
 	}
-	if attrPtr == 0 {
+	if attribute == nil {
 		logger.Printf("%-132s %s failed due to invalid attribute pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceVideoOutRegisterBuffers"),
 		)
 		return SCE_VIDEO_OUT_ERROR_INVALID_VALUE
 	}
-	handle, ok := GlobalDisplayCoreEngine.Handles[uint32(rawHandle)]
+	handle, ok := GlobalDisplayCoreEngine.Handles[handleId]
 	if !ok {
 		logger.Printf("%-132s %s failed due to invalid handle.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -46,7 +46,6 @@ func libSceVideoOut_sceVideoOutRegisterBuffers(rawHandle, startIndex, addressesP
 		return SCE_VIDEO_OUT_ERROR_INVALID_VALUE
 	}
 
-	attribute := (*VideoOutBufferAttribute)(unsafe.Pointer(attrPtr))
 	addresses := unsafe.Slice((*uintptr)(unsafe.Pointer(addressesPtr)), bufferNum)
 	handle.Attributes[0] = *attribute
 	for i := range bufferNum {
@@ -79,15 +78,15 @@ func libSceVideoOut_sceVideoOutRegisterBuffers(rawHandle, startIndex, addressesP
 
 // 0x000000000000B240
 // __int64 __fastcall sceVideoOutRegisterBufferAttribute(int, unsigned int, __int64)
-func libSceVideoOut_sceVideoOutRegisterBufferAttribute(rawHandle, attributeIndex, attrPtr uintptr) uintptr {
-	if attrPtr == 0 {
+func libSceVideoOut_sceVideoOutRegisterBufferAttribute(handleId uint32, attributeIndex uintptr, attribute *VideoOutBufferAttribute) uintptr {
+	if attribute == nil {
 		logger.Printf("%-132s %s failed due to invalid attribute pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceVideoOutRegisterBufferAttribute"),
 		)
 		return SCE_VIDEO_OUT_ERROR_INVALID_VALUE
 	}
-	handle, ok := GlobalDisplayCoreEngine.Handles[uint32(rawHandle)]
+	handle, ok := GlobalDisplayCoreEngine.Handles[handleId]
 	if !ok {
 		logger.Printf("%-132s %s failed due to invalid handle.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -105,7 +104,6 @@ func libSceVideoOut_sceVideoOutRegisterBufferAttribute(rawHandle, attributeIndex
 		return SCE_VIDEO_OUT_ERROR_INVALID_VALUE
 	}
 
-	attribute := (*VideoOutBufferAttribute)(unsafe.Pointer(attrPtr))
 	handle.Attributes[attributeIndex] = *attribute
 
 	logger.Printf("%-132s %s registered %s's buffer attribute %s (pixf=%s, tile=%s, aspr=%s, %sx%s, pitch=%s).\n",
@@ -125,8 +123,8 @@ func libSceVideoOut_sceVideoOutRegisterBufferAttribute(rawHandle, attributeIndex
 
 // 0x0000000000002860
 // __int64 __fastcall sceVideoOutSetBufferAttribute(_DWORD *_RDI, int, int, int, int, int, __m128 _XMM0, unsigned int)
-func libSceVideoOut_sceVideoOutSetBufferAttribute(attrPtr, pixelFormat, tilingMode, aspectRatio, width, height, pitchInPixel uintptr) uintptr {
-	if attrPtr == 0 {
+func libSceVideoOut_sceVideoOutSetBufferAttribute(attribute *VideoOutBufferAttribute, pixelFormat, tilingMode, aspectRatio uintptr, width, height, pitchInPixel uint32) uintptr {
+	if attribute == nil {
 		logger.Printf("%-132s %s failed due to invalid attribute pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceVideoOutSetBufferAttribute"),
@@ -134,18 +132,17 @@ func libSceVideoOut_sceVideoOutSetBufferAttribute(attrPtr, pixelFormat, tilingMo
 		return SCE_VIDEO_OUT_ERROR_INVALID_VALUE
 	}
 
-	attribute := (*VideoOutBufferAttribute)(unsafe.Pointer(attrPtr))
 	attribute.PixelFormat = VideoOutPixelFormat(pixelFormat)
 	attribute.TilingMode = VideoOutTilingMode(tilingMode)
 	attribute.AspectRatio = VideoOutAspectRatio(aspectRatio)
-	attribute.Width = uint32(width)
-	attribute.Height = uint32(height)
-	attribute.PitchInPixel = uint32(pitchInPixel)
+	attribute.Width = width
+	attribute.Height = height
+	attribute.PitchInPixel = pitchInPixel
 
 	logger.Printf("%-132s %s set buffer attribute %s (pixf=%s, tile=%s, aspr=%s, %sx%s, pitch=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sceVideoOutSetBufferAttribute"),
-		color.Yellow.Sprintf("0x%X", attrPtr),
+		color.Yellow.Sprintf("0x%X", attribute),
 		color.Yellow.Sprintf("0x%X", attribute.PixelFormat),
 		color.Yellow.Sprintf("0x%X", attribute.TilingMode),
 		color.Yellow.Sprintf("0x%X", attribute.AspectRatio),
@@ -156,21 +153,21 @@ func libSceVideoOut_sceVideoOutSetBufferAttribute(attrPtr, pixelFormat, tilingMo
 	return 0
 }
 
-func SceVideoOutGetBufferLabelAddress(rawHandle, resultLabelBufferAddressPtr uintptr) uintptr {
-	return libSceVideoOut_sceVideoOutGetBufferLabelAddress(rawHandle, resultLabelBufferAddressPtr)
+func SceVideoOutGetBufferLabelAddress(handleId uint32, resultLabelBufferAddressPtr *uintptr) uintptr {
+	return libSceVideoOut_sceVideoOutGetBufferLabelAddress(handleId, resultLabelBufferAddressPtr)
 }
 
 // 0x000000000000BB80
 // __int64 __fastcall sceVideoOutGetBufferLabelAddress(int, _QWORD *)
-func libSceVideoOut_sceVideoOutGetBufferLabelAddress(rawHandle, resultLabelBufferAddressPtr uintptr) uintptr {
-	if resultLabelBufferAddressPtr == 0 {
+func libSceVideoOut_sceVideoOutGetBufferLabelAddress(handleId uint32, resultLabelBufferAddressPtr *uintptr) uintptr {
+	if resultLabelBufferAddressPtr == nil {
 		logger.Printf("%-132s %s failed due to invalid result label buffer address pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceVideoOutGetBufferLabelAddress"),
 		)
 		return SCE_VIDEO_OUT_ERROR_INVALID_VALUE
 	}
-	handle, ok := GlobalDisplayCoreEngine.Handles[uint32(rawHandle)]
+	handle, ok := GlobalDisplayCoreEngine.Handles[handleId]
 	if !ok {
 		logger.Printf("%-132s %s failed due to invalid handle.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -179,7 +176,7 @@ func libSceVideoOut_sceVideoOutGetBufferLabelAddress(rawHandle, resultLabelBuffe
 		return SCE_VIDEO_OUT_ERROR_INVALID_HANDLE
 	}
 
-	*(*uintptr)(unsafe.Pointer(resultLabelBufferAddressPtr)) = handle.LabelBufferAddress
+	*resultLabelBufferAddressPtr = handle.LabelBufferAddress
 
 	if logger.LogGraphics {
 		logger.Printf("%-132s %s wrote %s's label buffer address %s to %s.\n",

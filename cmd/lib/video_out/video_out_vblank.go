@@ -1,8 +1,6 @@
 package video_out
 
 import (
-	"unsafe"
-
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/dce"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/video"
@@ -37,8 +35,8 @@ func libSceVideoOut_sceVideoOutAddVblankEvent(equeueHandle, rawHandle, userData 
 
 // 0x000000000000BAD0
 // __int64 __fastcall sceVideoOutGetVblankStatus(int, __int64)
-func libSceVideoOut_sceVideoOutGetVblankStatus(rawHandle, vblankStatusPtr uintptr) uintptr {
-	if vblankStatusPtr == 0 {
+func libSceVideoOut_sceVideoOutGetVblankStatus(rawHandle uintptr, vblankStatus *VideoOutVblankStatus) uintptr {
+	if vblankStatus == nil {
 		logger.Printf("%-132s %s failed due to invalid v-blank status pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceVideoOutGetVblankStatus"),
@@ -53,7 +51,6 @@ func libSceVideoOut_sceVideoOutGetVblankStatus(rawHandle, vblankStatusPtr uintpt
 		)
 		return SCE_VIDEO_OUT_ERROR_INVALID_HANDLE
 	}
-	vblankStatus := (*VideoOutVblankStatus)(unsafe.Pointer(vblankStatusPtr))
 	*vblankStatus = handle.VblankStatus
 
 	if false && logger.LogGraphics {

@@ -1,12 +1,11 @@
 package pad
 
 import (
-	"unsafe"
-
 	"github.com/LamkasDev/sharkie/cmd/app"
 	"github.com/LamkasDev/sharkie/cmd/config"
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/pad"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/user"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/elokore/glfw/v3.4/glfw"
 	"github.com/gookit/color"
@@ -23,7 +22,7 @@ func libScePad_scePadInit() uintptr {
 
 // 0x0000000000000580
 // __int64 __fastcall scePadOpen(unsigned int, unsigned int, unsigned int, __m128)
-func libScePad_scePadOpen(userId, padType, index, param uintptr) uintptr {
+func libScePad_scePadOpen(userId UserId, padType, index, param uintptr) uintptr {
 	handle := GlobalPadEngine.CreateHandle()
 	if config.GlobalConfig != nil && config.GlobalConfig.InputMode == "controller" {
 		handle.Device = &ControllerDevice{Joystick: glfw.Joystick1}
@@ -41,12 +40,11 @@ func libScePad_scePadOpen(userId, padType, index, param uintptr) uintptr {
 
 // 0x00000000000020B0
 // __int64 __fastcall scePadRead(__int64, __int64, __int64)
-func libScePad_scePadRead(handleId, dataPtr, count uintptr) uintptr {
-	handle := GlobalPadEngine.Handles[uint32(handleId)]
-	if handle == nil || dataPtr == 0 {
+func libScePad_scePadRead(handleId uint32, data *PadData, count uintptr) uintptr {
+	handle := GlobalPadEngine.Handles[handleId]
+	if handle == nil || data == nil {
 		return 0x802F0001 // SCE_PAD_ERROR_INVALID_HANDLE? some error
 	}
-	data := (*PadData)(unsafe.Pointer(dataPtr))
 	handle.Device.Read(data)
 
 	// Global F11 debug logic.
@@ -67,12 +65,11 @@ func libScePad_scePadRead(handleId, dataPtr, count uintptr) uintptr {
 
 // 0x00000000000036A0
 // __int64 __fastcall scePadGetControllerInformation(unsigned int, __int64, __m128 _XMM0, __m128 _XMM1)
-func libScePad_scePadGetControllerInformation(handleId, infoPtr uintptr) uintptr {
-	handle := GlobalPadEngine.Handles[uint32(handleId)]
-	if handle == nil || infoPtr == 0 {
+func libScePad_scePadGetControllerInformation(handleId uint32, info *PadControllerInformation) uintptr {
+	handle := GlobalPadEngine.Handles[handleId]
+	if handle == nil || info == nil {
 		return 0x802F0001
 	}
-	info := (*PadControllerInformation)(unsafe.Pointer(infoPtr))
 	handle.Device.GetControllerInformation(info)
 
 	return 0

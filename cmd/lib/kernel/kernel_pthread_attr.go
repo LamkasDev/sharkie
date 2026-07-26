@@ -13,7 +13,7 @@ import (
 
 // 0x00000000000134A0
 // __int64 __fastcall scePthreadAttrInit(__int64 *)
-func libKernel_scePthreadAttrInit(attrHandlePtr uintptr) uintptr {
+func libKernel_scePthreadAttrInit(attrHandlePtr *uintptr) uintptr {
 	err := libKernel_pthread_attr_init(attrHandlePtr)
 	if err != 0 {
 		return err - SonyErrorOffset
@@ -24,7 +24,7 @@ func libKernel_scePthreadAttrInit(attrHandlePtr uintptr) uintptr {
 
 // 0x00000000000133E0
 // __int64 scePthreadAttrSetstacksize()
-func libKernel_scePthreadAttrSetstacksize(attrHandlePtr uintptr, stackSize uint64) uintptr {
+func libKernel_scePthreadAttrSetstacksize(attrHandlePtr *uintptr, stackSize uint64) uintptr {
 	err := libKernel_pthread_attr_setstacksize(attrHandlePtr, stackSize)
 	if err != 0 {
 		return err - SonyErrorOffset
@@ -35,7 +35,7 @@ func libKernel_scePthreadAttrSetstacksize(attrHandlePtr uintptr, stackSize uint6
 
 // 0x00000000000143E0
 // __int64 scePthreadAttrSetschedpolicy()
-func libKernel_scePthreadAttrSetschedpolicy(attrHandlePtr, schedulingPolicy uintptr) uintptr {
+func libKernel_scePthreadAttrSetschedpolicy(attrHandlePtr *uintptr, schedulingPolicy uintptr) uintptr {
 	err := libKernel_pthread_attr_setschedpolicy(attrHandlePtr, schedulingPolicy)
 	if err != 0 {
 		return err - SonyErrorOffset
@@ -46,7 +46,7 @@ func libKernel_scePthreadAttrSetschedpolicy(attrHandlePtr, schedulingPolicy uint
 
 // 0x00000000000143A0
 // __int64 scePthreadAttrSetinheritsched()
-func libKernel_scePthreadAttrSetinheritsched(attrHandlePtr, inheritScheduling uintptr) uintptr {
+func libKernel_scePthreadAttrSetinheritsched(attrHandlePtr *uintptr, inheritScheduling uintptr) uintptr {
 	err := libKernel_pthread_attr_setinheritsched(attrHandlePtr, inheritScheduling)
 	if err != 0 {
 		return err - SonyErrorOffset
@@ -57,7 +57,7 @@ func libKernel_scePthreadAttrSetinheritsched(attrHandlePtr, inheritScheduling ui
 
 // 0x00000000000143C0
 // __int64 scePthreadAttrSetschedparam()
-func libKernel_scePthreadAttrSetschedparam(attrHandlePtr, schedulingParameterPtr uintptr) uintptr {
+func libKernel_scePthreadAttrSetschedparam(attrHandlePtr *uintptr, schedulingParameterPtr *int32) uintptr {
 	err := libKernel_pthread_attr_setschedparam(attrHandlePtr, schedulingParameterPtr)
 	if err != 0 {
 		return err - SonyErrorOffset
@@ -68,7 +68,7 @@ func libKernel_scePthreadAttrSetschedparam(attrHandlePtr, schedulingParameterPtr
 
 // 0x00000000000134E0
 // __int64 scePthreadAttrSetguardsize()
-func libKernel_scePthreadAttrSetguardsize(attrHandlePtr uintptr, guardSize uint64) uintptr {
+func libKernel_scePthreadAttrSetguardsize(attrHandlePtr *uintptr, guardSize uint64) uintptr {
 	err := libKernel_pthread_attr_setguardsize(attrHandlePtr, guardSize)
 	if err != 0 {
 		return err - SonyErrorOffset
@@ -79,7 +79,7 @@ func libKernel_scePthreadAttrSetguardsize(attrHandlePtr uintptr, guardSize uint6
 
 // 0x0000000000013540
 // __int64 scePthreadAttrSetdetachstate()
-func libKernel_scePthreadAttrSetdetachstate(attrHandlePtr, detachState uintptr) uintptr {
+func libKernel_scePthreadAttrSetdetachstate(attrHandlePtr *uintptr, detachState uintptr) uintptr {
 	err := libKernel_pthread_attr_setdetachstate(attrHandlePtr, detachState)
 	if err != 0 {
 		return err - SonyErrorOffset
@@ -90,7 +90,7 @@ func libKernel_scePthreadAttrSetdetachstate(attrHandlePtr, detachState uintptr) 
 
 // 0x0000000000014400
 // __int64 scePthreadAttrSetscope()
-func libKernel_scePthreadAttrSetscope(attrHandlePtr, scope uintptr) uintptr {
+func libKernel_scePthreadAttrSetscope(attrHandlePtr *uintptr, scope uintptr) uintptr {
 	err := libKernel_pthread_attr_setscope(attrHandlePtr, scope)
 	if err != 0 {
 		return err - SonyErrorOffset
@@ -101,7 +101,7 @@ func libKernel_scePthreadAttrSetscope(attrHandlePtr, scope uintptr) uintptr {
 
 // 0x00000000000133E0
 // __int64 __fastcall scePthreadAttrDestroy(__int64 *)
-func libKernel_scePthreadAttrDestroy(attrHandlePtr uintptr) uintptr {
+func libKernel_scePthreadAttrDestroy(attrHandlePtr *uintptr) uintptr {
 	err := libKernel_pthread_attr_destroy(attrHandlePtr)
 	if err != 0 {
 		return err - SonyErrorOffset
@@ -112,7 +112,7 @@ func libKernel_scePthreadAttrDestroy(attrHandlePtr uintptr) uintptr {
 
 // 0x0000000000014480
 // __int64 __fastcall scePthreadAttrGet(volatile signed __int32 *, __int64 *)
-func libKernel_scePthreadAttrGet(threadPtr, attrHandlePtr uintptr) uintptr {
+func libKernel_scePthreadAttrGet(threadPtr uintptr, attrHandlePtr *uintptr) uintptr {
 	// Resolve the handle.
 	attr, err := ResolveHandle[PthreadAttr](attrHandlePtr)
 	if err != 0 {

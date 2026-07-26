@@ -13,8 +13,8 @@ import (
 	"github.com/gookit/color"
 )
 
-func libScePosix_sem_init(semPtr, pShared, value uintptr) uintptr {
-	if semPtr == 0 {
+func libScePosix_sem_init(semaphore *PSemaphore, pShared, value uintptr) uintptr {
+	if semaphore == nil {
 		logger.Printf("%-132s %s failed due to invalid sem pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sem_init"),
@@ -24,7 +24,6 @@ func libScePosix_sem_init(semPtr, pShared, value uintptr) uintptr {
 	}
 
 	// Initialize to defaults.
-	semaphore := (*PSemaphore)(unsafe.Pointer(semPtr))
 	semaphore.Magic = PSemaphoreMagic
 	semaphore.Flags = 0
 	semaphore.WaitAddress = 0
@@ -37,14 +36,14 @@ func libScePosix_sem_init(semPtr, pShared, value uintptr) uintptr {
 	logger.Printf("%-132s %s created semaphore at %s (value=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sem_init"),
-		color.Yellow.Sprintf("0x%X", semPtr),
+		color.Yellow.Sprintf("0x%X", uintptr(unsafe.Pointer(semaphore))),
 		color.Yellow.Sprintf("0x%X", value),
 	)
 	return 0
 }
 
-func libScePosix_sem_trywait(semPtr uintptr) uintptr {
-	if semPtr == 0 {
+func libScePosix_sem_trywait(semaphore *PSemaphore) uintptr {
+	if semaphore == nil {
 		logger.Printf("%-132s %s failed due to invalid sem pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sem_trywait"),
@@ -53,7 +52,6 @@ func libScePosix_sem_trywait(semPtr uintptr) uintptr {
 		return ERR_PTR
 	}
 
-	semaphore := (*PSemaphore)(unsafe.Pointer(semPtr))
 	if semaphore.Magic != PSemaphoreMagic {
 		logger.Printf("%-132s %s failed due to invalid sem magic.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -71,7 +69,7 @@ func libScePosix_sem_trywait(semPtr uintptr) uintptr {
 				logger.Printf("%-132s %s tried waiting on semaphore %s.\n",
 					emu.GlobalModuleManager.GetCallSiteText(),
 					color.Magenta.Sprint("sem_timedwait"),
-					color.Yellow.Sprintf("0x%X", semPtr),
+					color.Yellow.Sprintf("0x%X", uintptr(unsafe.Pointer(semaphore))),
 				)
 			}
 			emu.SetErrno(EAGAIN)
@@ -82,7 +80,7 @@ func libScePosix_sem_trywait(semPtr uintptr) uintptr {
 				logger.Printf("%-132s %s waited on semaphore %s.\n",
 					emu.GlobalModuleManager.GetCallSiteText(),
 					color.Magenta.Sprint("sem_timedwait"),
-					color.Yellow.Sprintf("0x%X", semPtr),
+					color.Yellow.Sprintf("0x%X", uintptr(unsafe.Pointer(semaphore))),
 				)
 			}
 			return 0
@@ -90,12 +88,12 @@ func libScePosix_sem_trywait(semPtr uintptr) uintptr {
 	}
 }
 
-func libScePosix_sem_wait(semPtr uintptr) uintptr {
-	return libScePosix_sem_timedwait(semPtr, 0)
+func libScePosix_sem_wait(semaphore *PSemaphore) uintptr {
+	return libScePosix_sem_timedwait(semaphore, nil)
 }
 
-func libScePosix_sem_timedwait(semPtr, timestampPtr uintptr) uintptr {
-	if semPtr == 0 {
+func libScePosix_sem_timedwait(semaphore *PSemaphore, timestamp *Timestamp) uintptr {
+	if semaphore == nil {
 		logger.Printf("%-132s %s failed due to invalid sem pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sem_timedwait"),
@@ -104,7 +102,6 @@ func libScePosix_sem_timedwait(semPtr, timestampPtr uintptr) uintptr {
 		return ERR_PTR
 	}
 
-	semaphore := (*PSemaphore)(unsafe.Pointer(semPtr))
 	if semaphore.Magic != PSemaphoreMagic {
 		logger.Printf("%-132s %s failed due to invalid sem magic.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -125,7 +122,7 @@ func libScePosix_sem_timedwait(semPtr, timestampPtr uintptr) uintptr {
 				logger.Printf("%-132s %s waited on semaphore %s.\n",
 					emu.GlobalModuleManager.GetCallSiteText(),
 					color.Magenta.Sprint("sem_timedwait"),
-					color.Yellow.Sprintf("0x%X", semPtr),
+					color.Yellow.Sprintf("0x%X", uintptr(unsafe.Pointer(semaphore))),
 				)
 			}
 			return 0
@@ -134,8 +131,7 @@ func libScePosix_sem_timedwait(semPtr, timestampPtr uintptr) uintptr {
 
 	// Calculate actual timeout from absolute time.
 	timeout := time.Duration(-1)
-	if timestampPtr != 0 {
-		timestamp := (*Timestamp)(unsafe.Pointer(timestampPtr))
+	if timestamp != nil {
 		targetTime := time.Unix(int64(timestamp.Seconds), int64(timestamp.Nanoseconds))
 		timeout = time.Until(targetTime)
 		if timeout <= 0 {
@@ -143,7 +139,7 @@ func libScePosix_sem_timedwait(semPtr, timestampPtr uintptr) uintptr {
 				logger.Printf("%-132s %s timed out on semaphore %s.\n",
 					emu.GlobalModuleManager.GetCallSiteText(),
 					color.Magenta.Sprint("sem_timedwait"),
-					color.Yellow.Sprintf("0x%X", semPtr),
+					color.Yellow.Sprintf("0x%X", uintptr(unsafe.Pointer(semaphore))),
 				)
 			}
 			emu.SetErrno(ETIMEDOUT)
@@ -153,7 +149,7 @@ func libScePosix_sem_timedwait(semPtr, timestampPtr uintptr) uintptr {
 
 	// Lock semaphore.
 	start := time.Now()
-	hostSemaphore := GetPSemaphore(semPtr)
+	hostSemaphore := GetPSemaphore(uintptr(unsafe.Pointer(semaphore)))
 
 	for {
 		// Check value again (holding lock this time).
@@ -164,7 +160,7 @@ func libScePosix_sem_timedwait(semPtr, timestampPtr uintptr) uintptr {
 				logger.Printf("%-132s %s waited on semaphore %s.\n",
 					emu.GlobalModuleManager.GetCallSiteText(),
 					color.Magenta.Sprint("sem_timedwait"),
-					color.Yellow.Sprintf("0x%X", semPtr),
+					color.Yellow.Sprintf("0x%X", uintptr(unsafe.Pointer(semaphore))),
 				)
 			}
 			hostSemaphore.Mutex.Unlock()
@@ -181,7 +177,7 @@ func libScePosix_sem_timedwait(semPtr, timestampPtr uintptr) uintptr {
 					logger.Printf("%-132s %s timed out on semaphore %s.\n",
 						emu.GlobalModuleManager.GetCallSiteText(),
 						color.Magenta.Sprint("sem_timedwait"),
-						color.Yellow.Sprintf("0x%X", semPtr),
+						color.Yellow.Sprintf("0x%X", uintptr(unsafe.Pointer(semaphore))),
 					)
 				}
 				emu.SetErrno(ETIMEDOUT)
@@ -194,7 +190,7 @@ func libScePosix_sem_timedwait(semPtr, timestampPtr uintptr) uintptr {
 			logger.Printf("%-132s %s waiting on semaphore %s for %s microseconds.\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("sem_timedwait"),
-				color.Yellow.Sprintf("0x%X", semPtr),
+				color.Yellow.Sprintf("0x%X", uintptr(unsafe.Pointer(semaphore))),
 				color.Green.Sprintf("%d", timeout.Microseconds()),
 			)
 		}
@@ -208,7 +204,7 @@ func libScePosix_sem_timedwait(semPtr, timestampPtr uintptr) uintptr {
 					logger.Printf("%-132s %s timed out on semaphore %s.\n",
 						emu.GlobalModuleManager.GetCallSiteText(),
 						color.Magenta.Sprint("sem_timedwait"),
-						color.Yellow.Sprintf("0x%X", semPtr),
+						color.Yellow.Sprintf("0x%X", uintptr(unsafe.Pointer(semaphore))),
 					)
 				}
 				emu.SetErrno(ETIMEDOUT)
@@ -218,8 +214,8 @@ func libScePosix_sem_timedwait(semPtr, timestampPtr uintptr) uintptr {
 	}
 }
 
-func libScePosix_sem_post(semPtr uintptr) uintptr {
-	if semPtr == 0 {
+func libScePosix_sem_post(semaphore *PSemaphore) uintptr {
+	if semaphore == nil {
 		logger.Printf("%-132s %s failed due to invalid sem pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sem_post"),
@@ -228,7 +224,6 @@ func libScePosix_sem_post(semPtr uintptr) uintptr {
 		return ERR_PTR
 	}
 
-	semaphore := (*PSemaphore)(unsafe.Pointer(semPtr))
 	if semaphore.Magic != PSemaphoreMagic {
 		logger.Printf("%-132s %s failed due to invalid sem magic.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -242,13 +237,13 @@ func libScePosix_sem_post(semPtr uintptr) uintptr {
 	atomic.AddInt32(&semaphore.Value, 1)
 
 	// Signal slow-path.
-	hostSemaphore := GetPSemaphore(semPtr)
+	hostSemaphore := GetPSemaphore(uintptr(unsafe.Pointer(semaphore)))
 	hostSemaphore.Signal()
 	if logger.LogSyncing {
 		logger.Printf("%-132s %s signaled semaphore %s (value=%d).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sem_post"),
-			color.Yellow.Sprintf("0x%X", semPtr),
+			color.Yellow.Sprintf("0x%X", uintptr(unsafe.Pointer(semaphore))),
 			semaphore.Value,
 		)
 	}

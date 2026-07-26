@@ -2,7 +2,6 @@ package posix
 
 import (
 	"time"
-	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
@@ -20,16 +19,16 @@ func libScePosix_usleep(micros uint32) uintptr {
 		Seconds:     int64(micros / 1_000_000),
 		Nanoseconds: int64(micros%1_000_000) * 1000,
 	}
-	return libScePosix_nanosleep(uintptr(unsafe.Pointer(&timestamp)), 0)
+	return libScePosix_nanosleep(&timestamp, nil)
 }
 
-func Nanosleep(timestampPtr, remainingTimestampPtr uintptr) uintptr {
-	return libScePosix_nanosleep(timestampPtr, remainingTimestampPtr)
+func Nanosleep(timestamp, remainingTimestamp *Timestamp) uintptr {
+	return libScePosix_nanosleep(timestamp, remainingTimestamp)
 }
 
 // TODO: make this interruptible
-func libScePosix_nanosleep(timestampPtr, remainingTimestampPtr uintptr) uintptr {
-	if timestampPtr == 0 {
+func libScePosix_nanosleep(timestamp, remainingTimestamp *Timestamp) uintptr {
+	if timestamp == nil {
 		logger.Printf("%-132s %s failed due to invalid timestamp pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("nanosleep"),
@@ -37,7 +36,6 @@ func libScePosix_nanosleep(timestampPtr, remainingTimestampPtr uintptr) uintptr 
 		emu.SetErrno(EINVAL)
 		return ERR_PTR
 	}
-	timestamp := (*Timestamp)(unsafe.Pointer(timestampPtr))
 	if timestamp.Seconds < 0 || timestamp.Nanoseconds < 0 || timestamp.Nanoseconds > 1_000_000_000 {
 		logger.Printf("%-132s %s failed due to invalid timestamp values.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -57,8 +55,7 @@ func libScePosix_nanosleep(timestampPtr, remainingTimestampPtr uintptr) uintptr 
 		)
 	}
 	time.Sleep(timeout)
-	if remainingTimestampPtr != 0 {
-		remainingTimestamp := (*Timestamp)(unsafe.Pointer(remainingTimestampPtr))
+	if remainingTimestamp != nil {
 		remainingTimestamp.Seconds = 0
 		remainingTimestamp.Nanoseconds = 0
 	}

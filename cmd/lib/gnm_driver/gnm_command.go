@@ -206,13 +206,13 @@ func libSceGnmDriver_sceGnmSubmitAndFlipCommandBuffersForWorkload(workloadId, co
 
 // 0x00000000000019A0
 // __int64 __fastcall sceGnmRequestFlipAndSubmitDone(int, int, int, int, int, __int64)
-func libSceGnmDriver_sceGnmRequestFlipAndSubmitDone(dcbPtr, requestId, videoOutHandle, bufferIndex, flipMode, flipArg uintptr) uintptr {
+func libSceGnmDriver_sceGnmRequestFlipAndSubmitDone(dcbPtr, requestId uintptr, videoOutHandle, bufferIndex, flipMode uint32, flipArg int64) uintptr {
 	return libSceGnmDriver_sceGnmRequestFlipAndSubmitDoneForWorkload(dcbPtr, dcbPtr, requestId, videoOutHandle, bufferIndex, flipMode, flipArg)
 }
 
 // 0x00000000000017C0
 // __int64 __fastcall sceGnmRequestFlipAndSubmitDoneForWorkload(__int64, __int64, unsigned int, unsigned int, unsigned int, unsigned int, __int64)
-func libSceGnmDriver_sceGnmRequestFlipAndSubmitDoneForWorkload(ctxPtr, dcbPtr, requestId, videoOutHandle, bufferIndex, flipMode, flipArg uintptr) uintptr {
+func libSceGnmDriver_sceGnmRequestFlipAndSubmitDoneForWorkload(ctxPtr, dcbPtr, requestId uintptr, videoOutHandle, bufferIndex, flipMode uint32, flipArg int64) uintptr {
 	if requestId < 0x100 {
 		logger.Printf("%-132s %s failed due to invalid request id.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -234,7 +234,7 @@ func libSceGnmDriver_sceGnmRequestFlipAndSubmitDoneForWorkload(ctxPtr, dcbPtr, r
 	nop.DataBlock[0] = GNM_PREPARE_FLIP_VARIANT_BASE
 
 	// Patch prepare flip packet.
-	newDcbSizeDW, err := gnmPatchPrepareFlip(dcbPtr, 64, uint32(videoOutHandle), uint32(bufferIndex), uint32(flipMode), int64(flipArg))
+	newDcbSizeDW, err := gnmPatchPrepareFlip(dcbPtr, 64, videoOutHandle, bufferIndex, flipMode, flipArg)
 	if err != nil {
 		logger.Printf("%-132s %s failed due to gnmPatchPrepareFlip error (%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -295,7 +295,7 @@ func gnmPatchPrepareFlip(lastDcbAddress uintptr, lastDcbSizeDW, videoOutHandle, 
 
 	// Get the handle's label buffer base address to build the WRITE_DATA target.
 	var labelBase uintptr
-	labelResult := video_out.SceVideoOutGetBufferLabelAddress(uintptr(videoOutHandle), uintptr(unsafe.Pointer(&labelBase)))
+	labelResult := video_out.SceVideoOutGetBufferLabelAddress(videoOutHandle, &labelBase)
 	if labelResult != 0 || labelBase == 0 {
 		logger.Printf(
 			"%-132s %s skipping WRITE_DATA patch.\n",

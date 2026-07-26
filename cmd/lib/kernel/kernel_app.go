@@ -1,8 +1,6 @@
 package kernel
 
 import (
-	"unsafe"
-
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
 	"github.com/LamkasDev/sharkie/cmd/logger"
@@ -11,16 +9,14 @@ import (
 
 // 0x000000000001E060
 // __int64 __fastcall sceKernelGetAppInfo(int, _DWORD *)
-func libKernel_sceKernelGetAppInfo(processId int32, infoPtr uintptr) int64 {
-	if infoPtr == 0 {
+func libKernel_sceKernelGetAppInfo(processId int32, info *AppInfo) uintptr {
+	if info == nil {
 		logger.Printf("%-132s %s failed due to invalid info pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceKernelGetAppInfo"),
 		)
 		return SCE_KERNEL_ERROR_EINVAL
 	}
-
-	info := (*AppInfo)(unsafe.Pointer(infoPtr))
 	*info = *GlobalAppInfo
 
 	logger.Printf("%-132s %s returned app info.\n",

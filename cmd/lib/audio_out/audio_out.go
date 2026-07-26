@@ -19,6 +19,7 @@ func RegisterAudioOutStubs() {
 }
 
 func libSceAudioOut_stub() uintptr {
+	return 0
 	logger.Printf(
 		"%-132s hi from %s :3\n",
 		emu.GlobalModuleManager.GetCallSiteText(),

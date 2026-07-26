@@ -11,12 +11,12 @@ import (
 	"github.com/gookit/color"
 )
 
-func Pthread_mutex_unlock(mutexHandlePtr uintptr) uintptr {
+func Pthread_mutex_unlock(mutexHandlePtr *uintptr) uintptr {
 	return libScePosix_pthread_mutex_unlock(mutexHandlePtr)
 }
 
-func libScePosix_pthread_mutex_unlock(mutexHandlePtr uintptr) uintptr {
-	if mutexHandlePtr == 0 {
+func libScePosix_pthread_mutex_unlock(mutexHandlePtr *uintptr) uintptr {
+	if mutexHandlePtr == nil {
 		logger.Printf("%-132s %s failed due to invalid mutex pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("pthread_mutex_unlock"),
@@ -28,7 +28,7 @@ func libScePosix_pthread_mutex_unlock(mutexHandlePtr uintptr) uintptr {
 	// Try initializing a mutex, if it wasn't initialized yet.
 	thread := emu.GetCurrentThread()
 	threadPtr := (uintptr)(unsafe.Pointer(thread.Tcb.Thread))
-	mutexAddr := *(*uintptr)(unsafe.Pointer(mutexHandlePtr))
+	mutexAddr := *mutexHandlePtr
 	if mutexAddr <= ThrMutexDestroyed {
 		if mutexAddr == ThrMutexDestroyed {
 			logger.Printf("%-132s %s failed trying to unlock destroyed mutex.\n",

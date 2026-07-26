@@ -7,15 +7,21 @@ import (
 
 	"github.com/LamkasDev/sharkie/cmd/asm"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
-	"github.com/LamkasDev/sharkie/cmd/lib_structs/fs"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/app_content"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/fs"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/module"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/pad"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/save_data"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/semaphore"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/system_service"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/tcb"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/time"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/user"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/video"
 )
 
 func CreateDispatcher(goFn any) asm.StubDispatcher {
 	switch fn := goFn.(type) {
-	case func() int32:
-		return func(ctx *asm.RegContext) uintptr {
-			return uintptr(fn())
-		}
 	case func() int64:
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn())
@@ -28,117 +34,369 @@ func CreateDispatcher(goFn any) asm.StubDispatcher {
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn())
 		}
-	case func(uint32) uintptr:
+	case func(*LoginUserIdList) uintptr:
 		return func(ctx *asm.RegContext) uintptr {
-			return uintptr(fn(uint32(ctx.DI)))
+			return uintptr(fn((*LoginUserIdList)(unsafe.Pointer(ctx.DI))))
 		}
-	case func(uintptr) int32:
+	case func(*PSemaphore) uintptr:
 		return func(ctx *asm.RegContext) uintptr {
-			return uintptr(fn(ctx.DI))
+			return uintptr(fn((*PSemaphore)(unsafe.Pointer(ctx.DI))))
 		}
-	case func(uintptr) uintptr:
+	case func(*PSemaphore, *Timestamp) uintptr:
 		return func(ctx *asm.RegContext) uintptr {
-			return uintptr(fn(ctx.DI))
+			return uintptr(fn((*PSemaphore)(unsafe.Pointer(ctx.DI)), (*Timestamp)(unsafe.Pointer(ctx.SI))))
 		}
-	case func(fs.FileDescriptor) int32:
+	case func(*PSemaphore, uintptr, uintptr) uintptr:
 		return func(ctx *asm.RegContext) uintptr {
-			return uintptr(fn(fs.FileDescriptor(ctx.DI)))
+			return uintptr(fn((*PSemaphore)(unsafe.Pointer(ctx.DI)), ctx.SI, ctx.DX))
 		}
-	case func(fs.FileDescriptor) uintptr:
+	case func(*RtcDateTime) uintptr:
 		return func(ctx *asm.RegContext) uintptr {
-			return uintptr(fn(fs.FileDescriptor(ctx.DI)))
+			return uintptr(fn((*RtcDateTime)(unsafe.Pointer(ctx.DI))))
+		}
+	case func(*RtcDateTime, *RtcTick) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn((*RtcDateTime)(unsafe.Pointer(ctx.DI)), (*RtcTick)(unsafe.Pointer(ctx.SI))))
+		}
+	case func(*RtcTick) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn((*RtcTick)(unsafe.Pointer(ctx.DI))))
+		}
+	case func(*RtcTick, *RtcTick, int64) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn((*RtcTick)(unsafe.Pointer(ctx.DI)), (*RtcTick)(unsafe.Pointer(ctx.SI)), int64(ctx.DX)))
+		}
+	case func(*RtcTick, Cstring) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn((*RtcTick)(unsafe.Pointer(ctx.DI)), Cstring(ctx.SI)))
+		}
+	case func(*SaveDataDelete) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn((*SaveDataDelete)(unsafe.Pointer(ctx.DI))))
+		}
+	case func(*SaveDataDirNameSearchCond, *SaveDataDirNameSearchResult) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn((*SaveDataDirNameSearchCond)(unsafe.Pointer(ctx.DI)), (*SaveDataDirNameSearchResult)(unsafe.Pointer(ctx.SI))))
+		}
+	case func(*SaveDataMount, *SaveDataMountResult) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn((*SaveDataMount)(unsafe.Pointer(ctx.DI)), (*SaveDataMountResult)(unsafe.Pointer(ctx.SI))))
+		}
+	case func(*SaveDataMount2, *SaveDataMountResult) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn((*SaveDataMount2)(unsafe.Pointer(ctx.DI)), (*SaveDataMountResult)(unsafe.Pointer(ctx.SI))))
+		}
+	case func(*SystemServiceEvent) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn((*SystemServiceEvent)(unsafe.Pointer(ctx.DI))))
+		}
+	case func(*SystemServiceStatus) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn((*SystemServiceStatus)(unsafe.Pointer(ctx.DI))))
+		}
+	case func(*Timestamp, *Timestamp) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn((*Timestamp)(unsafe.Pointer(ctx.DI)), (*Timestamp)(unsafe.Pointer(ctx.SI))))
+		}
+	case func(*Timevalue) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn((*Timevalue)(unsafe.Pointer(ctx.DI))))
+		}
+	case func(*Timevalue, *Timezone) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn((*Timevalue)(unsafe.Pointer(ctx.DI)), (*Timezone)(unsafe.Pointer(ctx.SI))))
+		}
+	case func(*TlsIndex) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn((*TlsIndex)(unsafe.Pointer(ctx.DI))))
+		}
+	case func(*UserId) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn((*UserId)(unsafe.Pointer(ctx.DI))))
+		}
+	case func(*VideoOutBufferAttribute, uintptr, uintptr, uintptr, uint32, uint32, uint32) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			arg7 := *(*uint32)(unsafe.Add(unsafe.Pointer(ctx), asm.RegContextSize+8))
+			return uintptr(fn((*VideoOutBufferAttribute)(unsafe.Pointer(ctx.DI)), ctx.SI, ctx.DX, ctx.CX, uint32(ctx.R8), uint32(ctx.R9), arg7))
+		}
+	case func(*uintptr) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn((*uintptr)(unsafe.Pointer(ctx.DI))))
+		}
+	case func(*uintptr, *Timestamp) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn((*uintptr)(unsafe.Pointer(ctx.DI)), (*Timestamp)(unsafe.Pointer(ctx.SI))))
+		}
+	case func(*uintptr, *int32) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn((*uintptr)(unsafe.Pointer(ctx.DI)), (*int32)(unsafe.Pointer(ctx.SI))))
+		}
+	case func(*uintptr, *uintptr) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn((*uintptr)(unsafe.Pointer(ctx.DI)), (*uintptr)(unsafe.Pointer(ctx.SI))))
+		}
+	case func(*uintptr, *uintptr, *Timestamp) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn((*uintptr)(unsafe.Pointer(ctx.DI)), (*uintptr)(unsafe.Pointer(ctx.SI)), (*Timestamp)(unsafe.Pointer(ctx.DX))))
+		}
+	case func(*uintptr, *uintptr, Cstring) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn((*uintptr)(unsafe.Pointer(ctx.DI)), (*uintptr)(unsafe.Pointer(ctx.SI)), Cstring(ctx.DX)))
+		}
+	case func(*uintptr, *uintptr, uintptr) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn((*uintptr)(unsafe.Pointer(ctx.DI)), (*uintptr)(unsafe.Pointer(ctx.SI)), ctx.DX))
+		}
+	case func(*uintptr, Cstring) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn((*uintptr)(unsafe.Pointer(ctx.DI)), Cstring(ctx.SI)))
+		}
+	case func(*uintptr, uint64) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn((*uintptr)(unsafe.Pointer(ctx.DI)), uint64(ctx.SI)))
+		}
+	case func(*uintptr, uintptr) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn((*uintptr)(unsafe.Pointer(ctx.DI)), ctx.SI))
+		}
+	case func(AppContentAppParamId, uintptr) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(AppContentAppParamId(ctx.DI), ctx.SI))
+		}
+	case func(ClockId, *Timestamp) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(ClockId(ctx.DI), (*Timestamp)(unsafe.Pointer(ctx.SI))))
 		}
 	case func(Cstring) uintptr:
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn(Cstring(ctx.DI)))
 		}
-	case func(int, int) uintptr:
+	case func(Cstring, *FileStat) int32:
 		return func(ctx *asm.RegContext) uintptr {
-			return uintptr(fn(int(ctx.DI), int(ctx.SI)))
+			return uintptr(fn(Cstring(ctx.DI), (*FileStat)(unsafe.Pointer(ctx.SI))))
 		}
-	case func(uintptr, Cstring) uintptr:
+	case func(Cstring, *SaveDataIcon) uintptr:
 		return func(ctx *asm.RegContext) uintptr {
-			return uintptr(fn(ctx.DI, Cstring(ctx.SI)))
+			return uintptr(fn(Cstring(ctx.DI), (*SaveDataIcon)(unsafe.Pointer(ctx.SI))))
 		}
-	case func(uint32, uintptr) uintptr:
+	case func(Cstring, *SaveDataMountInfo) uintptr:
 		return func(ctx *asm.RegContext) uintptr {
-			return uintptr(fn(uint32(ctx.DI), ctx.SI))
-		}
-	case func(int32, uintptr) int64:
-		return func(ctx *asm.RegContext) uintptr {
-			return uintptr(fn(int32(ctx.DI), ctx.SI))
-		}
-	case func(int32, uintptr) uintptr:
-		return func(ctx *asm.RegContext) uintptr {
-			return uintptr(fn(int32(ctx.DI), ctx.SI))
-		}
-	case func(uint32, uint32) int64:
-		return func(ctx *asm.RegContext) uintptr {
-			return uintptr(fn(uint32(ctx.DI), uint32(ctx.SI)))
-		}
-	case func(uint32, uintptr) int32:
-		return func(ctx *asm.RegContext) uintptr {
-			return uintptr(fn(uint32(ctx.DI), ctx.SI))
-		}
-	case func(Cstring, int64) int32:
-		return func(ctx *asm.RegContext) uintptr {
-			return uintptr(fn(Cstring(ctx.DI), int64(ctx.SI)))
-		}
-	case func(Cstring, uintptr) int32:
-		return func(ctx *asm.RegContext) uintptr {
-			return uintptr(fn(Cstring(ctx.DI), ctx.SI))
-		}
-	case func(Cstring, uintptr) uintptr:
-		return func(ctx *asm.RegContext) uintptr {
-			return uintptr(fn(Cstring(ctx.DI), ctx.SI))
-		}
-	case func(fs.FileDescriptor, int64) int32:
-		return func(ctx *asm.RegContext) uintptr {
-			return uintptr(fn(fs.FileDescriptor(ctx.DI), int64(ctx.SI)))
-		}
-	case func(fs.FileDescriptor, uintptr) int32:
-		return func(ctx *asm.RegContext) uintptr {
-			return uintptr(fn(fs.FileDescriptor(ctx.DI), ctx.SI))
-		}
-	case func(uintptr, uint64) uintptr:
-		return func(ctx *asm.RegContext) uintptr {
-			return uintptr(fn(ctx.DI, uint64(ctx.SI)))
-		}
-	case func(uintptr, int32) uintptr:
-		return func(ctx *asm.RegContext) uintptr {
-			return uintptr(fn(ctx.DI, int32(ctx.SI)))
-		}
-	case func(uintptr, uintptr) uintptr:
-		return func(ctx *asm.RegContext) uintptr {
-			return uintptr(fn(ctx.DI, ctx.SI))
+			return uintptr(fn(Cstring(ctx.DI), (*SaveDataMountInfo)(unsafe.Pointer(ctx.SI))))
 		}
 	case func(Cstring, Cstring) uintptr:
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn(Cstring(ctx.DI), Cstring(ctx.SI)))
 		}
-	case func(fs.FileDescriptor, Cstring) uintptr:
+	case func(Cstring, FileFlags, FileMode) int32:
 		return func(ctx *asm.RegContext) uintptr {
-			return uintptr(fn(fs.FileDescriptor(ctx.DI), Cstring(ctx.SI)))
+			return uintptr(fn(Cstring(ctx.DI), FileFlags(ctx.SI), FileMode(ctx.DX)))
+		}
+	case func(Cstring, int64) int32:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(Cstring(ctx.DI), int64(ctx.SI)))
+		}
+	case func(Cstring, uintptr) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(Cstring(ctx.DI), ctx.SI))
+		}
+	case func(Cstring, uintptr, uintptr, uintptr) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(Cstring(ctx.DI), ctx.SI, ctx.DX, ctx.CX))
+		}
+	case func(Cstring, uintptr, uintptr, uintptr, uintptr, uintptr) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(Cstring(ctx.DI), ctx.SI, ctx.DX, ctx.CX, ctx.R8, ctx.R9))
+		}
+	case func(FileDescriptor) int32:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(FileDescriptor(ctx.DI)))
+		}
+	case func(FileDescriptor) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(FileDescriptor(ctx.DI)))
+		}
+	case func(FileDescriptor, *FileStat) int32:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(FileDescriptor(ctx.DI), (*FileStat)(unsafe.Pointer(ctx.SI))))
+		}
+	case func(FileDescriptor, Cstring) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(FileDescriptor(ctx.DI), Cstring(ctx.SI)))
+		}
+	case func(FileDescriptor, FileOperation, uintptr) int64:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(FileDescriptor(ctx.DI), FileOperation(ctx.SI), ctx.DX))
+		}
+	case func(FileDescriptor, int64) int32:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(FileDescriptor(ctx.DI), int64(ctx.SI)))
+		}
+	case func(FileDescriptor, int64, int32) int64:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(FileDescriptor(ctx.DI), int64(ctx.SI), int32(ctx.DX)))
+		}
+	case func(FileDescriptor, uint64, uintptr) int32:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(FileDescriptor(ctx.DI), uint64(ctx.SI), ctx.DX))
+		}
+	case func(FileDescriptor, uintptr, uint64) int64:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(FileDescriptor(ctx.DI), ctx.SI, uint64(ctx.DX)))
+		}
+	case func(FileDescriptor, uintptr, uint64, int64) int64:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(FileDescriptor(ctx.DI), ctx.SI, uint64(ctx.DX), int64(ctx.CX)))
+		}
+	case func(FileDescriptor, uintptr, uintptr, uintptr) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(FileDescriptor(ctx.DI), ctx.SI, ctx.DX, ctx.CX))
+		}
+	case func(UserId, *UserColor) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(UserId(ctx.DI), (*UserColor)(unsafe.Pointer(ctx.SI))))
+		}
+	case func(UserId, Cstring, uintptr) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(UserId(ctx.DI), Cstring(ctx.SI), ctx.DX))
+		}
+	case func(UserId, uintptr, uintptr, uintptr) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(UserId(ctx.DI), ctx.SI, ctx.DX, ctx.CX))
+		}
+	case func(int, int) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(int(ctx.DI), int(ctx.SI)))
 		}
 	case func(int, int, int) uintptr:
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn(int(ctx.DI), int(ctx.SI), int(ctx.DX)))
 		}
-	case func(int32, uintptr, uintptr) uintptr:
+	case func(int32, *AppInfo) uintptr:
 		return func(ctx *asm.RegContext) uintptr {
-			return uintptr(fn(int32(ctx.DI), ctx.SI, ctx.DX))
+			return uintptr(fn(int32(ctx.DI), (*AppInfo)(unsafe.Pointer(ctx.SI))))
+		}
+	case func(uint32) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(uint32(ctx.DI)))
+		}
+	case func(uint32, *PadControllerInformation) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(uint32(ctx.DI), (*PadControllerInformation)(unsafe.Pointer(ctx.SI))))
+		}
+	case func(uint32, *PadData, uintptr) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(uint32(ctx.DI), (*PadData)(unsafe.Pointer(ctx.SI)), ctx.DX))
+		}
+	case func(uint32, *uintptr) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(uint32(ctx.DI), (*uintptr)(unsafe.Pointer(ctx.SI))))
+		}
+	case func(uint32, uint32) int64:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(uint32(ctx.DI), uint32(ctx.SI)))
 		}
 	case func(uint32, uint32, uintptr) int64:
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn(uint32(ctx.DI), uint32(ctx.SI), ctx.DX))
 		}
-	case func(uintptr, uintptr, Cstring) uintptr:
+	case func(uint32, uint32, uintptr, uintptr, uintptr, uintptr) int64:
 		return func(ctx *asm.RegContext) uintptr {
-			return uintptr(fn(ctx.DI, ctx.SI, Cstring(ctx.DX)))
+			return uintptr(fn(uint32(ctx.DI), uint32(ctx.SI), ctx.DX, ctx.CX, ctx.R8, ctx.R9))
 		}
-	case func(Cstring, FileFlags, FileMode) int32:
+	case func(uint32, uint32, uintptr, uintptr, uintptr, uintptr, uint32, uint32, uint32, int64) int64:
 		return func(ctx *asm.RegContext) uintptr {
-			return uintptr(fn(Cstring(ctx.DI), FileFlags(ctx.SI), FileMode(ctx.DX)))
+			arg7 := *(*uint32)(unsafe.Add(unsafe.Pointer(ctx), asm.RegContextSize+8))
+			arg8 := *(*uint32)(unsafe.Add(unsafe.Pointer(ctx), asm.RegContextSize+16))
+			arg9 := *(*uint32)(unsafe.Add(unsafe.Pointer(ctx), asm.RegContextSize+24))
+			arg10 := *(*int64)(unsafe.Add(unsafe.Pointer(ctx), asm.RegContextSize+32))
+			return uintptr(fn(uint32(ctx.DI), uint32(ctx.SI), ctx.DX, ctx.CX, ctx.R8, ctx.R9, arg7, arg8, arg9, arg10))
+		}
+	case func(uint32, uintptr) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(uint32(ctx.DI), ctx.SI))
+		}
+	case func(uint32, uintptr, *VideoOutBufferAttribute) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(uint32(ctx.DI), ctx.SI, (*VideoOutBufferAttribute)(unsafe.Pointer(ctx.DX))))
+		}
+	case func(uint32, uintptr, uintptr, uintptr, *VideoOutBufferAttribute) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(uint32(ctx.DI), ctx.SI, ctx.DX, ctx.CX, (*VideoOutBufferAttribute)(unsafe.Pointer(ctx.R8))))
+		}
+	case func(uint32, uintptr, uintptr, uintptr, uintptr) int64:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(uint32(ctx.DI), ctx.SI, ctx.DX, ctx.CX, ctx.R8))
+		}
+	case func(uint32, uintptr, uintptr, uintptr, uintptr, uint32, uint32, uint32, int64) int64:
+		return func(ctx *asm.RegContext) uintptr {
+			arg7 := *(*uint32)(unsafe.Add(unsafe.Pointer(ctx), asm.RegContextSize+8))
+			arg8 := *(*uint32)(unsafe.Add(unsafe.Pointer(ctx), asm.RegContextSize+16))
+			arg9 := *(*int64)(unsafe.Add(unsafe.Pointer(ctx), asm.RegContextSize+24))
+			return uintptr(fn(uint32(ctx.DI), ctx.SI, ctx.DX, ctx.CX, ctx.R8, uint32(ctx.R9), arg7, arg8, arg9))
+		}
+	case func(uintptr) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(ctx.DI))
+		}
+	case func(uintptr, *ModuleInfo) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(ctx.DI, (*ModuleInfo)(unsafe.Pointer(ctx.SI))))
+		}
+	case func(uintptr, *ThreadAffinityMask) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(ctx.DI, (*ThreadAffinityMask)(unsafe.Pointer(ctx.SI))))
+		}
+	case func(uintptr, *ThreadSignalMask, *ThreadSignalMask) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(ctx.DI, (*ThreadSignalMask)(unsafe.Pointer(ctx.SI)), (*ThreadSignalMask)(unsafe.Pointer(ctx.DX))))
+		}
+	case func(uintptr, *VideoOutFlipStatus) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(ctx.DI, (*VideoOutFlipStatus)(unsafe.Pointer(ctx.SI))))
+		}
+	case func(uintptr, *VideoOutResolutionStatus) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(ctx.DI, (*VideoOutResolutionStatus)(unsafe.Pointer(ctx.SI))))
+		}
+	case func(uintptr, *VideoOutVblankStatus) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(ctx.DI, (*VideoOutVblankStatus)(unsafe.Pointer(ctx.SI))))
+		}
+	case func(uintptr, *uintptr) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(ctx.DI, (*uintptr)(unsafe.Pointer(ctx.SI))))
+		}
+	case func(uintptr, *uintptr, uintptr, uintptr) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(ctx.DI, (*uintptr)(unsafe.Pointer(ctx.SI)), ctx.DX, ctx.CX))
+		}
+	case func(uintptr, *uintptr, uintptr, uintptr, Cstring) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(ctx.DI, (*uintptr)(unsafe.Pointer(ctx.SI)), ctx.DX, ctx.CX, Cstring(ctx.R8)))
+		}
+	case func(uintptr, Cstring) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(ctx.DI, Cstring(ctx.SI)))
+		}
+	case func(uintptr, Cstring, uint32, int32, int32, uintptr) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(ctx.DI, Cstring(ctx.SI), uint32(ctx.DX), int32(ctx.CX), int32(ctx.R8), ctx.R9))
+		}
+	case func(uintptr, Cstring, uintptr, uintptr, uintptr) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(ctx.DI, Cstring(ctx.SI), ctx.DX, ctx.CX, ctx.R8))
+		}
+	case func(uintptr, int32) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(ctx.DI, int32(ctx.SI)))
+		}
+	case func(uintptr, int32, *Timeout) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(ctx.DI, int32(ctx.SI), (*Timeout)(unsafe.Pointer(ctx.DX))))
+		}
+	case func(uintptr, uint64) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(ctx.DI, uint64(ctx.SI)))
 		}
 	case func(uintptr, uint64, Cstring) uintptr:
 		return func(ctx *asm.RegContext) uintptr {
@@ -148,143 +406,92 @@ func CreateDispatcher(goFn any) asm.StubDispatcher {
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn(ctx.DI, uint64(ctx.SI), int32(ctx.DX)))
 		}
-	case func(uintptr, int32, uintptr) uintptr:
-		return func(ctx *asm.RegContext) uintptr {
-			return uintptr(fn(ctx.DI, int32(ctx.SI), ctx.DX))
-		}
-	case func(uintptr, uintptr, uintptr) uintptr:
-		return func(ctx *asm.RegContext) uintptr {
-			return uintptr(fn(ctx.DI, ctx.SI, ctx.DX))
-		}
-	case func(uintptr, uintptr, int64) uintptr:
-		return func(ctx *asm.RegContext) uintptr {
-			return uintptr(fn(ctx.DI, ctx.SI, int64(ctx.DX)))
-		}
-	case func(fs.FileDescriptor, FileOperation, uintptr) int64:
-		return func(ctx *asm.RegContext) uintptr {
-			return uintptr(fn(fs.FileDescriptor(ctx.DI), FileOperation(ctx.SI), ctx.DX))
-		}
-	case func(fs.FileDescriptor, uintptr, uint64, int64) int64:
-		return func(ctx *asm.RegContext) uintptr {
-			return uintptr(fn(fs.FileDescriptor(ctx.DI), ctx.SI, uint64(ctx.DX), int64(ctx.CX)))
-		}
-	case func(fs.FileDescriptor, uint64, uintptr) int32:
-		return func(ctx *asm.RegContext) uintptr {
-			return uintptr(fn(fs.FileDescriptor(ctx.DI), uint64(ctx.SI), ctx.DX))
-		}
-	case func(fs.FileDescriptor, uintptr, uint64) int64:
-		return func(ctx *asm.RegContext) uintptr {
-			return uintptr(fn(fs.FileDescriptor(ctx.DI), ctx.SI, uint64(ctx.DX)))
-		}
-	case func(fs.FileDescriptor, int64, int32) int64:
-		return func(ctx *asm.RegContext) uintptr {
-			return uintptr(fn(fs.FileDescriptor(ctx.DI), int64(ctx.SI), int32(ctx.DX)))
-		}
-	case func(fs.FileDescriptor, uintptr, uintptr, uintptr) uintptr:
-		return func(ctx *asm.RegContext) uintptr {
-			return uintptr(fn(fs.FileDescriptor(ctx.DI), ctx.SI, ctx.DX, ctx.CX))
-		}
-	case func(Cstring, uintptr, uintptr, uintptr) uintptr:
-		return func(ctx *asm.RegContext) uintptr {
-			return uintptr(fn(Cstring(ctx.DI), ctx.SI, ctx.DX, ctx.CX))
-		}
 	case func(uintptr, uint64, int32, int32) uintptr:
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn(ctx.DI, uint64(ctx.SI), int32(ctx.DX), int32(ctx.CX)))
-		}
-	case func(uintptr, uint64, uint32, uintptr) uintptr:
-		return func(ctx *asm.RegContext) uintptr {
-			return uintptr(fn(ctx.DI, uint64(ctx.SI), uint32(ctx.DX), ctx.CX))
-		}
-	case func(uintptr, uintptr, uintptr, uintptr) uintptr:
-		return func(ctx *asm.RegContext) uintptr {
-			return uintptr(fn(ctx.DI, ctx.SI, ctx.DX, ctx.CX))
-		}
-	case func(uintptr, uint64, int32, uint64) uintptr:
-		return func(ctx *asm.RegContext) uintptr {
-			return uintptr(fn(ctx.DI, uint64(ctx.SI), int32(ctx.DX), uint64(ctx.CX)))
-		}
-	case func(uint32, uintptr, uintptr, uintptr, uintptr) int64:
-		return func(ctx *asm.RegContext) uintptr {
-			return uintptr(fn(uint32(ctx.DI), ctx.SI, ctx.DX, ctx.CX, ctx.R8))
-		}
-	case func(uintptr, uintptr, uintptr, uintptr, Cstring) uintptr:
-		return func(ctx *asm.RegContext) uintptr {
-			return uintptr(fn(ctx.DI, ctx.SI, ctx.DX, ctx.CX, Cstring(ctx.R8)))
-		}
-	case func(uintptr, Cstring, uintptr, uintptr, uintptr) uintptr:
-		return func(ctx *asm.RegContext) uintptr {
-			return uintptr(fn(ctx.DI, Cstring(ctx.SI), ctx.DX, ctx.CX, ctx.R8))
 		}
 	case func(uintptr, uint64, int32, int32, Cstring) uintptr:
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn(ctx.DI, uint64(ctx.SI), int32(ctx.DX), int32(ctx.CX), Cstring(ctx.R8)))
 		}
-	case func(uintptr, uint64, uint32, uintptr, uintptr) uintptr:
+	case func(uintptr, uint64, int32, int32, FileDescriptor, uintptr) uintptr:
 		return func(ctx *asm.RegContext) uintptr {
-			return uintptr(fn(ctx.DI, uint64(ctx.SI), uint32(ctx.DX), ctx.CX, ctx.R8))
+			return uintptr(fn(ctx.DI, uint64(ctx.SI), int32(ctx.DX), int32(ctx.CX), FileDescriptor(ctx.R8), ctx.R9))
 		}
-	case func(uintptr, uintptr, uintptr, uintptr, uintptr) uintptr:
+	case func(uintptr, uint64, int32, int32, FileDescriptor, uintptr, uintptr) uintptr:
 		return func(ctx *asm.RegContext) uintptr {
-			return uintptr(fn(ctx.DI, ctx.SI, ctx.DX, ctx.CX, ctx.R8))
-		}
-	case func(uint32, uint32, uintptr, uintptr, uintptr, uintptr) int64:
-		return func(ctx *asm.RegContext) uintptr {
-			return uintptr(fn(uint32(ctx.DI), uint32(ctx.SI), ctx.DX, ctx.CX, ctx.R8, ctx.R9))
-		}
-	case func(Cstring, uintptr, uintptr, uintptr, uintptr, uintptr) uintptr:
-		return func(ctx *asm.RegContext) uintptr {
-			return uintptr(fn(Cstring(ctx.DI), ctx.SI, ctx.DX, ctx.CX, ctx.R8, ctx.R9))
-		}
-	case func(uintptr, Cstring, uintptr, uintptr, uintptr, uintptr) uintptr:
-		return func(ctx *asm.RegContext) uintptr {
-			return uintptr(fn(ctx.DI, Cstring(ctx.SI), ctx.DX, ctx.CX, ctx.R8, ctx.R9))
+			arg7 := *(*uintptr)(unsafe.Add(unsafe.Pointer(ctx), asm.RegContextSize+8))
+			return uintptr(fn(ctx.DI, uint64(ctx.SI), int32(ctx.DX), int32(ctx.CX), FileDescriptor(ctx.R8), ctx.R9, arg7))
 		}
 	case func(uintptr, uint64, int32, int32, uintptr, uintptr) uintptr:
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn(ctx.DI, uint64(ctx.SI), int32(ctx.DX), int32(ctx.CX), ctx.R8, ctx.R9))
-		}
-	case func(uintptr, uint64, int32, int32, fs.FileDescriptor, uintptr) uintptr:
-		return func(ctx *asm.RegContext) uintptr {
-			return uintptr(fn(ctx.DI, uint64(ctx.SI), int32(ctx.DX), int32(ctx.CX), fs.FileDescriptor(ctx.R8), ctx.R9))
-		}
-	case func(uintptr, uintptr, uint64, uint64, int32, uintptr) uintptr:
-		return func(ctx *asm.RegContext) uintptr {
-			return uintptr(fn(ctx.DI, ctx.SI, uint64(ctx.DX), uint64(ctx.CX), int32(ctx.R8), ctx.R9))
-		}
-	case func(uintptr, Cstring, uint32, int32, int32, uintptr) uintptr:
-		return func(ctx *asm.RegContext) uintptr {
-			return uintptr(fn(ctx.DI, Cstring(ctx.SI), uint32(ctx.DX), int32(ctx.CX), int32(ctx.R8), ctx.R9))
-		}
-	case func(uintptr, uintptr, uintptr, uintptr, uintptr, uintptr) uintptr:
-		return func(ctx *asm.RegContext) uintptr {
-			return uintptr(fn(ctx.DI, ctx.SI, ctx.DX, ctx.CX, ctx.R8, ctx.R9))
-		}
-	case func(uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, Cstring) uintptr:
-		return func(ctx *asm.RegContext) uintptr {
-			arg7 := *(*Cstring)(unsafe.Add(unsafe.Pointer(ctx), asm.RegContextSize+8))
-			return uintptr(fn(ctx.DI, ctx.SI, ctx.DX, ctx.CX, ctx.R8, ctx.R9, arg7))
-		}
-	case func(uintptr, uint64, int32, int32, fs.FileDescriptor, uintptr, uintptr) uintptr:
-		return func(ctx *asm.RegContext) uintptr {
-			arg7 := *(*uintptr)(unsafe.Add(unsafe.Pointer(ctx), asm.RegContextSize+8))
-			return uintptr(fn(ctx.DI, uint64(ctx.SI), int32(ctx.DX), int32(ctx.CX), fs.FileDescriptor(ctx.R8), ctx.R9, arg7))
 		}
 	case func(uintptr, uint64, int32, int32, uintptr, uintptr, Cstring) uintptr:
 		return func(ctx *asm.RegContext) uintptr {
 			arg7 := *(*Cstring)(unsafe.Add(unsafe.Pointer(ctx), asm.RegContextSize+8))
 			return uintptr(fn(ctx.DI, uint64(ctx.SI), int32(ctx.DX), int32(ctx.CX), ctx.R8, ctx.R9, arg7))
 		}
-	case func(uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr) uintptr:
+	case func(uintptr, uint64, uint32, uintptr) uintptr:
 		return func(ctx *asm.RegContext) uintptr {
-			arg7 := *(*uintptr)(unsafe.Add(unsafe.Pointer(ctx), asm.RegContextSize+8))
-			return uintptr(fn(ctx.DI, ctx.SI, ctx.DX, ctx.CX, ctx.R8, ctx.R9, arg7))
+			return uintptr(fn(ctx.DI, uint64(ctx.SI), uint32(ctx.DX), ctx.CX))
 		}
-	case func(uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr) uintptr:
+	case func(uintptr, uint64, uint32, uintptr, *Timeout) uintptr:
 		return func(ctx *asm.RegContext) uintptr {
-			arg7 := *(*uintptr)(unsafe.Add(unsafe.Pointer(ctx), asm.RegContextSize+8))
-			arg8 := *(*uintptr)(unsafe.Add(unsafe.Pointer(ctx), asm.RegContextSize+16))
-			return uintptr(fn(ctx.DI, ctx.SI, ctx.DX, ctx.CX, ctx.R8, ctx.R9, arg7, arg8))
+			return uintptr(fn(ctx.DI, uint64(ctx.SI), uint32(ctx.DX), ctx.CX, (*Timeout)(unsafe.Pointer(ctx.R8))))
+		}
+	case func(uintptr, uintptr) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(ctx.DI, ctx.SI))
+		}
+	case func(uintptr, uintptr, *ModuleInfoForUnwind) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(ctx.DI, ctx.SI, (*ModuleInfoForUnwind)(unsafe.Pointer(ctx.DX))))
+		}
+	case func(uintptr, uintptr, *ThreadCpuSet) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(ctx.DI, ctx.SI, (*ThreadCpuSet)(unsafe.Pointer(ctx.DX))))
+		}
+	case func(uintptr, uintptr, uint32, uint32, uint32, int64) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(ctx.DI, ctx.SI, uint32(ctx.DX), uint32(ctx.CX), uint32(ctx.R8), int64(ctx.R9)))
+		}
+	case func(uintptr, uintptr, uint64, uint64, int32, uintptr) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(ctx.DI, ctx.SI, uint64(ctx.DX), uint64(ctx.CX), int32(ctx.R8), ctx.R9))
+		}
+	case func(uintptr, uintptr, uintptr) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(ctx.DI, ctx.SI, ctx.DX))
+		}
+	case func(uintptr, uintptr, uintptr, uint32, uint32, uint32, int64) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			arg7 := *(*int64)(unsafe.Add(unsafe.Pointer(ctx), asm.RegContextSize+8))
+			return uintptr(fn(ctx.DI, ctx.SI, ctx.DX, uint32(ctx.CX), uint32(ctx.R8), uint32(ctx.R9), arg7))
+		}
+	case func(uintptr, uintptr, uintptr, uintptr) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(ctx.DI, ctx.SI, ctx.DX, ctx.CX))
+		}
+	case func(uintptr, uintptr, uintptr, uintptr, *Timeout) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(ctx.DI, ctx.SI, ctx.DX, ctx.CX, (*Timeout)(unsafe.Pointer(ctx.R8))))
+		}
+	case func(uintptr, uintptr, uintptr, uintptr, *uint64) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(ctx.DI, ctx.SI, ctx.DX, ctx.CX, (*uint64)(unsafe.Pointer(ctx.R8))))
+		}
+	case func(uintptr, uintptr, uintptr, uintptr, uintptr) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(ctx.DI, ctx.SI, ctx.DX, ctx.CX, ctx.R8))
+		}
+	case func(uintptr, uintptr, uintptr, uintptr, uintptr, *Timestamp) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(ctx.DI, ctx.SI, ctx.DX, ctx.CX, ctx.R8, (*Timestamp)(unsafe.Pointer(ctx.R9))))
+		}
+	case func(uintptr, uintptr, uintptr, uintptr, uintptr, uintptr) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(ctx.DI, ctx.SI, ctx.DX, ctx.CX, ctx.R8, ctx.R9))
 		}
 	case func(uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, Cstring, uintptr) uintptr:
 		return func(ctx *asm.RegContext) uintptr {
@@ -292,28 +499,6 @@ func CreateDispatcher(goFn any) asm.StubDispatcher {
 			arg8 := *(*Cstring)(unsafe.Add(unsafe.Pointer(ctx), asm.RegContextSize+16))
 			arg9 := *(*uintptr)(unsafe.Add(unsafe.Pointer(ctx), asm.RegContextSize+24))
 			return uintptr(fn(ctx.DI, ctx.SI, ctx.DX, ctx.CX, ctx.R8, ctx.R9, arg7, arg8, arg9))
-		}
-	case func(uint32, uintptr, uintptr, uintptr, uintptr, uint32, uint32, uint32, int64) int64:
-		return func(ctx *asm.RegContext) uintptr {
-			arg7 := *(*uint32)(unsafe.Add(unsafe.Pointer(ctx), asm.RegContextSize+8))
-			arg8 := *(*uint32)(unsafe.Add(unsafe.Pointer(ctx), asm.RegContextSize+16))
-			arg9 := *(*int64)(unsafe.Add(unsafe.Pointer(ctx), asm.RegContextSize+24))
-			return uintptr(fn(uint32(ctx.DI), ctx.SI, ctx.DX, ctx.CX, ctx.R8, uint32(ctx.R9), arg7, arg8, arg9))
-		}
-	case func(uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr) uintptr:
-		return func(ctx *asm.RegContext) uintptr {
-			arg7 := *(*uintptr)(unsafe.Add(unsafe.Pointer(ctx), asm.RegContextSize+8))
-			arg8 := *(*uintptr)(unsafe.Add(unsafe.Pointer(ctx), asm.RegContextSize+16))
-			arg9 := *(*uintptr)(unsafe.Add(unsafe.Pointer(ctx), asm.RegContextSize+24))
-			return uintptr(fn(ctx.DI, ctx.SI, ctx.DX, ctx.CX, ctx.R8, ctx.R9, arg7, arg8, arg9))
-		}
-	case func(uint32, uint32, uintptr, uintptr, uintptr, uintptr, uint32, uint32, uint32, int64) int64:
-		return func(ctx *asm.RegContext) uintptr {
-			arg7 := *(*uint32)(unsafe.Add(unsafe.Pointer(ctx), asm.RegContextSize+8))
-			arg8 := *(*uint32)(unsafe.Add(unsafe.Pointer(ctx), asm.RegContextSize+16))
-			arg9 := *(*uint32)(unsafe.Add(unsafe.Pointer(ctx), asm.RegContextSize+24))
-			arg10 := *(*int64)(unsafe.Add(unsafe.Pointer(ctx), asm.RegContextSize+32))
-			return uintptr(fn(uint32(ctx.DI), uint32(ctx.SI), ctx.DX, ctx.CX, ctx.R8, ctx.R9, arg7, arg8, arg9, arg10))
 		}
 	case func(uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr) uintptr:
 		return func(ctx *asm.RegContext) uintptr {

@@ -11,13 +11,13 @@ import (
 	"github.com/gookit/color"
 )
 
-func Kevent(equeueHandle, changelistPtr, nchanges, eventlistPtr, nevents, timestampPtr uintptr) uintptr {
-	return libKernel_kevent(equeueHandle, changelistPtr, nchanges, eventlistPtr, nevents, timestampPtr)
+func Kevent(equeueHandle, changelistPtr, nchanges, eventlistPtr, nevents uintptr, timestamp *Timestamp) uintptr {
+	return libKernel_kevent(equeueHandle, changelistPtr, nchanges, eventlistPtr, nevents, timestamp)
 }
 
 // 0x00000000000013B0
 // __int64 __fastcall kevent()
-func libKernel_kevent(equeueHandle, changelistPtr, nchanges, eventlistPtr, nevents, timestampPtr uintptr) uintptr {
+func libKernel_kevent(equeueHandle, changelistPtr, nchanges, eventlistPtr, nevents uintptr, timestamp *Timestamp) uintptr {
 	equeue := GetEqueue(equeueHandle)
 	if equeue == nil {
 		logger.Printf("%-132s %s failed due to unknown equeue %s.\n",
@@ -37,7 +37,7 @@ func libKernel_kevent(equeueHandle, changelistPtr, nchanges, eventlistPtr, neven
 	}
 
 	if eventlistPtr != 0 && nevents > 0 {
-		return processKeventWait(equeue, eventlistPtr, nevents, timestampPtr)
+		return processKeventWait(equeue, eventlistPtr, nevents, timestamp)
 	}
 
 	return 0
@@ -67,10 +67,9 @@ func processKeventChange(equeue *Equeue, event KernelEvent) {
 	)
 }
 
-func processKeventWait(equeue *Equeue, eventlistPtr, nevents, timestampPtr uintptr) uintptr {
+func processKeventWait(equeue *Equeue, eventlistPtr, nevents uintptr, timestamp *Timestamp) uintptr {
 	timeout := time.Duration(-1)
-	if timestampPtr != 0 {
-		timestamp := (*Timestamp)(unsafe.Pointer(timestampPtr))
+	if timestamp != nil {
 		timeout = time.Duration(timestamp.Seconds)*time.Second +
 			time.Duration(timestamp.Nanoseconds)*time.Nanosecond
 	}

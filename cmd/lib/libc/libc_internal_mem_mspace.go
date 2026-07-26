@@ -60,7 +60,7 @@ func libSceLibcInternal_sceLibcMspaceMalloc(handle, size uintptr) uintptr {
 	GlobalMspaceAllocator.Lock.Lock()
 	defer GlobalMspaceAllocator.Lock.Unlock()
 	if mspace, ok := GlobalMspaceAllocator.Mspaces[handle]; ok {
-		address, err := mspace.Alloc(16, size)
+		address, err := mspace.Alloc(AllocationAlignment, size)
 		if err != nil {
 			logger.Printf("%-132s %s failed due to alloc error (%s).\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
@@ -82,7 +82,7 @@ func libSceLibcInternal_sceLibcMspaceCalloc(handle, nmemb, size uintptr) uintptr
 	defer GlobalMspaceAllocator.Lock.Unlock()
 	total := nmemb * size
 	if mspace, ok := GlobalMspaceAllocator.Mspaces[handle]; ok {
-		address, err := mspace.Alloc(16, total)
+		address, err := mspace.Alloc(AllocationAlignment, total)
 		if err != nil {
 			logger.Printf("%-132s %s failed due to alloc error (%s).\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
@@ -122,7 +122,7 @@ func libSceLibcInternal_sceLibcMspaceRealloc(handle, ptr, newSize uintptr) uintp
 	GlobalMspaceAllocator.Lock.Lock()
 	defer GlobalMspaceAllocator.Lock.Unlock()
 	if mspace, ok := GlobalMspaceAllocator.Mspaces[handle]; ok {
-		newAddress, err := mspace.Alloc(16, newSize)
+		newAddress, err := mspace.Alloc(AllocationAlignment, newSize)
 		if err != nil {
 			logger.Printf("%-132s %s failed due to alloc error (%s).\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
