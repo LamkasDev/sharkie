@@ -12,7 +12,6 @@ import (
 	symbol "github.com/LamkasDev/sharkie/cmd/elf_symbol"
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	"github.com/LamkasDev/sharkie/cmd/lib"
-	"github.com/LamkasDev/sharkie/cmd/lib/libc"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/app_content"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/audio"
@@ -21,8 +20,10 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/gc"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/gpu"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/ipmi"
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/libc"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/net"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/pad"
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/posix"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/rng"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/save_data"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/semaphore"
@@ -48,7 +49,9 @@ func SetupEmulatorHost() error {
 	asm.AllocTlsSlots()
 	emu.SetupSignalHandler()
 	structs.SetupMemoryManagerSignalHandler()
-	lib_structs.SetupAllocator()
+	posix.SetupAllocator()
+	libc.SetupGoAllocator()
+	libc.SetupMspaceAllocator()
 
 	if err := app.SetupApplication(); err != nil {
 		return err
@@ -84,7 +87,6 @@ func SetupEmulatorGuest(gameNameOrPath string) error {
 	logger.Printf("launched game name/path: %s\n", config.GameDirectory)
 
 	// Setup guest stuff.
-	libc.SetupMspaceAllocator()
 	semaphore.SetupSemaphores()
 	lib_structs.SetupEventFlags()
 	fs.SetupFilesystem()

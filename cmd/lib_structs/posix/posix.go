@@ -1,4 +1,4 @@
-package lib_structs
+package posix
 
 import (
 	"encoding/binary"

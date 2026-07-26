@@ -44,6 +44,12 @@ func libc_realloc(ptr, newSize uintptr) uintptr {
 	return libSceLibcInternal_realloc(ptr, newSize)
 }
 
+// 0x00000000000279A0
+// __int64 memalign()
+func libc_memalign(alignment, size uintptr) uintptr {
+	return libSceLibcInternal_memalign(alignment, size)
+}
+
 // 0x0000000000030FB0
 // __int64 __fastcall sceLibcMspaceMalloc(int *, char *, __m128, __int64, __int64, char *)
 func libc_sceLibcMspaceMalloc(mspace, size uintptr) uintptr {

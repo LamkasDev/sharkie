@@ -7,6 +7,7 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	"github.com/LamkasDev/sharkie/cmd/lib/posix"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/posix"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
 )
@@ -21,7 +22,7 @@ func libKernel_sceKernelMapNamedFlexibleMemory(addrPtr uintptr, length uint64, p
 
 	addrSlice := unsafe.Slice((*byte)(unsafe.Pointer(addrPtr)), 8)
 	addr := uintptr(binary.LittleEndian.Uint64(addrSlice))
-	if libKernel_mname(addr, length, namePtr) == ERR_PTR {
+	if posix.Mname(addr, length, namePtr) == ERR_PTR {
 		return emu.GetErrno() - SonyErrorOffset
 	}
 
@@ -77,7 +78,7 @@ func libKernel_sceKernelMapNamedSystemFlexibleMemory(addrPtr uintptr, length uin
 	}
 
 	WriteAddress(addrPtr, allocatedAddr)
-	if libKernel_mname(allocatedAddr, length, namePtr) == ERR_PTR {
+	if posix.Mname(allocatedAddr, length, namePtr) == ERR_PTR {
 		return emu.GetErrno() - SonyErrorOffset
 	}
 	logger.Printf("%-132s %s stored pointer at %s.\n",

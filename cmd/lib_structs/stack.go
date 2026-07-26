@@ -3,6 +3,8 @@ package lib_structs
 import (
 	"encoding/binary"
 	"unsafe"
+
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/posix"
 )
 
 const StackAlignment = 8

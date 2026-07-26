@@ -1,6 +1,6 @@
 //go:build windows
 
-package lib_structs
+package posix
 
 import (
 	"fmt"

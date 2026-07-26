@@ -1,7 +1,7 @@
 package translation
 
 import (
-	"github.com/LamkasDev/sharkie/cmd/lib_structs"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/posix"
 	"github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/LamkasDev/sharkie/cmd/vulkan"
 )
@@ -41,7 +41,7 @@ func (t *GpuTranslator) IsGpuMapped(address, size uintptr) bool {
 
 	structs.GlobalMemoryManager.Lock.Lock()
 	defer structs.GlobalMemoryManager.Lock.Unlock()
-	for addr := address >> lib_structs.SystemPageShift; (addr << lib_structs.SystemPageShift) < end; addr++ {
+	for addr := address >> SystemPageShift; (addr << SystemPageShift) < end; addr++ {
 		if page, ok := structs.GlobalMemoryManager.Pages[addr]; ok && page.Mapped {
 			return true
 		}

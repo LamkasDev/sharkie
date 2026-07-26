@@ -4,6 +4,7 @@ import (
 	"unsafe"
 
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/libc"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/pthread"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/tcb"
 	"github.com/LamkasDev/sharkie/cmd/linker"

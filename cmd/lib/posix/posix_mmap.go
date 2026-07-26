@@ -4,9 +4,9 @@ import (
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
-	"github.com/LamkasDev/sharkie/cmd/lib_structs"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/fs"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/posix"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
 )
@@ -160,7 +160,7 @@ func libScePosix_mmap(addr uintptr, length uint64, prot, flags int32, fd FileDes
 		}
 	}
 
-	lib_structs.HookMap(allocatedAddr, allocatedLength, prot)
+	HookMap(allocatedAddr, allocatedLength, prot)
 
 	logger.Printf("%-132s %s allocated %s bytes at %s (addr=%s, length=%s, prot=%s, flags=%s, fd=%s, offset=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
@@ -192,7 +192,7 @@ func libScePosix_munmap(addr uintptr, length uint64) uintptr {
 		return ERR_PTR
 	}
 
-	lib_structs.HookUnmap(addr, uintptr(length))
+	HookUnmap(addr, uintptr(length))
 
 	_, err := FreeKernelMemory(addr, length)
 	if err != nil {
@@ -212,6 +212,33 @@ func libScePosix_munmap(addr uintptr, length uint64) uintptr {
 		color.Magenta.Sprint("munmap"),
 		color.Yellow.Sprintf("0x%X", length),
 		color.Yellow.Sprintf("0x%X", addr),
+	)
+	return 0
+}
+
+func Mname(addr uintptr, length uint64, namePtr Cstring) uintptr {
+	return libScePosix_mname(addr, length, namePtr)
+}
+
+func libScePosix_mname(addr uintptr, length uint64, namePtr Cstring) uintptr {
+	// Perform initial pointer checks.
+	if addr == 0 {
+		emu.SetErrno(EINVAL)
+		return ERR_PTR
+	}
+
+	name := "unnamed"
+	if namePtr != nil {
+		name = GoString(namePtr)
+	}
+
+	// TODO: actually name the regions.
+	logger.Printf("%-132s %s marked %s bytes at %s as %s.\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("mname"),
+		color.Yellow.Sprintf("0x%X", length),
+		color.Yellow.Sprintf("0x%X", addr),
+		color.Blue.Sprintf(name),
 	)
 	return 0
 }

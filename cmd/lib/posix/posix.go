@@ -59,6 +59,7 @@ func RegisterPosixStubs() {
 	RegisterPosixStub("mmap", libScePosix_mmap)
 	RegisterPosixStub("mmap_0", libScePosix_mmap)
 	RegisterPosixStub("munmap", libScePosix_munmap)
+	RegisterPosixStub("mname", libScePosix_mname)
 }
 
 // We need these functions to be available in kernel; libraries take them from there.

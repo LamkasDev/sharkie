@@ -4,6 +4,8 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/elf"
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/libc"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/posix"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
 )
@@ -49,7 +51,6 @@ func RegisterKernelStubs() {
 	// Memory functions.
 	elf.RegisterStub("libkernel", "sceKernelMmap", libKernel_sceKernelMmap)
 	elf.RegisterStub("libkernel", "sceKernelMunmap", libKernel_sceKernelMunmap)
-	elf.RegisterStub("libkernel", "sub_1C90", libKernel_mname)
 	elf.RegisterStub("libkernel", "sceKernelAllocateDirectMemory", libKernel_sceKernelAllocateDirectMemory)
 	elf.RegisterStub("libkernel", "sceKernelMapDirectMemory", libKernel_sceKernelMapDirectMemory)
 	elf.RegisterStub("libkernel", "sceKernelMapNamedDirectMemory", libKernel_sceKernelMapNamedDirectMemory)
@@ -59,9 +60,8 @@ func RegisterKernelStubs() {
 	elf.RegisterStub("libkernel", "sceKernelMapNamedFlexibleMemory", libKernel_sceKernelMapNamedFlexibleMemory)
 	elf.RegisterStub("libkernel", "sceKernelMapNamedSystemFlexibleMemory", libKernel_sceKernelMapNamedSystemFlexibleMemory)
 	elf.RegisterStub("libkernel", "sceKernelSetVirtualRangeName", libKernel_sceKernelSetVirtualRangeName)
-
-	// TODO: i have no idea what this is, it's not anywhere.
-	elf.RegisterStub("libSceLibcInternal", "GG6441JdYkA#A#B", libKernel_fake)
+	elf.RegisterStub("libkernel", "sceKernelVirtualQuery", libKernel_sceKernelVirtualQuery)
+	elf.RegisterStub("libkernel", "sceKernelDirectMemoryQuery", libKernel_sceKernelDirectMemoryQuery)
 
 	// IO functions.
 	elf.RegisterStub("libkernel", "sceKernelOpen", libKernel_sceKernelOpen)

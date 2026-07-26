@@ -3,7 +3,7 @@ package translation
 import (
 	"fmt"
 
-	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/posix"
 	vk "github.com/goki/vulkan"
 )
 

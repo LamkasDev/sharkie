@@ -10,10 +10,9 @@ import (
 
 	"github.com/LamkasDev/cimgui-go-vulkan/backend"
 	glfwvulkanbackend "github.com/LamkasDev/cimgui-go-vulkan/backend/glfwvulkan-backend"
-	"github.com/LamkasDev/sharkie/cmd/lib_structs"
-	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/gpu"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/irq"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/posix"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/LamkasDev/sharkie/cmd/spirv"
 	"github.com/LamkasDev/sharkie/cmd/structs"
@@ -256,8 +255,7 @@ func NewGpuTranslator(handles *vulkan.VulkanHandles, bknd backend.Backend[glfwvu
 	t.quadListIndexBuffer = quadListIndexBuffer
 	t.quadListIndexBufferMem = quadListIndexBufferMem
 
-	structs.GlobalMemoryManager.Map(lib_structs.GlobalAllocator.Base, uintptr(lib_structs.GlobalAllocator.Size))
-	structs.GlobalMemoryManager.Map(lib_structs.GlobalGpuAllocator.Base, uintptr(lib_structs.GlobalGpuAllocator.Size))
+	structs.GlobalMemoryManager.Map(GlobalAllocator.Base, uintptr(GlobalAllocator.Size))
 
 	go pprof.Do(context.Background(), pprof.Labels("name", "MemorySyncWorker"), func(ctx context.Context) {
 		t.memorySyncWorker()
@@ -506,7 +504,7 @@ func (t *GpuTranslator) CollectGpuResourcesInRange(address, size uintptr) []*vul
 	seen := map[uintptr]struct{}{}
 
 	structs.GlobalMemoryManager.Lock.Lock()
-	for addr := address >> lib_structs.SystemPageShift; (addr << lib_structs.SystemPageShift) < end; addr++ {
+	for addr := address >> SystemPageShift; (addr << SystemPageShift) < end; addr++ {
 		if page, ok := structs.GlobalMemoryManager.Pages[addr]; ok {
 			for _, resource := range page.Resources {
 				if resource == nil {

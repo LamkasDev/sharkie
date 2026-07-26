@@ -4,7 +4,7 @@ import (
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
-	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/libc"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
 )
@@ -53,10 +53,6 @@ func libSceLibcInternal_memcpy(dst, src, n uintptr) uintptr {
 	srcSlice := unsafe.Slice((*byte)(unsafe.Pointer(src)), n)
 	copy(dstSlice, srcSlice)
 
-	if dst >= GlobalGpuAllocator.Base && dst < GlobalGpuAllocator.Base+uintptr(GlobalGpuAllocator.Size) {
-		logger.Printf("[memcpy] 0x%X -> 0x%X (len %d)\n", src, dst, n)
-	}
-
 	return dst
 }
 
@@ -71,10 +67,6 @@ func libSceLibcInternal_memset(dst, c, n uintptr) uintptr {
 	fillValue := byte(c)
 	for i := range dstSlice {
 		dstSlice[i] = fillValue
-	}
-
-	if dst >= GlobalGpuAllocator.Base && dst < GlobalGpuAllocator.Base+uintptr(GlobalGpuAllocator.Size) {
-		logger.Printf("[memset] 0x%X (len %d)\n", dst, n)
 	}
 
 	return dst
@@ -137,6 +129,29 @@ func libSceLibcInternal_realloc(ptr, newSize uintptr) uintptr {
 			color.Yellow.Sprintf("0x%X", ptr),
 			color.Yellow.Sprintf("0x%X", address),
 			color.Yellow.Sprintf("0x%X", newSize),
+		)
+	}
+	return address
+}
+
+// 0x0000000000028DB0
+// __int64 memalign()
+func libSceLibcInternal_memalign(alignment, size uintptr) uintptr {
+	address := GlobalGoAllocator.MallocAligned(size, alignment)
+	if address == 0 {
+		logger.Printf("%-132s %s failed due to allocation error.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("memalign"),
+		)
+		return 0
+	}
+
+	if logger.LogAlloc {
+		logger.Printf("%-132s %s allocated %s bytes at %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("memalign"),
+			color.Yellow.Sprintf("0x%X", size),
+			color.Yellow.Sprintf("0x%X", address),
 		)
 	}
 	return address

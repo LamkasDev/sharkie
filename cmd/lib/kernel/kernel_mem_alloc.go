@@ -3,6 +3,7 @@ package kernel
 import (
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/posix"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
 )
@@ -49,6 +50,10 @@ func libKernel_sys_sceKernelAllocateDirectMemory(searchStart, searchEnd uintptr,
 
 	// Write back pointer.
 	WriteAddress(destPtr, allocatedAddr)
+
+	if HookAllocateDirect != nil {
+		HookAllocateDirect(allocatedAddr, length, memType)
+	}
 
 	logger.Printf("%-132s %s stored pointer at %s (type=%s, alignment=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),

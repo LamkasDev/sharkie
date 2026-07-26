@@ -2,8 +2,8 @@ package kernel
 
 import (
 	"github.com/LamkasDev/sharkie/cmd/emu"
-	"github.com/LamkasDev/sharkie/cmd/lib_structs"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/posix"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
 )
@@ -31,9 +31,9 @@ func libKernel_sys_mprotect(addr uintptr, length uint64, prot int32) uintptr {
 
 	ret, err := ProtectKernelMemory(addr, length, prot)
 	if ret != 0 {
-		alignedAddr := addr & ^(lib_structs.SystemPageSize - 1)
-		alignedSize := (uintptr(length) + (addr - alignedAddr) + lib_structs.SystemPageSize - 1) & ^(lib_structs.SystemPageSize - 1)
-		lib_structs.HookProtect(alignedAddr, uintptr(alignedSize), prot)
+		alignedAddr := addr & ^(SystemPageSize - 1)
+		alignedSize := (uintptr(length) + (addr - alignedAddr) + SystemPageSize - 1) & ^(SystemPageSize - 1)
+		HookProtect(alignedAddr, uintptr(alignedSize), prot)
 	}
 	if ret == 0 {
 		logger.Printf("%-132s %s failed changing protection: %s\n",

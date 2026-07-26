@@ -5,8 +5,9 @@ import (
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
-	"github.com/LamkasDev/sharkie/cmd/lib_structs"
+	"github.com/LamkasDev/sharkie/cmd/lib/posix"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/posix"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
 )
@@ -34,7 +35,7 @@ func libKernel_sceKernelMapNamedDirectMemory(addrPtr uintptr, length uint64, pro
 	}
 	addrSlice := unsafe.Slice((*byte)(unsafe.Pointer(addrPtr)), 8)
 	addr := uintptr(binary.LittleEndian.Uint64(addrSlice))
-	if libKernel_mname(addr, length, namePtr) == ERR_PTR {
+	if posix.Mname(addr, length, namePtr) == ERR_PTR {
 		return emu.GetErrno() - SonyErrorOffset
 	}
 
@@ -92,7 +93,7 @@ func libKernel_sys_sceKernelMapDirectMemory(addrPtr uintptr, length uint64, prot
 		return ERR_PTR
 	}
 
-	lib_structs.HookMap(offset, length, prot)
+	HookMap(offset, length, prot)
 
 	// Write back offset.
 	WriteAddress(addrPtr, offset)

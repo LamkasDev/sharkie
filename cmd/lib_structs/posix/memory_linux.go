@@ -1,6 +1,6 @@
 //go:build linux
 
-package lib_structs
+package posix
 
 import (
 	"fmt"

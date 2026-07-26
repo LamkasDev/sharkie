@@ -3,8 +3,8 @@ package translation
 import (
 	"unsafe"
 
-	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/gpu"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/posix"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/LamkasDev/sharkie/cmd/spirv"
 	spirvStructs "github.com/LamkasDev/sharkie/cmd/spirv/structs"

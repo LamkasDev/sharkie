@@ -6,8 +6,8 @@ import (
 
 	"github.com/LamkasDev/sharkie/cmd/config"
 	"github.com/LamkasDev/sharkie/cmd/emu"
-	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/app_content"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/posix"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/psf"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/system_service"
 	"github.com/LamkasDev/sharkie/cmd/logger"

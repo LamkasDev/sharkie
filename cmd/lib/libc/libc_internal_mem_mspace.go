@@ -7,52 +7,10 @@ import (
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/libc"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
 )
-
-// GlobalMspaceAllocator tracks created mspaces.
-var GlobalMspaceAllocator *MspaceAllocator
-
-// MspaceAllocator holds handles and lock to created mspaces.
-type MspaceAllocator struct {
-	Mspaces map[uintptr]*MspaceInfo
-	Lock    sync.Mutex
-}
-
-// MspaceInfo holds info about a mspace.
-type MspaceInfo struct {
-	Name    string
-	base    uintptr
-	end     uintptr
-	current uintptr
-	mu      sync.Mutex
-}
-
-// NewMspaceAllocator creates a new instance of MspaceAllocator.
-func NewMspaceAllocator() *MspaceAllocator {
-	return &MspaceAllocator{
-		Mspaces: map[uintptr]*MspaceInfo{},
-		Lock:    sync.Mutex{},
-	}
-}
-
-// Alloc bump-allocates size bytes with given alignment from ms. Returns 0 if out of space.
-func (ms *MspaceInfo) Alloc(alignment, size uintptr) (uintptr, error) {
-	if alignment < 1 {
-		alignment = 1
-	}
-	ms.mu.Lock()
-	defer ms.mu.Unlock()
-
-	alignedAddress := (ms.current + alignment - 1) &^ (alignment - 1)
-	if alignedAddress+size > ms.end {
-		return 0, fmt.Errorf("lack of space")
-	}
-	ms.current = alignedAddress + size
-
-	return alignedAddress, nil
-}
 
 // 0x0000000000033C20
 // __int64 __fastcall sceLibcMspaceMalloc(int *, char *, __m128, __int64, __int64, char *)
@@ -182,10 +140,10 @@ func libSceLibcInternal_sceLibcMspaceCreate(namePtr Cstring, base, capacity, _ /
 	defer GlobalMspaceAllocator.Lock.Unlock()
 
 	mspace := &MspaceInfo{
-		base:    base,
-		end:     base + capacity,
-		current: base,
-		mu:      sync.Mutex{},
+		Base:    base,
+		End:     base + capacity,
+		Current: base,
+		Mutex:   sync.Mutex{},
 	}
 	var name string
 	if namePtr != nil {
@@ -282,8 +240,4 @@ func libSceLibcInternal_sceLibcMspaceMallocStatsFast() uintptr {
 // _BOOL8 __fastcall sceLibcPafMspaceIsHeapEmpty(__int64, __int64, __int64)
 func libSceLibcInternal_sceLibcPafMspaceIsHeapEmpty(mspace, heapPtr uintptr) uintptr {
 	return libSceLibcInternal_sceLibcMspaceIsHeapEmpty(mspace, heapPtr)
-}
-
-func SetupMspaceAllocator() {
-	GlobalMspaceAllocator = NewMspaceAllocator()
 }

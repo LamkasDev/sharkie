@@ -3,8 +3,8 @@ package translation
 import (
 	"runtime"
 
-	"github.com/LamkasDev/sharkie/cmd/lib_structs"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/gpu"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/posix"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/gookit/color"
@@ -22,10 +22,10 @@ func (t *GpuTranslator) memorySyncWorker() {
 		}
 		if req.IsWrite {
 			// logger.Printf("write at 0x%X.\n", req.Addr)
-			t.InvalidateMemory(req.Addr, lib_structs.SystemPageSize)
+			t.InvalidateMemory(req.Addr, SystemPageSize)
 		} else {
 			// logger.Printf("read at 0x%X.\n", req.Addr)
-			t.ReadMemory(req.Addr, lib_structs.SystemPageSize)
+			t.ReadMemory(req.Addr, SystemPageSize)
 		}
 		structs.CompleteSyncRequest()
 	}
