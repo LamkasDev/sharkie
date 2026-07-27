@@ -56,9 +56,9 @@ TEXT ·Run(SB), NOSPLIT, $0-32
 
 // Call switches to the game's stack, calls a function at specified entry point and returns.
 // We can't expand the caller's stack afterward or there will be trouble (split-stack overflow).
-// func Call(entry,   stackPtr, arg1,    arg2 uintptr)
-//          +0(FP)   +8(FP)    +16(FP)  +24(FP)
-TEXT ·Call(SB), NOSPLIT|NOFRAME, $0-32
+// func Call(entry,   stackPtr, arg1,    arg2,    arg3 uintptr) uintptr
+//          +0(FP)   +8(FP)    +16(FP)  +24(FP)  +32(FP)        +40(FP)
+TEXT ·Call(SB), NOSPLIT|NOFRAME, $0-48
     NO_LOCAL_POINTERS
 
     // We fake call site for stub.
@@ -91,13 +91,14 @@ TEXT ·Call(SB), NOSPLIT|NOFRAME, $0-32
     MOVQ stackPtr+8(FP), BX // stackPtr = BX
     MOVQ arg1+16(FP), DI    // arg1 = DI
     MOVQ arg2+24(FP), SI    // arg2 = SI
+    MOVQ arg3+32(FP), DX    // arg3 = DX
 
     // Switch to the playstation stack.
     BYTE $0x48; BYTE $0x89; BYTE $0xDC  // MOVQ BX, SP
 
     // Clear registers.
     XORQ CX, CX
-    XORQ DX, DX
+    // DX is arg3!
     XORQ R8, R8
     XORQ R9, R9
     XORQ R10, R10
@@ -105,6 +106,9 @@ TEXT ·Call(SB), NOSPLIT|NOFRAME, $0-32
 
     // Call function.
     CALL AX
+
+    // Save return value to R9
+    MOVQ AX, R9
 
     // Save Thread Context Pointer into DX.
     CALL ·GetTLSContext(SB)
@@ -115,7 +119,10 @@ TEXT ·Call(SB), NOSPLIT|NOFRAME, $0-32
     BYTE $0x48; BYTE $0x89; BYTE $0xDC  // MOVQ BX, SP
 
     // Clean up fake call frame.
-    POPQ CX
+    POPQ R8
+
+    // Save return value
+    MOVQ R9, ret+40(FP)
 
     // Restore callee-saved registers.
     MOVQ CTX_CALL_SAVED_R15(DX), R15

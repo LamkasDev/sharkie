@@ -7,4 +7,4 @@ func Run(entry, stackPtr, argsPtr, arg2 uintptr)
 
 // Call switches to the game's stack, calls a function at specified entry point and returns.
 // We can't expand the caller's stack afterward or there will be trouble (split-stack overflow).
-func Call(entry, stackPtr, arg1, arg2 uintptr)
+func Call(entry, stackPtr, arg1, arg2, arg3 uintptr) uintptr

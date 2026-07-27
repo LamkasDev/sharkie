@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"sync"
 	"unsafe"
@@ -41,6 +42,11 @@ func NewModuleManager() *ModuleManager {
 	return mm
 }
 
+func stripExtension(name string) string {
+	ext := filepath.Ext(name)
+	return strings.TrimSuffix(name, ext)
+}
+
 // GetModulePath returns the first valid path for a module name.
 func (m *ModuleManager) GetModulePath(name string) *string {
 	var possibleNames []string
@@ -55,7 +61,13 @@ func (m *ModuleManager) GetModulePath(name string) *string {
 	} else {
 		possibleNames = []string{name}
 	}
-
+	for _, possibleName := range possibleNames {
+		if filepath.IsAbs(possibleName) {
+			if _, err := os.Stat(possibleName); err == nil {
+				return &possibleName
+			}
+		}
+	}
 	for _, linkPath := range m.LinkPaths {
 		for _, possibleName := range possibleNames {
 			modulePath := path.Join(linkPath, possibleName)

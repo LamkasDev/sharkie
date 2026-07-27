@@ -89,6 +89,49 @@ func (fsys *FS) resolveDir(path string) (*Node, error) {
 	return curr, nil
 }
 
+// GetHostPath returns the underlying host path for a given virtual path, if it exists.
+func (fsys *FS) GetHostPath(path string) (string, error) {
+	fsys.mu.RLock()
+	defer fsys.mu.RUnlock()
+
+	dirPath := path
+	baseName := ""
+	if idx := strings.LastIndex(path, "/"); idx >= 0 && idx < len(path)-1 {
+		dirPath = path[:idx]
+		baseName = path[idx+1:]
+	}
+
+	dir, err := fsys.resolveDir(dirPath)
+	if err != nil {
+		return "", err
+	}
+	if baseName == "" {
+		if dir.hostPath == "" {
+			return "", errors.New("node has no host path")
+		}
+		return dir.hostPath, nil
+	}
+
+	dir.mu.RLock()
+	defer dir.mu.RUnlock()
+	node, ok := dir.children[baseName]
+	if !ok {
+		// Try to construct it dynamically if directory has a hostPath.
+		if dir.hostPath != "" {
+			targetHostPath := filepath.Join(dir.hostPath, baseName)
+			if _, err = os.Stat(targetHostPath); err == nil {
+				return targetHostPath, nil
+			}
+		}
+		return "", fs.ErrNotExist
+	}
+	if node.hostPath == "" {
+		return "", errors.New("node has no host path")
+	}
+
+	return node.hostPath, nil
+}
+
 // MkdirAll creates a directory and all its parents.
 func (fsys *FS) MkdirAll(path string, perm os.FileMode) error {
 	fsys.mu.Lock()

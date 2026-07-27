@@ -38,6 +38,10 @@ func CreateDispatcher(goFn any) asm.StubDispatcher {
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn((*LoginUserIdList)(unsafe.Pointer(ctx.DI))))
 		}
+	case func(*ModuleHandle, uint64, *uint64) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn((*ModuleHandle)(unsafe.Pointer(ctx.DI)), uint64(ctx.SI), (*uint64)(unsafe.Pointer(ctx.DX))))
+		}
 	case func(*PSemaphore) uintptr:
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn((*PSemaphore)(unsafe.Pointer(ctx.DI))))
@@ -251,6 +255,14 @@ func CreateDispatcher(goFn any) asm.StubDispatcher {
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn(FileDescriptor(ctx.DI), ctx.SI, ctx.DX, ctx.CX))
 		}
+	case func(ModuleHandle, *ModuleInfo) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(ModuleHandle(ctx.DI), (*ModuleInfo)(unsafe.Pointer(ctx.SI))))
+		}
+	case func(SysmoduleId) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(SysmoduleId(ctx.DI)))
+		}
 	case func(UserId, *UserColor) uintptr:
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn(UserId(ctx.DI), (*UserColor)(unsafe.Pointer(ctx.SI))))
@@ -337,10 +349,6 @@ func CreateDispatcher(goFn any) asm.StubDispatcher {
 	case func(uintptr) uintptr:
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn(ctx.DI))
-		}
-	case func(uintptr, *ModuleInfo) uintptr:
-		return func(ctx *asm.RegContext) uintptr {
-			return uintptr(fn(ctx.DI, (*ModuleInfo)(unsafe.Pointer(ctx.SI))))
 		}
 	case func(uintptr, *ThreadAffinityMask) uintptr:
 		return func(ctx *asm.RegContext) uintptr {

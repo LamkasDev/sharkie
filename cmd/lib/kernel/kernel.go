@@ -181,11 +181,14 @@ func RegisterKernelStubs() {
 	elf.RegisterStub("libkernel", "sceKernelGetExecutableModuleHandle", libKernel_sceKernelGetExecutableModuleHandle)
 	elf.RegisterStub("libkernel", "sceKernelGetModuleInfo", libKernel_sceKernelGetModuleInfo)
 	elf.RegisterStub("libkernel", "sceKernelGetModuleInfoForUnwind", libKernel_sceKernelGetModuleInfoForUnwind)
-	elf.RegisterStub("libkernel", "sub_1EB0", libKernel_sys_dynlib_get_info_ex)
 	elf.RegisterStub("libkernel", "sceKernelIsInSandbox", libKernel_sceKernelIsInSandbox)
 	elf.RegisterStub("libkernel", "sceKernelGetCompiledSdkVersion", libKernel_sceKernelGetCompiledSdkVersion)
 	elf.RegisterStub("libkernel", "sceKernelLoadStartModuleForSysmodule", libKernel_sceKernelLoadStartModuleForSysmodule)
 	elf.RegisterStub("libkernel", "sceKernelLoadStartModule", libKernel_sceKernelLoadStartModule)
+	elf.RegisterStub("libkernel", "sceKernelGetModuleList", libKernel_sceKernelGetModuleList)
+
+	// Dynlib functions.
+	elf.RegisterStub("libkernel", "sub_1EB0", libKernel_sys_dynlib_get_info_ex)
 	elf.RegisterStub("libkernel", "sub_1D90", libKernel_sys_dynlib_process_needed_and_relocate)
 
 	// App functions.

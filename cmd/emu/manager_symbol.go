@@ -25,7 +25,7 @@ func GetSymbolAddress(s *elf.ElfSymbol) (uintptr, bool) {
 
 	if s.Type == elf.STT_OBJECT {
 		// TODO: add more priorities?
-		if module, ok := GlobalModuleManager.ModulesMap["libSceLibcInternal.sprx"]; ok {
+		if module, ok := GlobalModuleManager.ModulesMap["libSceLibcInternal"]; ok {
 			if address, ok := TryGetSymbolAddress(s, module); ok {
 				return address, true
 			}
@@ -51,7 +51,8 @@ func GetDefiningModule(s *elf.ElfSymbol) *elf.Elf {
 	defer GlobalModuleManager.ModulesLock.RUnlock()
 
 	if s.LibraryName != "" {
-		if module, ok := GlobalModuleManager.ModulesMap[s.LibraryName]; ok {
+		libraryBase := stripExtension(s.LibraryName)
+		if module, ok := GlobalModuleManager.ModulesMap[libraryBase]; ok {
 			return module
 		}
 

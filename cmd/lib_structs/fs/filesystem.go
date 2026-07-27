@@ -318,6 +318,11 @@ func (shFs *SharkieFilesystem) MkdirAll(path string) error {
 	return shFs.Fs.MkdirAll(path, 0777)
 }
 
+// GetHostPath returns the underlying host path for a given virtual path, if it exists.
+func (shFs *SharkieFilesystem) GetHostPath(path string) (string, error) {
+	return shFs.Fs.GetHostPath(path)
+}
+
 // Mount mounts a directory in VFS.
 func (shFs *SharkieFilesystem) Mount(path string, hostPath string, readOnly bool) error {
 	return shFs.Fs.Mount(path, hostPath, readOnly)

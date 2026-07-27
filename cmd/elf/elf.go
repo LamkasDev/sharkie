@@ -33,6 +33,7 @@ type Elf struct {
 	Name        string
 	Path        string
 	Linked      bool
+	Initialized bool
 
 	BaseAddress  uintptr
 	EntryAddress uint64
@@ -52,7 +53,8 @@ type Elf struct {
 	PltRelocationTable        *ElfRelocationTable // PLT relocation table
 
 	// Temporary.
-	CallerToFunctionName map[uintptr]*ElfSymbol
+	CallerToFunctionName  map[uintptr]*ElfSymbol
+	UnresolvedRelocations []*ElfRelocation
 }
 
 // NewElf creates a new instance of Elf by parsing the provided file data.

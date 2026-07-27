@@ -2,7 +2,7 @@ package module
 
 import "unsafe"
 
-const ModuleInfoHandleOffset = uintptr(0x200)
+type ModuleHandle int32
 
 type ModuleInfo struct {
 	Size          uint64

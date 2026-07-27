@@ -72,7 +72,6 @@ func SetupEmulatorGuest(gameNameOrPath string) error {
 
 	// Add game directories to module linker paths.
 	emu.GlobalModuleManager.LinkPaths = []string{
-		filepath.Join(config.GameDirectory, "Image0", "Media", "Modules"),
 		filepath.Join(config.GameDirectory, "Image0", "sce_module"),
 		filepath.Join(config.GameDirectory, "Image0"),
 		config.GetLibDir(),
@@ -134,7 +133,7 @@ func SetupEmulatorGuest(gameNameOrPath string) error {
 	}
 
 	// Run main executable.
-	if err := emu.GlobalModuleManager.LoadModule("eboot.elf"); err != nil {
+	if _, err := emu.GlobalModuleManager.LoadModule("eboot.elf", false); err != nil {
 		return err
 	}
 	emu.GlobalModuleManager.RunModule("eboot.elf")

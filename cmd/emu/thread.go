@@ -22,17 +22,17 @@ import (
 
 var (
 	// ThreadRepo maps thread IDs to host threads.
-	ThreadRepo = map[int32]*Thread{}
+	ThreadRepo = map[uint64]*Thread{}
 
 	// ThreadLock protects ThreadRepo, so multiple threads can look up threads safely.
 	ThreadLock sync.RWMutex
 
 	MainThreadId = NextThreadId
-	NextThreadId = int32(1001)
+	NextThreadId = uint64(1001)
 )
 
 type Thread struct {
-	Id        int32
+	Id        uint64
 	Name      string
 	Stack     *Stack
 	Tcb       *Tcb
@@ -114,36 +114,56 @@ func (t *Thread) Setup() {
 	sys_struct.SetTlsSlot(asm.PlaystationTlsSlot, uintptr(unsafe.Pointer(t.Tcb)))
 }
 
-// CallUnsafe calls a function at specified address.
-// The stack it returns on is no longer expandable as it might have split during guest execution.
-// Use Call to avoid this behaviour.
-func (t *Thread) CallUnsafe(funcAddr uintptr, arg uintptr) {
-	// Call the assembly trampoline and call funcAddr function.
-	asm.GuestEnter()
-	asm.Call(funcAddr, t.Stack.CurrentPointer, arg, 0)
-	asm.GuestLeave()
-}
-
-// Call sets up the current goroutine and calls a function at specified address.
-// The stack it returns on is no longer expandable as it might have split during guest execution.
-// This however doesn't matter as long as you use it within a fresh goroutine.
-// It's aimed to be used asynchronously like 'go Call(...)' or for a more complete solution see CallAndWait.
-func (t *Thread) Call(funcAddr uintptr, arg uintptr) {
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
-
-	t.Setup()
-	t.CallUnsafe(funcAddr, arg)
-}
-
 // CallAndWait creates a new goroutine, calls a function at specified address and waits until it finishes.
 // The stack it returns on is guaranteed to be safe even after guest execution.
 func (t *Thread) CallAndWait(funcAddr uintptr, arg uintptr) {
 	var wg sync.WaitGroup
 	wg.Go(func() {
-		t.Call(funcAddr, arg)
+		runtime.LockOSThread()
+		defer runtime.UnlockOSThread()
+
+		t.Setup()
+		asm.GuestEnter()
+		asm.Call(funcAddr, t.Stack.CurrentPointer, arg, 0, 0)
+		asm.GuestLeave()
 	})
 	wg.Wait()
+}
+
+// CallAndWaitFromStub creates a new goroutine, calls a function at specified address and waits until it finishes.
+// The stack it returns on is guaranteed to be safe even after guest execution.
+func (t *Thread) CallAndWaitFromStub(funcAddr uintptr, args ...uintptr) uintptr {
+	threadContext := asm.GetCurrentThreadContext()
+	stackPtr := t.Stack.CurrentPointer
+	if threadContext != nil && threadContext.GlobalStubContext != 0 {
+		stackPtr = threadContext.GlobalStubContext - 128
+	}
+	stackPtr &^= 15
+	var arg1, arg2, arg3 uintptr
+	if len(args) > 0 {
+		arg1 = args[0]
+	}
+	if len(args) > 1 {
+		arg2 = args[1]
+	}
+	if len(args) > 2 {
+		arg3 = args[2]
+	}
+
+	var ret uintptr
+	var wg sync.WaitGroup
+	wg.Go(func() {
+		runtime.LockOSThread()
+		defer runtime.UnlockOSThread()
+
+		t.Setup()
+		asm.GuestEnter()
+		ret = asm.Call(funcAddr, stackPtr, arg1, arg2, arg3)
+		asm.GuestLeave()
+	})
+	wg.Wait()
+
+	return ret
 }
 
 // Run creates a new goroutine, pushes arguments on stack and calls the program's entry point.
