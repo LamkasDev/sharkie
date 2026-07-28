@@ -92,8 +92,14 @@ func EmitEXP(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext) 
 			vtxZFmt := ctx.TestMask(b, vteControl, 1<<9)
 			vtxW0Fmt := ctx.TestMask(b, vteControl, 1<<10)
 
-			// If VTX_W0_FMT is 0, W0 is 1/W, so W = 1/W0.
-			wVulkan := b.EmitSelect(typeFloat, vtxW0Fmt, comps[3], b.EmitFDiv(typeFloat, idOneF, comps[3]))
+			// Prevent W=0.0 to avoid +Inf generation.
+			isZero := b.EmitFUnordEqual(typeBool, comps[3], idZeroF)
+			safeW := b.EmitSelect(typeFloat, isZero, idOneF, comps[3])
+
+			// For VTX_W0_FMT:
+			// 1 = Shader exported 1/W 	-> Vulkan needs W = 1.0 / shader_W.
+			// 0 = Shader exported W 	-> Vulkan needs W = shader_W.
+			wVulkan := b.EmitSelect(typeFloat, vtxW0Fmt, b.EmitFDiv(typeFloat, idOneF, safeW), safeW)
 
 			// If FMT is 1, X/Y/Z are already multiplied by 1/W, so multiply by W to undo Vulkan's divide.
 			comps[0] = b.EmitSelect(typeFloat, vtxXyFmt, b.EmitFMul(typeFloat, comps[0], wVulkan), comps[0])

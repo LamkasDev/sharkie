@@ -29,7 +29,7 @@ func (t *GpuTranslator) Draw(frame uint64, draw *gpu.LiverpoolDraw) {
 
 	// Bind resources.
 	staticSetToBind := t.staticDescriptorPool.DefaultSet(frame)
-	_, activeStaticSet, err := t.BindResources([]*spirv.SpirvShader{t.activeVertexShader, t.activeFragmentShader}, userData)
+	_, _, activeStaticSet, err := t.BindResources([]*spirv.SpirvShader{t.activeVertexShader, t.activeFragmentShader}, userData)
 	if err != nil {
 		panic(err)
 	}

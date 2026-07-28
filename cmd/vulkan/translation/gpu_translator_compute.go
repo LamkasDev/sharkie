@@ -46,7 +46,7 @@ func (t *GpuTranslator) Dispatch(frame uint64, dispatch *gpu.LiverpoolDispatch) 
 
 	// Bind resources.
 	staticSetToBind := t.staticDescriptorPool.DefaultSet(frame)
-	storeTargets, activeStaticSet, err := t.BindResources([]*spirv.SpirvShader{csSpirv}, userData)
+	storeTargets, storeBufferTargets, activeStaticSet, err := t.BindResources([]*spirv.SpirvShader{csSpirv}, userData)
 	if err != nil {
 		panic(err)
 	}
@@ -119,8 +119,12 @@ func (t *GpuTranslator) Dispatch(frame uint64, dispatch *gpu.LiverpoolDispatch) 
 		}}, 0, nil, 0, nil,
 	)
 
-	// Mark storage-written addresses as GPU modified so CPU doesn't overwrite them.
+	// Mark image store op images as GPU modified.
 	for _, image := range storeTargets {
 		image.MarkGpuModified(t.currentGuestFrame)
+	}
+	// Mark buffer store op images as CPU modified.
+	for _, image := range storeBufferTargets {
+		image.MarkCpuModified(t.currentGuestFrame)
 	}
 }

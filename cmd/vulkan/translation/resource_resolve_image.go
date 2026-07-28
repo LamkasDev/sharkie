@@ -16,14 +16,8 @@ type ResolvedImageAccess struct {
 	Sampler           *spirvStructs.SamplerDescriptor
 }
 
-// ResolveImageResources simulates scalar SGPR updates, then resolves T# descriptors at
-// precomputed MIMG sites from AnalyzeResources.
-func ResolveImageResources(sites []SpirvShaderResource, shader *spirv.SpirvShader, userData []uint32) []ResolvedImageAccess {
-	siteByOffset := make(map[uintptr]SpirvShaderResource, len(sites))
-	for _, site := range sites {
-		siteByOffset[site.InstructionOffset] = site
-	}
-
+// ResolveImageResources simulates scalar SGPR updates and resolves T# descriptors.
+func ResolveImageResources(shader *spirv.SpirvShader, userData []uint32) []ResolvedImageAccess {
 	stageBase := spirvStructs.GcnStageToUserDataOffset[shader.GcnShader.Stage]
 	registers := gcnSpec.GcnRegisters{}
 	for i := range 16 {
@@ -37,28 +31,34 @@ func ResolveImageResources(sites []SpirvShaderResource, shader *spirv.SpirvShade
 		block := &shader.GcnShader.Cfg.Blocks[blockId]
 		for i := range block.Instructions {
 			instr := &block.Instructions[i]
-			switch instr.Encoding {
-			case gcnSpec.EncSOP1:
-				applySOP1(instr, &registers)
-			case gcnSpec.EncSOP2:
-				applySOP2(instr, &registers)
-			case gcnSpec.EncSOPC:
-				applySOPC(instr, &registers)
-			case gcnSpec.EncSMRD:
-				applySMRD(instr, &registers)
-			case gcnSpec.EncMIMG:
-				site := siteByOffset[instr.DwordOffset]
-				accesses = append(accesses, resolveMIMG(instr, &registers, site.Kind))
-			}
+			accesses = resolveImageResourcesIns(instr, &registers, accesses)
 		}
 	}
 
 	return accesses
 }
 
-func resolveMIMG(instr *gcnSpec.Instruction, registers *gcnSpec.GcnRegisters, kind ImageAccessKind) ResolvedImageAccess {
+func resolveImageResourcesIns(instr *gcnSpec.Instruction, registers *gcnSpec.GcnRegisters, accesses []ResolvedImageAccess) []ResolvedImageAccess {
+	switch instr.Encoding {
+	case gcnSpec.EncSOP1:
+		applySOP1(instr, registers)
+	case gcnSpec.EncSOP2:
+		applySOP2(instr, registers)
+	case gcnSpec.EncSOPC:
+		applySOPC(instr, registers)
+	case gcnSpec.EncSMRD:
+		applySMRD(instr, registers)
+	case gcnSpec.EncMIMG:
+		accesses = append(accesses, resolveMIMG(instr, registers))
+	}
+
+	return accesses
+}
+
+func resolveMIMG(instr *gcnSpec.Instruction, registers *gcnSpec.GcnRegisters) ResolvedImageAccess {
 	details := instr.Details.(*gcnSpec.MimgDetails)
 	start := int(details.Srsrc * 4)
+	kind := spirv.MimgAccessKind(details.Op)
 
 	var imageDwords [8]uint32
 	for i := range 8 {
@@ -84,12 +84,12 @@ func resolveMIMG(instr *gcnSpec.Instruction, registers *gcnSpec.GcnRegisters, ki
 	}
 }
 
-// StoreTargets returns base addresses of images written by store ops.
-func (t *GpuTranslator) StoreTargets(accesses []ResolvedImageAccess) ([]*vulkan.VulkanImage, error) {
+// ResolveImageTargets returns images that are read/written/sampled from.
+func (t *GpuTranslator) ResolveImageTargets(accesses []ResolvedImageAccess, kind ImageAccessKind) ([]*vulkan.VulkanImage, error) {
 	seen := map[uintptr]struct{}{}
 	var images []*vulkan.VulkanImage
 	for _, access := range accesses {
-		if access.Kind != ImageAccessStore && access.Kind != ImageAccessStoreMip {
+		if access.Kind != kind {
 			continue
 		}
 		if _, ok := seen[access.Descriptor.BaseAddress]; ok {

@@ -10,7 +10,6 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/gpu"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/video"
 	"github.com/LamkasDev/sharkie/cmd/logger"
-	"github.com/LamkasDev/sharkie/cmd/spirv/structs"
 	"github.com/LamkasDev/sharkie/cmd/vulkan"
 	"github.com/LamkasDev/sharkie/cmd/vulkan/translation"
 	vk "github.com/goki/vulkan"
@@ -154,7 +153,7 @@ func (r *Renderer) ConsumeFlips(done chan struct{}) {
 		r.UpdateCounters()
 
 		// Transition surface and update texture ID for display.
-		surface := r.GpuTranslator.GetSurfaceByAddress(structs.GetPhysicalGpuAddress(frame.Flip.GpuAddress))
+		surface := r.GpuTranslator.GetSurfaceByAddress(frame.Flip.GpuAddress)
 		if surface != nil {
 			err := vulkan.RunWithCommandBuffer(r.Handles.GraphicsQueue, r.Handles, func(commandBuffer *vulkan.VulkanCommandBuffer) {
 				surface.ImageView.Image.BarrierGeneralShaderAccess(commandBuffer)

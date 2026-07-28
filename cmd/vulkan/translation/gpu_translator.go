@@ -523,20 +523,18 @@ func (t *GpuTranslator) CollectGpuResourcesInRange(address, size uintptr) []*vul
 	return images
 }
 
-func (t *GpuTranslator) DownloadRegionVkImages(address, size uintptr, commandBuffer *vulkan.VulkanCommandBuffer) ([]func(), error) {
-	deferFuncs := []func(){}
+func (t *GpuTranslator) DownloadRegionVkImages(address, size uintptr, commandBuffer *vulkan.VulkanCommandBuffer) error {
 	for _, image := range t.CollectGpuResourcesInRange(address, size) {
 		if !image.ShouldDownloadFromVkImage() {
 			continue
 		}
-		deferFunc, err := image.DownloadFromVkImage(t.handles, commandBuffer, t.currentGuestFrame)
+		err := image.DownloadFromVkImage(t.handles, commandBuffer, t.GetLinearBuffer, t.currentGuestFrame)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		deferFuncs = append(deferFuncs, deferFunc)
 	}
 
-	return deferFuncs, nil
+	return nil
 }
 
 func (t *GpuTranslator) UploadRegionVkImages(address, size uintptr, commandBuffer *vulkan.VulkanCommandBuffer) error {

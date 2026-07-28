@@ -7,6 +7,9 @@
 // it will be nice to process two tiles at once here.
 layout (local_size_x = 32, local_size_y = 1, local_size_z = 1) in;
 
+#define GLOBAL_ID_X (gl_GlobalInvocationID.x + gl_GlobalInvocationID.y * (gl_NumWorkGroups.x * gl_WorkGroupSize.x))
+#define WORK_GROUP_ID_X (gl_WorkGroupID.x + gl_WorkGroupID.y * gl_NumWorkGroups.x)
+
 layout(std430, binding = 0) buffer input_buf {
     uint in_data[];
 };
@@ -18,6 +21,9 @@ layout(push_constant) uniform image_info {
     uint num_levels;
     uint pitch;
     uint height;
+    uint c0;
+    uint c1;
+    uint is_retile;
     uint sizes[16];
 } info;
 
@@ -38,12 +44,6 @@ const uint rmort[16] = {
 };
 
 void main() {
-    uint src_tx = in_data[gl_GlobalInvocationID.x];
-    uint p[TEXELS_PER_ELEMENT] = {
-        (src_tx >> 16) & 0xffff,
-         src_tx        & 0xffff
-    };
-
     uint bit_ofs = 8 * TEXELS_PER_ELEMENT * (gl_LocalInvocationID.x % 4);
     uint packed_pos = rmort[gl_LocalInvocationID.x >> 1] >> bit_ofs;
     uint col = bitfieldExtract(packed_pos, 4, 4);
@@ -51,12 +51,20 @@ void main() {
 
     uint mip = 0u;
     for (int m = 0; m < info.num_levels; ++m) {
-        mip += (gl_GlobalInvocationID.x * 4) >= info.sizes[m] ? 1 : 0;
-    }    
+        mip += (GLOBAL_ID_X * 4) >= info.sizes[m] ? 1 : 0;
+    }
     uint tiles_per_pitch = max(((info.pitch >> mip) / 8u), 1u);
-    uint target_tile_x = gl_WorkGroupID.x % tiles_per_pitch;
-    uint target_tile_y = gl_WorkGroupID.x / tiles_per_pitch;
+    uint target_tile_x = WORK_GROUP_ID_X % tiles_per_pitch;
+    uint target_tile_y = WORK_GROUP_ID_X / tiles_per_pitch;
     uint dw_ofs_x = target_tile_x * 8 + col;
     uint dw_ofs_y = (target_tile_y * tiles_per_pitch * 64) + row * tiles_per_pitch * 8;
-    out_data[(dw_ofs_x + dw_ofs_y) / 2] = src_tx;
+
+    uint linear_idx = (dw_ofs_x + dw_ofs_y) / 2;
+    if (info.is_retile == 1) {
+        uint src_tx = in_data[linear_idx];
+        out_data[GLOBAL_ID_X] = src_tx;
+    } else {
+        uint src_tx = in_data[GLOBAL_ID_X];
+        out_data[linear_idx] = src_tx;
+    }
 }

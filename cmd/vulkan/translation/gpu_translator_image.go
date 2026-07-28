@@ -14,7 +14,7 @@ func (t *GpuTranslator) GetImage(descriptor spirvStructs.ImageDescriptor, format
 
 	if ok {
 		// Check if we need to recreate the existing image.
-		recreate, copyOld := image.NeedsRecreate(descriptor, format, isSurface)
+		recreate := image.NeedsRecreate(descriptor, format, isSurface)
 		if recreate {
 			gen := image.Generation
 			t.EvictResourcesAtAddress(descriptor.BaseAddress)
@@ -30,12 +30,6 @@ func (t *GpuTranslator) GetImage(descriptor spirvStructs.ImageDescriptor, format
 			newImage.Generation = gen + 1
 			t.registerImage(newImage)
 
-			if copyOld {
-				t.EndRenderPass()
-				if err = image.CopyToImage(t.handles, t.commandBuffer, newImage, t.currentGuestFrame); err != nil {
-					logger.Printf("failed to copy image: %v\n", err)
-				}
-			}
 			if newImage.ShouldUploadToVkImage(t.currentGuestFrame) {
 				t.EndRenderPass()
 				if err = newImage.UploadToVkImage(t.handles, t.commandBuffer, t.GetLinearBuffer, t.currentGuestFrame); err != nil {

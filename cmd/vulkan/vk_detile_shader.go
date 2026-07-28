@@ -8,6 +8,7 @@ package vulkan
 //go:generate glslc --target-env=vulkan1.2 ../../data/shaders/micro_32bpp.comp -o ../../data/shaders/detile_micro_32bpp.spv
 //go:generate glslc --target-env=vulkan1.2 ../../data/shaders/micro_64bpp.comp -o ../../data/shaders/detile_micro_64bpp.spv
 //go:generate glslc --target-env=vulkan1.2 ../../data/shaders/micro_128bpp.comp -o ../../data/shaders/detile_micro_128bpp.spv
+//go:generate glslc --target-env=vulkan1.2 ../../data/shaders/display_micro_32bpp.comp -o ../../data/shaders/detile_display_micro_32bpp.spv
 //go:generate glslc --target-env=vulkan1.2 ../../data/shaders/display_micro_64bpp.comp -o ../../data/shaders/detile_display_micro_64bpp.spv
 
 import (

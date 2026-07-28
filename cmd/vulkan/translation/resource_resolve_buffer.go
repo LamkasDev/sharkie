@@ -3,153 +3,130 @@ package translation
 import (
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/gcn"
 	gcnSpec "github.com/LamkasDev/sharkie/cmd/lib_structs/gcn/spec"
-	spirvCommon "github.com/LamkasDev/sharkie/cmd/spirv/common"
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/gpu"
+	"github.com/LamkasDev/sharkie/cmd/spirv"
+	. "github.com/LamkasDev/sharkie/cmd/spirv/common"
 	spirvStructs "github.com/LamkasDev/sharkie/cmd/spirv/structs"
+	"github.com/LamkasDev/sharkie/cmd/vulkan"
 )
 
-func ParseFetchShaderInstructions(shader *gcn.GcnShader, userData []uint32) []*gcnSpec.Instruction {
-	var instructions []*gcnSpec.Instruction
-	stageBase := spirvStructs.GcnStageToUserDataOffset[shader.Stage]
-	registers := gcnSpec.GcnRegisters{}
-	for i := range uint32(16) {
-		offset := int(stageBase) + int(i)
-		if offset < len(userData) {
-			registers[i] = userData[offset]
-		}
-	}
-
-	for _, blockId := range shader.Cfg.ReversePostOrder() {
-		block := &shader.Cfg.Blocks[blockId]
-		for i := range block.Instructions {
-			instruction := &block.Instructions[i]
-			instructions = append(instructions, instruction)
-			switch instruction.Encoding {
-			case gcnSpec.EncSOP1:
-				details := instruction.Details.(*gcnSpec.ScalarDetails)
-				if details.Op == gcnSpec.Sop1OpSetpcB64 {
-					return instructions
-				}
-			}
-		}
-	}
-
-	return instructions
-}
-
-func resolveMUBUFQuick(instr *gcnSpec.Instruction, registers *gcnSpec.GcnRegisters) *spirvCommon.FetchAttribute {
-	details := instr.Details.(*gcnSpec.MubufDetails)
-
-	numElements := uint32(1)
-	if details.Op == gcnSpec.MubufOpLoadFormatXy || details.Op == gcnSpec.MubufOpLoadDwordx2 {
-		numElements = 2
-	} else if details.Op == gcnSpec.MubufOpLoadFormatXyz || details.Op == gcnSpec.MubufOpLoadDwordx3 {
-		numElements = 3
-	} else if details.Op == gcnSpec.MubufOpLoadFormatXyzw || details.Op == gcnSpec.MubufOpLoadDwordx4 {
-		numElements = 4
-	}
-
-	if details.Op == gcnSpec.MubufOpLoadFormatX || details.Op == gcnSpec.MubufOpLoadFormatXy ||
-		details.Op == gcnSpec.MubufOpLoadFormatXyz || details.Op == gcnSpec.MubufOpLoadFormatXyzw {
-		return &spirvCommon.FetchAttribute{
-			DestVgpr:    uint32(details.Vdata),
-			BufferIndex: uint32(details.Srsrc) / 4,
-			NumElements: numElements,
-		}
-	}
-	return nil
-}
-
-func GetFetchShaderPC(shader *gcn.GcnShader, userData []uint32) uintptr {
-	if shader == nil {
-		return 0
-	}
-	stageBase := spirvStructs.GcnStageToUserDataOffset[shader.Stage]
-	registers := gcnSpec.GcnRegisters{}
-	for i := range uint32(16) {
-		offset := int(stageBase) + int(i)
-		if offset < len(userData) {
-			registers[i] = userData[offset]
-		}
-	}
-
-	for _, blockId := range shader.Cfg.ReversePostOrder() {
-		block := &shader.Cfg.Blocks[blockId]
-		for i := range block.Instructions {
-			instr := &block.Instructions[i]
-			switch instr.Encoding {
-			case gcnSpec.EncSOP1:
-				applySOP1(instr, &registers)
-				details := instr.Details.(*gcnSpec.ScalarDetails)
-				if details.Op == gcnSpec.Sop1OpSwappcB64 {
-					fetchPCLo := registers[details.Src0]
-					fetchPCHi := registers[details.Src0+1]
-					return uintptr(fetchPCLo) | (uintptr(fetchPCHi) << 32)
-				}
-			case gcnSpec.EncSOP2:
-				applySOP2(instr, &registers)
-			case gcnSpec.EncSOPC:
-				applySOPC(instr, &registers)
-			case gcnSpec.EncSMRD:
-				applySMRD(instr, &registers)
-			}
-		}
-	}
-	return 0
-}
-
-// ResolvedBufferAccess is a T# resolved at a specific MUBUF instruction for a user-data snapshot.
+// ResolvedBufferAccess is a T# resolved at a specific MUBUF/MTBUF instruction for a user-data snapshot.
 type ResolvedBufferAccess struct {
-	DestVgpr   uint32
-	Descriptor spirvStructs.BufferDescriptor
+	InstructionOffset uintptr
+	Kind              BufferAccessKind
+	Descriptor        spirvStructs.BufferDescriptor
 }
 
-// ResolveBufferResources simulates scalar SGPR updates, then resolves T# descriptors at
-// precomputed MUBUF sites based on the quick layout.
-func ResolveBufferResources(shader *gcn.GcnShader, userData []uint32) []ResolvedBufferAccess {
-	stageBase := spirvStructs.GcnStageToUserDataOffset[shader.Stage]
+// ResolveBufferResources simulates scalar SGPR updates and resolves T# descriptors.
+func ResolveBufferResources(shader *spirv.SpirvShader, userData []uint32) []ResolvedBufferAccess {
+	stageBase := spirvStructs.GcnStageToUserDataOffset[shader.GcnShader.Stage]
 	registers := gcnSpec.GcnRegisters{}
 	for i := range 16 {
 		offset := int(stageBase) + i
-		if offset < len(userData) {
-			registers[i] = userData[offset]
-		}
+		registers[i] = userData[offset]
 	}
 
 	var accesses []ResolvedBufferAccess
-	rpo := shader.Cfg.ReversePostOrder()
+	rpo := shader.GcnShader.Cfg.ReversePostOrder()
 	for _, blockId := range rpo {
-		block := &shader.Cfg.Blocks[blockId]
+		block := &shader.GcnShader.Cfg.Blocks[blockId]
 		for i := range block.Instructions {
 			instr := &block.Instructions[i]
-			switch instr.Encoding {
-			case gcnSpec.EncSOP1:
-				applySOP1(instr, &registers)
-			case gcnSpec.EncSOP2:
-				applySOP2(instr, &registers)
-			case gcnSpec.EncSOPC:
-				applySOPC(instr, &registers)
-			case gcnSpec.EncSMRD:
-				applySMRD(instr, &registers)
-			case gcnSpec.EncMUBUF:
-				accesses = append(accesses, resolveMUBUF(instr, &registers))
-			}
+			accesses = resolveBufferResourcesIns(instr, &registers, accesses)
 		}
 	}
+
+	return accesses
+}
+
+func resolveBufferResourcesIns(instr *gcnSpec.Instruction, registers *gcnSpec.GcnRegisters, accesses []ResolvedBufferAccess) []ResolvedBufferAccess {
+	switch instr.Encoding {
+	case gcnSpec.EncSOP1:
+		details := instr.Details.(*gcnSpec.ScalarDetails)
+		if details.Op == gcnSpec.Sop1OpSwappcB64 {
+			fetchPCLo := registers[details.Src0]
+			fetchPCHi := registers[details.Src0+1]
+			fetchShaderAddress := uintptr(fetchPCLo) | (uintptr(fetchPCHi) << 32)
+			if fetchShaderAddress != 0 {
+				fetchShader := gpu.GlobalLiverpool.GetShader(gcn.GcnShaderStageVertex, fetchShaderAddress)
+				if fetchShader != nil {
+					fetchInstructions := ParseFetchShaderInstructions(fetchShader)
+					for _, fetchInstr := range fetchInstructions {
+						accesses = resolveBufferResourcesIns(fetchInstr, registers, accesses)
+					}
+				}
+			}
+		}
+		applySOP1(instr, registers)
+	case gcnSpec.EncSOP2:
+		applySOP2(instr, registers)
+	case gcnSpec.EncSOPC:
+		applySOPC(instr, registers)
+	case gcnSpec.EncSMRD:
+		applySMRD(instr, registers)
+	case gcnSpec.EncMUBUF:
+		accesses = append(accesses, resolveMUBUF(instr, registers))
+	case gcnSpec.EncMTBUF:
+		accesses = append(accesses, resolveMTBUF(instr, registers))
+	}
+
 	return accesses
 }
 
 func resolveMUBUF(instr *gcnSpec.Instruction, registers *gcnSpec.GcnRegisters) ResolvedBufferAccess {
 	details := instr.Details.(*gcnSpec.MubufDetails)
-	baseSgpr := int(details.Srsrc * 4)
-	var dwords [4]uint32
+	start := int(details.Srsrc * 4)
+
+	var bufferDwords [4]uint32
 	for j := range 4 {
-		if baseSgpr+j < len(registers) {
-			dwords[j] = registers[baseSgpr+j]
-		}
+		bufferDwords[j] = registers[start+j]
 	}
-	desc := spirvStructs.NewBufferDescriptor(dwords[:])
+	descriptor := spirvStructs.NewBufferDescriptor(bufferDwords[:])
+
 	return ResolvedBufferAccess{
-		DestVgpr:   details.Vdata,
-		Descriptor: desc,
+		InstructionOffset: instr.DwordOffset,
+		Kind:              spirv.MubufAccessKind(details.Op),
+		Descriptor:        descriptor,
 	}
+}
+
+func resolveMTBUF(instr *gcnSpec.Instruction, registers *gcnSpec.GcnRegisters) ResolvedBufferAccess {
+	details := instr.Details.(*gcnSpec.MtbufDetails)
+	start := int(details.Srsrc * 4)
+
+	var bufferDwords [4]uint32
+	for j := range 4 {
+		bufferDwords[j] = registers[start+j]
+	}
+	descriptor := spirvStructs.NewBufferDescriptor(bufferDwords[:])
+
+	return ResolvedBufferAccess{
+		InstructionOffset: instr.DwordOffset,
+		Kind:              spirv.MtbufAccessKind(details.Op),
+		Descriptor:        descriptor,
+	}
+}
+
+// ResolveBufferTargets returns images that are read/written to.
+func (t *GpuTranslator) ResolveBufferTargets(accesses []ResolvedBufferAccess, kind BufferAccessKind) ([]*vulkan.VulkanImage, error) {
+	seen := map[uintptr]struct{}{}
+	var images []*vulkan.VulkanImage
+	for _, access := range accesses {
+		if access.Kind != kind {
+			continue
+		}
+		if _, ok := seen[access.Descriptor.BaseAddress]; ok {
+			continue
+		}
+		t.imagesMutex.Lock()
+		image, ok := t.images[access.Descriptor.BaseAddress]
+		t.imagesMutex.Unlock()
+		if !ok {
+			continue
+		}
+		seen[access.Descriptor.BaseAddress] = struct{}{}
+		images = append(images, image)
+	}
+
+	return images, nil
 }

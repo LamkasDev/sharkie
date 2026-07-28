@@ -11,12 +11,9 @@ func (t *GpuTranslator) DmaCopy(frame uint64, dmaCopy *gpu.LiverpoolDmaCopy) {
 	t.EndRenderPass()
 
 	copySize := uintptr(dmaCopy.Count * 4)
-	deferFuncs, err := t.DownloadRegionVkImages(dmaCopy.SrcAddress, copySize, t.commandBuffer)
+	err := t.DownloadRegionVkImages(dmaCopy.SrcAddress, copySize, t.commandBuffer)
 	if err != nil {
 		panic(err)
-	}
-	for _, deferFunc := range deferFuncs {
-		t.handles.DeferDestroyFunction(deferFunc)
 	}
 
 	srcBuffer, srcOffset, err1 := t.GetBufferFromAddress(dmaCopy.SrcAddress)

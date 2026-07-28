@@ -5,6 +5,9 @@
 
 layout (local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 
+#define GLOBAL_ID_X (gl_GlobalInvocationID.x + gl_GlobalInvocationID.y * (gl_NumWorkGroups.x * gl_WorkGroupSize.x))
+#define WORK_GROUP_ID_X (gl_WorkGroupID.x + gl_WorkGroupID.y * gl_NumWorkGroups.x)
+
 layout(std430, binding = 0) buffer input_buf {
     uint in_data[];
 };
@@ -18,6 +21,8 @@ layout(push_constant) uniform image_info {
     uint height;
     uint c0;
     uint c1;
+    uint is_retile;
+    uint sizes[16];
 } info;
 
 // Each LUT is 64 bytes, so should fit into K$ given tiled slices locality
@@ -70,9 +75,9 @@ const uint lut_32bpp[][16] = {
 #define BPP                 (32)
 
 void main() {
-    uint x =  gl_GlobalInvocationID.x % info.pitch;
-    uint y = (gl_GlobalInvocationID.x / info.pitch) % info.height;
-    uint z =  gl_GlobalInvocationID.x / (info.pitch * info.height);
+    uint x =  GLOBAL_ID_X % info.pitch;
+    uint y = (GLOBAL_ID_X / info.pitch) % info.height;
+    uint z =  GLOBAL_ID_X / (info.pitch * info.height);
 
     uint col = bitfieldExtract(x, 0, 3);
     uint row = bitfieldExtract(y, 0, 3);
@@ -87,6 +92,12 @@ void main() {
     uint tile_offs = ((tile_row * info.c0) + tile_column) * MICRO_TILE_SZ;
     uint offs = slice_offs + tile_offs + (idx * BPP / 8);
 
-    uint p0 = in_data[offs >> 2u];
-    out_data[gl_GlobalInvocationID.x] = p0;
+    uint tiled_idx = offs >> 2u;
+    if (info.is_retile == 1) {
+        uint p0 = in_data[GLOBAL_ID_X];
+        out_data[tiled_idx] = p0;
+    } else {
+        uint p0 = in_data[tiled_idx];
+        out_data[GLOBAL_ID_X] = p0;
+    }
 }

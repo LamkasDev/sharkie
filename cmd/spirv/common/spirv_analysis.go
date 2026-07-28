@@ -3,41 +3,30 @@ package common
 type ImageAccessKind uint8
 
 const (
-	ImageAccessLoad ImageAccessKind = iota
-	ImageAccessLoadMip
+	ImageAccessUnknown ImageAccessKind = iota
+	ImageAccessLoad
 	ImageAccessStore
-	ImageAccessStoreMip
 	ImageAccessSample
 )
 
-func (kind ImageAccessKind) IsImage() bool {
-	switch kind {
-	case ImageAccessLoad, ImageAccessLoadMip, ImageAccessStore, ImageAccessStoreMip:
-		return true
-	default:
-		return false
-	}
-}
-
-func (kind ImageAccessKind) IsRead() bool {
-	switch kind {
-	case ImageAccessLoad, ImageAccessLoadMip, ImageAccessSample:
-		return true
-	default:
-		return false
-	}
-}
-
 func (kind ImageAccessKind) Access() (BindingAccess, bool) {
 	switch kind {
-	case ImageAccessLoad, ImageAccessLoadMip, ImageAccessSample:
+	case ImageAccessLoad, ImageAccessSample:
 		return BindingAccessSampledRead, true
-	case ImageAccessStore, ImageAccessStoreMip:
+	case ImageAccessStore:
 		return BindingAccessStorageWrite, true
 	default:
 		return 0, false
 	}
 }
+
+type BufferAccessKind uint8
+
+const (
+	BufferAccessUnknown BufferAccessKind = iota
+	BufferAccessLoad
+	BufferAccessStore
+)
 
 type SgprSource struct {
 	UserDataOffset int32 // -1 if unknown
@@ -46,6 +35,4 @@ type SgprSource struct {
 type SpirvShaderResource struct {
 	InstructionOffset uintptr
 	Kind              ImageAccessKind
-	RsrcUserData      int32 // UserData offset for T# base
-	SampUserData      int32 // UserData offset for S# base
 }

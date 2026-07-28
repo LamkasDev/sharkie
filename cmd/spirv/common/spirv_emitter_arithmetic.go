@@ -233,6 +233,13 @@ func (b *SpvBuilder) EmitFOrdEqual(resultType, op1, op2 SpirvId) SpirvId {
 	return id
 }
 
+// EmitFUnordEqual emits OpFUnordEqual and returns the result ID.
+func (b *SpvBuilder) EmitFUnordEqual(resultType, op1, op2 SpirvId) SpirvId {
+	id := b.AllocId()
+	b.instr(&b.code, spec.SpvOpFUnordEqual, uint32(resultType), uint32(id), uint32(op1), uint32(op2))
+	return id
+}
+
 // EmitFUnordNotEqual emits OpFUnordNotEqual and returns the result ID.
 func (b *SpvBuilder) EmitFUnordNotEqual(resultType, op1, op2 SpirvId) SpirvId {
 	id := b.AllocId()

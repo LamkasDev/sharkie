@@ -24,11 +24,12 @@ func (t *GpuTranslator) unregisterImage(image *vulkan.VulkanImage) {
 	t.imagesMutex.Lock()
 	delete(t.images, image.Address)
 	t.imagesMutex.Unlock()
-	/* deferFunc, err := image.DownloadFromVkImage(t.handles, t.commandBuffer, t.currentGuestFrame)
-	if err != nil {
-		panic(err)
+	if image.ShouldDownloadFromVkImage() {
+		err := image.DownloadFromVkImage(t.handles, t.commandBuffer, t.GetLinearBuffer, t.currentGuestFrame)
+		if err != nil {
+			panic(err)
+		}
 	}
-	t.handles.DeferDestroyFunction(deferFunc) */
 
 	logger.Printf("deleted image at 0x%X (%dx%d).\n",
 		image.Address, image.FirstDescriptor.Width, image.FirstDescriptor.Height,

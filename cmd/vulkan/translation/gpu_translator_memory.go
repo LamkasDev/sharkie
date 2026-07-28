@@ -8,19 +8,14 @@ import (
 
 // ReadMemory services a CPU read fault on GPU-tracked guest memory.
 func (t *GpuTranslator) ReadMemory(address, size uintptr) bool {
-	var deferFuncs []func()
 	err := vulkan.RunWithCommandBuffer(t.handles.DownloadQueue, t.handles, func(commandBuffer *vulkan.VulkanCommandBuffer) {
-		var err error
-		deferFuncs, err = t.DownloadRegionVkImages(address, size, commandBuffer)
+		err := t.DownloadRegionVkImages(address, size, commandBuffer)
 		if err != nil {
 			panic(err)
 		}
 	}, t.currentGuestFrame)
 	if err != nil {
 		panic(err)
-	}
-	for _, deferFunc := range deferFuncs {
-		deferFunc()
 	}
 
 	return true

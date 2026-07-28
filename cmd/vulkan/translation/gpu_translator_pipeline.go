@@ -17,7 +17,7 @@ import (
 
 func (t *GpuTranslator) BindPipeline(frame uint64, bind *gpu.LiverpoolBindPipeline) {
 	t.EndRenderPass()
-	rtAddress := spirvStructs.GetPhysicalGpuAddress(uintptr(bind.RtBase) << 8)
+	rtAddress := (uintptr(bind.RtBase) << 8) & 0xFFFFFFFFFF
 	if rtAddress == 0 {
 		return
 	}
@@ -43,7 +43,7 @@ func (t *GpuTranslator) BindPipeline(frame uint64, bind *gpu.LiverpoolBindPipeli
 	// Stale depth from a previous color target corrupts compositing on the next one.
 	if t.lastColorRtAddress != 0 && t.lastColorRtAddress != rtAddress {
 		t.surfacesMutex.Lock()
-		depthSurface := t.surfaces[spirvStructs.GetPhysicalGpuAddress(uintptr(bind.DbZWriteBase)<<8)]
+		depthSurface := t.surfaces[(uintptr(bind.DbZWriteBase)<<8)&0xFFFFFFFFFF]
 		t.surfacesMutex.Unlock()
 		if depthSurface != nil {
 			depthSurface.FrameUsed = 0
@@ -53,7 +53,7 @@ func (t *GpuTranslator) BindPipeline(frame uint64, bind *gpu.LiverpoolBindPipeli
 
 	// Handle depth surface.
 	var depthSurface *vulkan.VulkanSurface
-	dbAddress := spirvStructs.GetPhysicalGpuAddress(uintptr(bind.DbZWriteBase) << 8)
+	dbAddress := (uintptr(bind.DbZWriteBase) << 8) & 0xFFFFFFFFFF
 	if dbAddress != 0 {
 		depthSurface, err = t.GetSurface(spirvStructs.ImageDescriptor{
 			BaseAddress: dbAddress,
@@ -99,7 +99,7 @@ func (t *GpuTranslator) BindPipeline(frame uint64, bind *gpu.LiverpoolBindPipeli
 	if fetchShaderAddress != 0 {
 		fetchShader := gpu.GlobalLiverpool.GetShader(gcn.GcnShaderStageVertex, fetchShaderAddress)
 		if fetchShader != nil {
-			fetchInstructions = ParseFetchShaderInstructions(fetchShader, userData[:])
+			fetchInstructions = ParseFetchShaderInstructions(fetchShader)
 		}
 	}
 

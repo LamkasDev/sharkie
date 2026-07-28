@@ -225,6 +225,7 @@ const (
 	SpvOpULessThan              = uint32(176)
 	SpvOpULessThanEqual         = uint32(178)
 	SpvOpFOrdEqual              = uint32(180)
+	SpvOpFUnordEqual            = uint32(181)
 	SpvOpFUnordNotEqual         = uint32(183)
 	SpvOpFOrdLessThan           = uint32(184)
 	SpvOpFOrdGreaterThan        = uint32(186)

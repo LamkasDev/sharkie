@@ -32,8 +32,9 @@ type BufferDescriptor struct {
 }
 
 func NewBufferDescriptor(dwords []uint32) BufferDescriptor {
+	baseAddress := (uintptr(dwords[0]) | (uintptr(dwords[1]&0xFFFF) << 32)) & 0xFFFFFFFFFF
 	return BufferDescriptor{
-		BaseAddress:   uintptr(dwords[0]) | (uintptr(dwords[1]&0xFFFF) << 32),
+		BaseAddress:   baseAddress,
 		Stride:        uint16((dwords[1] >> 16) & 0x3FFF),
 		SwizzleCache:  (dwords[1]>>30)&1 == 1,
 		SwizzleEnable: (dwords[1]>>31)&1 == 1,
