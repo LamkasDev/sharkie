@@ -54,12 +54,18 @@ func RegisterPosixStubs() {
 	RegisterPosixStub("close", libScePosix_close)
 	RegisterPosixStub("_close", libScePosix_close)
 	RegisterPosixStub("stat", libScePosix_stat)
+	RegisterPosixStub("fstat", libScePosix_fstat)
 
 	// Memory functions.
 	RegisterPosixStub("mmap", libScePosix_mmap)
 	RegisterPosixStub("mmap_0", libScePosix_mmap)
 	RegisterPosixStub("munmap", libScePosix_munmap)
 	RegisterPosixStub("mname", libScePosix_mname)
+
+	// Network functions.
+	RegisterPosixStub("socketpair", libScePosix_socketpair)
+	RegisterPosixStub("recvmsg", libScePosix_recvmsg)
+	RegisterPosixStub("sendmsg", libScePosix_sendmsg)
 }
 
 // We need these functions to be available in kernel; libraries take them from there.

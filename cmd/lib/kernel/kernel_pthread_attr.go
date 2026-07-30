@@ -114,7 +114,6 @@ func libKernel_scePthreadAttrDestroy(attrHandlePtr *uintptr) uintptr {
 // 0x0000000000014480
 // __int64 __fastcall scePthreadAttrGet(volatile signed __int32 *, __int64 *)
 func libKernel_scePthreadAttrGet(threadPtr uintptr, attrHandlePtr *uintptr) uintptr {
-	// Resolve the handle.
 	attr, err := ResolveHandle[PthreadAttr](attrHandlePtr)
 	if err != 0 {
 		logger.Printf("%-132s %s failed due to invalid attribute pointer.\n",
@@ -140,22 +139,77 @@ func libKernel_scePthreadAttrGet(threadPtr uintptr, attrHandlePtr *uintptr) uint
 
 // 0x0000000000013400
 // __int64 scePthreadAttrGetstack()
-func libKernel_scePthreadAttrGetstack(attrPtr, addrPtr, sizePtr uintptr) uintptr {
-	thread := emu.GetCurrentThread()
-	if addrPtr != 0 {
-		WriteAddress(addrPtr, thread.Stack.Address)
+func libKernel_scePthreadAttrGetstack(attrHandlePtr *uintptr, addrPtr, sizePtr uintptr) uintptr {
+	attr, err := ResolveHandle[PthreadAttr](attrHandlePtr)
+	if err != 0 {
+		logger.Printf("%-132s %s failed due to invalid attribute pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("scePthreadAttrGetstack"),
+		)
+		return err
 	}
-
+	if addrPtr != 0 {
+		WriteAddress(addrPtr, attr.StackAddress)
+	}
 	if sizePtr != 0 {
 		sizeSlice := unsafe.Slice((*byte)(unsafe.Pointer(sizePtr)), 8)
-		binary.LittleEndian.PutUint64(sizeSlice, uint64(StackDefaultSize))
+		binary.LittleEndian.PutUint64(sizeSlice, attr.StackSize)
 	}
 
-	logger.Printf("%-132s %s returned thread attributes (attrPtr=%s, addrPtr=%s, sizePtr=%s).\n",
+	logger.Printf("%-132s %s returned thread stack attributes (attrHandlePtr=%s, addrPtr=%s, sizePtr=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("scePthreadAttrGetstack"),
-		color.Yellow.Sprintf("0x%X", attrPtr),
+		color.Yellow.Sprintf("0x%X", attrHandlePtr),
 		color.Yellow.Sprintf("0x%X", addrPtr),
+		color.Yellow.Sprintf("0x%X", sizePtr),
+	)
+	return 0
+}
+
+// 0x0000000000013460
+// __int64 scePthreadAttrGetstackaddr()
+func libKernel_scePthreadAttrGetstackaddr(attrHandlePtr *uintptr, addrPtr uintptr) uintptr {
+	attr, err := ResolveHandle[PthreadAttr](attrHandlePtr)
+	if err != 0 {
+		logger.Printf("%-132s %s failed due to invalid attribute pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("scePthreadAttrGetstackaddr"),
+		)
+		return err
+	}
+	if addrPtr != 0 {
+		WriteAddress(addrPtr, attr.StackAddress)
+	}
+
+	logger.Printf("%-132s %s returned thread stack address (attrHandlePtr=%s, addrPtr=%s).\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("scePthreadAttrGetstackaddr"),
+		color.Yellow.Sprintf("0x%X", attrHandlePtr),
+		color.Yellow.Sprintf("0x%X", addrPtr),
+	)
+	return 0
+}
+
+// 0x0000000000013420
+// __int64 scePthreadAttrGetstacksize()
+func libKernel_scePthreadAttrGetstacksize(attrHandlePtr *uintptr, sizePtr uintptr) uintptr {
+	attr, err := ResolveHandle[PthreadAttr](attrHandlePtr)
+	if err != 0 {
+		logger.Printf("%-132s %s failed due to invalid attribute pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("scePthreadAttrGetstacksize"),
+		)
+		return err
+	}
+	if sizePtr != 0 {
+		sizeSlice := unsafe.Slice((*byte)(unsafe.Pointer(sizePtr)), 8)
+		binary.LittleEndian.PutUint64(sizeSlice, attr.StackSize)
+	}
+
+	logger.Printf("%-132s %s returned thread stack size (attrHandlePtr=%s, sizePtr=%s).\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("scePthreadAttrGetstacksize"),
+		color.Yellow.Sprintf("0x%X", attrHandlePtr),
 		color.Yellow.Sprintf("0x%X", sizePtr),
 	)
 	return 0
@@ -163,17 +217,16 @@ func libKernel_scePthreadAttrGetstack(attrPtr, addrPtr, sizePtr uintptr) uintptr
 
 // 0x00000000000144A0
 // __int64 __fastcall scePthreadAttrGetaffinity(__int64, _QWORD *)
-func libKernel_scePthreadAttrGetaffinity(attrPtr, outMaskPtr uintptr) uintptr {
+func libKernel_scePthreadAttrGetaffinity(attrHandlePtr *uintptr, outMaskPtr uintptr) uintptr {
 	var cpuSet [16]byte
 	err := libKernel_pthread_attr_getaffinity_np(
-		attrPtr,
+		attrHandlePtr,
 		16,
 		uintptr(unsafe.Pointer(&cpuSet[0])),
 	)
 	if err != 0 {
 		return err - SonyErrorOffset
 	}
-
 	if outMaskPtr != 0 {
 		outMask := unsafe.Slice((*byte)(unsafe.Pointer(outMaskPtr)), 8)
 		binary.LittleEndian.PutUint64(outMask, *(*uint64)(unsafe.Pointer(&cpuSet[0])))
@@ -184,28 +237,30 @@ func libKernel_scePthreadAttrGetaffinity(attrPtr, outMaskPtr uintptr) uintptr {
 
 // 0x0000000000003F60
 // __int64 __fastcall pthread_attr_getaffinity_np(__int64 *, unsigned __int64, __int64)
-func libKernel_pthread_attr_getaffinity_np(attrPtr, cpuSetSize, cpuSetPtr uintptr) uintptr {
-	if cpuSetPtr == 0 {
-		logger.Printf("%-132s %s failed due to invalid cpu set pointer.\n",
+func libKernel_pthread_attr_getaffinity_np(attrHandlePtr *uintptr, cpuSetSize, cpuSetPtr uintptr) uintptr {
+	_, err := ResolveHandle[PthreadAttr](attrHandlePtr)
+	if err != 0 {
+		logger.Printf("%-132s %s failed due to invalid attribute pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("scePthreadAttrGetaffinity"),
+			color.Magenta.Sprint("pthread_attr_getaffinity_np"),
 		)
-		return SCE_KERNEL_ERROR_EINVAL
+		return err
+	}
+	if cpuSetPtr != 0 {
+		// We enable all cores in the mask for now.
+		if cpuSetSize > 1024 {
+			cpuSetSize = 1024
+		}
+		cpuSet := unsafe.Slice((*byte)(unsafe.Pointer(cpuSetPtr)), cpuSetSize)
+		for i := range cpuSet {
+			cpuSet[i] = 0xFF
+		}
 	}
 
-	// We enable all cores in the mask for now.
-	if cpuSetSize > 1024 {
-		cpuSetSize = 1024
-	}
-	cpuSet := unsafe.Slice((*byte)(unsafe.Pointer(cpuSetPtr)), cpuSetSize)
-	for i := range cpuSet {
-		cpuSet[i] = 0xFF
-	}
-
-	logger.Printf("%-132s %s returned thread affinity (attrPtr=%s, cpuSetSize=%s, cpuSetPtr=%s).\n",
+	logger.Printf("%-132s %s returned thread affinity (attrHandlePtr=%s, cpuSetSize=%s, cpuSetPtr=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("scePthreadAttrGetaffinity"),
-		color.Yellow.Sprintf("0x%X", attrPtr),
+		color.Yellow.Sprintf("0x%X", attrHandlePtr),
 		color.Yellow.Sprintf("0x%X", cpuSetSize),
 		color.Yellow.Sprintf("0x%X", cpuSetPtr),
 	)

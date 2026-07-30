@@ -13,6 +13,7 @@ func RegisterVideoOutStubs() {
 	elf.RegisterStub("libSceVideoOut", "sceVideoOutAdjustColor_", libSceVideoOut_stub)
 	elf.RegisterStub("libSceVideoOut", "sceVideoOutColorSettingsSetGamma_", libSceVideoOut_stub)
 	elf.RegisterStub("libSceVideoOut", "sceVideoOutGetResolutionStatus", libSceVideoOut_sceVideoOutGetResolutionStatus)
+	elf.RegisterStub("libSceVideoOut", "sceVideoOutGetDeviceCapabilityInfo_", libSceVideoOut_sceVideoOutGetDeviceCapabilityInfo_)
 
 	// Flip functions.
 	elf.RegisterStub("libSceVideoOut", "sceVideoOutAddFlipEvent", libSceVideoOut_sceVideoOutAddFlipEvent)

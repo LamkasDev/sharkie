@@ -25,3 +25,5 @@ require (
 	github.com/philhofer/fwd v1.2.0 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 )
+
+replace github.com/langhuihui/gomem => ./temp/gomem

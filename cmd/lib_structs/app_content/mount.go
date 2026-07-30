@@ -1,0 +1,3 @@
+package app_content
+
+type AppContentTemporaryDataOption uint32

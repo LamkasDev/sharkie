@@ -22,6 +22,7 @@ type VideoOutHandle struct {
 	Attributes         [VideoOutMaxAttributes]VideoOutBufferAttribute
 	LabelBufferAddress uintptr
 	Resolution         VideoOutResolutionStatus
+	Capability         VideoOutCapabilityInfo
 
 	CurrentFlip *VideoOutFlip
 	NextFlip    chan *VideoOutFlip
@@ -45,7 +46,8 @@ func NewVideoOutHandle(id uint32) *VideoOutHandle {
 			RefreshRate:        3,
 			ScreenSizeInInches: 50,
 		},
-		NextFlip: make(chan *VideoOutFlip, VideoOutMaxBuffers),
+		Capability: VideoOutCapabilityInfo{},
+		NextFlip:   make(chan *VideoOutFlip, VideoOutMaxBuffers),
 	}
 }
 
@@ -99,4 +101,8 @@ type VideoOutResolutionStatus struct {
 	Flags              uint16
 	Reserved0          uint16
 	Reserved1          [3]uint32
+}
+
+type VideoOutCapabilityInfo struct {
+	Capability uint64
 }

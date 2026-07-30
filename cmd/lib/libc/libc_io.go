@@ -11,6 +11,12 @@ func libc_fopen(pathPtr, modePtr Cstring) uintptr {
 	return libSceLibcInternal_fopen(pathPtr, modePtr)
 }
 
+// 0x0000000000000EF0
+// __int64 __fastcall fopen_s(__int64 *, __int64, _BYTE *)
+func libc_fopen_s(filePtr *uintptr, pathPtr, modePtr Cstring) uintptr {
+	return libSceLibcInternal_fopen_s(filePtr, pathPtr, modePtr)
+}
+
 // 0x0000000000027530
 // __int64 __fastcall fdopen(__int64, __int64)
 func libc_fdopen(fd FileDescriptor, modePtr Cstring) uintptr {

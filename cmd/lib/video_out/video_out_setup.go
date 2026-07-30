@@ -157,3 +157,33 @@ func libSceVideoOut_sceVideoOutGetResolutionStatus(rawHandle uintptr, resolution
 	}
 	return 0
 }
+
+// 0x00000000000043B0
+// __int64 __fastcall sceVideoOutGetDeviceCapabilityInfo_(int, __int64, __int64)
+func libSceVideoOut_sceVideoOutGetDeviceCapabilityInfo_(rawHandle uintptr, capabilityInfo *VideoOutCapabilityInfo) uintptr {
+	if capabilityInfo == nil {
+		logger.Printf("%-132s %s failed due to invalid capability info pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceVideoOutGetDeviceCapabilityInfo_"),
+		)
+		return 0x80290002
+	}
+	handle, ok := GlobalDisplayCoreEngine.Handles[uint32(rawHandle)]
+	if !ok {
+		logger.Printf("%-132s %s failed due to invalid handle.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceVideoOutGetDeviceCapabilityInfo_"),
+		)
+		return SCE_VIDEO_OUT_ERROR_INVALID_HANDLE
+	}
+	*capabilityInfo = handle.Capability
+
+	if logger.LogGraphics {
+		logger.Printf("%-132s %s returned %s's capability info.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceVideoOutGetDeviceCapabilityInfo_"),
+			color.Yellow.Sprintf("0x%X", handle.Id),
+		)
+	}
+	return 0
+}

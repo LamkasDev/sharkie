@@ -29,20 +29,29 @@ func MemoryFlagsToLinuxFlags(flags int32, addr uintptr) uintptr {
 
 func AllocKernelMemory(addr uintptr, length uint64, prot, flags int32) (uintptr, error) {
 	addr = sys_struct.GetNextAlignedAddress(addr, length)
-	allocatedAddr, _, err := syscall.Syscall6(
-		syscall.SYS_MMAP,
-		addr,
-		uintptr(length),
-		MemoryProtToLinuxProt(prot),
-		MemoryFlagsToLinuxFlags(flags, addr),
-		ERR_PTR,
-		0,
-	)
-	if err != 0 {
-		return 0, err
+	linuxProt := MemoryProtToLinuxProt(prot)
+	linuxFlags := MemoryFlagsToLinuxFlags(flags, addr)
+	for {
+		allocatedAddr, _, err := syscall.Syscall6(
+			syscall.SYS_MMAP,
+			addr,
+			uintptr(length),
+			linuxProt,
+			linuxFlags,
+			ERR_PTR,
+			0,
+		)
+		if err == 0 {
+			if allocatedAddr < 0xFFFFFFFFFF {
+				return allocatedAddr, nil
+			}
+			syscall.Syscall6(syscall.SYS_MUNMAP, allocatedAddr, uintptr(length), 0, 0, 0, 0)
+		} else if err != syscall.EEXIST {
+			return 0, err
+		}
+		addr = sys_struct.GetNextAlignedAddress(0, length)
+		linuxFlags |= 0x100000
 	}
-
-	return allocatedAddr, nil
 }
 
 func FreeKernelMemory(addr uintptr, length uint64) (uintptr, error) {

@@ -16,13 +16,13 @@ import (
 
 // 0x00000000000011B0
 // __int64 __fastcall sceGnmSubmitCommandBuffers(__int64, __int64, __int64, __int64, __int64)
-func libSceGnmDriver_sceGnmSubmitCommandBuffers(count uint32, dcbGpuAddrsPtr, dcbSizesPtr, ccbGpuAddrsPtr, ccbSizesPtr uintptr) int64 {
+func libSceGnmDriver_sceGnmSubmitCommandBuffers(count uint32, dcbGpuAddrsPtr, dcbSizesPtr, ccbGpuAddrsPtr, ccbSizesPtr *uintptr) int64 {
 	return libSceGnmDriver_sceGnmSubmitCommandBuffersForWorkload(count, count, dcbGpuAddrsPtr, dcbSizesPtr, ccbGpuAddrsPtr, ccbSizesPtr)
 }
 
 // 0x0000000000000F80
 // __int64 __fastcall sceGnmSubmitCommandBuffersForWorkload(__int64, __int64, __int64, __int64, __int64, __int64)
-func libSceGnmDriver_sceGnmSubmitCommandBuffersForWorkload(workloadId, count uint32, dcbGpuAddrsPtr, dcbSizesPtr, ccbGpuAddrsPtr, ccbSizesPtr uintptr) int64 {
+func libSceGnmDriver_sceGnmSubmitCommandBuffersForWorkload(workloadId, count uint32, dcbGpuAddrsPtr, dcbSizesPtr, ccbGpuAddrsPtr, ccbSizesPtr *uintptr) int64 {
 	if count == 0 {
 		logger.Printf("%-132s %s skipped due to zero count.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -30,22 +30,8 @@ func libSceGnmDriver_sceGnmSubmitCommandBuffersForWorkload(workloadId, count uin
 		)
 		return 0
 	}
-	if dcbGpuAddrsPtr == 0 {
-		logger.Printf("%-132s %s failed due to invalid DCB gpu addresses pointer.\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("sceGnmSubmitCommandBuffersForWorkload"),
-		)
-		return SCE_GNM_ERROR_INVALID_POINTER
-	}
-	if dcbSizesPtr == 0 {
-		logger.Printf("%-132s %s failed due to invalid DCB sizes pointer.\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("sceGnmSubmitCommandBuffersForWorkload"),
-		)
-		return SCE_GNM_ERROR_INVALID_POINTER
-	}
-	if ccbSizesPtr != 0 && ccbGpuAddrsPtr == 0 {
-		logger.Printf("%-132s %s failed due to invalid CCB gpu addresses pointer.\n",
+	if dcbGpuAddrsPtr == nil || dcbSizesPtr == nil || (ccbSizesPtr != nil && ccbGpuAddrsPtr == nil) {
+		logger.Printf("%-132s %s failed due to invalid addresses pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceGnmSubmitCommandBuffersForWorkload"),
 		)
@@ -98,13 +84,13 @@ func libSceGnmDriver_sceGnmSubmitCommandBuffersForWorkload(workloadId, count uin
 
 // 0x0000000000001690
 // __int64 __fastcall sceGnmSubmitAndFlipCommandBuffers(__int64, __int64, __int64, __int64, __int64, unsigned int, unsigned int, unsigned int, __int64)
-func libSceGnmDriver_sceGnmSubmitAndFlipCommandBuffers(count uint32, dcbGpuAddrsPtr, dcbSizesPtr, ccbGpuAddrsPtr, ccbSizesPtr uintptr, videoOutHandle, bufferIndex, flipMode uint32, flipArg int64) int64 {
+func libSceGnmDriver_sceGnmSubmitAndFlipCommandBuffers(count uint32, dcbGpuAddrsPtr, dcbSizesPtr, ccbGpuAddrsPtr, ccbSizesPtr *uintptr, videoOutHandle, bufferIndex, flipMode uint32, flipArg int64) int64 {
 	return libSceGnmDriver_sceGnmSubmitAndFlipCommandBuffersForWorkload(count, count, dcbGpuAddrsPtr, dcbSizesPtr, ccbGpuAddrsPtr, ccbSizesPtr, videoOutHandle, bufferIndex, flipMode, flipArg)
 }
 
 // 0x0000000000001410
 // __int64 __fastcall sceGnmSubmitAndFlipCommandBuffersForWorkload(__int64, __int64, __int64, __int64, __int64, __int64, unsigned int, unsigned int, unsigned int, __int64)
-func libSceGnmDriver_sceGnmSubmitAndFlipCommandBuffersForWorkload(workloadId, count uint32, dcbGpuAddrsPtr, dcbSizesPtr, ccbGpuAddrsPtr, ccbSizesPtr uintptr, videoOutHandle, bufferIndex, flipMode uint32, flipArg int64) int64 {
+func libSceGnmDriver_sceGnmSubmitAndFlipCommandBuffersForWorkload(workloadId, count uint32, dcbGpuAddrsPtr, dcbSizesPtr, ccbGpuAddrsPtr, ccbSizesPtr *uintptr, videoOutHandle, bufferIndex, flipMode uint32, flipArg int64) int64 {
 	if count == 0 {
 		logger.Printf("%-132s %s skipped due to zero count.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -112,22 +98,8 @@ func libSceGnmDriver_sceGnmSubmitAndFlipCommandBuffersForWorkload(workloadId, co
 		)
 		return 0
 	}
-	if dcbGpuAddrsPtr == 0 {
-		logger.Printf("%-132s %s failed due to invalid DCB gpu addresses pointer.\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("sceGnmSubmitAndFlipCommandBuffersForWorkload"),
-		)
-		return SCE_GNM_ERROR_INVALID_POINTER
-	}
-	if dcbSizesPtr == 0 {
-		logger.Printf("%-132s %s failed due to invalid DCB sizes pointer.\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("sceGnmSubmitAndFlipCommandBuffersForWorkload"),
-		)
-		return SCE_GNM_ERROR_INVALID_POINTER
-	}
-	if ccbSizesPtr != 0 && ccbGpuAddrsPtr == 0 {
-		logger.Printf("%-132s %s failed due to invalid CCB gpu addresses pointer.\n",
+	if dcbGpuAddrsPtr == nil || dcbSizesPtr == nil || (ccbSizesPtr != nil && ccbGpuAddrsPtr == nil) {
+		logger.Printf("%-132s %s failed due to invalid addresses pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceGnmSubmitAndFlipCommandBuffersForWorkload"),
 		)

@@ -29,6 +29,10 @@ package sys_struct
 */
 import "C"
 
+import (
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/kernel"
+)
+
 type SIGNAL_CONTEXT struct {
 	Info    *C.siginfo_t
 	Context *C.ucontext_t
@@ -90,4 +94,47 @@ func (ctx *SIGNAL_CONTEXT) GetRegister(regIndex int) uintptr {
 
 func (ctx *SIGNAL_CONTEXT) SetRegister(regIndex int, value uintptr) {
 	ctx.Context.uc_mcontext.gregs[regIndex] = C.greg_t(value)
+}
+
+func (ctx *SIGNAL_CONTEXT) CopyTo(uctx *kernel.Ucontext) {
+	uctx.Mcontext.Rdi = uint64(ctx.GetRegister(REG_RDI))
+	uctx.Mcontext.Rsi = uint64(ctx.GetRegister(REG_RSI))
+	uctx.Mcontext.Rdx = uint64(ctx.GetRegister(REG_RDX))
+	uctx.Mcontext.Rcx = uint64(ctx.GetRegister(REG_RCX))
+	uctx.Mcontext.R8 = uint64(ctx.GetRegister(REG_R8))
+	uctx.Mcontext.R9 = uint64(ctx.GetRegister(REG_R9))
+	uctx.Mcontext.Rax = uint64(ctx.GetRegister(REG_RAX))
+	uctx.Mcontext.Rbx = uint64(ctx.GetRegister(REG_RBX))
+	uctx.Mcontext.Rbp = uint64(ctx.GetRegister(REG_RBP))
+	uctx.Mcontext.R10 = uint64(ctx.GetRegister(REG_R10))
+	uctx.Mcontext.R11 = uint64(ctx.GetRegister(REG_R11))
+	uctx.Mcontext.R12 = uint64(ctx.GetRegister(REG_R12))
+	uctx.Mcontext.R13 = uint64(ctx.GetRegister(REG_R13))
+	uctx.Mcontext.R14 = uint64(ctx.GetRegister(REG_R14))
+	uctx.Mcontext.R15 = uint64(ctx.GetRegister(REG_R15))
+	uctx.Mcontext.Rip = uint64(ctx.GetRegister(REG_RIP))
+	uctx.Mcontext.Rsp = uint64(ctx.GetRegister(REG_RSP))
+	uctx.Mcontext.Rflags = uint64(ctx.GetRegister(REG_EFL))
+	uctx.Mcontext.Addr = uint64(ctx.GetFaultAddress())
+}
+
+func (ctx *SIGNAL_CONTEXT) CopyFrom(uctx *kernel.Ucontext) {
+	ctx.SetRegister(REG_RDI, uintptr(uctx.Mcontext.Rdi))
+	ctx.SetRegister(REG_RSI, uintptr(uctx.Mcontext.Rsi))
+	ctx.SetRegister(REG_RDX, uintptr(uctx.Mcontext.Rdx))
+	ctx.SetRegister(REG_RCX, uintptr(uctx.Mcontext.Rcx))
+	ctx.SetRegister(REG_R8, uintptr(uctx.Mcontext.R8))
+	ctx.SetRegister(REG_R9, uintptr(uctx.Mcontext.R9))
+	ctx.SetRegister(REG_RAX, uintptr(uctx.Mcontext.Rax))
+	ctx.SetRegister(REG_RBX, uintptr(uctx.Mcontext.Rbx))
+	ctx.SetRegister(REG_RBP, uintptr(uctx.Mcontext.Rbp))
+	ctx.SetRegister(REG_R10, uintptr(uctx.Mcontext.R10))
+	ctx.SetRegister(REG_R11, uintptr(uctx.Mcontext.R11))
+	ctx.SetRegister(REG_R12, uintptr(uctx.Mcontext.R12))
+	ctx.SetRegister(REG_R13, uintptr(uctx.Mcontext.R13))
+	ctx.SetRegister(REG_R14, uintptr(uctx.Mcontext.R14))
+	ctx.SetRegister(REG_R15, uintptr(uctx.Mcontext.R15))
+	ctx.SetRegister(REG_RIP, uintptr(uctx.Mcontext.Rip))
+	ctx.SetRegister(REG_RSP, uintptr(uctx.Mcontext.Rsp))
+	ctx.SetRegister(REG_EFL, uintptr(uctx.Mcontext.Rflags))
 }

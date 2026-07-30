@@ -101,6 +101,14 @@ func (l *Linker) Link(e *elf.Elf) error {
 			Type:         elf.STT_FUNC,
 			Binding:      elf.STB_LOCAL,
 		})
+		e.SymbolTable.RegisterSymbol(&elf.ElfSymbol{
+			HashIndex:    elf.GetSymbolHashIndex("PS4Player_Il2cpp.sprx", "sub_840240"),
+			LibraryName:  "PS4Player_Il2cpp.sprx",
+			ReadableName: "sub_840240",
+			Address:      0x0000000000840240,
+			Type:         elf.STT_FUNC,
+			Binding:      elf.STB_LOCAL,
+		})
 
 		if logger.GameDebugMode {
 			// We would have to put function pointers in this + 0xA0/0xA8.
@@ -116,6 +124,7 @@ func (l *Linker) Link(e *elf.Elf) error {
 	}
 	if logger.FiosDebugMode && e.Name == "libSceFios2.sprx" {
 		debugFlags := unsafe.Slice((*byte)(unsafe.Add(unsafe.Pointer(e.BaseAddress), 0x17C520)), 4)
+		// debugFlags := unsafe.Slice((*byte)(unsafe.Add(unsafe.Pointer(e.BaseAddress), 0x178520)), 4)
 		debugFlags[0] = 0xFF
 		debugFlags[1] = 0xFF
 		debugFlags[2] = 0xFF

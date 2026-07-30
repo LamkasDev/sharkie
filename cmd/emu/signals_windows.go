@@ -7,6 +7,7 @@ import (
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/asm"
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/kernel"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/LamkasDev/sharkie/cmd/sys_struct"
 	"github.com/gookit/color"
@@ -22,6 +23,11 @@ func ExceptionHandlerGo() uintptr {
 	exceptionInfo := (*sys_struct.EXCEPTION_POINTERS)(unsafe.Pointer(threadContext.GlobalExceptionInfo))
 	code := exceptionInfo.ExceptionRecord.ExceptionCode
 	ctx := exceptionInfo.ContextRecord
+
+	// TODO: finish this.
+	if len(kernel.ExceptionHandlers) > 0 {
+		panic("not implemented")
+	}
 
 	switch code {
 	case sys_struct.EXCEPTION_ACCESS_VIOLATION:

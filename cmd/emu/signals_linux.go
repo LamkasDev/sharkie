@@ -7,6 +7,7 @@ import (
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/asm"
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/kernel"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/LamkasDev/sharkie/cmd/sys_struct"
 	"github.com/gookit/color"
@@ -66,6 +67,26 @@ func ExceptionHandlerGo() uintptr {
 	code := signalContext.GetCode()
 	rip := signalContext.GetRegister(sys_struct.REG_RIP)
 
+	// Pass control to guest exception handlers.
+	orbisSignum := PlatformToOrbisSignal(int(code))
+	if handlerAddr, ok := kernel.ExceptionHandlers[orbisSignum]; ok {
+		if logger.LogExceptions {
+			logger.Printf(
+				"[%s] Jumping to guest exception handler for signal %s at %s (%s)...\n",
+				color.Green.Sprint(thread.Name),
+				color.Green.Sprint(orbisSignum),
+				color.Yellow.Sprintf("0x%X", handlerAddr),
+				GlobalModuleManager.GetCallSiteTextShort(),
+			)
+		}
+		uctx := &kernel.Ucontext{}
+		signalContext.CopyTo(uctx)
+		thread.CallAndWaitFromStub(handlerAddr, uintptr(orbisSignum), uintptr(unsafe.Pointer(uctx)))
+		signalContext.CopyFrom(uctx)
+
+		return sys_struct.EXCEPTION_CONTINUE_EXECUTION
+	}
+
 	switch code {
 	case sys_struct.SIGNAL_SIGSEGV, sys_struct.SIGNAL_SIGBUS:
 		result := fmt.Sprintf(
@@ -121,6 +142,7 @@ func SprintException(ctx *sys_struct.SIGNAL_CONTEXT) (result string) {
 
 // SetupSignalHandler registers the assembly trampoline for specified signals.
 func SetupSignalHandler() {
+	return
 	if C.setup_signal_stack() != 0 {
 		panic("failed to setup signal stack")
 	}

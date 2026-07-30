@@ -5,6 +5,9 @@ import (
 )
 
 func RegisterLibcStubs() {
+	elf.RegisterStub("libc", "abort", Abort)
+	elf.RegisterStub("libc", "exit", Exit)
+
 	// Memory functions.
 	elf.RegisterStub("libc", "_malloc_init", libc__malloc_init)
 	elf.RegisterStub("libc", "malloc", libc_malloc)
@@ -33,6 +36,7 @@ func RegisterLibcStubs() {
 
 	// IO functions.
 	elf.RegisterStub("libc", "fopen", libc_fopen)
+	elf.RegisterStub("libc", "fopen_s", libc_fopen_s)
 	elf.RegisterStub("libc", "fdopen", libc_fdopen)
 	elf.RegisterStub("libc", "fread", libc_fread)
 	elf.RegisterStub("libc", "fgetc", libc_fgetc)

@@ -21,13 +21,13 @@ const (
 	LogAlloc = false
 
 	// Logs filesystem operations.
-	LogFilesystem = false
+	LogFilesystem = true
 
 	// Logs graphics & video driver functions.
-	LogGraphics = false
+	LogGraphics = true
 
 	// Logs vulkan rendering.
-	LogRenderer = false
+	LogRenderer = true
 
 	// Logs vulkan pseudo commands (waits, writes, etc).
 	LogRendererInternal = false
@@ -37,6 +37,9 @@ const (
 
 	// Logs error returns (can't ignore them forever).
 	LogErrorRet = false
+
+	// Logs when jumping to a guest exception handler
+	LogExceptions = true
 )
 
 const (

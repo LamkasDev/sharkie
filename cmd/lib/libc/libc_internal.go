@@ -10,6 +10,7 @@ import (
 
 func RegisterSceLibcInternalStubs() {
 	elf.RegisterStub("libSceLibcInternal", "abort", Abort)
+	elf.RegisterStub("libSceLibcInternal", "exit", Exit)
 
 	// Memory functions.
 	elf.RegisterStub("libSceLibcInternal", "_malloc_init", libc__malloc_init)
@@ -39,6 +40,7 @@ func RegisterSceLibcInternalStubs() {
 
 	// IO functions.
 	elf.RegisterStub("libSceLibcInternal", "fopen", libSceLibcInternal_fopen)
+	elf.RegisterStub("libSceLibcInternal", "fopen_s", libSceLibcInternal_fopen_s)
 	elf.RegisterStub("libSceLibcInternal", "fdopen", libSceLibcInternal_fdopen)
 	elf.RegisterStub("libSceLibcInternal", "fread", libSceLibcInternal_fread)
 	elf.RegisterStub("libSceLibcInternal", "fgetc", libSceLibcInternal_fgetc)
@@ -101,6 +103,17 @@ func libSceLibcInternal_stub() uintptr {
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprintf("generic stub"),
 	)
+
+	return 0
+}
+
+func Exit(code uintptr) uintptr {
+	logger.Printf(
+		"%-132s exited with %s :c\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Yellow.Sprintf("0x%X", code),
+	)
+	logger.CleanupAndExit()
 
 	return 0
 }

@@ -7,6 +7,7 @@ import (
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/fs"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/net"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/net/file"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/posix"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
@@ -22,7 +23,8 @@ func libKernel___sys_netcontrol(fd FileDescriptor, op, resultPtr, length uintptr
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("__sys_netcontrol"),
 			)
-			return EINVAL
+			emu.SetErrno(EINVAL)
+			return ERR_PTR
 		}
 		memoryInfo := (*NetworkMemoryInfo)(unsafe.Pointer(resultPtr))
 		memoryInfo.BufferSize = SocketBufferSize
@@ -42,7 +44,8 @@ func libKernel___sys_netcontrol(fd FileDescriptor, op, resultPtr, length uintptr
 		color.Yellow.Sprintf("0x%X", resultPtr),
 		color.Yellow.Sprintf("0x%X", length),
 	)
-	return EINVAL
+	emu.SetErrno(EINVAL)
+	return ERR_PTR
 }
 
 // 0x0000000000000C70
@@ -53,6 +56,7 @@ func libKernel___sys_socketex(namePtr Cstring, domain, sockType, protocol uintpt
 		name = GoString(namePtr)
 	}
 
+	// Create socket.
 	socket := &Socket{
 		Name:     name,
 		Domain:   int32(domain),

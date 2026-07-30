@@ -150,9 +150,9 @@ func (t *GpuTranslator) BindPipeline(frame uint64, bind *gpu.LiverpoolBindPipeli
 
 	logicOpEnable := vk.Bool32(vk.False)
 	logicOp := vk.LogicOpCopy
-	if (bind.RtBlendControl>>30)&1 == 0 { // Blending disabled
-		rop3 := (bind.RtColorControl >> 16) & 0xFF
-		if rop3 != 0xCC {
+	if (bind.RtBlendControl>>30)&1 == 0 { // 0 means blending disabled.
+		if (bind.RtBlendControl>>31)&1 == 0 { // 1 means ROP3 disabled.
+			rop3 := (bind.RtColorControl >> 16) & 0xFF
 			logicOpEnable = vk.Bool32(vk.True)
 			logicOp = translateLogicOp(rop3)
 		}

@@ -313,6 +313,48 @@ func (shFs *SharkieFilesystem) Close(fd FileDescriptor) error {
 	return nil
 }
 
+func (shFs *SharkieFilesystem) Exists(path string) bool {
+	shFs.Lock.Lock()
+	_, isDevice := shFs.Devices[path]
+	shFs.Lock.Unlock()
+	if isDevice {
+		return true
+	}
+	_, err := shFs.Fs.GetOrCreateNode(path, false, false, 0)
+
+	return err == nil
+}
+
+func (shFs *SharkieFilesystem) IsDir(path string) bool {
+	shFs.Lock.Lock()
+	_, isDevice := shFs.Devices[path]
+	shFs.Lock.Unlock()
+	if isDevice {
+		return false
+	}
+	node, err := shFs.Fs.GetOrCreateNode(path, false, false, 0)
+	if err != nil {
+		return false
+	}
+
+	return node.isDir
+}
+
+func (shFs *SharkieFilesystem) IsFile(path string) bool {
+	shFs.Lock.Lock()
+	_, isDevice := shFs.Devices[path]
+	shFs.Lock.Unlock()
+	if isDevice {
+		return true
+	}
+	node, err := shFs.Fs.GetOrCreateNode(path, false, false, 0)
+	if err != nil {
+		return false
+	}
+
+	return !node.isDir
+}
+
 // MkdirAll creates a new directory in VFS.
 func (shFs *SharkieFilesystem) MkdirAll(path string) error {
 	return shFs.Fs.MkdirAll(path, 0777)

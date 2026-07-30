@@ -38,16 +38,3 @@ func libKernel_sceKernelError(err uintptr) uintptr {
 
 	return err
 }
-
-// 0x0000000000022D40
-// __int64 __fastcall sceKernelDebugRaiseException(__int64, __int64)
-func libKernel_sceKernelDebugRaiseException(err, argsPtr uintptr) uintptr {
-	logger.Printf("%-132s %s called with %s, exiting...\n",
-		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprint("sceKernelDebugRaiseException"),
-		color.Red.Sprintf("0x%X", err),
-	)
-	logger.CleanupAndExit()
-
-	return 0
-}

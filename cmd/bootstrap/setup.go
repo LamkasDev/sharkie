@@ -132,6 +132,22 @@ func SetupEmulatorGuest(gameNameOrPath string) error {
 		}
 	}
 
+	// Hacky check for Unity games to ensure archive.psarc is generated.
+	globalGameManagersPath := filepath.Join(config.GameDirectory, "Image0", "Media", "globalgamemanagers")
+	archivePsarcPath := filepath.Join(config.GameDirectory, "Image0", "archive.psarc")
+	if _, err := os.Stat(globalGameManagersPath); err == nil {
+		if _, err = os.Stat(archivePsarcPath); err != nil {
+			logger.Printf("generating archive.psarc for Unity game...\n")
+			settingsPath := filepath.Join(config.GameDirectory, "Image0", ".psarc-cl-settings")
+			_ = os.WriteFile(settingsPath, []byte("compressionType=zlib\nendianness=big\n"), 0644)
+			err = config.RunTool("psarc-cl-linux", "pack", filepath.Join(config.GameDirectory, "Image0"), archivePsarcPath)
+			_ = os.Remove(settingsPath)
+			if err != nil {
+				return fmt.Errorf("failed to pack archive.psarc: %v", err)
+			}
+		}
+	}
+
 	// Run main executable.
 	if _, err := emu.GlobalModuleManager.LoadModule("eboot.elf", false); err != nil {
 		return err

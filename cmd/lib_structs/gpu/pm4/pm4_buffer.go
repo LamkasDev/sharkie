@@ -30,12 +30,12 @@ func NewPM4IndirectBuffer(gpuAddress uintptr, sizeBytes uint32, isCCB bool) PM4I
 
 // BuildPM4IndirectBuffers packs DCB/CCB pairs into PM4 indirect buffers.
 // CCBs are prepended before their paired DCBs.
-func BuildPM4IndirectBuffers(count uint32, dcbGpuAddrsPtr, dcbSizesPtr, ccbGpuAddrsPtr, ccbSizesPtr uintptr) ([]PM4IndirectBuffer, error) {
+func BuildPM4IndirectBuffers(count uint32, dcbGpuAddrsPtr, dcbSizesPtr, ccbGpuAddrsPtr, ccbSizesPtr *uintptr) ([]PM4IndirectBuffer, error) {
 	dcbAddresses := unsafe.Slice((*uintptr)(unsafe.Pointer(dcbGpuAddrsPtr)), count)
 	dcbSizes := unsafe.Slice((*uint32)(unsafe.Pointer(dcbSizesPtr)), count)
 
 	// CCBs are optional.
-	hasCcbs := ccbGpuAddrsPtr != 0 && ccbSizesPtr != 0
+	hasCcbs := ccbGpuAddrsPtr != nil && ccbSizesPtr != nil
 	var ccbAddrs []uintptr
 	var ccbSizes []uint32
 	if hasCcbs {

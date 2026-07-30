@@ -47,6 +47,7 @@ import (
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/save_data"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/semaphore"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/pad"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/net"
 )
 
 func CreateDispatcher(goFn any) asm.StubDispatcher {

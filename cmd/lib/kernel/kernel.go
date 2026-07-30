@@ -46,7 +46,13 @@ func RegisterKernelStubs() {
 	// Error functions.
 	elf.RegisterStub("libkernel", "__error", libKernel___error)
 	elf.RegisterStub("libkernel", "sceKernelError", libKernel_sceKernelError)
+
+	// Exception functions.
+	elf.RegisterStub("libkernel", "sceKernelInstallExceptionHandler", libKernel_sceKernelInstallExceptionHandler)
+	elf.RegisterStub("libkernel", "sceKernelRemoveExceptionHandler", libKernel_sceKernelRemoveExceptionHandler)
+	elf.RegisterStub("libkernel", "sceKernelRaiseException", libKernel_sceKernelRaiseException)
 	elf.RegisterStub("libkernel", "sceKernelDebugRaiseException", libKernel_sceKernelDebugRaiseException)
+	elf.RegisterStub("libkernel", "sceKernelDebugRaiseExceptionOnReleaseMode", libKernel_sceKernelDebugRaiseExceptionOnReleaseMode)
 
 	// Memory functions.
 	elf.RegisterStub("libkernel", "sceKernelMmap", libKernel_sceKernelMmap)
@@ -80,8 +86,8 @@ func RegisterKernelStubs() {
 	elf.RegisterStub("libkernel", "sceKernelFtruncate", libKernel_sceKernelFtruncate)
 	elf.RegisterStub("libkernel", "sceKernelLseek", libKernel_sceKernelLseek)
 	elf.RegisterStub("libkernel", "sceKernelStat", libKernel_sceKernelStat)
-	elf.RegisterStub("libkernel", "fstat", libKernel_fstat)
 	elf.RegisterStub("libkernel", "sceKernelFstat", libKernel_sceKernelFstat)
+	elf.RegisterStub("libkernel", "sceKernelCheckReachability", libKernel_sceKernelCheckReachability)
 
 	// Shared memory functions.
 	elf.RegisterStub("libkernel", "shm_open", libKernel_shm_open)
@@ -114,6 +120,8 @@ func RegisterKernelStubs() {
 	elf.RegisterStub("libkernel", "scePthreadAttrSetscope", libKernel_scePthreadAttrSetscope)
 	elf.RegisterStub("libkernel", "scePthreadAttrGet", libKernel_scePthreadAttrGet)
 	elf.RegisterStub("libkernel", "scePthreadAttrGetstack", libKernel_scePthreadAttrGetstack)
+	elf.RegisterStub("libkernel", "scePthreadAttrGetstackaddr", libKernel_scePthreadAttrGetstackaddr)
+	elf.RegisterStub("libkernel", "scePthreadAttrGetstacksize", libKernel_scePthreadAttrGetstacksize)
 	elf.RegisterStub("libkernel", "pthread_attr_getaffinity_np", libKernel_pthread_attr_getaffinity_np)
 	elf.RegisterStub("libkernel", "scePthreadAttrGetaffinity", libKernel_scePthreadAttrGetaffinity)
 	elf.RegisterStub("libkernel", "scePthreadGetthreadid", libKernel_scePthreadGetthreadid)

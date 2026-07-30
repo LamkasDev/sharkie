@@ -5,6 +5,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"path"
 	"strings"
 	"sync"
 
@@ -42,14 +43,17 @@ type SharkieFile struct {
 	mu sync.Mutex
 }
 
-func GetUsablePath(path string) string {
-	path = strings.ReplaceAll(path, "//", "/")
-	path = strings.TrimLeft(path, "/")
-	if path == "" {
-		return "unnamed"
+func GetUsablePath(rawPath string) string {
+	if !strings.HasPrefix(rawPath, "/") {
+		rawPath = "/" + rawPath
+	}
+	cleanPath := path.Clean(rawPath)
+	cleanPath = strings.TrimLeft(cleanPath, "/")
+	if cleanPath == "" {
+		return "/"
 	}
 
-	return path
+	return cleanPath
 }
 
 func (shFile *SharkieFile) Read(data []byte) (int, error) {

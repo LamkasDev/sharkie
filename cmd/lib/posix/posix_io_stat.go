@@ -31,10 +31,66 @@ func libScePosix_stat(pathPtr Cstring, stat *FileStat) int32 {
 			color.Blue.Sprint(path),
 			err.Error(),
 		)
-		emu.SetErrno(ENOENT)
+
+		if err.Error() == "invalid file descriptor" {
+			emu.SetErrno(ENOENT)
+		} else {
+			emu.SetErrno(EFAULT)
+		}
 		return ERR_PTRI
 	}
 	*stat = *fileStat
 
+	if logger.LogFilesystem {
+		logger.Printf("%-132s %s returned file stat for %s (size=%s).\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("fstat"),
+			color.Blue.Sprint(path),
+			color.Yellow.Sprintf("0x%X", stat.Size),
+		)
+	}
+	return 0
+}
+
+func Fstat(fd FileDescriptor, stat *FileStat) int32 {
+	return libScePosix_fstat(fd, stat)
+}
+
+func libScePosix_fstat(fd FileDescriptor, stat *FileStat) int32 {
+	if stat == nil {
+		logger.Printf("%-132s %s failed due to invalid stat pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("fstat"),
+		)
+		emu.SetErrno(EFAULT)
+		return ERR_PTRI
+	}
+
+	fileStat, err := GlobalFilesystem.StatFd(fd)
+	if err != nil {
+		logger.Printf("%-132s %s failed due to stat error on %s (%s).\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("fstat"),
+			color.Yellow.Sprintf("0x%X", fd),
+			err.Error(),
+		)
+
+		if err.Error() == "invalid file descriptor" {
+			emu.SetErrno(ENOENT)
+		} else {
+			emu.SetErrno(EFAULT)
+		}
+		return ERR_PTRI
+	}
+	*stat = *fileStat
+
+	if logger.LogFilesystem {
+		logger.Printf("%-132s %s returned file stat for %s (size=%s).\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("fstat"),
+			color.Yellow.Sprintf("0x%X", fd),
+			color.Yellow.Sprintf("0x%X", stat.Size),
+		)
+	}
 	return 0
 }

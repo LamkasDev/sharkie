@@ -46,6 +46,8 @@ type Thread struct {
 
 	SignalMask   ThreadSignalMask
 	AffinityMask ThreadAffinityMask
+
+	OsThreadId uint32
 }
 
 func NewThread(name string, stackSize uint64) *Thread {
@@ -121,6 +123,7 @@ func (t *Thread) CallAndWait(funcAddr uintptr, arg uintptr) {
 	wg.Go(func() {
 		runtime.LockOSThread()
 		defer runtime.UnlockOSThread()
+		t.OsThreadId = GetOsThreadId()
 
 		t.Setup()
 		asm.GuestEnter()
@@ -155,6 +158,9 @@ func (t *Thread) CallAndWaitFromStub(funcAddr uintptr, args ...uintptr) uintptr 
 	wg.Go(func() {
 		runtime.LockOSThread()
 		defer runtime.UnlockOSThread()
+		oldOsThreadId := t.OsThreadId
+		t.OsThreadId = GetOsThreadId()
+		defer func() { t.OsThreadId = oldOsThreadId }()
 
 		t.Setup()
 		asm.GuestEnter()
@@ -172,6 +178,7 @@ func (t *Thread) Run(e *elf.Elf) {
 	go pprof.Do(context.Background(), pprof.Labels("name", t.Name), func(ctx context.Context) {
 		runtime.LockOSThread()
 		defer runtime.UnlockOSThread()
+		t.OsThreadId = GetOsThreadId()
 
 		t.Setup()
 

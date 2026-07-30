@@ -84,3 +84,25 @@ func libKernel_sceKernelClose(fd FileDescriptor) int32 {
 
 	return 0
 }
+
+// 0x00000000000163D0
+// __int64 __fastcall sceKernelStat(__int64, __int64)
+func libKernel_sceKernelStat(pathPtr Cstring, stat *FileStat) int32 {
+	err := posix.Stat(pathPtr, stat)
+	if err != 0 {
+		return int32(emu.GetErrno() - SonyErrorOffset)
+	}
+
+	return 0
+}
+
+// 0x0000000000016400
+// __int64 __fastcall sceKernelFstat(__int64, __int64)
+func libKernel_sceKernelFstat(fd FileDescriptor, stat *FileStat) int32 {
+	err := posix.Fstat(fd, stat)
+	if err != 0 {
+		return int32(emu.GetErrno() - SonyErrorOffset)
+	}
+
+	return 0
+}

@@ -14,6 +14,9 @@ func RegisterAppContentStubs() {
 	// Setup functions.
 	elf.RegisterStub("libSceAppContent", "sceAppContentInitialize", libSceAppContent_sceAppContentInitialize)
 	elf.RegisterStub("libSceAppContent", "sceAppContentAppParamGetInt", libSceAppContent_sceAppContentAppParamGetInt)
+
+	// Mount functions.
+	elf.RegisterStub("libSceAppContent", "sceAppContentTemporaryDataMount2", libSceAppContent_sceAppContentTemporaryDataMount2)
 }
 
 func libSceAppContent_stub() uintptr {

@@ -42,6 +42,28 @@ func libSceLibcInternal_fopen(pathPtr, modePtr Cstring) uintptr {
 	return uintptr(fd)
 }
 
+// 0x0000000000001120
+// __int64 __fastcall fopen_s(__int64 *, __int64, _BYTE *, __int64)
+func libSceLibcInternal_fopen_s(filePtr *uintptr, pathPtr, modePtr Cstring) uintptr {
+	if filePtr == nil {
+		logger.Printf("%-132s %s failed due to invalid file pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("fopen_s"),
+		)
+		return EINVAL
+	}
+	fd := posix.Open(pathPtr, O_RDWR, 0777)
+	if fd == ERR_PTRI {
+		err := emu.GetErrno()
+		emu.SetErrno(0)
+		*filePtr = 0
+		return err
+	}
+	*filePtr = uintptr(fd)
+
+	return 0
+}
+
 // 0x0000000000035B40
 // _WORD *__fastcall fdopen(unsigned int, __int64)
 func libSceLibcInternal_fdopen(fd FileDescriptor, modePtr Cstring) uintptr {
@@ -328,17 +350,33 @@ func libSceLibcInternal_feof(filePtr uintptr) uintptr {
 	if filePtr == 0 {
 		logger.Printf("%-132s %s failed due to invalid file pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("fclose"),
+			color.Magenta.Sprint("feof"),
 		)
 		emu.SetErrno(EBADF)
 		return EOF
 	}
+	offset, err := GlobalFilesystem.GetOffsetFd(getFileDescriptor(filePtr))
+	if err != nil {
+		logger.Printf("%-132s %s failed due to get offset error on %s (%s).\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("feof"),
+			color.Yellow.Sprintf("0x%X", filePtr),
+			err.Error(),
+		)
+		return EOF
+	}
 
+	var c byte
+	read := posix.Pread(getFileDescriptor(filePtr), uintptr(unsafe.Pointer(&c)), 1, offset)
 	eof := uintptr(0)
+	if read == 0 {
+		eof = EOF
+	}
+
 	if logger.LogFilesystem {
 		logger.Printf("%-132s %s returned %s (filePtr=%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("fgetpos"),
+			color.Magenta.Sprint("feof"),
 			color.Green.Sprint(eof),
 			color.Yellow.Sprintf("0x%X", filePtr),
 		)
