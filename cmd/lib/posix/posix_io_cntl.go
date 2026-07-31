@@ -19,7 +19,7 @@ func libScePosix_fcntl(fd FileDescriptor, op FileOperation, arg uintptr) int64 {
 	file, ok := GlobalFilesystem.Descriptors[fd]
 	GlobalFilesystem.Lock.Unlock()
 	if !ok {
-		logger.Printf("%-132s %s failed due to unknown file %s.\n",
+		logger.Printf("%-132s %s failed due to unknown file descriptor %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("fcntl"),
 			color.Yellow.Sprintf("0x%X", fd),

@@ -36,12 +36,7 @@ func libScePosix_lseek(fd FileDescriptor, offset int64, whence int32) int64 {
 			color.Yellow.Sprintf("0x%X", fd),
 			err.Error(),
 		)
-
-		if err.Error() == "invalid file descriptor" {
-			emu.SetErrno(ENOENT)
-		} else {
-			emu.SetErrno(ESPIPE)
-		}
+		emu.SetErrno(FsToPosixError(err))
 		return ERR_PTRI
 	}
 

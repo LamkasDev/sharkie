@@ -1,6 +1,8 @@
 package kernel
 
 import (
+	"github.com/LamkasDev/sharkie/cmd/elf"
+	. "github.com/LamkasDev/sharkie/cmd/elf_symbol"
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/module"
@@ -59,7 +61,9 @@ func libKernel_sceKernelGetModuleInfo(handle ModuleHandle, info *ModuleInfo) uin
 		return SCE_KERNEL_ERROR_EINVAL
 	}
 
+	emu.GlobalModuleManager.ModulesLock.RLock()
 	module := emu.GlobalModuleManager.Modules[handle]
+	emu.GlobalModuleManager.ModulesLock.RUnlock()
 	if module == nil {
 		logger.Printf("%-132s %s failed due to unknown module %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -93,5 +97,61 @@ func libKernel_sceKernelGetModuleInfo(handle ModuleHandle, info *ModuleInfo) uin
 		color.Magenta.Sprint("sceKernelGetModuleInfo"),
 		color.Blue.Sprint(module.Name),
 	)
+	return 0
+}
+
+// 0x000000000002C6F0
+// __int64 __fastcall sceKernelDlsym(unsigned int, __int64, __int64)
+func libKernel_sceKernelDlsym(handle ModuleHandle, symbolNamePtr Cstring, addressPtr uintptr) uintptr {
+	if symbolNamePtr == nil || addressPtr == 0 {
+		logger.Printf("%-132s %s failed due to invalid pointers.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceKernelDlsym"),
+		)
+		return SCE_KERNEL_ERROR_EINVAL
+	}
+	emu.GlobalModuleManager.ModulesLock.RLock()
+	module := emu.GlobalModuleManager.Modules[handle]
+	emu.GlobalModuleManager.ModulesLock.RUnlock()
+	if module == nil {
+		logger.Printf("%-132s %s failed due to unknown module %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceKernelDlsym"),
+			color.Yellow.Sprintf("0x%X", handle),
+		)
+		return SCE_KERNEL_ERROR_ENOENT
+	}
+	symbolName := GoString(symbolNamePtr)
+	mangledSymbolName := ReadableToMangled(symbolName)
+	logger.Printf("%-132s %s resolving symbol %s (%s) in module %s.\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("sceKernelDlsym"),
+		color.Blue.Sprint(symbolName),
+		color.Blue.Sprint(mangledSymbolName),
+		color.Blue.Sprint(module.Name),
+	)
+
+	// Search for the symbol in the module's symbol table.
+	var foundAddress uintptr
+	var found bool
+	for _, symbol := range module.SymbolTable.Symbols {
+		if symbol.ReadableName == symbolName || symbol.NidBase == mangledSymbolName {
+			if address, ok := elf.GetSymbolAddress(symbol); ok {
+				foundAddress = address
+				found = true
+				break
+			}
+		}
+	}
+	if !found {
+		logger.Printf("%-132s %s failed to find symbol %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceKernelDlsym"),
+			color.Blue.Sprint(symbolName),
+		)
+		return SCE_KERNEL_ERROR_ESRCH
+	}
+	WriteAddress(addressPtr, foundAddress)
+
 	return 0
 }

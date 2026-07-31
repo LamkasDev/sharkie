@@ -16,11 +16,11 @@ type MspaceAllocator struct {
 
 // MspaceInfo holds info about a mspace.
 type MspaceInfo struct {
-	Name    string
-	Base    uintptr
-	End     uintptr
-	Current uintptr
-	Mutex   sync.Mutex
+	Name      string
+	Base      uintptr
+	End       uintptr
+	Allocator *GoAllocator
+	Mutex     sync.Mutex
 }
 
 // NewMspaceAllocator creates a new instance of MspaceAllocator.
@@ -33,19 +33,12 @@ func NewMspaceAllocator() *MspaceAllocator {
 
 // Alloc bump-allocates size bytes with given alignment from ms. Returns 0 if out of space.
 func (ms *MspaceInfo) Alloc(alignment, size uintptr) (uintptr, error) {
-	if alignment < 1 {
-		alignment = 1
+	ptr := ms.Allocator.MallocAligned(size, alignment)
+	if ptr == 0 {
+		return 0, fmt.Errorf("failed to allocate %d bytes", size)
 	}
-	ms.Mutex.Lock()
-	defer ms.Mutex.Unlock()
 
-	alignedAddress := (ms.Current + alignment - 1) &^ (alignment - 1)
-	if alignedAddress+size > ms.End {
-		return 0, fmt.Errorf("lack of space")
-	}
-	ms.Current = alignedAddress + size
-
-	return alignedAddress, nil
+	return ptr, nil
 }
 
 func SetupMspaceAllocator() {

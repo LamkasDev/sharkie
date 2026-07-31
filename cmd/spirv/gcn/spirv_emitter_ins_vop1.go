@@ -67,6 +67,32 @@ func EmitVOP1(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 
 		// Store back as uint.
 		StoreRegisterPointerMaskedModified(b, ctx, details.Clamp, details.OMod, details.Vdst+gcnSpec.OpVgpr0, res, false)
+	case gcnSpec.Vop1OpCvtOffF32I4:
+		typeUint := ctx.GetId(BlockContextIdTypeUint)
+		typeInt := ctx.GetId(BlockContextIdTypeInt)
+		typeFloat := ctx.GetId(BlockContextIdTypeFloat)
+
+		// Fetch the source operand as a 32-bit integer.
+		valInt := GetOperandIntValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
+
+		// Extract the lower 4 bits and sign-extend to a 32-bit integer.
+		offset := b.EmitConstantUint(typeUint, 0)
+		count := b.EmitConstantUint(typeUint, 4)
+		signExtInt := b.EmitBitFieldSExtract(typeInt, valInt, offset, count)
+
+		// Convert the sign-extended 32-bit integer to a 32-bit float.
+		valF := b.EmitConvertSToF(typeFloat, signExtInt)
+
+		// Multiply by 0.0625f (which is 1/16).
+		// 0x3d800000 is the IEEE-754 binary representation of 0.0625f.
+		factor := b.EmitBitcast(typeFloat, b.EmitConstantUint(typeUint, 0x3d800000))
+		resF := b.EmitFMul(typeFloat, valF, factor)
+
+		StoreRegisterPointerMaskedModified(b, ctx, details.Clamp, details.OMod, details.Vdst+gcnSpec.OpVgpr0, resF, true)
+	case gcnSpec.Vop1OpFloorF32:
+		valF := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
+		resF := b.EmitExtInst(ctx.GetId(BlockContextIdTypeFloat), ctx.GetId(BlockContextIdGlsl), spec.SpvGlslOpFloor, valF)
+		StoreRegisterPointerMaskedModified(b, ctx, details.Clamp, details.OMod, details.Vdst+gcnSpec.OpVgpr0, resF, true)
 	default:
 		panic(fmt.Sprintf("unknown vop1 op %s", gcnSpec.Mnemotics[gcnSpec.EncVOP1][details.Op]))
 	}

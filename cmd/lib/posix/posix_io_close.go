@@ -17,12 +17,12 @@ func libScePosix_close(fd FileDescriptor) int32 {
 	file, ok := GlobalFilesystem.Descriptors[fd]
 	GlobalFilesystem.Lock.Unlock()
 	if !ok {
-		logger.Printf("%-132s %s failed due to unknown file %s.\n",
+		logger.Printf("%-132s %s failed due to unknown file descriptor %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("close"),
 			color.Yellow.Sprintf("0x%X", fd),
 		)
-		emu.SetErrno(ENOENT)
+		emu.SetErrno(EBADF)
 		return ERR_PTRI
 	}
 
@@ -33,7 +33,7 @@ func libScePosix_close(fd FileDescriptor) int32 {
 			color.Blue.Sprint(file.Path),
 			err.Error(),
 		)
-		emu.SetErrno(EFAULT)
+		emu.SetErrno(FsToPosixError(err))
 		return ERR_PTRI
 	}
 

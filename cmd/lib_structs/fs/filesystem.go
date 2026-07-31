@@ -2,12 +2,16 @@ package fs
 
 import (
 	"errors"
+	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/LamkasDev/sharkie/cmd/config"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/posix"
 )
 
 var GlobalFilesystem *SharkieFilesystem
@@ -21,6 +25,7 @@ type SharkieFilesystem struct {
 	Fs             *FS
 	Devices        map[string]DeviceFileCreateFunc
 	Lock           sync.Mutex
+	Cwd            string
 }
 
 func NewFilesystem() *SharkieFilesystem {
@@ -30,6 +35,7 @@ func NewFilesystem() *SharkieFilesystem {
 		Fs:             NewFS(),
 		Devices:        map[string]DeviceFileCreateFunc{},
 		Lock:           sync.Mutex{},
+		Cwd:            "/app0",
 	}
 	if err := shFs.InitializeStdDevices(); err != nil {
 		panic(err)
@@ -40,7 +46,7 @@ func NewFilesystem() *SharkieFilesystem {
 
 	// Mount the game directory as read-only.
 	image0Path := filepath.Join(config.GameDirectory, "Image0")
-	if err := shFs.Fs.Mount(GetUsablePath("/app0"), image0Path, true); err != nil {
+	if err := shFs.Fs.Mount(shFs.GetUsablePath("/app0"), image0Path, true); err != nil {
 		panic(err)
 	}
 
@@ -78,6 +84,9 @@ func (shFs *SharkieFilesystem) Open(path string, flags FileFlags, mode FileMode)
 	node, err := shFs.Fs.GetOrCreateNode(path, create, false, os.FileMode(mode))
 	if err != nil {
 		return -1, err
+	}
+	if node.isDir {
+		return -1, errors.New("is a directory")
 	}
 
 	// Handle TRUNC flag if it already existed and wasn't a device
@@ -278,12 +287,27 @@ func (shFs *SharkieFilesystem) IoctlFd(fd FileDescriptor, request uint64, argPtr
 }
 
 func (shFs *SharkieFilesystem) Stat(path string) (*FileStat, error) {
-	fd, err := shFs.Open(path, O_RDONLY, 0)
+	shFs.Lock.Lock()
+	createFunc, isDevice := shFs.Devices[path]
+	shFs.Lock.Unlock()
+	if isDevice {
+		dummy := &SharkieFile{
+			Path:     path,
+			Device:   createFunc(),
+			IsDevice: true,
+		}
+		return dummy.Stat()
+	}
+	node, err := shFs.Fs.GetOrCreateNode(path, false, false, 0)
 	if err != nil {
 		return nil, err
 	}
-	defer shFs.Close(fd)
-	return shFs.StatFd(fd)
+	dummy := &SharkieFile{
+		Path: path,
+		Node: node,
+	}
+
+	return dummy.Stat()
 }
 
 func (shFs *SharkieFilesystem) StatFd(fd FileDescriptor) (*FileStat, error) {
@@ -378,6 +402,43 @@ func (shFs *SharkieFilesystem) Unmount(path string) error {
 // Delete removes a file from the VFS. This does not close active file descriptors pointing to it.
 func (shFs *SharkieFilesystem) Delete(path string) error {
 	return shFs.Fs.Remove(path)
+}
+
+func (shFs *SharkieFilesystem) GetUsablePath(rawPath string) string {
+	if !strings.HasPrefix(rawPath, "/") {
+		rawPath = path.Join(shFs.Cwd, rawPath)
+	}
+	cleanPath := path.Clean(rawPath)
+	cleanPath = strings.TrimLeft(cleanPath, "/")
+	if cleanPath == "" {
+		return "/"
+	}
+
+	return cleanPath
+}
+
+func FsToPosixError(err error) uintptr {
+	switch err {
+	case fs.ErrPermission:
+		return posix.EACCES
+	case fs.ErrNotExist:
+		return posix.ENOENT
+	case fs.ErrExist:
+		return posix.EEXIST
+	case fs.ErrInvalid:
+		return posix.EFAULT // maybe ENOTDIR?
+	}
+	switch err.Error() {
+	case "invalid file descriptor", "file not opened for reading", "file not opened for writing":
+		return posix.EBADF
+	case "is a directory":
+		return posix.EISDIR
+	case "negative offset", "negative size", "invalid whence", "negative seek offset",
+		"illegal seek", "inappropriate ioctl for device":
+		return posix.EINVAL
+	}
+
+	return posix.EFAULT
 }
 
 func SetupFilesystem() {

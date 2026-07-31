@@ -276,6 +276,10 @@ func CreateDispatcher(goFn any) asm.StubDispatcher {
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn(ModuleHandle(ctx.DI), (*ModuleInfo)(unsafe.Pointer(ctx.SI))))
 		}
+	case func(ModuleHandle, Cstring, uintptr) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(ModuleHandle(ctx.DI), Cstring(ctx.SI), ctx.DX))
+		}
 	case func(SysmoduleId) uintptr:
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn(SysmoduleId(ctx.DI)))

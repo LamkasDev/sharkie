@@ -114,6 +114,11 @@ func EmitSOP2(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 
 		// SCC = 1 if result is non-zero.
 		emitSccUpdateNonZero(b, ctx, res)
+	case gcnSpec.Sop2OpMulI32:
+		val0 := ctx.GetOperandIntValue(b, details.Src0, instr.Literal)
+		val1 := ctx.GetOperandIntValue(b, details.Src0, instr.Literal)
+		res := b.EmitIMul(typeUint, val0, val1)
+		ctx.StoreRegisterPointer(b, details.Dst, res)
 	default:
 		panic(fmt.Sprintf("unknown sop2 op %s", gcnSpec.Mnemotics[gcnSpec.EncSOP2][details.Op]))
 	}

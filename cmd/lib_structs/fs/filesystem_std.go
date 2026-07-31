@@ -55,39 +55,39 @@ func (out *OutputDevice) Ioctl(request uint64, argPtr uintptr) error {
 }
 
 func (shFs *SharkieFilesystem) InitializeStdDevices() error {
-	if _, err := shFs.Create(GetUsablePath("stdin")); err != nil {
+	if _, err := shFs.Create("stdin"); err != nil {
 		return err
 	}
 
 	stdoutDevice := &OutputDevice{Name: "stdout", Color: color.White}
-	shFs.Devices[GetUsablePath("stdout")] = func() PosixFile {
+	shFs.Devices["stdout"] = func() PosixFile {
 		return stdoutDevice
 	}
-	if _, err := shFs.Create(GetUsablePath("stdout")); err != nil {
+	if _, err := shFs.Create("stdout"); err != nil {
 		panic(err)
 	}
 
 	stderrDevice := &OutputDevice{Name: "stderr", Color: color.Red}
-	shFs.Devices[GetUsablePath("stderr")] = func() PosixFile {
+	shFs.Devices["stderr"] = func() PosixFile {
 		return stderrDevice
 	}
-	if _, err := shFs.Create(GetUsablePath("stderr")); err != nil {
+	if _, err := shFs.Create("stderr"); err != nil {
 		panic(err)
 	}
 
 	consoleDevice := &OutputDevice{Name: "/dev/console", Color: color.Cyan}
-	shFs.Devices[GetUsablePath("/dev/console")] = func() PosixFile {
+	shFs.Devices[shFs.GetUsablePath("/dev/console")] = func() PosixFile {
 		return consoleDevice
 	}
-	if _, err := shFs.Create(GetUsablePath("/dev/console")); err != nil {
+	if _, err := shFs.Create(shFs.GetUsablePath("/dev/console")); err != nil {
 		panic(err)
 	}
 
 	ttyDevice := &OutputDevice{Name: "/dev/deci_tty6", Color: color.Cyan}
-	shFs.Devices[GetUsablePath("/dev/deci_tty6")] = func() PosixFile {
+	shFs.Devices[shFs.GetUsablePath("/dev/deci_tty6")] = func() PosixFile {
 		return ttyDevice
 	}
-	if _, err := shFs.Create(GetUsablePath("/dev/deci_tty6")); err != nil {
+	if _, err := shFs.Create(shFs.GetUsablePath("/dev/deci_tty6")); err != nil {
 		panic(err)
 	}
 

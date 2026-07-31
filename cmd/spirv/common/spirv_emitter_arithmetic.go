@@ -198,6 +198,13 @@ func (b *SpvBuilder) EmitULessThanEqual(resultType, op1, op2 SpirvId) SpirvId {
 	return id
 }
 
+// EmitBitFieldSExtract emits OpBitFieldSExtract and returns the result ID.
+func (b *SpvBuilder) EmitBitFieldSExtract(resultType, base, offset, count SpirvId) SpirvId {
+	id := b.AllocId()
+	b.instr(&b.code, spec.SpvOpBitFieldSExtract, uint32(resultType), uint32(id), uint32(base), uint32(offset), uint32(count))
+	return id
+}
+
 // EmitBitFieldUExtract emits OpBitFieldUExtract and returns the result ID.
 func (b *SpvBuilder) EmitBitFieldUExtract(resultType, base, offset, count SpirvId) SpirvId {
 	id := b.AllocId()

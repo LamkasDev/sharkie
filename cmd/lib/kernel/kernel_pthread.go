@@ -26,7 +26,12 @@ func libKernel_scePthreadGetthreadid() uintptr {
 // 0x00000000000146E0
 // __int64 scePthreadSelf()
 func libKernel_scePthreadSelf() uintptr {
-	return posix.Pthread_self()
+	err := posix.Pthread_self()
+	if err != 0 {
+		return err - SonyErrorOffset
+	}
+
+	return 0
 }
 
 // 0x0000000000013920
@@ -45,7 +50,7 @@ func libKernel_scePthreadEqual(t1, t2 uintptr) uintptr {
 func libKernel_scePthreadCreate(threadPtr uintptr, attrHandlePtr *uintptr, entryPoint, arg uintptr, namePtr Cstring) uintptr {
 	err := posix.Pthread_create_name_np(threadPtr, attrHandlePtr, entryPoint, arg, namePtr)
 	if err != 0 {
-		return emu.GetErrno() - SonyErrorOffset
+		return err - SonyErrorOffset
 	}
 
 	return 0
@@ -54,14 +59,18 @@ func libKernel_scePthreadCreate(threadPtr uintptr, attrHandlePtr *uintptr, entry
 // 0x0000000000013940
 // void __fastcall __noreturn scePthreadExit(__int64)
 func libKernel_scePthreadExit(retValue uintptr) uintptr {
-	return posix.Pthread_exit(retValue)
+	err := posix.Pthread_exit(retValue)
+	if err != 0 {
+		return err - SonyErrorOffset
+	}
+
+	return 0
 }
 
-// TODO: finish this
 // 0x0000000000013DD0
 // __int64 scePthreadRwlockRdlock()
 func libKernel_scePthreadRwlockRdlock() uintptr {
-	err := libKernel_pthread_rwlock_rdlock()
+	err := posix.Pthread_rwlock_rdlock()
 	if err != 0 {
 		return err - SonyErrorOffset
 	}
@@ -69,11 +78,10 @@ func libKernel_scePthreadRwlockRdlock() uintptr {
 	return 0
 }
 
-// TODO: finish this
 // 0x0000000000013E90
 // __int64 scePthreadRwlockWrlock()
 func libKernel_scePthreadRwlockWrlock() uintptr {
-	err := libKernel_pthread_rwlock_wrlock()
+	err := posix.Pthread_rwlock_wrlock()
 	if err != 0 {
 		return err - SonyErrorOffset
 	}
@@ -81,11 +89,10 @@ func libKernel_scePthreadRwlockWrlock() uintptr {
 	return 0
 }
 
-// TODO: finish this
 // 0x0000000000013E70
 // __int64 scePthreadRwlockUnlock()
 func libKernel_scePthreadRwlockUnlock() uintptr {
-	err := libKernel_pthread_rwlock_unlock()
+	err := posix.Pthread_rwlock_unlock()
 	if err != 0 {
 		return err - SonyErrorOffset
 	}
@@ -99,7 +106,7 @@ func libKernel_scePthreadSetaffinity(threadPtr uintptr, mask uint64) uintptr {
 	cpuSet := ThreadCpuSet{
 		Low: mask,
 	}
-	err := libKernel_pthread_setaffinity_np(threadPtr, ThreadCpuSetSize, &cpuSet)
+	err := posix.Pthread_setaffinity_np(threadPtr, ThreadCpuSetSize, &cpuSet)
 	if err != 0 {
 		return err - SonyErrorOffset
 	}
@@ -111,7 +118,7 @@ func libKernel_scePthreadSetaffinity(threadPtr uintptr, mask uint64) uintptr {
 // __int64 __fastcall scePthreadGetaffinity(signed __int32 *, _QWORD *)
 func libKernel_scePthreadGetaffinity(threadPtr uintptr, mask *ThreadAffinityMask) uintptr {
 	cpuSet := ThreadCpuSet{}
-	err := libKernel_pthread_getaffinity_np(threadPtr, ThreadCpuSetSize, &cpuSet)
+	err := posix.Pthread_getaffinity_np(threadPtr, ThreadCpuSetSize, &cpuSet)
 	if err != 0 {
 		return err - SonyErrorOffset
 	}
@@ -125,7 +132,7 @@ func libKernel_scePthreadGetaffinity(threadPtr uintptr, mask *ThreadAffinityMask
 func libKernel_scePthreadJoin(threadPtr, retValPtr uintptr) uintptr {
 	err := posix.Pthread_join(threadPtr, retValPtr)
 	if err != 0 {
-		return emu.GetErrno() - SonyErrorOffset
+		return err - SonyErrorOffset
 	}
 
 	return 0

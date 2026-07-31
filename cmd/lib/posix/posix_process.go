@@ -10,6 +10,21 @@ import (
 	"github.com/gookit/color"
 )
 
+func Getpid() uintptr {
+	return libScePosix_getpid()
+}
+
+func libScePosix_getpid() uintptr {
+	processId := uintptr(1001)
+	logger.Printf("%-132s %s returned process id %s.\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("getpid"),
+		color.Green.Sprintf("%d", processId),
+	)
+
+	return processId
+}
+
 func Usleep(micros uint32) uintptr {
 	return libScePosix_usleep(micros)
 }

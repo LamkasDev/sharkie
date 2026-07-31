@@ -1,6 +1,21 @@
 package fs
 
-import . "github.com/LamkasDev/sharkie/cmd/lib_structs/time"
+import (
+	"io/fs"
+
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/time"
+)
+
+const (
+	S_IFMT   = 0170000 // Type mask
+	S_IFIFO  = 0010000 // Named pipe (fifo)
+	S_IFCHR  = 0020000 // Character special
+	S_IFDIR  = 0040000 // Directory
+	S_IFBLK  = 0060000 // Block special
+	S_IFREG  = 0100000 // Regular
+	S_IFLNK  = 0120000 // Symbolic link
+	S_IFSOCK = 0140000 // Socket
+)
 
 type FileStat struct {
 	Device                uint32    // st_dev
@@ -20,4 +35,29 @@ type FileStat struct {
 	GenerationNumber      uint32    // st_gen
 	ImplementationDetails int32     // st_lspare
 	CreateTime            Timestamp // st_birthtim
+}
+
+// GoToPosixMode translates a Go fs.FileMode to a POSIX st_mode.
+func GoToPosixMode(mode fs.FileMode) uint16 {
+	posixMode := uint16(mode & fs.ModePerm)
+	switch {
+	case mode.IsDir():
+		posixMode |= S_IFDIR
+	case mode&fs.ModeSymlink != 0:
+		posixMode |= S_IFLNK
+	case mode&fs.ModeDevice != 0:
+		if mode&fs.ModeCharDevice != 0 {
+			posixMode |= S_IFCHR
+		} else {
+			posixMode |= S_IFBLK
+		}
+	case mode&fs.ModeSocket != 0:
+		posixMode |= S_IFSOCK
+	case mode&fs.ModeNamedPipe != 0:
+		posixMode |= S_IFIFO
+	default:
+		posixMode |= S_IFREG
+	}
+
+	return posixMode
 }

@@ -77,6 +77,10 @@ func (m *ModuleManager) _RecursiveLoadModule(pathOrName string, force bool) (*el
 	// Get module path.
 	modulePath := m.GetModulePath(pathOrName)
 	if modulePath == nil {
+		if strings.Contains(pathOrName, "libSceNpToolkit.") {
+			logger.Printf("failed to find libSceNpToolkit...")
+			return nil, nil
+		}
 		return nil, errors.New(fmt.Sprintf("could not find module %s", pathOrName))
 	}
 

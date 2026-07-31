@@ -5,8 +5,6 @@ import (
 	"io"
 	"io/fs"
 	"os"
-	"path"
-	"strings"
 	"sync"
 
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/time"
@@ -41,19 +39,6 @@ type SharkieFile struct {
 	IsDevice bool
 
 	mu sync.Mutex
-}
-
-func GetUsablePath(rawPath string) string {
-	if !strings.HasPrefix(rawPath, "/") {
-		rawPath = "/" + rawPath
-	}
-	cleanPath := path.Clean(rawPath)
-	cleanPath = strings.TrimLeft(cleanPath, "/")
-	if cleanPath == "" {
-		return "/"
-	}
-
-	return cleanPath
 }
 
 func (shFile *SharkieFile) Read(data []byte) (int, error) {
@@ -198,7 +183,7 @@ func (shFile *SharkieFile) Ioctl(request uint64, argPtr uintptr) error {
 func (shFile *SharkieFile) Stat() (*FileStat, error) {
 	if shFile.IsDevice {
 		return &FileStat{
-			Mode:          020666,
+			Mode:          S_IFCHR | 0666,
 			BlockSize:     FileBlockSize,
 			HardLinkCount: 1,
 		}, nil
@@ -214,7 +199,7 @@ func (shFile *SharkieFile) Stat() (*FileStat, error) {
 		Nanoseconds: int64(modTime.Nanosecond()),
 	}
 	stat := &FileStat{
-		Mode:             uint16(nodeStat.Mode()),
+		Mode:             GoToPosixMode(nodeStat.Mode()),
 		Size:             nodeStat.Size(),
 		BlockSize:        FileBlockSize,
 		HardLinkCount:    1,

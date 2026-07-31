@@ -39,10 +39,10 @@ func (ae *AudioEngine) CreateHandle() *AudioOutHandle {
 
 func SetupAudioEngine() {
 	GlobalAudioEngine = NewAudioEngine()
-	if _, err := fs.GlobalFilesystem.Write(fs.GetUsablePath(AudioInBufferName), make([]byte, AudioInBufferDefault)); err != nil {
+	if _, err := fs.GlobalFilesystem.Write(fs.GlobalFilesystem.GetUsablePath(AudioInBufferName), make([]byte, AudioInBufferDefault)); err != nil {
 		panic(err)
 	}
-	if _, err := fs.GlobalFilesystem.Write(fs.GetUsablePath(AudioVideoSettingsName), make([]byte, AudioVideoSettingsDefault)); err != nil {
+	if _, err := fs.GlobalFilesystem.Write(fs.GlobalFilesystem.GetUsablePath(AudioVideoSettingsName), make([]byte, AudioVideoSettingsDefault)); err != nil {
 		panic(err)
 	}
 	CreateDefaultEventFlags([]string{

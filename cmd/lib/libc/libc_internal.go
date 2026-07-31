@@ -36,6 +36,7 @@ func RegisterSceLibcInternalStubs() {
 	elf.RegisterStub("libSceLibcInternal", "sceLibcMspaceMallocStats", libSceLibcInternal_sceLibcMspaceMallocStats)
 	elf.RegisterStub("libSceLibcInternal", "sceLibcMspaceMallocStatsFast", libSceLibcInternal_sceLibcMspaceMallocStatsFast)
 	elf.RegisterStub("libSceLibcInternal", "sceLibcPafMspaceIsHeapEmpty", libSceLibcInternal_sceLibcPafMspaceIsHeapEmpty)
+	elf.RegisterStub("libSceLibcInternal", "sceLibcMspaceMallocUsableSize", libSceLibcInternal_sceLibcMspaceMallocUsableSize)
 	elf.RegisterStub("libSceLibcInternal", "sceLibcMspaceAlignedAlloc", libSceLibcInternal_stub)
 
 	// IO functions.

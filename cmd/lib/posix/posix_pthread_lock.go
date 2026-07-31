@@ -1,4 +1,4 @@
-package kernel
+package posix
 
 import (
 	"github.com/LamkasDev/sharkie/cmd/emu"
@@ -6,10 +6,12 @@ import (
 	"github.com/gookit/color"
 )
 
+func Pthread_rwlock_rdlock() uintptr {
+	return libScePosix_pthread_rwlock_rdlock()
+}
+
 // TODO: finish this
-// 0x000000000000A660
-// __int64 __fastcall pthread_rwlock_rdlock(__int64 *a1)
-func libKernel_pthread_rwlock_rdlock() uintptr {
+func libScePosix_pthread_rwlock_rdlock() uintptr {
 	thread := emu.GetCurrentThread()
 	thread.Lock.Lock()
 
@@ -23,10 +25,12 @@ func libKernel_pthread_rwlock_rdlock() uintptr {
 	return 0
 }
 
+func Pthread_rwlock_wrlock() uintptr {
+	return libScePosix_pthread_rwlock_wrlock()
+}
+
 // TODO: finish this
-// 0x000000000000AFA0
-// __int64 __fastcall pthread_rwlock_wrlock(__int64)
-func libKernel_pthread_rwlock_wrlock() uintptr {
+func libScePosix_pthread_rwlock_wrlock() uintptr {
 	thread := emu.GetCurrentThread()
 	thread.Lock.Lock()
 
@@ -40,10 +44,12 @@ func libKernel_pthread_rwlock_wrlock() uintptr {
 	return 0
 }
 
+func Pthread_rwlock_unlock() uintptr {
+	return libScePosix_pthread_rwlock_unlock()
+}
+
 // TODO: finish this
-// 0x000000000000B210
-// __int64 __fastcall pthread_rwlock_unlock(unsigned __int64 *)
-func libKernel_pthread_rwlock_unlock() uintptr {
+func libScePosix_pthread_rwlock_unlock() uintptr {
 	thread := emu.GetCurrentThread()
 	thread.Lock.Unlock()
 

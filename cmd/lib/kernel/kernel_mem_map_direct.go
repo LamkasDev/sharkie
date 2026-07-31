@@ -93,7 +93,7 @@ func libKernel_sys_sceKernelMapDirectMemory(addrPtr uintptr, length uint64, prot
 		return ERR_PTR
 	}
 
-	HookMap(offset, length, prot)
+	HookMapDirect(offset, length, uint64(offset), 0, prot)
 
 	// Write back offset.
 	WriteAddress(addrPtr, offset)

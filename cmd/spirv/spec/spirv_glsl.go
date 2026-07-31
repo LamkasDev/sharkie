@@ -3,6 +3,7 @@ package spec
 // GLSL.std.450 extended instructions
 const (
 	SpvGlslOpFAbs           = uint32(4)
+	SpvGlslOpFloor          = uint32(8)
 	SpvGlslOpFract          = uint32(10)
 	SpvGlslOpExp2           = uint32(29)
 	SpvGlslOpSqrt           = uint32(31)

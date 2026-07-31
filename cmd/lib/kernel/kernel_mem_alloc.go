@@ -51,9 +51,7 @@ func libKernel_sys_sceKernelAllocateDirectMemory(searchStart, searchEnd uintptr,
 	// Write back pointer.
 	WriteAddress(destPtr, allocatedAddr)
 
-	if HookAllocateDirect != nil {
-		HookAllocateDirect(allocatedAddr, length, memType)
-	}
+	HookAllocateDirect(allocatedAddr, length, memType)
 
 	logger.Printf("%-132s %s stored pointer at %s (type=%s, alignment=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),

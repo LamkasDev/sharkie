@@ -76,7 +76,7 @@ func libKernel_sceKernelVirtualQuery(addr uintptr, flags int32, infoPtr uintptr,
 		*(*VirtualQueryInfo)(unsafe.Pointer(infoPtr)) = info
 	}
 
-	logger.Printf("%-132s %s queried %s (flags=%s) returning start=%s, end=%s, prot=%s.\n",
+	logger.Printf("%-132s %s queried %s/%s (start=%s, end=%s, prot=%s, mem_type=%s, bitfield=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sceKernelVirtualQuery"),
 		color.Yellow.Sprintf("0x%X", addr),
@@ -84,6 +84,8 @@ func libKernel_sceKernelVirtualQuery(addr uintptr, flags int32, infoPtr uintptr,
 		color.Yellow.Sprintf("0x%X", info.Start),
 		color.Yellow.Sprintf("0x%X", info.End),
 		color.Blue.Sprint(MemoryProtName(info.Protection)),
+		color.Yellow.Sprintf("0x%X", info.MemoryType),
+		color.Yellow.Sprintf("0x%X", info.Bitfield),
 	)
 	return 0
 }

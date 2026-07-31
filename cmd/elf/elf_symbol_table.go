@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"hash/fnv"
 	"io"
-	"strings"
 
 	"github.com/LamkasDev/sharkie/cmd/elf_symbol"
 )
@@ -41,6 +40,7 @@ type ElfSymbol struct {
 	HashIndex    uint64  // Hash index for the symbol
 	OriginalName string  // Original name of the symbol
 	ReadableName string  // Human-readable name of the symbol
+	NidBase      string  // Clean 11-character NID base
 	Address      uintptr // Virtual address of the symbol
 	Type         uint8   // Type of the symbol
 	Binding      uint8   // Binding of the symbol
@@ -56,14 +56,21 @@ func (e *Elf) ResolveSymbolInfo(s *ElfSymbol, stShndx uint16) {
 	if s.Type == STT_SECTION {
 		return
 	}
+	s.NidBase = symbol.ExtractNidBase(s.OriginalName)
 
-	parts := strings.Split(s.OriginalName, "#")
-	if len(parts) >= 3 {
-		// For NID imports/exports, indexes are encoded inside characters between #.
-		libIDEncoded := parts[1][0]
-		modIDEncoded := parts[2][0]
-		s.LibraryIndex = symbol.DecodeNidChar(libIDEncoded)
-		s.ModuleIndex = symbol.DecodeNidChar(modIDEncoded)
+	// A NID string with indices is minimum 15 chars: [11 NID] [1 sep] [1 lib] [1 sep] [1 mod].
+	if len(s.OriginalName) >= 15 {
+		sep1 := s.OriginalName[11]
+		sep2 := s.OriginalName[13]
+		if sep1 == '#' && sep2 == '#' {
+			libIDEncoded := s.OriginalName[12]
+			modIDEncoded := s.OriginalName[14]
+
+			s.LibraryIndex = symbol.DecodeNidChar(libIDEncoded)
+			s.ModuleIndex = symbol.DecodeNidChar(modIDEncoded)
+		} else if stShndx != 0 {
+			s.LibraryIndex = stShndx
+		}
 	} else if stShndx != 0 {
 		// For non-NID imports/exports, stShndx is the direct index.
 		s.LibraryIndex = stShndx

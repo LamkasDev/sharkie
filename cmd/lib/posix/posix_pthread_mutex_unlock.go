@@ -21,8 +21,7 @@ func libScePosix_pthread_mutex_unlock(mutexHandlePtr *uintptr) uintptr {
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("pthread_mutex_unlock"),
 		)
-		emu.SetErrno(EINVAL)
-		return ERR_PTR
+		return EINVAL
 	}
 
 	// Try initializing a mutex, if it wasn't initialized yet.
@@ -35,15 +34,13 @@ func libScePosix_pthread_mutex_unlock(mutexHandlePtr *uintptr) uintptr {
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("pthread_mutex_unlock"),
 			)
-			emu.SetErrno(EINVAL)
-			return ERR_PTR
+			return EINVAL
 		}
 		logger.Printf("%-132s %s failed trying to unlock uninitialized mutex.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("pthread_mutex_unlock"),
 		)
-		emu.SetErrno(EPERM)
-		return ERR_PTR
+		return EPERM
 	}
 
 	// Check permissions.
@@ -58,8 +55,7 @@ func libScePosix_pthread_mutex_unlock(mutexHandlePtr *uintptr) uintptr {
 				color.Yellow.Sprintf("0x%X", threadPtr),
 			)
 		}
-		emu.SetErrno(EPERM)
-		return ERR_PTR
+		return EPERM
 	}
 
 	// Handle special mutex types.

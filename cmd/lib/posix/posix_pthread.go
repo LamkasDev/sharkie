@@ -35,8 +35,7 @@ func libScePosix_pthread_create_name_np(threadPtr uintptr, attrHandlePtr *uintpt
 			color.Magenta.Sprint("pthread_create_name_np"),
 			color.Yellow.Sprintf("0x%X", entryPoint),
 		)
-		emu.SetErrno(EINVAL)
-		return ERR_PTR
+		return EINVAL
 	}
 
 	// Figure out stack size beforehand.
@@ -89,8 +88,7 @@ func libScePosix_pthread_join(threadPtr, retValPtr uintptr) uintptr {
 			color.Magenta.Sprint("pthread_join"),
 			color.Yellow.Sprintf("0x%X", threadPtr),
 		)
-		emu.SetErrno(EINVAL)
-		return ERR_PTR
+		return EINVAL
 	}
 	thread := emu.GetThreadForPtr(threadPtr)
 	if thread == nil {
@@ -99,8 +97,7 @@ func libScePosix_pthread_join(threadPtr, retValPtr uintptr) uintptr {
 			color.Magenta.Sprint("pthread_join"),
 			color.Yellow.Sprintf("0x%X", threadPtr),
 		)
-		emu.SetErrno(ENOENT)
-		return ERR_PTR
+		return ENOENT
 	}
 
 	// No being naughty.
@@ -109,8 +106,7 @@ func libScePosix_pthread_join(threadPtr, retValPtr uintptr) uintptr {
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("pthread_join"),
 		)
-		emu.SetErrno(EDEADLK)
-		return ERR_PTR
+		return EDEADLK
 	}
 
 	// Wait for thread to exit.
@@ -176,5 +172,76 @@ func libScePosix_pthread_exit(retValue uintptr) uintptr {
 	thread.Exit(retValue)
 	runtime.Goexit()
 
+	return 0
+}
+
+func Pthread_getaffinity_np(threadPtr, cpuSetSize uintptr, cpuSet *ThreadCpuSet) uintptr {
+	return libScePosix_pthread_getaffinity_np(threadPtr, cpuSetSize, cpuSet)
+}
+
+func libScePosix_pthread_getaffinity_np(threadPtr, cpuSetSize uintptr, cpuSet *ThreadCpuSet) uintptr {
+	if threadPtr == 0 || cpuSet == nil || cpuSetSize < 8 {
+		logger.Printf("%-132s %s failed due to invalid thread or cpu set pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("pthread_getaffinity_np"),
+		)
+		return EINVAL
+	}
+	thread := emu.GetThreadForPtr(threadPtr)
+	if thread == nil {
+		logger.Printf("%-132s %s failed due to invalid thread %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("pthread_getaffinity_np"),
+			color.Yellow.Sprintf("0x%X", threadPtr),
+		)
+		return ENOENT
+	}
+
+	// Get thread's affinity.
+	cpuSet.Low = uint64(thread.AffinityMask)
+	cpuSet.High = 0
+
+	logger.Printf("%-132s %s returned affinity %s of %s.\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("pthread_getaffinity_np"),
+		color.Yellow.Sprintf("0x%X", cpuSet.Low),
+		color.Green.Sprint(thread.Name),
+	)
+	return 0
+}
+
+func Pthread_setaffinity_np(threadPtr, cpuSetSize uintptr, cpuSet *ThreadCpuSet) uintptr {
+	return libScePosix_pthread_setaffinity_np(threadPtr, cpuSetSize, cpuSet)
+}
+
+func libScePosix_pthread_setaffinity_np(threadPtr, cpuSetSize uintptr, cpuSet *ThreadCpuSet) uintptr {
+	if threadPtr == 0 || cpuSet == nil || cpuSetSize < 8 {
+		logger.Printf("%-132s %s failed due to invalid thread or cpu set pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("pthread_setaffinity_np"),
+		)
+		return EINVAL
+	}
+	thread := emu.GetThreadForPtr(threadPtr)
+	if thread == nil {
+		logger.Printf("%-132s %s failed due to invalid thread %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("pthread_setaffinity_np"),
+			color.Yellow.Sprintf("0x%X", threadPtr),
+		)
+		return ENOENT
+	}
+
+	// Set thread's affinity.
+	thread.Lock.Lock()
+	thread.AffinityMask = ThreadAffinityMask(cpuSet.Low)
+	thread.Lock.Unlock()
+
+	logger.Printf("%-132s %s set affinity of %s to %s.\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("pthread_setaffinity_np"),
+		color.Green.Sprint(thread.Name),
+		color.Yellow.Sprintf("0x%X", cpuSet.Low),
+	)
 	return 0
 }

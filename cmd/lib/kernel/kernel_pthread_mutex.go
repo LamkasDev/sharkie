@@ -19,7 +19,7 @@ import (
 func libKernel_scePthreadMutexInit(mutexHandlePtr, attrHandlePtr *uintptr, namePtr Cstring) uintptr {
 	err := posix.Pthread_mutex_init(mutexHandlePtr, attrHandlePtr)
 	if err != 0 {
-		return emu.GetErrno() - SonyErrorOffset
+		return err - SonyErrorOffset
 	}
 
 	// Retrieve structs back.
@@ -51,7 +51,7 @@ func libKernel_scePthreadMutexInit(mutexHandlePtr, attrHandlePtr *uintptr, nameP
 func libKernel_scePthreadMutexDestroy(mutexHandlePtr *uintptr) uintptr {
 	err := posix.Pthread_mutex_destroy(mutexHandlePtr)
 	if err != 0 {
-		return emu.GetErrno() - SonyErrorOffset
+		return err - SonyErrorOffset
 	}
 
 	return 0
@@ -62,7 +62,7 @@ func libKernel_scePthreadMutexDestroy(mutexHandlePtr *uintptr) uintptr {
 func libKernel_scePthreadMutexLock(mutexHandlePtr *uintptr) uintptr {
 	err := posix.Pthread_mutex_lock(mutexHandlePtr)
 	if err != 0 {
-		return emu.GetErrno() - SonyErrorOffset
+		return err - SonyErrorOffset
 	}
 
 	return 0
@@ -71,7 +71,7 @@ func libKernel_scePthreadMutexLock(mutexHandlePtr *uintptr) uintptr {
 // 0x0000000000013C90
 // __int64 scePthreadMutexTrylock()
 func libKernel_scePthreadMutexTrylock(mutexHandlePtr *uintptr) uintptr {
-	err := libKernel_pthread_mutex_trylock(mutexHandlePtr)
+	err := posix.Pthread_mutex_trylock(mutexHandlePtr)
 	if err != 0 {
 		return err - SonyErrorOffset
 	}
@@ -84,7 +84,7 @@ func libKernel_scePthreadMutexTrylock(mutexHandlePtr *uintptr) uintptr {
 func libKernel_scePthreadMutexUnlock(mutexHandlePtr *uintptr) uintptr {
 	err := posix.Pthread_mutex_unlock(mutexHandlePtr)
 	if err != 0 {
-		return emu.GetErrno() - SonyErrorOffset
+		return err - SonyErrorOffset
 	}
 
 	return 0
@@ -93,7 +93,7 @@ func libKernel_scePthreadMutexUnlock(mutexHandlePtr *uintptr) uintptr {
 // 0x0000000000013CB0
 // __int64 scePthreadMutexTimedlock()
 func libKernel_scePthreadMutexTimedlock(mutexHandlePtr *uintptr, micros uintptr) uintptr {
-	err := libKernel_pthread_mutex_reltimedlock_np(mutexHandlePtr, micros)
+	err := posix.Pthread_mutex_reltimedlock_np(mutexHandlePtr, micros)
 	if err != 0 {
 		return err - SonyErrorOffset
 	}

@@ -11,7 +11,18 @@ import (
 
 // MemoryProtToLinuxProt converts memory protection flags to Linux mmap/mprotect flags.
 func MemoryProtToLinuxProt(prot int32) uintptr {
-	return uintptr(prot & int32(syscall.PROT_READ|syscall.PROT_WRITE|syscall.PROT_EXEC))
+	linuxProt := uintptr(0)
+	if (prot&PROT_READ) != 0 || (prot&PROT_GPU_READ) != 0 {
+		linuxProt |= syscall.PROT_READ
+	}
+	if (prot&PROT_WRITE) != 0 || (prot&PROT_GPU_WRITE) != 0 {
+		linuxProt |= syscall.PROT_WRITE
+	}
+	if (prot & PROT_EXEC) != 0 {
+		linuxProt |= syscall.PROT_EXEC
+	}
+
+	return linuxProt
 }
 
 // MemoryProtToLinuxProt converts memory flags to Linux mmap/mprotect flags.

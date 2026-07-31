@@ -1,4 +1,4 @@
-package kernel
+package posix
 
 import (
 	"github.com/LamkasDev/sharkie/cmd/emu"
@@ -9,9 +9,11 @@ import (
 	"github.com/gookit/color"
 )
 
-// 0x0000000000001750
-// __int64 __fastcall shm_open()
-func libKernel_shm_open(pathPtr Cstring, flags FileFlags, mode FileMode) int32 {
+func Shm_open(pathPtr Cstring, flags FileFlags, mode FileMode) int32 {
+	return libScePosix_shm_open(pathPtr, flags, mode)
+}
+
+func libScePosix_shm_open(pathPtr Cstring, flags FileFlags, mode FileMode) int32 {
 	if pathPtr == nil {
 		logger.Printf("%-132s %s failed due to invalid path pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -20,7 +22,7 @@ func libKernel_shm_open(pathPtr Cstring, flags FileFlags, mode FileMode) int32 {
 		return 0
 	}
 
-	path := GetUsablePath(GoString(pathPtr))
+	path := GlobalFilesystem.GetUsablePath(GoString(pathPtr))
 	fd, err := GlobalFilesystem.Open(path, flags, mode)
 	if err != nil {
 		logger.Printf("%-132s %s failed due to open error on %s (%s).\n",
@@ -29,7 +31,7 @@ func libKernel_shm_open(pathPtr Cstring, flags FileFlags, mode FileMode) int32 {
 			color.Blue.Sprint(path),
 			err.Error(),
 		)
-		emu.SetErrno(EFAULT)
+		emu.SetErrno(FsToPosixError(err))
 		return ERR_PTRI
 	}
 

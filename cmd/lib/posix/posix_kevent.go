@@ -1,4 +1,4 @@
-package kernel
+package posix
 
 import (
 	"time"
@@ -13,12 +13,10 @@ import (
 )
 
 func Kevent(equeueHandle, changelistPtr, nchanges, eventlistPtr, nevents uintptr, timestamp *Timestamp) uintptr {
-	return libKernel_kevent(equeueHandle, changelistPtr, nchanges, eventlistPtr, nevents, timestamp)
+	return libScePosix_kevent(equeueHandle, changelistPtr, nchanges, eventlistPtr, nevents, timestamp)
 }
 
-// 0x00000000000013B0
-// __int64 __fastcall kevent()
-func libKernel_kevent(equeueHandle, changelistPtr, nchanges, eventlistPtr, nevents uintptr, timestamp *Timestamp) uintptr {
+func libScePosix_kevent(equeueHandle, changelistPtr, nchanges, eventlistPtr, nevents uintptr, timestamp *Timestamp) uintptr {
 	equeue := GetEqueue(equeueHandle)
 	if equeue == nil {
 		logger.Printf("%-132s %s failed due to unknown equeue %s.\n",
@@ -33,18 +31,18 @@ func libKernel_kevent(equeueHandle, changelistPtr, nchanges, eventlistPtr, neven
 	if changelistPtr != 0 && nchanges > 0 {
 		changes := unsafe.Slice((*KernelEvent)(unsafe.Pointer(changelistPtr)), nchanges)
 		for _, event := range changes {
-			processKeventChange(equeue, event)
+			ProcessKeventChange(equeue, event)
 		}
 	}
 
 	if eventlistPtr != 0 && nevents > 0 {
-		return processKeventWait(equeue, eventlistPtr, nevents, timestamp)
+		return ProcessKeventWait(equeue, eventlistPtr, nevents, timestamp)
 	}
 
 	return 0
 }
 
-func processKeventChange(equeue *Equeue, event KernelEvent) {
+func ProcessKeventChange(equeue *Equeue, event KernelEvent) {
 	if (event.Flags&EV_ADD) != 0 || (event.Flags&EV_ENABLE) != 0 {
 		switch event.Filter {
 		case EVFILT_VIDEO_OUT:
@@ -68,7 +66,7 @@ func processKeventChange(equeue *Equeue, event KernelEvent) {
 	)
 }
 
-func processKeventWait(equeue *Equeue, eventlistPtr, nevents uintptr, timestamp *Timestamp) uintptr {
+func ProcessKeventWait(equeue *Equeue, eventlistPtr, nevents uintptr, timestamp *Timestamp) uintptr {
 	timeout := time.Duration(-1)
 	if timestamp != nil {
 		timeout = time.Duration(timestamp.Seconds)*time.Second +

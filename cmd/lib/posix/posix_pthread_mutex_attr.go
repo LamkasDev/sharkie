@@ -1,4 +1,4 @@
-package kernel
+package posix
 
 import (
 	"unsafe"
@@ -11,9 +11,11 @@ import (
 	"github.com/gookit/color"
 )
 
-// 0x0000000000009360
-// __int64 __fastcall pthread_mutexattr_init(__int64 *)
-func libKernel_pthread_mutexattr_init(attrHandlePtr *uintptr) uintptr {
+func Pthread_mutexattr_init(attrHandlePtr *uintptr) uintptr {
+	return libScePosix_pthread_mutexattr_init(attrHandlePtr)
+}
+
+func libScePosix_pthread_mutexattr_init(attrHandlePtr *uintptr) uintptr {
 	attrAddr := GlobalGoAllocator.Malloc(PthreadMutexAttrSize)
 	if attrAddr == 0 {
 		return ENOMEM
@@ -36,9 +38,11 @@ func libKernel_pthread_mutexattr_init(attrHandlePtr *uintptr) uintptr {
 	return 0
 }
 
-// 0x0000000000009450
-// __int64 __fastcall pthread_mutexattr_settype(_DWORD **, int)
-func libKernel_pthread_mutexattr_settype(attrHandlePtr *uintptr, attrType uintptr) uintptr {
+func Pthread_mutexattr_settype(attrHandlePtr *uintptr, attrType uintptr) uintptr {
+	return libScePosix_pthread_mutexattr_settype(attrHandlePtr, attrType)
+}
+
+func libScePosix_pthread_mutexattr_settype(attrHandlePtr *uintptr, attrType uintptr) uintptr {
 	if attrType < 1 || attrType > 4 {
 		return EINVAL
 	}
@@ -50,7 +54,8 @@ func libKernel_pthread_mutexattr_settype(attrHandlePtr *uintptr, attrType uintpt
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("pthread_mutexattr_settype"),
 		)
-		return err
+		emu.SetErrno(err)
+		return ERR_PTR
 	}
 
 	// Set type.
@@ -64,9 +69,11 @@ func libKernel_pthread_mutexattr_settype(attrHandlePtr *uintptr, attrType uintpt
 	return 0
 }
 
-// 0x0000000000009490
-// __int64 __fastcall scePthreadMutexattrDestroy(__int64 *)
-func libKernel_pthread_mutexattr_destroy(attrHandlePtr *uintptr) uintptr {
+func Pthread_mutexattr_destroy(attrHandlePtr *uintptr) uintptr {
+	return libScePosix_pthread_mutexattr_destroy(attrHandlePtr)
+}
+
+func libScePosix_pthread_mutexattr_destroy(attrHandlePtr *uintptr) uintptr {
 	// Resolve the handle.
 	attr, err := ResolveHandle[PthreadMutexAttr](attrHandlePtr)
 	if err != 0 {

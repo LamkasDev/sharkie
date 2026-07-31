@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"unsafe"
 
+	"github.com/LamkasDev/sharkie/cmd/lib/posix"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/pthread"
 )
@@ -11,7 +12,7 @@ import (
 // 0x00000000000137A0
 // __int64 scePthreadCondInit()
 func libKernel_scePthreadCondInit(condHandlePtr, attrHandlePtr *uintptr, namePtr Cstring) uintptr {
-	err := libKernel_pthread_cond_init(condHandlePtr, attrHandlePtr)
+	err := posix.Pthread_cond_init(condHandlePtr, attrHandlePtr)
 	if err != 0 {
 		return err - SonyErrorOffset
 	}
@@ -36,7 +37,7 @@ func libKernel_scePthreadCondInit(condHandlePtr, attrHandlePtr *uintptr, namePtr
 // 0x0000000000013840
 // __int64 scePthreadCondDestroy()
 func libKernel_scePthreadCondDestroy(condHandlePtr *uintptr) uintptr {
-	err := libKernel_pthread_cond_destroy(condHandlePtr)
+	err := posix.Pthread_cond_destroy(condHandlePtr)
 	if err != 0 {
 		return err - SonyErrorOffset
 	}
@@ -47,7 +48,7 @@ func libKernel_scePthreadCondDestroy(condHandlePtr *uintptr) uintptr {
 // 0x0000000000013780
 // __int64 __fastcall scePthreadCondBroadcast(__int64 *, __int64, int, int, int, int)
 func libKernel_scePthreadCondBroadcast(condHandlePtr *uintptr) uintptr {
-	err := libKernel_pthread_cond_broadcast(condHandlePtr)
+	err := posix.Pthread_cond_broadcast(condHandlePtr)
 	if err != 0 {
 		return err - SonyErrorOffset
 	}
@@ -58,7 +59,7 @@ func libKernel_scePthreadCondBroadcast(condHandlePtr *uintptr) uintptr {
 // 0x0000000000013860
 // __int64 scePthreadCondSignal()
 func libKernel_scePthreadCondSignal(condHandlePtr *uintptr) uintptr {
-	err := libKernel_pthread_cond_signal(condHandlePtr)
+	err := posix.Pthread_cond_signal(condHandlePtr)
 	if err != 0 {
 		return err - SonyErrorOffset
 	}
@@ -69,7 +70,7 @@ func libKernel_scePthreadCondSignal(condHandlePtr *uintptr) uintptr {
 // 0x00000000000138C0
 // __int64 scePthreadCondWait()
 func libKernel_scePthreadCondWait(condHandlePtr, mutexHandlePtr *uintptr) uintptr {
-	err := libKernel_pthread_cond_wait(condHandlePtr, mutexHandlePtr)
+	err := posix.Pthread_cond_wait(condHandlePtr, mutexHandlePtr)
 	if err != 0 {
 		return err - SonyErrorOffset
 	}
@@ -80,7 +81,7 @@ func libKernel_scePthreadCondWait(condHandlePtr, mutexHandlePtr *uintptr) uintpt
 // 0x00000000000138A0
 // __int64 scePthreadCondTimedwait()
 func libKernel_scePthreadCondTimedwait(condHandlePtr, mutexHandlePtr *uintptr, micros uintptr) uintptr {
-	err := libKernel_pthread_cond_reltimedwait_np(condHandlePtr, mutexHandlePtr, micros)
+	err := posix.Pthread_cond_reltimedwait_np(condHandlePtr, mutexHandlePtr, micros)
 	if err != 0 {
 		return err - SonyErrorOffset
 	}

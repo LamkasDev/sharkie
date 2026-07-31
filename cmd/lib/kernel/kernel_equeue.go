@@ -2,10 +2,10 @@ package kernel
 
 import (
 	"encoding/binary"
-	"fmt"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
+	"github.com/LamkasDev/sharkie/cmd/lib/posix"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/posix"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/time"
@@ -23,54 +23,13 @@ func libKernel_sceKernelCreateEqueue(handlePtr *uintptr, namePtr Cstring) uintpt
 		)
 		return SCE_KERNEL_ERROR_EINVAL
 	}
-	err := libKernel_kqueue(handlePtr, namePtr)
+	err := posix.Kqueue(handlePtr, namePtr)
 	if err == ERR_PTR {
 		return emu.GetErrno() - SonyErrorOffset
 	}
 
 	// TODO: emulate __sys_namedobj_create?
 
-	return 0
-}
-
-// 0x0000000000000EB0
-// __int64 __fastcall _sys_kqueueex()
-func libKernel___sys_kqueueex(knlistPtr uintptr, count uintptr, flags uintptr) uintptr {
-	var handlePtr uintptr
-	libKernel_kqueue(&handlePtr, nil)
-
-	return handlePtr
-}
-
-// 0x0000000000001390
-// __int64 __fastcall kqueue()
-func libKernel_kqueue(handlePtr *uintptr, namePtr Cstring) uintptr {
-	if handlePtr == nil {
-		logger.Printf("%-132s %s failed due to invalid handle pointer.\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("kqueue"),
-		)
-		emu.SetErrno(EINVAL)
-		return ERR_PTR
-	}
-
-	equeue := CreateEqueue("unnamed")
-	var name string
-	if namePtr != nil {
-		name = GoString(namePtr)
-	}
-	if name == "" {
-		name = fmt.Sprintf("0x%X", equeue.Handle)
-	}
-	equeue.Name = name
-	*handlePtr = equeue.Handle
-
-	logger.Printf("%-132s %s created equeue %s (name=%s).\n",
-		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprint("kqueue"),
-		color.Yellow.Sprintf("0x%X", equeue.Handle),
-		color.Blue.Sprint(equeue.Name),
-	)
 	return 0
 }
 
@@ -96,7 +55,7 @@ func libKernel_sceKernelWaitEqueue(handle, eventPtr, num, resultPtr uintptr, tim
 		}
 	}
 
-	count := processKeventWait(equeue, eventPtr, num, timestamp)
+	count := posix.ProcessKeventWait(equeue, eventPtr, num, timestamp)
 	if resultPtr != 0 {
 		resultSlice := unsafe.Slice((*byte)(unsafe.Pointer(resultPtr)), 4)
 		binary.LittleEndian.PutUint32(resultSlice, uint32(count))

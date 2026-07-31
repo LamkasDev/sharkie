@@ -56,10 +56,9 @@ func libKernel_sys_sceKernelLoadStartModule(namePtr Cstring, argc, argvPtr, flag
 	// Load the module and its dependencies into memory and link them.
 	mod, err := emu.GlobalModuleManager.LoadModule(moduleNameOrPath, true)
 	if err != nil {
-		logger.Printf("%-132s %s failed loading module %s: %+v\n",
+		logger.Printf("%-132s %s failed due to load error (%s)\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceKernelLoadStartModule"),
-			color.Blue.Sprint(moduleNameOrPath),
 			err.Error(),
 		)
 		return 0

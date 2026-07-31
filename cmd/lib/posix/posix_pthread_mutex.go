@@ -50,8 +50,7 @@ func Pthread_mutex_init(mutexHandlePtr, attrHandlePtr *uintptr) uintptr {
 func libScePosix_pthread_mutex_init(mutexHandlePtr, attrHandlePtr *uintptr) uintptr {
 	mutexAddr := GlobalGoAllocator.Malloc(PthreadMutexSize)
 	if mutexAddr == 0 {
-		emu.SetErrno(ENOMEM)
-		return ERR_PTR
+		return ENOMEM
 	}
 
 	// Initialize to defaults.
@@ -77,8 +76,7 @@ func libScePosix_pthread_mutex_init(mutexHandlePtr, attrHandlePtr *uintptr) uint
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("pthread_mutex_init"),
 			)
-			emu.SetErrno(EINVAL)
-			return ERR_PTR
+			return EINVAL
 		}
 
 		mutex.Flags = uint32(attr.Type)
@@ -111,8 +109,7 @@ func libScePosix_pthread_mutex_destroy(mutexHandlePtr *uintptr) uintptr {
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("pthread_mutex_destroy"),
 		)
-		emu.SetErrno(err)
-		return ERR_PTR
+		return err
 	}
 
 	// Free the memory.
@@ -122,8 +119,7 @@ func libScePosix_pthread_mutex_destroy(mutexHandlePtr *uintptr) uintptr {
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("pthread_mutex_destroy"),
 		)
-		emu.SetErrno(EFAULT)
-		return ERR_PTR
+		return EFAULT
 	}
 
 	logger.Printf("%-132s %s destroyed mutex %s.\n",

@@ -1,4 +1,4 @@
-package kernel
+package posix
 
 import (
 	"unsafe"
@@ -12,9 +12,11 @@ import (
 	"github.com/gookit/color"
 )
 
-// 0x0000000000003BC0
-// __int64 __fastcall pthread_attr_init(__int64 *)
-func libKernel_pthread_attr_init(attrHandlePtr *uintptr) uintptr {
+func Pthread_attr_init(attrHandlePtr *uintptr) uintptr {
+	return libScePosix_pthread_attr_init(attrHandlePtr)
+}
+
+func libScePosix_pthread_attr_init(attrHandlePtr *uintptr) uintptr {
 	attrAddr := GlobalGoAllocator.Malloc(PthreadAttrSize)
 	if attrAddr == 0 {
 		return ENOMEM
@@ -39,9 +41,11 @@ func libKernel_pthread_attr_init(attrHandlePtr *uintptr) uintptr {
 	return 0
 }
 
-// 0x00000000000134C0
-// __int64 __fastcall pthread_attr_setstacksize(__int64, unsigned __int64)
-func libKernel_pthread_attr_setstacksize(attrHandlePtr *uintptr, stackSize uint64) uintptr {
+func Pthread_attr_setstacksize(attrHandlePtr *uintptr, stackSize uint64) uintptr {
+	return libScePosix_pthread_attr_setstacksize(attrHandlePtr, stackSize)
+}
+
+func libScePosix_pthread_attr_setstacksize(attrHandlePtr *uintptr, stackSize uint64) uintptr {
 	if stackSize < StackMinimumSize {
 		logger.Printf("%-132s %s failed due to invalid stack size %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -72,9 +76,11 @@ func libKernel_pthread_attr_setstacksize(attrHandlePtr *uintptr, stackSize uint6
 	return 0
 }
 
-// 0x0000000000003D10
-// __int64 __fastcall pthread_attr_setschedpolicy(_DWORD **, int)
-func libKernel_pthread_attr_setschedpolicy(attrHandlePtr *uintptr, schedulingPolicy uintptr) uintptr {
+func Pthread_attr_setschedpolicy(attrHandlePtr *uintptr, schedulingPolicy uintptr) uintptr {
+	return libScePosix_pthread_attr_setschedpolicy(attrHandlePtr, schedulingPolicy)
+}
+
+func libScePosix_pthread_attr_setschedpolicy(attrHandlePtr *uintptr, schedulingPolicy uintptr) uintptr {
 	if schedulingPolicy != 1 && schedulingPolicy != 2 && schedulingPolicy != 3 {
 		logger.Printf("%-132s %s failed due to invalid scheduling policy %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -105,9 +111,11 @@ func libKernel_pthread_attr_setschedpolicy(attrHandlePtr *uintptr, schedulingPol
 	return 0
 }
 
-// 0x0000000000003C90
-// __int64 __fastcall pthread_attr_setinheritsched(__int64, int)
-func libKernel_pthread_attr_setinheritsched(attrHandlePtr *uintptr, inheritScheduling uintptr) uintptr {
+func Pthread_attr_setinheritsched(attrHandlePtr *uintptr, inheritScheduling uintptr) uintptr {
+	return libScePosix_pthread_attr_setinheritsched(attrHandlePtr, inheritScheduling)
+}
+
+func libScePosix_pthread_attr_setinheritsched(attrHandlePtr *uintptr, inheritScheduling uintptr) uintptr {
 	if inheritScheduling != 0 && inheritScheduling != 4 {
 		logger.Printf("%-132s %s failed due to invalid inherit scheduling %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -138,9 +146,11 @@ func libKernel_pthread_attr_setinheritsched(attrHandlePtr *uintptr, inheritSched
 	return 0
 }
 
-// 0x0000000000003CC0
-// __int64 __fastcall pthread_attr_setschedparam(int **, int *)
-func libKernel_pthread_attr_setschedparam(attrHandlePtr *uintptr, schedulingParameterPtr *int32) uintptr {
+func Pthread_attr_setschedparam(attrHandlePtr *uintptr, schedulingParameterPtr *int32) uintptr {
+	return libScePosix_pthread_attr_setschedparam(attrHandlePtr, schedulingParameterPtr)
+}
+
+func libScePosix_pthread_attr_setschedparam(attrHandlePtr *uintptr, schedulingParameterPtr *int32) uintptr {
 	if schedulingParameterPtr == nil {
 		logger.Printf("%-132s %s failed due to invalid scheduling parameter pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -179,9 +189,11 @@ func libKernel_pthread_attr_setschedparam(attrHandlePtr *uintptr, schedulingPara
 	return 0
 }
 
-// 0x0000000000003C70
-// __int64 __fastcall pthread_attr_setguardsize(__int64, __int64)
-func libKernel_pthread_attr_setguardsize(attrHandlePtr *uintptr, guardSize uint64) uintptr {
+func Pthread_attr_setguardsize(attrHandlePtr *uintptr, guardSize uint64) uintptr {
+	return libScePosix_pthread_attr_setguardsize(attrHandlePtr, guardSize)
+}
+
+func libScePosix_pthread_attr_setguardsize(attrHandlePtr *uintptr, guardSize uint64) uintptr {
 	// Resolve the handle.
 	attr, err := ResolveHandle[PthreadAttr](attrHandlePtr)
 	if err != 0 {
@@ -203,9 +215,11 @@ func libKernel_pthread_attr_setguardsize(attrHandlePtr *uintptr, guardSize uint6
 	return 0
 }
 
-// 0x0000000000003C40
-// __int64 __fastcall pthread_attr_setdetachstate(__int64 *, unsigned int)
-func libKernel_pthread_attr_setdetachstate(attrHandlePtr *uintptr, detachState uintptr) uintptr {
+func Pthread_attr_setdetachstate(attrHandlePtr *uintptr, detachState uintptr) uintptr {
+	return libScePosix_pthread_attr_setdetachstate(attrHandlePtr, detachState)
+}
+
+func libScePosix_pthread_attr_setdetachstate(attrHandlePtr *uintptr, detachState uintptr) uintptr {
 	if detachState != 0 && detachState != 1 {
 		logger.Printf("%-132s %s failed due to invalid detach state %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -240,9 +254,11 @@ func libKernel_pthread_attr_setdetachstate(attrHandlePtr *uintptr, detachState u
 	return 0
 }
 
-// 0x0000000000003D50
-// __int64 __fastcall pthread_attr_setscope(__int64 *, int)
-func libKernel_pthread_attr_setscope(attrHandlePtr *uintptr, scope uintptr) uintptr {
+func Pthread_attr_setscope(attrHandlePtr *uintptr, scope uintptr) uintptr {
+	return libScePosix_pthread_attr_setscope(attrHandlePtr, scope)
+}
+
+func libScePosix_pthread_attr_setscope(attrHandlePtr *uintptr, scope uintptr) uintptr {
 	if scope != 0 && scope != 2 {
 		logger.Printf("%-132s %s failed due to invalid scope %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -277,9 +293,45 @@ func libKernel_pthread_attr_setscope(attrHandlePtr *uintptr, scope uintptr) uint
 	return 0
 }
 
-// 0x0000000000003800
-// __int64 __fastcall pthread_attr_destroy(__int64 *)
-func libKernel_pthread_attr_destroy(attrHandlePtr *uintptr) uintptr {
+func Pthread_attr_getaffinity_np(attrHandlePtr *uintptr, cpuSetSize, cpuSetPtr uintptr) uintptr {
+	return libScePosix_pthread_attr_getaffinity_np(attrHandlePtr, cpuSetSize, cpuSetPtr)
+}
+
+func libScePosix_pthread_attr_getaffinity_np(attrHandlePtr *uintptr, cpuSetSize, cpuSetPtr uintptr) uintptr {
+	_, err := ResolveHandle[PthreadAttr](attrHandlePtr)
+	if err != 0 {
+		logger.Printf("%-132s %s failed due to invalid attribute pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("pthread_attr_getaffinity_np"),
+		)
+		return err
+	}
+	if cpuSetPtr != 0 {
+		// We enable all cores in the mask for now.
+		if cpuSetSize > 1024 {
+			cpuSetSize = 1024
+		}
+		cpuSet := unsafe.Slice((*byte)(unsafe.Pointer(cpuSetPtr)), cpuSetSize)
+		for i := range cpuSet {
+			cpuSet[i] = 0xFF
+		}
+	}
+
+	logger.Printf("%-132s %s returned thread affinity (attrHandlePtr=%s, cpuSetSize=%s, cpuSetPtr=%s).\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("pthread_attr_getaffinity_np"),
+		color.Yellow.Sprintf("0x%X", attrHandlePtr),
+		color.Yellow.Sprintf("0x%X", cpuSetSize),
+		color.Yellow.Sprintf("0x%X", cpuSetPtr),
+	)
+	return 0
+}
+
+func Pthread_attr_destroy(attrHandlePtr *uintptr) uintptr {
+	return libScePosix_pthread_attr_destroy(attrHandlePtr)
+}
+
+func libScePosix_pthread_attr_destroy(attrHandlePtr *uintptr) uintptr {
 	// Resolve the handle.
 	attr, err := ResolveHandle[PthreadAttr](attrHandlePtr)
 	if err != 0 {

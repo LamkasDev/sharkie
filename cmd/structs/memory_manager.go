@@ -39,6 +39,9 @@ func init() {
 		GlobalMemoryManager.Map(addr, uintptr(length))
 		GlobalMemoryManager.Protect(addr, uintptr(length), uint32(prot))
 	}
+	posix.HookMapDirect = func(addr uintptr, length uint64, offset uint64, memType int32, prot int32) {
+		GlobalMemoryManager.MapDirect(addr, uintptr(length), offset, memType, uint32(prot))
+	}
 	posix.HookUnmap = func(addr uintptr, length uintptr) {
 		GlobalMemoryManager.Unmap(addr, length)
 	}
@@ -71,6 +74,24 @@ func (m *MemoryManager) Map(address, size uintptr) {
 	}
 	m.updateVMA(address, end, func(v *VMA) {
 		v.Mapped = true
+	})
+	m.Lock.Unlock()
+}
+
+func (m *MemoryManager) MapDirect(address, size uintptr, offset uint64, memType int32, prot uint32) {
+	end := address + size
+	m.Lock.Lock()
+	for addr := address >> posix.SystemPageShift; (addr << posix.SystemPageShift) < end; addr++ {
+		page := m.getPage(addr << posix.SystemPageShift)
+		page.Mapped = true
+		page.Prot = prot
+	}
+	m.updateVMA(address, end, func(v *VMA) {
+		v.Mapped = true
+		v.IsDirect = true
+		v.Offset = offset
+		v.MemoryType = memType
+		v.Prot = prot
 	})
 	m.Lock.Unlock()
 }

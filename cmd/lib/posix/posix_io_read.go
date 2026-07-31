@@ -34,7 +34,7 @@ func libScePosix_read(fd FileDescriptor, bufPtr uintptr, length uint64) int64 {
 			color.Yellow.Sprintf("0x%X", fd),
 			err.Error(),
 		)
-		emu.SetErrno(EFAULT)
+		emu.SetErrno(FsToPosixError(err))
 		return ERR_PTRI
 	}
 
@@ -74,14 +74,7 @@ func libScePosix_pread(fd FileDescriptor, bufPtr uintptr, length uint64, offset 
 			color.Yellow.Sprintf("0x%X", fd),
 			err.Error(),
 		)
-
-		if err.Error() == "invalid file descriptor" {
-			emu.SetErrno(ENOENT)
-		} else if err.Error() == "illegal seek" {
-			emu.SetErrno(ESPIPE)
-		} else {
-			emu.SetErrno(EFAULT)
-		}
+		emu.SetErrno(FsToPosixError(err))
 		return ERR_PTRI
 	}
 

@@ -118,6 +118,25 @@ func (allocator *GoAllocator) Realloc(ptr uintptr, newSize uintptr) uintptr {
 	return newAddress
 }
 
+func (allocator *GoAllocator) UsableSize(ptr uintptr) uintptr {
+	if ptr == 0 {
+		return 0
+	}
+	allocator.Lock.Lock()
+	defer allocator.Lock.Unlock()
+
+	// Read header (0 - original pointer, 8 - allocated size).
+	headerAddr := ptr - AllocationHeaderSize
+	address := *(*uintptr)(unsafe.Pointer(headerAddr))
+	if _, exists := allocator.Allocations[address]; !exists {
+		return 0
+	}
+	allocatedSize := *(*uintptr)(unsafe.Pointer(headerAddr + 8))
+
+	padding := ptr - address
+	return allocatedSize - padding
+}
+
 func SetupGoAllocator() {
 	GlobalGoAllocator = NewGoAllocator()
 }

@@ -23,7 +23,7 @@ func libScePosix_open(pathPtr Cstring, flags FileFlags, mode FileMode) int32 {
 		return ERR_PTRI
 	}
 
-	path := GetUsablePath(GoString(pathPtr))
+	path := GlobalFilesystem.GetUsablePath(GoString(pathPtr))
 	fd, err := GlobalFilesystem.Open(path, flags, mode)
 	if err != nil {
 		logger.Printf("%-132s %s failed due to open error on %s (%s).\n",
@@ -32,7 +32,7 @@ func libScePosix_open(pathPtr Cstring, flags FileFlags, mode FileMode) int32 {
 			color.Blue.Sprint(path),
 			err.Error(),
 		)
-		emu.SetErrno(ENOENT)
+		emu.SetErrno(FsToPosixError(err))
 		return ERR_PTRI
 	}
 

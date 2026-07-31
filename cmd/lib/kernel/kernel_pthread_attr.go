@@ -5,6 +5,7 @@ import (
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
+	"github.com/LamkasDev/sharkie/cmd/lib/posix"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/posix"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/pthread"
@@ -15,7 +16,7 @@ import (
 // 0x00000000000134A0
 // __int64 __fastcall scePthreadAttrInit(__int64 *)
 func libKernel_scePthreadAttrInit(attrHandlePtr *uintptr) uintptr {
-	err := libKernel_pthread_attr_init(attrHandlePtr)
+	err := posix.Pthread_attr_init(attrHandlePtr)
 	if err != 0 {
 		return err - SonyErrorOffset
 	}
@@ -26,7 +27,7 @@ func libKernel_scePthreadAttrInit(attrHandlePtr *uintptr) uintptr {
 // 0x00000000000133E0
 // __int64 scePthreadAttrSetstacksize()
 func libKernel_scePthreadAttrSetstacksize(attrHandlePtr *uintptr, stackSize uint64) uintptr {
-	err := libKernel_pthread_attr_setstacksize(attrHandlePtr, stackSize)
+	err := posix.Pthread_attr_setstacksize(attrHandlePtr, stackSize)
 	if err != 0 {
 		return err - SonyErrorOffset
 	}
@@ -37,7 +38,7 @@ func libKernel_scePthreadAttrSetstacksize(attrHandlePtr *uintptr, stackSize uint
 // 0x00000000000143E0
 // __int64 scePthreadAttrSetschedpolicy()
 func libKernel_scePthreadAttrSetschedpolicy(attrHandlePtr *uintptr, schedulingPolicy uintptr) uintptr {
-	err := libKernel_pthread_attr_setschedpolicy(attrHandlePtr, schedulingPolicy)
+	err := posix.Pthread_attr_setschedpolicy(attrHandlePtr, schedulingPolicy)
 	if err != 0 {
 		return err - SonyErrorOffset
 	}
@@ -48,7 +49,7 @@ func libKernel_scePthreadAttrSetschedpolicy(attrHandlePtr *uintptr, schedulingPo
 // 0x00000000000143A0
 // __int64 scePthreadAttrSetinheritsched()
 func libKernel_scePthreadAttrSetinheritsched(attrHandlePtr *uintptr, inheritScheduling uintptr) uintptr {
-	err := libKernel_pthread_attr_setinheritsched(attrHandlePtr, inheritScheduling)
+	err := posix.Pthread_attr_setinheritsched(attrHandlePtr, inheritScheduling)
 	if err != 0 {
 		return err - SonyErrorOffset
 	}
@@ -59,7 +60,7 @@ func libKernel_scePthreadAttrSetinheritsched(attrHandlePtr *uintptr, inheritSche
 // 0x00000000000143C0
 // __int64 scePthreadAttrSetschedparam()
 func libKernel_scePthreadAttrSetschedparam(attrHandlePtr *uintptr, schedulingParameterPtr *int32) uintptr {
-	err := libKernel_pthread_attr_setschedparam(attrHandlePtr, schedulingParameterPtr)
+	err := posix.Pthread_attr_setschedparam(attrHandlePtr, schedulingParameterPtr)
 	if err != 0 {
 		return err - SonyErrorOffset
 	}
@@ -70,7 +71,7 @@ func libKernel_scePthreadAttrSetschedparam(attrHandlePtr *uintptr, schedulingPar
 // 0x00000000000134E0
 // __int64 scePthreadAttrSetguardsize()
 func libKernel_scePthreadAttrSetguardsize(attrHandlePtr *uintptr, guardSize uint64) uintptr {
-	err := libKernel_pthread_attr_setguardsize(attrHandlePtr, guardSize)
+	err := posix.Pthread_attr_setguardsize(attrHandlePtr, guardSize)
 	if err != 0 {
 		return err - SonyErrorOffset
 	}
@@ -81,7 +82,7 @@ func libKernel_scePthreadAttrSetguardsize(attrHandlePtr *uintptr, guardSize uint
 // 0x0000000000013540
 // __int64 scePthreadAttrSetdetachstate()
 func libKernel_scePthreadAttrSetdetachstate(attrHandlePtr *uintptr, detachState uintptr) uintptr {
-	err := libKernel_pthread_attr_setdetachstate(attrHandlePtr, detachState)
+	err := posix.Pthread_attr_setdetachstate(attrHandlePtr, detachState)
 	if err != 0 {
 		return err - SonyErrorOffset
 	}
@@ -92,7 +93,7 @@ func libKernel_scePthreadAttrSetdetachstate(attrHandlePtr *uintptr, detachState 
 // 0x0000000000014400
 // __int64 scePthreadAttrSetscope()
 func libKernel_scePthreadAttrSetscope(attrHandlePtr *uintptr, scope uintptr) uintptr {
-	err := libKernel_pthread_attr_setscope(attrHandlePtr, scope)
+	err := posix.Pthread_attr_setscope(attrHandlePtr, scope)
 	if err != 0 {
 		return err - SonyErrorOffset
 	}
@@ -103,7 +104,7 @@ func libKernel_scePthreadAttrSetscope(attrHandlePtr *uintptr, scope uintptr) uin
 // 0x00000000000133E0
 // __int64 __fastcall scePthreadAttrDestroy(__int64 *)
 func libKernel_scePthreadAttrDestroy(attrHandlePtr *uintptr) uintptr {
-	err := libKernel_pthread_attr_destroy(attrHandlePtr)
+	err := posix.Pthread_attr_destroy(attrHandlePtr)
 	if err != 0 {
 		return err - SonyErrorOffset
 	}
@@ -219,11 +220,7 @@ func libKernel_scePthreadAttrGetstacksize(attrHandlePtr *uintptr, sizePtr uintpt
 // __int64 __fastcall scePthreadAttrGetaffinity(__int64, _QWORD *)
 func libKernel_scePthreadAttrGetaffinity(attrHandlePtr *uintptr, outMaskPtr uintptr) uintptr {
 	var cpuSet [16]byte
-	err := libKernel_pthread_attr_getaffinity_np(
-		attrHandlePtr,
-		16,
-		uintptr(unsafe.Pointer(&cpuSet[0])),
-	)
+	err := posix.Pthread_attr_getaffinity_np(attrHandlePtr, 16, uintptr(unsafe.Pointer(&cpuSet[0])))
 	if err != 0 {
 		return err - SonyErrorOffset
 	}
@@ -232,37 +229,5 @@ func libKernel_scePthreadAttrGetaffinity(attrHandlePtr *uintptr, outMaskPtr uint
 		binary.LittleEndian.PutUint64(outMask, *(*uint64)(unsafe.Pointer(&cpuSet[0])))
 	}
 
-	return 0
-}
-
-// 0x0000000000003F60
-// __int64 __fastcall pthread_attr_getaffinity_np(__int64 *, unsigned __int64, __int64)
-func libKernel_pthread_attr_getaffinity_np(attrHandlePtr *uintptr, cpuSetSize, cpuSetPtr uintptr) uintptr {
-	_, err := ResolveHandle[PthreadAttr](attrHandlePtr)
-	if err != 0 {
-		logger.Printf("%-132s %s failed due to invalid attribute pointer.\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("pthread_attr_getaffinity_np"),
-		)
-		return err
-	}
-	if cpuSetPtr != 0 {
-		// We enable all cores in the mask for now.
-		if cpuSetSize > 1024 {
-			cpuSetSize = 1024
-		}
-		cpuSet := unsafe.Slice((*byte)(unsafe.Pointer(cpuSetPtr)), cpuSetSize)
-		for i := range cpuSet {
-			cpuSet[i] = 0xFF
-		}
-	}
-
-	logger.Printf("%-132s %s returned thread affinity (attrHandlePtr=%s, cpuSetSize=%s, cpuSetPtr=%s).\n",
-		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprint("scePthreadAttrGetaffinity"),
-		color.Yellow.Sprintf("0x%X", attrHandlePtr),
-		color.Yellow.Sprintf("0x%X", cpuSetSize),
-		color.Yellow.Sprintf("0x%X", cpuSetPtr),
-	)
 	return 0
 }

@@ -55,7 +55,18 @@ func (m *MemoryManager) updateVMA(start, end uintptr, update func(*VMA)) {
 	for i := 1; i < len(m.VMAs); i++ {
 		last := &merged[len(merged)-1]
 		v := m.VMAs[i]
-		if last.End == v.Start && last.Prot == v.Prot && last.Mapped == v.Mapped && last.Name == v.Name && last.MemoryType == v.MemoryType {
+		canMerge := last.End == v.Start &&
+			last.Prot == v.Prot &&
+			last.Mapped == v.Mapped &&
+			last.Name == v.Name &&
+			last.MemoryType == v.MemoryType &&
+			last.IsDirect == v.IsDirect
+		if canMerge && last.IsDirect {
+			if last.Offset+uint64(last.End-last.Start) != v.Offset {
+				canMerge = false
+			}
+		}
+		if canMerge {
 			last.End = v.End
 		} else {
 			merged = append(merged, v)

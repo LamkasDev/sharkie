@@ -1,4 +1,4 @@
-package kernel
+package posix
 
 import (
 	"github.com/LamkasDev/sharkie/cmd/emu"
@@ -8,19 +8,21 @@ import (
 	"github.com/gookit/color"
 )
 
-// 0x0000000000000970
-// __int64 __fastcall ioctl()
-func libKernel_ioctl(fd FileDescriptor, request uint64, argPtr uintptr) int32 {
+func Ioctl(fd FileDescriptor, request uint64, argPtr uintptr) int32 {
+	return libScePosix_ioctl(fd, request, argPtr)
+}
+
+func libScePosix_ioctl(fd FileDescriptor, request uint64, argPtr uintptr) int32 {
 	err := GlobalFilesystem.IoctlFd(fd, request, argPtr)
 	if err != nil {
 		if err.Error() == "invalid file descriptor" {
-			logger.Printf("%-132s %s failed due to unknown file %s.\n",
+			logger.Printf("%-132s %s failed due to unknown file descriptor %s.\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("ioctl"),
 				color.Yellow.Sprintf("0x%X", fd),
 			)
-			emu.SetErrno(ENOENT)
-			return ENOENT
+			emu.SetErrno(EBADF)
+			return ERR_PTRI
 		}
 		logger.Printf("%-132s %s command %s on fd %s with argument %s failed (%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),

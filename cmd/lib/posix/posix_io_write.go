@@ -28,12 +28,12 @@ func libScePosix_write(fd FileDescriptor, bufPtr uintptr, length uint64) int64 {
 	file, ok := GlobalFilesystem.Descriptors[fd]
 	GlobalFilesystem.Lock.Unlock()
 	if !ok {
-		logger.Printf("%-132s %s failed due to unknown file %s.\n",
+		logger.Printf("%-132s %s failed due to unknown file descriptor %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("write"),
 			color.Yellow.Sprintf("0x%X", fd),
 		)
-		emu.SetErrno(ENOENT)
+		emu.SetErrno(EBADF)
 		return ERR_PTRI
 	}
 
@@ -47,7 +47,7 @@ func libScePosix_write(fd FileDescriptor, bufPtr uintptr, length uint64) int64 {
 			color.Yellow.Sprintf("0x%X", fd),
 			err.Error(),
 		)
-		emu.SetErrno(EFAULT)
+		emu.SetErrno(FsToPosixError(err))
 		return ERR_PTRI
 	}
 
@@ -86,16 +86,7 @@ func libScePosix_pwrite(fd FileDescriptor, bufPtr uintptr, length uint64, offset
 			color.Yellow.Sprintf("0x%X", fd),
 			err.Error(),
 		)
-
-		if err.Error() == "invalid file descriptor" {
-			emu.SetErrno(ENOENT)
-		} else if err.Error() == "illegal seek" {
-			emu.SetErrno(ESPIPE)
-		} else if err.Error() == "file not opened for writing" {
-			emu.SetErrno(EFAULT) // TODO: EBADF?
-		} else {
-			emu.SetErrno(EFAULT)
-		}
+		emu.SetErrno(FsToPosixError(err))
 		return ERR_PTRI
 	}
 

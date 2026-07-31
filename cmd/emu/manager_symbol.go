@@ -86,8 +86,7 @@ func TryGetSymbolAddress(s *elf.ElfSymbol, module *elf.Elf) (uintptr, bool) {
 			}
 			if symbol.ReadableName != s.ReadableName {
 				// Let's try skipping the #A#B suffix if they match without it and print warning.
-				if len(symbol.OriginalName) > 4 && len(s.OriginalName) > 4 &&
-					symbol.OriginalName[:len(symbol.OriginalName)-4] != s.OriginalName[:len(s.OriginalName)-4] {
+				if symbol.NidBase != s.NidBase {
 					continue
 				}
 				logger.Print(color.Gray.Sprintf(

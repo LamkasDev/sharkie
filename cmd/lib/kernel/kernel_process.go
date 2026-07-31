@@ -9,19 +9,6 @@ import (
 	"github.com/gookit/color"
 )
 
-// 0x00000000000006F0
-// __int64 __fastcall getpid()
-func libKernel_getpid() uintptr {
-	processId := uintptr(1001)
-	logger.Printf("%-132s %s returned process id %s.\n",
-		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprint("getpid"),
-		color.Green.Sprintf("%d", processId),
-	)
-
-	return processId
-}
-
 // 0x00000000000233E0
 // __int64 __fastcall sceKernelGetProcessType()
 func libKernel_sceKernelGetProcessType() uintptr {

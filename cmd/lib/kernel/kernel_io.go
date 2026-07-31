@@ -6,6 +6,8 @@ import (
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/fs"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/posix"
+	"github.com/LamkasDev/sharkie/cmd/logger"
+	"github.com/gookit/color"
 )
 
 // 0x0000000000015990
@@ -102,6 +104,70 @@ func libKernel_sceKernelFstat(fd FileDescriptor, stat *FileStat) int32 {
 	err := posix.Fstat(fd, stat)
 	if err != 0 {
 		return int32(emu.GetErrno() - SonyErrorOffset)
+	}
+
+	return 0
+}
+
+// 0x00000000000165E0
+// __int64 sceKernelTruncate()
+func libKernel_sceKernelTruncate(pathPtr Cstring, length int64) int32 {
+	err := posix.Truncate(pathPtr, length)
+	if err != 0 {
+		return int32(emu.GetErrno() - SonyErrorOffset)
+	}
+
+	return 0
+}
+
+// 0x0000000000016610
+// __int64 sceKernelFtruncate()
+func libKernel_sceKernelFtruncate(fd FileDescriptor, length int64) int32 {
+	err := posix.Ftruncate(fd, length)
+	if err != 0 {
+		return int32(emu.GetErrno() - SonyErrorOffset)
+	}
+
+	return 0
+}
+
+// 0x0000000000000970
+// __int64 __fastcall ioctl()
+func libKernel_ioctl(fd FileDescriptor, request uint64, argPtr uintptr) int32 {
+	err := posix.Ioctl(fd, request, argPtr)
+	if err != 0 {
+		return int32(emu.GetErrno() - SonyErrorOffset)
+	}
+
+	return 0
+}
+
+// 0x0000000000001750
+// __int64 __fastcall shm_open()
+func libKernel_shm_open(pathPtr Cstring, flags FileFlags, mode FileMode) int32 {
+	err := posix.Shm_open(pathPtr, flags, mode)
+	if err != 0 {
+		return int32(emu.GetErrno() - SonyErrorOffset)
+	}
+
+	return 0
+}
+
+// 0x0000000000016640
+// __int64 __fastcall sceKernelCheckReachability(char *)
+func libKernel_sceKernelCheckReachability(pathPtr Cstring) uintptr {
+	if pathPtr == nil {
+		logger.Printf("%-132s %s failed due to invalid path pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceKernelCheckReachability"),
+		)
+		return SCE_KERNEL_ERROR_ENOENT
+	}
+
+	path := GlobalFilesystem.GetUsablePath(GoString(pathPtr))
+	exists := GlobalFilesystem.Exists(path)
+	if !exists {
+		return SCE_KERNEL_ERROR_ENOENT
 	}
 
 	return 0

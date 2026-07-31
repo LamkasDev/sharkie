@@ -12,8 +12,11 @@ const (
 	EBADF        = 9
 	EAGAIN       = 11
 	ENOMEM       = 12
+	EACCES       = 13
 	EFAULT       = 14
 	EBUSY        = 16
+	EEXIST       = 17
+	EISDIR       = 21
 	EINVAL       = 22
 	ESPIPE       = 29
 	EDEADLK      = 45

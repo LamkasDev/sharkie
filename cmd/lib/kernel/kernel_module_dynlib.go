@@ -36,7 +36,9 @@ func libKernel_sys_dynlib_get_info_ex(handle, flags, infoPtr uintptr) uintptr {
 		return SCE_KERNEL_ERROR_ENOENT
 	}
 
+	emu.GlobalModuleManager.ModulesLock.RLock()
 	module := emu.GlobalModuleManager.Modules[handle]
+	emu.GlobalModuleManager.ModulesLock.RUnlock()
 	textSection, dataSection := emu.GetModuleSections(module)
 	infoSlice := unsafe.Slice((*byte)(unsafe.Pointer(infoPtr)), 352)
 	for i := range infoSlice {

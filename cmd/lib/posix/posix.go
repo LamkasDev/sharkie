@@ -20,6 +20,7 @@ func RegisterPosixStubs() {
 	RegisterPosixStub("clock_gettimeofday", libScePosix_clock_gettimeofday)
 
 	// Process functions.
+	RegisterPosixStub("getpid", libScePosix_getpid)
 	RegisterPosixStub("usleep", libScePosix_usleep)
 	RegisterPosixStub("nanosleep", libScePosix_nanosleep)
 
@@ -30,12 +31,50 @@ func RegisterPosixStubs() {
 	RegisterPosixStub("pthread_self", libScePosix_pthread_self)
 	RegisterPosixStub("pthread_equal", libScePosix_pthread_equal)
 	RegisterPosixStub("pthread_exit", libScePosix_pthread_exit)
+	RegisterPosixStub("pthread_getaffinity_np", libScePosix_pthread_getaffinity_np)
+	RegisterPosixStub("pthread_setaffinity_np", libScePosix_pthread_setaffinity_np)
+
+	// Thread attribute functions.
+	RegisterPosixStub("pthread_attr_init", libScePosix_pthread_attr_init)
+	RegisterPosixStub("pthread_attr_setstacksize", libScePosix_pthread_attr_setstacksize)
+	RegisterPosixStub("pthread_attr_setschedpolicy", libScePosix_pthread_attr_setschedpolicy)
+	RegisterPosixStub("pthread_attr_setinheritsched", libScePosix_pthread_attr_setinheritsched)
+	RegisterPosixStub("pthread_attr_setschedparam", libScePosix_pthread_attr_setschedparam)
+	RegisterPosixStub("pthread_attr_setguardsize", libScePosix_pthread_attr_setguardsize)
+	RegisterPosixStub("pthread_attr_setdetachstate", libScePosix_pthread_attr_setdetachstate)
+	RegisterPosixStub("pthread_attr_setscope", libScePosix_pthread_attr_setscope)
+	RegisterPosixStub("pthread_attr_getaffinity_np", libScePosix_pthread_attr_getaffinity_np)
+	RegisterPosixStub("pthread_attr_destroy", libScePosix_pthread_attr_destroy)
+
+	// Thread key functions.
+	RegisterPosixStub("pthread_key_create", libScePosix_pthread_key_create)
+	RegisterPosixStub("pthread_getspecific", libScePosix_pthread_getspecific)
+	RegisterPosixStub("pthread_setspecific", libScePosix_pthread_setspecific)
+	RegisterPosixStub("pthread_getschedparam", libScePosix_pthread_getschedparam)
+	RegisterPosixStub("pthread_setschedparam", libScePosix_pthread_setschedparam)
 
 	// Mutex functions.
 	RegisterPosixStub("pthread_mutex_init", libScePosix_pthread_mutex_init)
 	RegisterPosixStub("pthread_mutex_lock", libScePosix_pthread_mutex_lock)
 	RegisterPosixStub("pthread_mutex_unlock", libScePosix_pthread_mutex_unlock)
 	RegisterPosixStub("pthread_mutex_destroy", libScePosix_pthread_mutex_destroy)
+	RegisterPosixStub("pthread_mutex_trylock", libScePosix_pthread_mutex_trylock)
+	RegisterPosixStub("pthread_mutex_timedlock", libScePosix_pthread_mutex_timedlock)
+	RegisterPosixStub("pthread_mutex_reltimedlock_np", libScePosix_pthread_mutex_reltimedlock_np)
+
+	// Mutex attribute functions.
+	RegisterPosixStub("pthread_mutexattr_init", libScePosix_pthread_mutexattr_init)
+	RegisterPosixStub("pthread_mutexattr_settype", libScePosix_pthread_mutexattr_settype)
+	RegisterPosixStub("pthread_mutexattr_destroy", libScePosix_pthread_mutexattr_destroy)
+
+	// Cond functions.
+	RegisterPosixStub("pthread_cond_init", libScePosix_pthread_cond_init)
+	RegisterPosixStub("pthread_cond_destroy", libScePosix_pthread_cond_destroy)
+	RegisterPosixStub("pthread_cond_broadcast", libScePosix_pthread_cond_broadcast)
+	RegisterPosixStub("pthread_cond_signal", libScePosix_pthread_cond_signal)
+	RegisterPosixStub("pthread_cond_wait", libScePosix_pthread_cond_wait)
+	RegisterPosixStub("pthread_cond_timedwait", libScePosix_pthread_cond_timedwait)
+	RegisterPosixStub("pthread_cond_reltimedwait_np", libScePosix_pthread_cond_reltimedwait_np)
 
 	// IO functions.
 	RegisterPosixStub("open", libScePosix_open)
@@ -55,6 +94,12 @@ func RegisterPosixStubs() {
 	RegisterPosixStub("_close", libScePosix_close)
 	RegisterPosixStub("stat", libScePosix_stat)
 	RegisterPosixStub("fstat", libScePosix_fstat)
+	RegisterPosixStub("truncate", libScePosix_truncate)
+	RegisterPosixStub("truncate_0", libScePosix_truncate)
+	RegisterPosixStub("ftruncate", libScePosix_ftruncate)
+	RegisterPosixStub("ftruncate_0", libScePosix_ftruncate)
+	RegisterPosixStub("ioctl", libScePosix_ioctl)
+	RegisterPosixStub("shm_open", libScePosix_shm_open)
 
 	// Memory functions.
 	RegisterPosixStub("mmap", libScePosix_mmap)
@@ -66,6 +111,10 @@ func RegisterPosixStubs() {
 	RegisterPosixStub("socketpair", libScePosix_socketpair)
 	RegisterPosixStub("recvmsg", libScePosix_recvmsg)
 	RegisterPosixStub("sendmsg", libScePosix_sendmsg)
+
+	// Equeue/kevent functions.
+	RegisterPosixStub("kevent", libScePosix_kevent)
+	RegisterPosixStub("kqueue", libScePosix_kqueue)
 }
 
 // We need these functions to be available in kernel; libraries take them from there.

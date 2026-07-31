@@ -18,6 +18,7 @@ const SystemPageSize = uintptr(1 << SystemPageShift)
 
 var (
 	HookMap            func(addr uintptr, length uint64, prot int32)
+	HookMapDirect      func(addr uintptr, length uint64, offset uint64, memType int32, prot int32)
 	HookUnmap          func(addr uintptr, length uintptr)
 	HookProtect        func(addr uintptr, length uintptr, prot int32)
 	HookAllocateDirect func(offset uintptr, length uint64, memType int32)

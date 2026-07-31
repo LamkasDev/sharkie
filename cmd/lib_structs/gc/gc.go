@@ -124,10 +124,10 @@ func (gc *GraphicsController) Ioctl(request uint64, argPtr uintptr) error {
 
 func SetupGraphicsController() {
 	GlobalGraphicsController = NewGraphicsController()
-	fs.GlobalFilesystem.Devices[fs.GetUsablePath("/dev/gc")] = func() fs.PosixFile {
+	fs.GlobalFilesystem.Devices[fs.GlobalFilesystem.GetUsablePath("/dev/gc")] = func() fs.PosixFile {
 		return GlobalGraphicsController
 	}
-	if _, err := fs.GlobalFilesystem.Create(fs.GetUsablePath("/dev/gc")); err != nil {
+	if _, err := fs.GlobalFilesystem.Create(fs.GlobalFilesystem.GetUsablePath("/dev/gc")); err != nil {
 		panic(err)
 	}
 }

@@ -60,7 +60,7 @@ func libScePad_scePadRead(handleId uint32, data *PadData, count uintptr) uintptr
 		wasF11Pressed = isF11Pressed
 	}
 
-	return 0
+	return 1
 }
 
 // 0x00000000000036A0
