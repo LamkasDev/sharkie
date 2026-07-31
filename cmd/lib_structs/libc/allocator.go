@@ -4,6 +4,7 @@ import (
 	"sync"
 	"unsafe"
 
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/posix"
 	"github.com/langhuihui/gomem"
 )
 
@@ -29,7 +30,34 @@ func NewGoAllocator() *GoAllocator {
 		Allocations: map[uintptr][]byte{},
 		Lock:        sync.Mutex{},
 	}
-	goAllocator.Allocator = gomem.NewScalableMemoryAllocator(1025)
+	goAllocator.Allocator = gomem.NewScalableMemoryAllocator(1<<30, 0)
+	goMmapHint := uintptr(0x200000000)
+	goMmapHintMu := sync.Mutex{}
+	goAllocator.Allocator.CustomAllocator = func(size int, hint uintptr) []byte {
+		if posix.HookAllocateLibcVulkan != nil {
+			if hint == 0 {
+				goMmapHintMu.Lock()
+				hint = goMmapHint
+				goMmapHint = (goMmapHint + uintptr(size) + 0x1FFFFF) &^ 0x1FFFFF
+				goMmapHintMu.Unlock()
+			}
+			return posix.HookAllocateLibcVulkan(size, hint)
+		}
+		return nil
+	}
+
+	return goAllocator
+}
+
+// NewGoAllocatorFromBuffer creates a new instance of GoAllocator using an already mapped buffer, and makes it non-expandable.
+func NewGoAllocatorFromBuffer(base uintptr, capacity uintptr) *GoAllocator {
+	goAllocator := &GoAllocator{
+		Allocations: map[uintptr][]byte{},
+		Lock:        sync.Mutex{},
+	}
+	goAllocator.Allocator = gomem.NewScalableMemoryAllocator(int(capacity), base)
+	goAllocator.Allocator.Expandable = false
+	goAllocator.Allocator.AddPreallocated(unsafe.Slice((*byte)(unsafe.Pointer(base)), int(capacity)))
 
 	return goAllocator
 }

@@ -22,6 +22,10 @@ var (
 	HookUnmap          func(addr uintptr, length uintptr)
 	HookProtect        func(addr uintptr, length uintptr, prot int32)
 	HookAllocateDirect func(offset uintptr, length uint64, memType int32)
+
+	HookAllocateDirectVulkan func(offset uintptr, length uint64, memType int32)
+	HookFreeDirectVulkan     func(offset uintptr, length uint64)
+	HookAllocateLibcVulkan   func(size int, hint uintptr) []byte
 )
 
 const (

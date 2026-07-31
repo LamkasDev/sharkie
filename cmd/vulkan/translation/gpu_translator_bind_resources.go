@@ -28,11 +28,28 @@ func (t *GpuTranslator) BindResources(shaders []*spirv.SpirvShader, userData spi
 		return nil, nil, vk.NullDescriptorSet, nil
 	}
 
-	// Get a static descriptor set, bind images to slots.
+	// Get a static descriptor set.
 	activeStaticSet, err := t.staticDescriptorPool.Get(t.handles, t.currentGuestFrame)
 	if err != nil {
 		return nil, nil, vk.NullDescriptorSet, err
 	}
+
+	// Update address translation buffer.
+	vk.UpdateDescriptorSets(t.handles.Device, 1, []vk.WriteDescriptorSet{{
+		SType:           vk.StructureTypeWriteDescriptorSet,
+		DstSet:          activeStaticSet,
+		DstBinding:      spirvStructs.StaticBindingAddressTranslation,
+		DstArrayElement: 0,
+		DescriptorCount: 1,
+		DescriptorType:  vk.DescriptorTypeStorageBuffer,
+		PBufferInfo: []vk.DescriptorBufferInfo{{
+			Buffer: t.addressTranslationBuffer,
+			Offset: 0,
+			Range:  vk.DeviceSize(vk.WholeSize),
+		}},
+	}}, 0, nil)
+
+	// Bind images to slots.
 	accessByOffset := make(map[uintptr]ResolvedImageAccess, len(imageAccesses))
 	for _, access := range imageAccesses {
 		accessByOffset[access.InstructionOffset] = access

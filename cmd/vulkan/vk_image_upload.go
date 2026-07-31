@@ -6,7 +6,6 @@ import (
 
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	spirvStructs "github.com/LamkasDev/sharkie/cmd/spirv/structs"
-	"github.com/LamkasDev/sharkie/cmd/structs"
 	vk "github.com/goki/vulkan"
 	"github.com/gookit/color"
 )
@@ -53,7 +52,7 @@ func (image *VulkanImage) UploadToVkImage(handles *VulkanHandles, commandBuffer 
 		layout := image.Layouts[mipLevel]
 		width = uint32(layout.Pitch)
 		height = uint32(layout.Height)
-		bpp := structs.GetBytesPerPixel(image.FirstDescriptor.DataFormat)
+		bpp := GetBytesPerPixel(image.FirstDescriptor.DataFormat)
 		isBlock := image.FirstDescriptor.DataFormat >= 35 && image.FirstDescriptor.DataFormat <= 41
 		if isBlock {
 			rowPitch = uint32(layout.Pitch)

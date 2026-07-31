@@ -6,6 +6,8 @@ import (
 
 func RegisterSaveDataStubs() {
 	elf.RegisterStub("libSceSaveData", "sceSaveDataInitialize", libSceSaveData_sceSaveDataInitialize)
+	elf.RegisterStub("libSceSaveData", "sceSaveDataInitialize2", libSceSaveData_sceSaveDataInitialize)
+	elf.RegisterStub("libSceSaveData", "sceSaveDataInitialize3", libSceSaveData_sceSaveDataInitialize)
 	elf.RegisterStub("libSceSaveData", "sceSaveDataDirNameSearch", libSceSaveData_sceSaveDataDirNameSearch)
 	elf.RegisterStub("libSceSaveData", "sceSaveDataMount", libSceSaveData_sceSaveDataMount)
 	elf.RegisterStub("libSceSaveData", "sceSaveDataMount2", libSceSaveData_sceSaveDataMount2)

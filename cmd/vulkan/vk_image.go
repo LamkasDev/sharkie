@@ -350,8 +350,8 @@ func (image *VulkanImage) NeedsRecreate(descriptor spirvStructs.ImageDescriptor,
 		return true
 	}
 	stored := image.FirstDescriptor
-	requestedBpp := structs.GetBytesPerPixel(descriptor.DataFormat)
-	storedBpp := structs.GetBytesPerPixel(stored.DataFormat)
+	requestedBpp := GetBytesPerPixel(descriptor.DataFormat)
+	storedBpp := GetBytesPerPixel(stored.DataFormat)
 	requestedIsBlock := descriptor.DataFormat >= 35 && descriptor.DataFormat <= 41
 	storedIsBlock := stored.DataFormat >= 35 && stored.DataFormat <= 41
 	if descriptor.TilingIndex != stored.TilingIndex || requestedBpp != storedBpp || requestedIsBlock != storedIsBlock {

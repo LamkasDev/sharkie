@@ -55,24 +55,39 @@ func (t *GpuTranslator) initStaticDescriptorSet(imageView vk.ImageView, sampler 
 			ImageLayout: vk.ImageLayoutGeneral,
 		}
 	}
-	vk.UpdateDescriptorSets(t.handles.Device, 2, []vk.WriteDescriptorSet{
-		{
-			SType:           vk.StructureTypeWriteDescriptorSet,
-			DstSet:          t.staticDescriptorPool.Pools[0].DefaultSet,
-			DstBinding:      spirvStructs.StaticBindingSampledImages,
-			DstArrayElement: 0,
-			DescriptorCount: spirvStructs.MaxStaticBindings,
-			DescriptorType:  vk.DescriptorTypeCombinedImageSampler,
-			PImageInfo:      sampledInfos,
-		},
-		{
-			SType:           vk.StructureTypeWriteDescriptorSet,
-			DstSet:          t.staticDescriptorPool.Pools[0].DefaultSet,
-			DstBinding:      spirvStructs.StaticBindingStorageImages,
-			DstArrayElement: 0,
-			DescriptorCount: spirvStructs.MaxStaticBindings,
-			DescriptorType:  vk.DescriptorTypeStorageImage,
-			PImageInfo:      storageInfos,
-		},
-	}, 0, nil)
+	for _, pool := range t.staticDescriptorPool.Pools {
+		vk.UpdateDescriptorSets(t.handles.Device, 3, []vk.WriteDescriptorSet{
+			{
+				SType:           vk.StructureTypeWriteDescriptorSet,
+				DstSet:          pool.DefaultSet,
+				DstBinding:      spirvStructs.StaticBindingSampledImages,
+				DstArrayElement: 0,
+				DescriptorCount: spirvStructs.MaxStaticBindings,
+				DescriptorType:  vk.DescriptorTypeCombinedImageSampler,
+				PImageInfo:      sampledInfos,
+			},
+			{
+				SType:           vk.StructureTypeWriteDescriptorSet,
+				DstSet:          pool.DefaultSet,
+				DstBinding:      spirvStructs.StaticBindingStorageImages,
+				DstArrayElement: 0,
+				DescriptorCount: spirvStructs.MaxStaticBindings,
+				DescriptorType:  vk.DescriptorTypeStorageImage,
+				PImageInfo:      storageInfos,
+			},
+			{
+				SType:           vk.StructureTypeWriteDescriptorSet,
+				DstSet:          pool.DefaultSet,
+				DstBinding:      spirvStructs.StaticBindingAddressTranslation,
+				DstArrayElement: 0,
+				DescriptorCount: 1,
+				DescriptorType:  vk.DescriptorTypeStorageBuffer,
+				PBufferInfo: []vk.DescriptorBufferInfo{{
+					Buffer: t.addressTranslationBuffer,
+					Offset: 0,
+					Range:  vk.DeviceSize(vk.WholeSize),
+				}},
+			},
+		}, 0, nil)
+	}
 }

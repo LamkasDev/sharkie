@@ -8,6 +8,7 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/libc"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/posix"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
 )
@@ -18,13 +19,13 @@ func libSceLibcInternal_sceLibcMspaceMalloc(handle, size uintptr) uintptr {
 	GlobalMspaceAllocator.Lock.Lock()
 	defer GlobalMspaceAllocator.Lock.Unlock()
 	if mspace, ok := GlobalMspaceAllocator.Mspaces[handle]; ok {
-		address, err := mspace.Alloc(AllocationAlignment, size)
-		if err != nil {
-			logger.Printf("%-132s %s failed due to alloc error (%s).\n",
+		address := mspace.Allocator.MallocAligned(size, AllocationAlignment)
+		if address == 0 {
+			logger.Printf("%-132s %s failed due to allocation error.\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("sceLibcMspaceMalloc"),
-				err.Error(),
 			)
+			emu.SetErrno(ENOMEM)
 		}
 
 		return address
@@ -40,15 +41,14 @@ func libSceLibcInternal_sceLibcMspaceCalloc(handle, nmemb, size uintptr) uintptr
 	defer GlobalMspaceAllocator.Lock.Unlock()
 	total := nmemb * size
 	if mspace, ok := GlobalMspaceAllocator.Mspaces[handle]; ok {
-		address, err := mspace.Alloc(AllocationAlignment, total)
-		if err != nil {
-			logger.Printf("%-132s %s failed due to alloc error (%s).\n",
+		address := mspace.Allocator.MallocAligned(total, AllocationAlignment)
+		if address == 0 {
+			logger.Printf("%-132s %s failed due to allocation error.\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("sceLibcMspaceRealloc"),
-				err.Error(),
 			)
-		}
-		if address != 0 {
+			emu.SetErrno(ENOMEM)
+		} else {
 			dstSlice := unsafe.Slice((*byte)(unsafe.Pointer(address)), total)
 			for i := range dstSlice {
 				dstSlice[i] = 0
@@ -80,7 +80,15 @@ func libSceLibcInternal_sceLibcMspaceRealloc(handle, ptr, newSize uintptr) uintp
 	GlobalMspaceAllocator.Lock.Lock()
 	defer GlobalMspaceAllocator.Lock.Unlock()
 	if mspace, ok := GlobalMspaceAllocator.Mspaces[handle]; ok {
-		return mspace.Allocator.Realloc(ptr, newSize)
+		address := mspace.Allocator.Realloc(ptr, newSize)
+		if address == 0 && newSize != 0 {
+			logger.Printf("%-132s %s failed due to allocation error.\n",
+				emu.GlobalModuleManager.GetCallSiteText(),
+				color.Magenta.Sprint("sceLibcMspaceRealloc"),
+			)
+			emu.SetErrno(ENOMEM)
+		}
+		return address
 	}
 
 	return libSceLibcInternal_realloc(ptr, newSize)
@@ -92,15 +100,14 @@ func libSceLibcInternal_sceLibcMspaceReallocalign(handle, alignment, ptr, newSiz
 	GlobalMspaceAllocator.Lock.Lock()
 	defer GlobalMspaceAllocator.Lock.Unlock()
 	if mspace, ok := GlobalMspaceAllocator.Mspaces[handle]; ok {
-		newAddress, err := mspace.Alloc(alignment, newSize)
-		if err != nil {
-			logger.Printf("%-132s %s failed due to alloc error (%s).\n",
+		newAddress := mspace.Allocator.MallocAligned(newSize, alignment)
+		if newAddress == 0 {
+			logger.Printf("%-132s %s failed due to allocation error.\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("sceLibcMspaceReallocalign"),
-				err.Error(),
 			)
-		}
-		if newAddress != 0 && ptr != 0 {
+			emu.SetErrno(ENOMEM)
+		} else if ptr != 0 {
 			oldSlice := unsafe.Slice((*byte)(unsafe.Pointer(ptr)), newSize)
 			newSlice := unsafe.Slice((*byte)(unsafe.Pointer(newAddress)), newSize)
 			copy(newSlice, oldSlice)
@@ -135,7 +142,7 @@ func libSceLibcInternal_sceLibcMspaceCreate(namePtr Cstring, base, capacity, _ /
 		Name:      name,
 		Base:      base,
 		End:       base + capacity,
-		Allocator: NewGoAllocator(),
+		Allocator: NewGoAllocatorFromBuffer(base, capacity),
 		Mutex:     sync.Mutex{},
 	}
 	GlobalMspaceAllocator.Mspaces[base] = mspace
@@ -162,13 +169,13 @@ func libSceLibcInternal_sceLibcMspaceMemalign(handle, alignment, size uintptr) u
 	GlobalMspaceAllocator.Lock.Lock()
 	defer GlobalMspaceAllocator.Lock.Unlock()
 	if mspace, ok := GlobalMspaceAllocator.Mspaces[handle]; ok {
-		address, err := mspace.Alloc(alignment, size)
-		if err != nil {
-			logger.Printf("%-132s %s failed due to alloc error (%s).\n",
+		address := mspace.Allocator.MallocAligned(size, alignment)
+		if address == 0 {
+			logger.Printf("%-132s %s failed due to allocation error.\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("sceLibcMspaceMemalign"),
-				err.Error(),
 			)
+			emu.SetErrno(ENOMEM)
 		}
 
 		return address
@@ -183,13 +190,13 @@ func libSceLibcInternal_sceLibcMspacePosixMemalign(handle, alignment, size uintp
 	GlobalMspaceAllocator.Lock.Lock()
 	defer GlobalMspaceAllocator.Lock.Unlock()
 	if mspace, ok := GlobalMspaceAllocator.Mspaces[handle]; ok {
-		address, err := mspace.Alloc(alignment, size)
-		if err != nil {
-			logger.Printf("%-132s %s failed due to alloc error (%s).\n",
+		address := mspace.Allocator.MallocAligned(size, alignment)
+		if address == 0 {
+			logger.Printf("%-132s %s failed due to allocation error.\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("sceLibcMspacePosixMemalign"),
-				err.Error(),
 			)
+			emu.SetErrno(ENOMEM)
 		}
 
 		return address

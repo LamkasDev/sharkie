@@ -36,6 +36,8 @@ func libKernel_sceKernelMunmap(addr uintptr, length uint64) uintptr {
 		return emu.GetErrno() - SonyErrorOffset
 	}
 
+	HookFreeDirectVulkan(addr, length)
+
 	return 0
 }
 

@@ -351,39 +351,96 @@ func (ctx *SpirvBlockContext) LoadPsInputParameter(b *SpvBuilder, i uint32) Spir
 // TranslateAddress translates a PS4 address into a memory buffer address.
 func (ctx *SpirvBlockContext) TranslateAddress(b *SpvBuilder, address SpirvId) SpirvId {
 	typeBool := ctx.GetId(BlockContextIdTypeBool)
+	typeUint := ctx.GetId(BlockContextIdTypeUint)
 	typeUint64 := ctx.GetId(BlockContextIdTypeUint64)
-	onionCpuBase := ctx.GetConstId(ConstId64UintOnionBaseAddress)
-	garlicCpuBase := ctx.GetConstId(ConstId64UintGarlicBaseAddress)
+
+	// Clean address using 40-bit mask.
 	mask := b.EmitConstantUint64(typeUint64, 0xFFFFFFFFFF)
 	cleanAddress := b.EmitBitwiseAnd(typeUint64, address, mask)
 
-	// Garlic address is >= 0xFE0000000.
-	isGarlic := b.EmitUGreaterThanEqual(typeBool, cleanAddress, garlicCpuBase)
+	// Result variable initialization.
+	idZero64 := ctx.GetConstId(ConstId64Uint0)
+	idPtrFnUint64 := b.EmitTypePointer(spec.SpvStorageFunction, typeUint64)
+	idResultVar := b.AllocId()
+	b.EmitDeferredLocalVariable(idPtrFnUint64, idResultVar)
+	b.EmitStore(idResultVar, idZero64)
+	b.EmitName(idResultVar, "translated_address")
 
-	// Translation labels.
-	garlicLabel := b.AllocId()
-	onionLabel := b.AllocId()
-	mergeLabel := b.AllocId()
-	b.EmitSelectionMerge(mergeLabel, spec.SpvSelectionControlNone)
-	b.EmitBranchConditional(isGarlic, garlicLabel, onionLabel)
+	idPtrFnUint := ctx.GetId(BlockContextIdPtrFnUint)
+	idIndexVar := b.AllocId()
+	b.EmitDeferredLocalVariable(idPtrFnUint, idIndexVar)
+	b.EmitStore(idIndexVar, ctx.GetConstId(ConstIdUint0))
+	b.EmitName(idIndexVar, "translation_loop_index")
 
-	// Garlic translation.
-	b.EmitLabel(garlicLabel)
-	garlicGpuBase := ctx.LoadPushConstantValue(b, PushConstantGarlicMemoryBaseAddress)
-	garlicGpuOffset := b.EmitISub(typeUint64, cleanAddress, garlicCpuBase)
-	translatedGarlic := b.EmitIAdd(typeUint64, garlicGpuBase, garlicGpuOffset)
-	b.EmitBranch(mergeLabel)
+	// Labels for the loop.
+	loopHead := b.AllocId()
+	loopBody := b.AllocId()
+	loopContinue := b.AllocId()
+	loopMerge := b.AllocId()
 
-	// Onion translation.
-	b.EmitLabel(onionLabel)
-	onionGpuBase := ctx.LoadPushConstantValue(b, PushConstantOnionMemoryBaseAddress)
-	onionGpuOffset := b.EmitISub(typeUint64, cleanAddress, onionCpuBase)
-	translatedOnion := b.EmitIAdd(typeUint64, onionGpuBase, onionGpuOffset)
-	b.EmitBranch(mergeLabel)
+	b.EmitBranch(loopHead)
+	b.EmitLabel(loopHead)
+	b.EmitLoopMerge(loopMerge, loopContinue, spec.SpvLoopControlNone)
+	b.EmitBranch(loopBody)
 
-	// Merge.
-	b.EmitLabel(mergeLabel)
-	return b.EmitPhi(typeUint64, translatedGarlic, garlicLabel, translatedOnion, onionLabel)
+	// Loop body.
+	b.EmitLabel(loopBody)
+	idIndex := b.EmitLoad(typeUint, idIndexVar)
+
+	// Pointers.
+	idPtrStorageUint64 := b.EmitTypePointer(spec.SpvStorageStorageBuffer, typeUint64)
+	idBufferVar := ctx.GetId(BlockContextIdAddressTranslationBuffer)
+
+	// Entry pointers (0=GuestBase, 1=GuestEnd, 2=DeviceAddress).
+	idBasePtr := b.EmitAccessChain(idPtrStorageUint64, idBufferVar, ctx.GetConstId(ConstIdUint0), idIndex, ctx.GetConstId(ConstIdUint0))
+	idEndPtr := b.EmitAccessChain(idPtrStorageUint64, idBufferVar, ctx.GetConstId(ConstIdUint0), idIndex, ctx.GetConstId(ConstIdUint1))
+	idBdaPtr := b.EmitAccessChain(idPtrStorageUint64, idBufferVar, ctx.GetConstId(ConstIdUint0), idIndex, ctx.GetConstId(ConstIdUint2))
+
+	idBase := b.EmitLoad(typeUint64, idBasePtr)
+	idSentinel := b.EmitConstantUint64(typeUint64, ^uint64(0))
+
+	// Check if sentinel reached.
+	isSentinel := b.EmitIEqual(typeBool, idBase, idSentinel)
+	isSentinelTrue := b.AllocId()
+	isSentinelFalse := b.AllocId()
+	b.EmitSelectionMerge(isSentinelFalse, spec.SpvSelectionControlNone)
+	b.EmitBranchConditional(isSentinel, isSentinelTrue, isSentinelFalse)
+
+	b.EmitLabel(isSentinelTrue)
+	b.EmitBranch(loopMerge)
+
+	b.EmitLabel(isSentinelFalse)
+
+	// Check if address is in range.
+	idEnd := b.EmitLoad(typeUint64, idEndPtr)
+	isGTEBase := b.EmitUGreaterThanEqual(typeBool, cleanAddress, idBase)
+	isLTEnd := b.EmitULessThan(typeBool, cleanAddress, idEnd)
+	inRange := b.EmitLogicalAnd(typeBool, isGTEBase, isLTEnd)
+
+	inRangeTrue := b.AllocId()
+	inRangeFalse := b.AllocId()
+	b.EmitSelectionMerge(inRangeFalse, spec.SpvSelectionControlNone)
+	b.EmitBranchConditional(inRange, inRangeTrue, inRangeFalse)
+
+	b.EmitLabel(inRangeTrue)
+	idBda := b.EmitLoad(typeUint64, idBdaPtr)
+	offset := b.EmitISub(typeUint64, cleanAddress, idBase)
+	translated := b.EmitIAdd(typeUint64, idBda, offset)
+	b.EmitStore(idResultVar, translated)
+	b.EmitBranch(loopMerge)
+
+	b.EmitLabel(inRangeFalse)
+	b.EmitBranch(loopContinue)
+
+	// Loop continue.
+	b.EmitLabel(loopContinue)
+	idNextIndex := b.EmitIAdd(typeUint, idIndex, ctx.GetConstId(ConstIdUint1))
+	b.EmitStore(idIndexVar, idNextIndex)
+	b.EmitBranch(loopHead)
+
+	// Loop merge.
+	b.EmitLabel(loopMerge)
+	return b.EmitLoad(typeUint64, idResultVar)
 }
 
 // EmitDebugPrintfLane emits a debug printf only for a specific subgroup lane.

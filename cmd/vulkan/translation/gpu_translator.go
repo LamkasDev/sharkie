@@ -15,6 +15,7 @@ import (
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/posix"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/LamkasDev/sharkie/cmd/spirv"
+	spirvStructs "github.com/LamkasDev/sharkie/cmd/spirv/structs"
 	"github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/LamkasDev/sharkie/cmd/vulkan"
 	vk "github.com/goki/vulkan"
@@ -99,6 +100,13 @@ type GpuTranslator struct {
 	activeClipControl    uint32
 	activeDynamicState   *gpu.LiverpoolSetDynamicState
 
+	// Direct allocations for Option A translation.
+	directAllocationsMutex      sync.Mutex
+	directAllocations           map[uintptr]DirectAllocation
+	addressTranslationBuffer    vk.Buffer
+	addressTranslationBufferMem vk.DeviceMemory
+	addressTranslationMap       []AddressTranslationEntry
+
 	// lastProcessedFrame tracks which guest frame surface lifetime state belongs to.
 	lastProcessedFrame uint64
 	currentGuestFrame  uint64
@@ -136,6 +144,9 @@ func NewGpuTranslator(handles *vulkan.VulkanHandles, bknd backend.Backend[glfwvu
 		userDataBuffersMutex: sync.Mutex{},
 		userDataOffsets:      map[uint32]uint32{},
 
+		directAllocationsMutex: sync.Mutex{},
+		directAllocations:      map[uintptr]DirectAllocation{},
+
 		pendingCommandBuffers: []*vulkan.VulkanCommandBuffer{},
 		fenceChan:             make(chan struct{}),
 		fenceMutex:            sync.Mutex{},
@@ -153,45 +164,103 @@ func NewGpuTranslator(handles *vulkan.VulkanHandles, bknd backend.Backend[glfwvu
 	t.userDataBufferMem = userDataBufferMem
 	t.userDataBufferAddress = t.GetBufferAddress(userDataBuffer)
 
-	// Onion and garlic use separate device allocations - Linux dma-buf cannot be mmap'd
-	// twice from one fd into two fixed guest VA windows.
-	onionBuffer, onionMemory, err := vulkan.AllocateExternalBuffer(t.handles, vk.DeviceSize(GlobalAllocator.Size),
-		vk.BufferUsageFlags(vk.BufferUsageShaderDeviceAddressBit|vk.BufferUsageStorageBufferBit|vk.BufferUsageVertexBufferBit|vk.BufferUsageIndexBufferBit|vk.BufferUsageTransferSrcBit|vk.BufferUsageTransferDstBit),
-		vk.MemoryPropertyFlags(vk.MemoryPropertyHostVisibleBit|vk.MemoryPropertyHostCoherentBit|vk.MemoryPropertyHostCachedBit))
+	// Allocate SSBO for address translation.
+	addressTranslationBuffer, addressTranslationBufferMem, err := vulkan.AllocateBuffer(t.handles, vk.DeviceSize(256*32),
+		vk.BufferUsageFlags(vk.BufferUsageStorageBufferBit),
+		vk.MemoryPropertyFlags(vk.MemoryPropertyHostVisibleBit|vk.MemoryPropertyHostCoherentBit))
 	if err != nil {
-		return nil, fmt.Errorf("GpuTranslator: onion buffer: %w", err)
+		return nil, fmt.Errorf("GpuTranslator: address translation buffer: %w", err)
 	}
-	GlobalAllocator.Buffer = onionBuffer
-	GlobalAllocator.DeviceAddress = t.GetBufferAddress(onionBuffer)
+	t.addressTranslationBuffer = addressTranslationBuffer
+	t.addressTranslationBufferMem = addressTranslationBufferMem
 
-	garlicBuffer, garlicMemory, err := vulkan.AllocateExternalBuffer(t.handles, vk.DeviceSize(GlobalGpuAllocator.Size),
-		vk.BufferUsageFlags(vk.BufferUsageShaderDeviceAddressBit|vk.BufferUsageStorageBufferBit|vk.BufferUsageVertexBufferBit|vk.BufferUsageIndexBufferBit|vk.BufferUsageTransferSrcBit|vk.BufferUsageTransferDstBit),
-		vk.MemoryPropertyFlags(vk.MemoryPropertyHostVisibleBit|vk.MemoryPropertyHostCoherentBit|vk.MemoryPropertyHostCachedBit))
-	if err != nil {
-		return nil, fmt.Errorf("GpuTranslator: garlic buffer: %w", err)
+	var addressTranslationData unsafe.Pointer
+	result := vk.MapMemory(handles.Device, addressTranslationBufferMem, 0, vk.DeviceSize(256*32), 0, &addressTranslationData)
+	if err := vulkan.NewError(result); err != nil {
+		return nil, fmt.Errorf("GpuTranslator: map address translation buffer: %w", err)
 	}
-	GlobalGpuAllocator.Buffer = garlicBuffer
-	GlobalGpuAllocator.DeviceAddress = t.GetBufferAddress(garlicBuffer)
+	t.addressTranslationMap = unsafe.Slice((*AddressTranslationEntry)(addressTranslationData), 256)
+	t.addressTranslationMap[0].GuestBase = ^uint64(0)
 
-	if runtime.GOOS == "windows" {
-		err = MapVulkanMemory(GlobalAllocator.Base, GlobalAllocator.Size, vulkan.GetMemoryWin32Handle(t.handles.Instance, t.handles.Device, onionMemory), 0)
+	// Setup hooks for dynamically allocating direct memory.
+	HookAllocateDirectVulkan = func(offset uintptr, length uint64, memType int32) {
+		t.directAllocationsMutex.Lock()
+		defer t.directAllocationsMutex.Unlock()
+
+		buffer, mem, err := vulkan.AllocateExternalBuffer(t.handles, vk.DeviceSize(length),
+			vk.BufferUsageFlags(vk.BufferUsageShaderDeviceAddressBit|vk.BufferUsageStorageBufferBit|vk.BufferUsageVertexBufferBit|vk.BufferUsageIndexBufferBit|vk.BufferUsageTransferSrcBit|vk.BufferUsageTransferDstBit),
+			vk.MemoryPropertyFlags(vk.MemoryPropertyHostVisibleBit|vk.MemoryPropertyHostCoherentBit|vk.MemoryPropertyHostCachedBit))
 		if err != nil {
-			return nil, fmt.Errorf("GpuTranslator: map onion buffer: %w", err)
+			panic(fmt.Errorf("GpuTranslator: allocate external buffer: %w", err))
 		}
-		err = MapVulkanMemory(GlobalGpuAllocator.Base, GlobalGpuAllocator.Size, vulkan.GetMemoryWin32Handle(t.handles.Instance, t.handles.Device, garlicMemory), 0)
-		if err != nil {
-			return nil, fmt.Errorf("GpuTranslator: map garlic buffer: %w", err)
+
+		if runtime.GOOS == "windows" {
+			err = MapVulkanMemory(offset, length, vulkan.GetMemoryWin32Handle(t.handles.Instance, t.handles.Device, mem), 0)
+			if err != nil {
+				panic(fmt.Errorf("GpuTranslator: map external buffer: %w", err))
+			}
+		} else {
+			err = MapVulkanMemory(offset, length, uintptr(vulkan.GetMemoryFd(t.handles.Instance, t.handles.Device, mem)), 0)
+			if err != nil {
+				panic(fmt.Errorf("GpuTranslator: map external buffer: %w", err))
+			}
 		}
-	} else {
-		err = MapVulkanMemory(GlobalAllocator.Base, GlobalAllocator.Size, uintptr(vulkan.GetMemoryFd(t.handles.Instance, t.handles.Device, onionMemory)), 0)
-		if err != nil {
-			return nil, fmt.Errorf("GpuTranslator: map onion buffer: %w", err)
+
+		t.directAllocations[offset] = DirectAllocation{
+			Buffer:        buffer,
+			Memory:        mem,
+			DeviceAddress: t.GetBufferAddress(buffer),
+			Length:        length,
 		}
-		err = MapVulkanMemory(GlobalGpuAllocator.Base, GlobalGpuAllocator.Size, uintptr(vulkan.GetMemoryFd(t.handles.Instance, t.handles.Device, garlicMemory)), 0)
-		if err != nil {
-			return nil, fmt.Errorf("GpuTranslator: map garlic buffer: %w", err)
+		t.updateAddressTranslationSSBO()
+	}
+
+	HookFreeDirectVulkan = func(offset uintptr, length uint64) {
+		t.directAllocationsMutex.Lock()
+		defer t.directAllocationsMutex.Unlock()
+
+		if alloc, ok := t.directAllocations[offset]; ok {
+			vk.DestroyBuffer(t.handles.Device, alloc.Buffer, nil)
+			vk.FreeMemory(t.handles.Device, alloc.Memory, nil)
+			delete(t.directAllocations, offset)
+			t.updateAddressTranslationSSBO()
 		}
 	}
+
+	HookAllocateLibcVulkan = func(size int, hint uintptr) []byte {
+		t.directAllocationsMutex.Lock()
+		defer t.directAllocationsMutex.Unlock()
+
+		buffer, mem, err := vulkan.AllocateExternalBuffer(t.handles, vk.DeviceSize(size),
+			vk.BufferUsageFlags(vk.BufferUsageShaderDeviceAddressBit|vk.BufferUsageStorageBufferBit|vk.BufferUsageVertexBufferBit|vk.BufferUsageIndexBufferBit|vk.BufferUsageTransferSrcBit|vk.BufferUsageTransferDstBit),
+			vk.MemoryPropertyFlags(vk.MemoryPropertyHostVisibleBit|vk.MemoryPropertyHostCoherentBit|vk.MemoryPropertyHostCachedBit))
+		if err != nil {
+			panic(fmt.Errorf("GpuTranslator: allocate libc buffer: %w", err))
+		}
+
+		if runtime.GOOS == "windows" {
+			err = MapVulkanMemory(hint, uint64(size), vulkan.GetMemoryWin32Handle(t.handles.Instance, t.handles.Device, mem), 0)
+			if err != nil {
+				panic(fmt.Errorf("GpuTranslator: map libc buffer: %w", err))
+			}
+		} else {
+			err = MapVulkanMemory(hint, uint64(size), uintptr(vulkan.GetMemoryFd(t.handles.Instance, t.handles.Device, mem)), 0)
+			if err != nil {
+				panic(fmt.Errorf("GpuTranslator: map libc buffer: %w", err))
+			}
+		}
+
+		t.directAllocations[hint] = DirectAllocation{
+			Buffer:        buffer,
+			Memory:        mem,
+			DeviceAddress: t.GetBufferAddress(buffer),
+			Length:        uint64(size),
+		}
+		t.updateAddressTranslationSSBO()
+
+		return unsafe.Slice((*byte)(unsafe.Pointer(hint)), size)
+	}
+
 	var staticDescriptorSetLayout vk.DescriptorSetLayout
 	t.pipelineLayout, staticDescriptorSetLayout, err = vulkan.CreateStubPipelineLayout(t.handles)
 	if err != nil {
@@ -218,6 +287,27 @@ func NewGpuTranslator(handles *vulkan.VulkanHandles, bknd backend.Backend[glfwvu
 	if err != nil {
 		return nil, fmt.Errorf("GpuTranslator: descriptor pool: %w", err)
 	}
+
+	t.staticDescriptorPool.SetCopyTemplate([]vk.CopyDescriptorSet{
+		{
+			SType:           vk.StructureTypeCopyDescriptorSet,
+			SrcBinding:      spirvStructs.StaticBindingSampledImages,
+			DstBinding:      spirvStructs.StaticBindingSampledImages,
+			DescriptorCount: spirvStructs.MaxStaticBindings,
+		},
+		{
+			SType:           vk.StructureTypeCopyDescriptorSet,
+			SrcBinding:      spirvStructs.StaticBindingStorageImages,
+			DstBinding:      spirvStructs.StaticBindingStorageImages,
+			DescriptorCount: spirvStructs.MaxStaticBindings,
+		},
+		{
+			SType:           vk.StructureTypeCopyDescriptorSet,
+			SrcBinding:      spirvStructs.StaticBindingAddressTranslation,
+			DstBinding:      spirvStructs.StaticBindingAddressTranslation,
+			DescriptorCount: 1,
+		},
+	})
 	t.activePass = vk.NullRenderPass
 	t.activePipeline = vk.NullPipeline
 
@@ -233,7 +323,7 @@ func NewGpuTranslator(handles *vulkan.VulkanHandles, bknd backend.Backend[glfwvu
 
 	// Map and fill quad list index buffer.
 	var indexData unsafe.Pointer
-	result := vk.MapMemory(handles.Device, quadListIndexBufferMem, 0, vk.DeviceSize(quadListIndexCount*2), 0, &indexData)
+	result = vk.MapMemory(handles.Device, quadListIndexBufferMem, 0, vk.DeviceSize(quadListIndexCount*2), 0, &indexData)
 	if err := vulkan.NewError(result); err != nil {
 		vk.DestroyBuffer(handles.Device, quadListIndexBuffer, nil)
 		vk.FreeMemory(handles.Device, quadListIndexBufferMem, nil)
@@ -254,8 +344,6 @@ func NewGpuTranslator(handles *vulkan.VulkanHandles, bknd backend.Backend[glfwvu
 
 	t.quadListIndexBuffer = quadListIndexBuffer
 	t.quadListIndexBufferMem = quadListIndexBufferMem
-
-	structs.GlobalMemoryManager.Map(GlobalAllocator.Base, uintptr(GlobalAllocator.Size))
 
 	go pprof.Do(context.Background(), pprof.Labels("name", "MemorySyncWorker"), func(ctx context.Context) {
 		t.memorySyncWorker()
@@ -310,6 +398,16 @@ func (t *GpuTranslator) Destroy() {
 	if t.pool != vk.NullCommandPool {
 		vk.DestroyCommandPool(t.handles.Device, t.pool, nil)
 	}
+	if t.addressTranslationBuffer != vk.NullBuffer {
+		vk.DestroyBuffer(t.handles.Device, t.addressTranslationBuffer, nil)
+		vk.FreeMemory(t.handles.Device, t.addressTranslationBufferMem, nil)
+	}
+	t.directAllocationsMutex.Lock()
+	for _, alloc := range t.directAllocations {
+		vk.DestroyBuffer(t.handles.Device, alloc.Buffer, nil)
+		vk.FreeMemory(t.handles.Device, alloc.Memory, nil)
+	}
+	t.directAllocationsMutex.Unlock()
 	t.handles.FencePool.Destroy(t.handles)
 }
 
@@ -476,20 +574,6 @@ func (t *GpuTranslator) ResetFence() {
 		t.fenceChan = make(chan struct{})
 	default:
 	}
-}
-
-func (t *GpuTranslator) GetBufferAddress(buffer vk.Buffer) uint64 {
-	return vulkan.GetBufferDeviceAddress(t.handles.Instance, t.handles.Device, buffer)
-}
-
-func (t *GpuTranslator) GetLinearBuffer(address uintptr) (vk.Buffer, uintptr, error) {
-	if address >= GlobalGpuAllocator.Base && address < GlobalGpuAllocator.Base+uintptr(GlobalGpuAllocator.Size) {
-		return GlobalGpuAllocator.Buffer, address - GlobalGpuAllocator.Base, nil
-	}
-	if address >= GlobalAllocator.Base && address < GlobalAllocator.Base+uintptr(GlobalAllocator.Size) {
-		return GlobalAllocator.Buffer, address - GlobalAllocator.Base, nil
-	}
-	return vk.NullBuffer, 0, fmt.Errorf("address 0x%X not in any known allocator", address)
 }
 
 func (t *GpuTranslator) GetSurfaceByAddress(address uintptr) *vulkan.VulkanSurface {

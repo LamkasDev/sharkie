@@ -52,13 +52,18 @@ func libKernel_sys_sceKernelAllocateDirectMemory(searchStart, searchEnd uintptr,
 	WriteAddress(destPtr, allocatedAddr)
 
 	HookAllocateDirect(allocatedAddr, length, memType)
+	HookAllocateDirectVulkan(allocatedAddr, length, memType)
 
-	logger.Printf("%-132s %s stored pointer at %s (type=%s, alignment=%s).\n",
+	logger.Printf("%-132s %s allocated %s bytes at %s (searchStart=%s, searchEnd=%s, alignment=%s, memType=%s, destPtr=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sceKernelAllocateDirectMemory"),
-		color.Yellow.Sprintf("0x%X", destPtr),
-		color.Blue.Sprint(MemoryTypeNames[memType]),
+		color.Yellow.Sprintf("0x%X", length),
+		color.Yellow.Sprintf("0x%X", allocatedAddr),
+		color.Yellow.Sprintf("0x%X", searchStart),
+		color.Yellow.Sprintf("0x%X", searchEnd),
 		color.Yellow.Sprintf("0x%X", alignment),
+		color.Blue.Sprint(MemoryTypeNames[memType]),
+		color.Yellow.Sprintf("0x%X", destPtr),
 	)
 	return 0
 }

@@ -5,6 +5,7 @@ import (
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/libc"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/posix"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
 )
@@ -28,6 +29,7 @@ func libSceLibcInternal_malloc(size uintptr) uintptr {
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("malloc"),
 		)
+		emu.SetErrno(ENOMEM)
 		return 0
 	}
 
@@ -119,6 +121,7 @@ func libSceLibcInternal_realloc(ptr, newSize uintptr) uintptr {
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("realloc"),
 		)
+		emu.SetErrno(ENOMEM)
 		return 0
 	}
 
@@ -143,6 +146,7 @@ func libSceLibcInternal_memalign(alignment, size uintptr) uintptr {
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("memalign"),
 		)
+		emu.SetErrno(ENOMEM)
 		return 0
 	}
 

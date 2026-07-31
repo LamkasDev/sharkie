@@ -1,7 +1,6 @@
 package libc
 
 import (
-	"fmt"
 	"sync"
 )
 
@@ -29,16 +28,6 @@ func NewMspaceAllocator() *MspaceAllocator {
 		Mspaces: map[uintptr]*MspaceInfo{},
 		Lock:    sync.Mutex{},
 	}
-}
-
-// Alloc bump-allocates size bytes with given alignment from ms. Returns 0 if out of space.
-func (ms *MspaceInfo) Alloc(alignment, size uintptr) (uintptr, error) {
-	ptr := ms.Allocator.MallocAligned(size, alignment)
-	if ptr == 0 {
-		return 0, fmt.Errorf("failed to allocate %d bytes", size)
-	}
-
-	return ptr, nil
 }
 
 func SetupMspaceAllocator() {

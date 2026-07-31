@@ -40,6 +40,7 @@ const (
 	BlockContextIdTypeSampledImageBuffer
 	BlockContextIdPtrUniformSampledImageBuffer
 	BlockContextIdStaticSampledBuffers
+	BlockContextIdAddressTranslationBuffer
 	BlockContextIdPtrPcPsbUint
 	BlockContextIdPtrPcUint64
 	BlockContextIdPtrPcUint

@@ -204,6 +204,27 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	b.EmitDecorate(typeStaticSampledBuffersVar, spec.SpvDecorationDescriptorSet, DescriptorSetSlotStatic)
 	b.EmitDecorate(typeStaticSampledBuffersVar, spec.SpvDecorationBinding, StaticBindingSampledBuffers)
 
+	typeStructAddressTranslationEntry := b.EmitTypeStruct(typeUint64, typeUint64, typeUint64, typeUint64)
+	b.EmitMemberDecorate(typeStructAddressTranslationEntry, 0, spec.SpvDecorationOffset, 0)
+	b.EmitMemberDecorate(typeStructAddressTranslationEntry, 1, spec.SpvDecorationOffset, 8)
+	b.EmitMemberDecorate(typeStructAddressTranslationEntry, 2, spec.SpvDecorationOffset, 16)
+	b.EmitMemberDecorate(typeStructAddressTranslationEntry, 3, spec.SpvDecorationOffset, 24)
+
+	idAddressTranslationCount := b.EmitConstantUint(typeUint, 256)
+	typeAddressTranslationArray := b.EmitTypeArray(typeStructAddressTranslationEntry, idAddressTranslationCount)
+	b.EmitDecorate(typeAddressTranslationArray, spec.SpvDecorationArrayStride, 32)
+
+	typeAddressTranslationBuffer := b.EmitTypeStruct(typeAddressTranslationArray)
+	b.EmitDecorate(typeAddressTranslationBuffer, spec.SpvDecorationBlock)
+	b.EmitMemberDecorate(typeAddressTranslationBuffer, 0, spec.SpvDecorationOffset, 0)
+
+	typePtrStorageAddressTranslationBuffer := b.EmitTypePointer(spec.SpvStorageStorageBuffer, typeAddressTranslationBuffer)
+	typeAddressTranslationBufferVar := b.EmitVariable(typePtrStorageAddressTranslationBuffer, spec.SpvStorageStorageBuffer)
+	b.EmitName(typeAddressTranslationBufferVar, "address_translation_buffer")
+	b.EmitDecorate(typeAddressTranslationBufferVar, spec.SpvDecorationDescriptorSet, DescriptorSetSlotStatic)
+	b.EmitDecorate(typeAddressTranslationBufferVar, spec.SpvDecorationBinding, StaticBindingAddressTranslation)
+	b.EmitDecorate(typeAddressTranslationBufferVar, spec.SpvDecorationNonWritable)
+
 	idZeroF := b.EmitConstantFloat(typeFloat, 0.0)
 	idOneF := b.EmitConstantFloat(typeFloat, 1.0)
 	typeZeroVec4 := b.EmitConstantComposite(typeV4Float, idZeroF, idZeroF, idZeroF, idOneF)
@@ -463,6 +484,7 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 		BlockContextIdStaticTextures:               {Id: typeStaticTexturesVar, Name: "static_textures_var_t"},
 		BlockContextIdStaticStorageTextures:        {Id: typeStaticStorageTexturesVar, Name: "static_storage_textures_var_t"},
 		BlockContextIdStaticSampledBuffers:         {Id: typeStaticSampledBuffersVar, Name: "static_sampled_buffers_var_t"},
+		BlockContextIdAddressTranslationBuffer:     {Id: typeAddressTranslationBufferVar, Name: "address_translation_buffer_var_t"},
 		BlockContextIdTypeImageBuffer:              {Id: typeImageBuffer, Name: "image_buffer_t"},
 		BlockContextIdTypeSampledImageBuffer:       {Id: typeSampledImageBuffer, Name: "sampled_image_buffer_t"},
 		BlockContextIdPtrUniformSampledImageBuffer: {Id: typePtrUniformSampledImageBuffer, Name: "ptr_uniform_sampled_image_buffer_t"},

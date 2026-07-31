@@ -33,6 +33,12 @@ func (p *VulkanDescriptorPool2) DefaultSet(frame uint64) vk.DescriptorSet {
 	return p.Pools[frame%uint64(len(p.Pools))].DefaultSet
 }
 
+func (p *VulkanDescriptorPool2) SetCopyTemplate(template []vk.CopyDescriptorSet) {
+	for _, pool := range p.Pools {
+		pool.CopyTemplate = template
+	}
+}
+
 func (p *VulkanDescriptorPool2) Reset(frame uint64) {
 	p.Pools[frame%uint64(len(p.Pools))].Reset()
 }
@@ -48,6 +54,7 @@ type VulkanDescriptorPool struct {
 	Pool         vk.DescriptorPool
 	DefaultSet   vk.DescriptorSet
 	Sets         []vk.DescriptorSet
+	CopyTemplate []vk.CopyDescriptorSet
 	CurrentIndex int
 	MaxSets      uint32
 }
@@ -98,6 +105,17 @@ func (p *VulkanDescriptorPool) Get(handles *VulkanHandles) (vk.DescriptorSet, er
 
 		if err := NewError(result); err != nil {
 			return vk.NullDescriptorSet, fmt.Errorf("failed to allocate descriptor set: %w", err)
+		}
+
+		// Update the copies to use the new destination set.
+		if p.DefaultSet != vk.NullDescriptorSet && p.CopyTemplate != nil {
+			copies := make([]vk.CopyDescriptorSet, len(p.CopyTemplate))
+			for i, tpl := range p.CopyTemplate {
+				copies[i] = tpl
+				copies[i].SrcSet = p.DefaultSet
+				copies[i].DstSet = descSets[0]
+			}
+			vk.UpdateDescriptorSets(handles.Device, 0, nil, uint32(len(copies)), copies)
 		}
 
 		p.Sets = append(p.Sets, descSets[0])

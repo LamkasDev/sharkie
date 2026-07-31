@@ -84,10 +84,16 @@ func libKernel_sys_sceKernelMapDirectMemory(addrPtr uintptr, length uint64, prot
 	}
 
 	if _, err := ProtectKernelMemory(offset, length, prot); err != nil {
-		logger.Printf("%-132s %s failed due to memory protection error (%s).\n",
+		logger.Printf("%-132s %s failed due to memory protection error (%s, addrPtr=%s, length=%s, prot=%s, flags=%s, offset=%s, alignment=%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceKernelMapDirectMemory"),
 			err.Error(),
+			color.Yellow.Sprintf("0x%X", addrPtr),
+			color.Yellow.Sprintf("0x%X", length),
+			color.Blue.Sprint(MemoryProtName(prot)),
+			color.Yellow.Sprintf("0x%X", flags),
+			color.Yellow.Sprintf("0x%X", offset),
+			color.Yellow.Sprintf("0x%X", alignment),
 		)
 		emu.SetErrno(EFAULT)
 		return ERR_PTR

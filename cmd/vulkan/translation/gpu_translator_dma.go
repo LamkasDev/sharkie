@@ -16,8 +16,8 @@ func (t *GpuTranslator) DmaCopy(frame uint64, dmaCopy *gpu.LiverpoolDmaCopy) {
 		panic(err)
 	}
 
-	srcBuffer, srcOffset, err1 := t.GetBufferFromAddress(dmaCopy.SrcAddress)
-	dstBuffer, dstOffset, err2 := t.GetBufferFromAddress(dmaCopy.DstAddress)
+	srcBuffer, srcOffset, err1 := t.GetLinearBuffer(dmaCopy.SrcAddress)
+	dstBuffer, dstOffset, err2 := t.GetLinearBuffer(dmaCopy.DstAddress)
 	if err1 != nil {
 		panic(err1)
 	}

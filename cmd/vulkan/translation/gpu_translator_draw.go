@@ -120,7 +120,7 @@ func (t *GpuTranslator) Draw(frame uint64, draw *gpu.LiverpoolDraw) {
 		if draw.PrimType == 19 {
 			panic("Indexed QuadList drawing is not implemented")
 		}
-		targetBuffer, relativeOffset, err := t.GetBufferFromAddress(draw.IndexBaseAddress)
+		targetBuffer, relativeOffset, err := t.GetLinearBuffer(draw.IndexBaseAddress)
 		if err != nil {
 			panic(err)
 		}

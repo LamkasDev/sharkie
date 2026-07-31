@@ -26,12 +26,7 @@ func libKernel_scePthreadGetthreadid() uintptr {
 // 0x00000000000146E0
 // __int64 scePthreadSelf()
 func libKernel_scePthreadSelf() uintptr {
-	err := posix.Pthread_self()
-	if err != 0 {
-		return err - SonyErrorOffset
-	}
-
-	return 0
+	return posix.Pthread_self()
 }
 
 // 0x0000000000013920
