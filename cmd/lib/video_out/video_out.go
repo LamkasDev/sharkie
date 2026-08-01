@@ -12,6 +12,8 @@ func RegisterVideoOutStubs() {
 	elf.RegisterStub("libSceVideoOut", "sceVideoOutOpen", libSceVideoOut_sceVideoOutOpen)
 	elf.RegisterStub("libSceVideoOut", "sceVideoOutAdjustColor_", libSceVideoOut_stub)
 	elf.RegisterStub("libSceVideoOut", "sceVideoOutColorSettingsSetGamma_", libSceVideoOut_stub)
+	elf.RegisterStub("libSceVideoOut", "sceVideoOutConfigureOutputMode_", libSceVideoOut_stub)
+	elf.RegisterStub("libSceVideoOut", "sceVideoOutModeSetAny_", libSceVideoOut_stub)
 	elf.RegisterStub("libSceVideoOut", "sceVideoOutGetResolutionStatus", libSceVideoOut_sceVideoOutGetResolutionStatus)
 	elf.RegisterStub("libSceVideoOut", "sceVideoOutGetDeviceCapabilityInfo_", libSceVideoOut_sceVideoOutGetDeviceCapabilityInfo_)
 
@@ -20,6 +22,7 @@ func RegisterVideoOutStubs() {
 	elf.RegisterStub("libSceVideoOut", "sceVideoOutSetFlipRate", libSceVideoOut_sceVideoOutSetFlipRate)
 	elf.RegisterStub("libSceVideoOut", "sceVideoOutSubmitEopFlip", libSceVideoOut_sceVideoOutSubmitEopFlip)
 	elf.RegisterStub("libSceVideoOut", "sceVideoOutGetFlipStatus", libSceVideoOut_sceVideoOutGetFlipStatus)
+	elf.RegisterStub("libSceVideoOut", "sceVideoOutIsFlipPending", libSceVideoOut_sceVideoOutIsFlipPending)
 
 	// V-blank functions.
 	elf.RegisterStub("libSceVideoOut", "sceVideoOutAddVblankEvent", libSceVideoOut_sceVideoOutAddVblankEvent)

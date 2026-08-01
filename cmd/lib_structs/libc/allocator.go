@@ -103,6 +103,7 @@ func (allocator *GoAllocator) Free(ptr uintptr) bool {
 	address := *(*uintptr)(unsafe.Pointer(headerAddr))
 	dataSlice, exists := allocator.Allocations[address]
 	if !exists {
+		return false
 		panic("double free or unallocated address")
 	}
 	delete(allocator.Allocations, address)

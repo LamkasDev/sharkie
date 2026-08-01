@@ -36,11 +36,11 @@ func (image *VulkanImage) UploadToVkImage(handles *VulkanHandles, commandBuffer 
 
 		// Wait for CPU writes to finish before reading the buffer.
 		vk.CmdPipelineBarrier(commandBuffer.CommandBuffer,
-			vk.PipelineStageFlags(vk.PipelineStageHostBit),
+			vk.PipelineStageFlags(vk.PipelineStageHostBit|vk.PipelineStageComputeShaderBit),
 			vk.PipelineStageFlags(vk.PipelineStageTransferBit),
 			0, 1, []vk.MemoryBarrier{{
 				SType:         vk.StructureTypeMemoryBarrier,
-				SrcAccessMask: vk.AccessFlags(vk.AccessHostWriteBit),
+				SrcAccessMask: vk.AccessFlags(vk.AccessHostWriteBit | vk.AccessShaderWriteBit),
 				DstAccessMask: vk.AccessFlags(vk.AccessTransferReadBit),
 			}}, 0, nil, 0, nil)
 	} else {
@@ -95,11 +95,11 @@ func (image *VulkanImage) UploadToVkImage(handles *VulkanHandles, commandBuffer 
 
 		// Wait for CPU writes to finish before reading the buffer.
 		vk.CmdPipelineBarrier(commandBuffer.CommandBuffer,
-			vk.PipelineStageFlags(vk.PipelineStageHostBit),
+			vk.PipelineStageFlags(vk.PipelineStageHostBit|vk.PipelineStageComputeShaderBit),
 			vk.PipelineStageFlags(vk.PipelineStageComputeShaderBit),
 			0, 1, []vk.MemoryBarrier{{
 				SType:         vk.StructureTypeMemoryBarrier,
-				SrcAccessMask: vk.AccessFlags(vk.AccessHostWriteBit),
+				SrcAccessMask: vk.AccessFlags(vk.AccessHostWriteBit | vk.AccessShaderWriteBit),
 				DstAccessMask: vk.AccessFlags(vk.AccessShaderReadBit),
 			}}, 0, nil, 0, nil)
 
@@ -223,7 +223,7 @@ func (image *VulkanImage) UploadToVkImage(handles *VulkanHandles, commandBuffer 
 
 func (image *VulkanImage) ShouldUploadToVkImage(frame uint64) bool {
 	// Uploading surfaces is too expensive.
-	if image.IsSurface || IsDepthFormat(image.ImageFormat) {
+	if IsDepthFormat(image.ImageFormat) {
 		return false
 	}
 	if image.HasSync(ImageSyncCpuModified) {

@@ -32,3 +32,10 @@ func GetCond(guestAddress uintptr) *CondWaitable {
 	CondRepo[guestAddress] = cond
 	return cond
 }
+
+// DeleteCond deletes cond corresponding to a guest address.
+func DeleteCond(guestAddress uintptr) {
+	CondLock.Lock()
+	defer CondLock.Unlock()
+	delete(CondRepo, guestAddress)
+}

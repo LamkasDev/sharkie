@@ -42,6 +42,57 @@ func libScePosix_sem_init(semaphore *PSemaphore, pShared, value uintptr) uintptr
 	return 0
 }
 
+func libScePosix_sem_destroy(semaphore *PSemaphore) uintptr {
+	if semaphore == nil {
+		logger.Printf("%-132s %s failed due to invalid sem pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sem_destroy"),
+		)
+		emu.SetErrno(EINVAL)
+		return ERR_PTR
+	}
+
+	if semaphore.Magic != PSemaphoreMagic {
+		logger.Printf("%-132s %s failed due to invalid sem magic.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sem_destroy"),
+		)
+		emu.SetErrno(EINVAL)
+		return ERR_PTR
+	}
+
+	semAddress := uintptr(unsafe.Pointer(semaphore))
+	hostSemaphore := GetPSemaphore(semAddress)
+
+	// Safely check for active waiters and remove from repo.
+	PSemaphoreLock.Lock()
+	hostSemaphore, exists := PSemaphoreRepo[semAddress]
+	if exists {
+		if atomic.LoadInt32(&hostSemaphore.Waiters) > 0 {
+			logger.Printf("%-132s %s failed destroying semaphore %s (busy).\n",
+				emu.GlobalModuleManager.GetCallSiteText(),
+				color.Magenta.Sprint("sem_destroy"),
+				color.Yellow.Sprintf("0x%X", semAddress),
+			)
+			PSemaphoreLock.Unlock()
+			emu.SetErrno(EBUSY)
+			return ERR_PTR
+		}
+		delete(PSemaphoreRepo, semAddress)
+	}
+	PSemaphoreLock.Unlock()
+
+	// Invalidate the magic.
+	semaphore.Magic = 0
+
+	logger.Printf("%-132s %s destroyed semaphore %s.\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("sem_destroy"),
+		color.Yellow.Sprintf("0x%X", semAddress),
+	)
+	return 0
+}
+
 func libScePosix_sem_trywait(semaphore *PSemaphore) uintptr {
 	if semaphore == nil {
 		logger.Printf("%-132s %s failed due to invalid sem pointer.\n",
@@ -166,7 +217,8 @@ func libScePosix_sem_timedwait(semaphore *PSemaphore, timestamp *Timestamp) uint
 			hostSemaphore.Mutex.Unlock()
 			return 0
 		}
-		w := hostSemaphore.WaitChan()
+		w := hostSemaphore.WaitChanNoLock()
+		atomic.AddInt32(&hostSemaphore.Waiters, 1)
 		hostSemaphore.Mutex.Unlock()
 
 		var remaining time.Duration
@@ -181,6 +233,7 @@ func libScePosix_sem_timedwait(semaphore *PSemaphore, timestamp *Timestamp) uint
 					)
 				}
 				emu.SetErrno(ETIMEDOUT)
+				atomic.AddInt32(&hostSemaphore.Waiters, -1)
 				return ERR_PTR
 			}
 		}
@@ -208,9 +261,11 @@ func libScePosix_sem_timedwait(semaphore *PSemaphore, timestamp *Timestamp) uint
 					)
 				}
 				emu.SetErrno(ETIMEDOUT)
+				atomic.AddInt32(&hostSemaphore.Waiters, -1)
 				return ERR_PTR
 			}
 		}
+		atomic.AddInt32(&hostSemaphore.Waiters, -1)
 	}
 }
 

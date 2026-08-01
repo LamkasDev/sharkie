@@ -119,6 +119,29 @@ func EmitSOP2(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 		val1 := ctx.GetOperandIntValue(b, details.Src0, instr.Literal)
 		res := b.EmitIMul(typeUint, val0, val1)
 		ctx.StoreRegisterPointer(b, details.Dst, res)
+	case gcnSpec.Sop2OpAddI32:
+		val0 := ctx.GetOperandUintValue(b, details.Src0, instr.Literal)
+		val1 := ctx.GetOperandUintValue(b, details.Src1, instr.Literal)
+
+		// D.u = S0.i + S1.i
+		res := b.EmitIAdd(typeUint, val0, val1)
+		ctx.StoreRegisterPointer(b, details.Dst, res)
+
+		// SCC = signed overflow
+		// Overflow logic: ((~(val0 ^ val1)) & (val0 ^ res)) & 0x80000000 != 0
+		xor01 := b.EmitBitwiseXor(typeUint, val0, val1)
+		notXor01 := b.EmitNot(typeUint, xor01)
+		xor0Res := b.EmitBitwiseXor(typeUint, val0, res)
+
+		andMask := b.EmitBitwiseAnd(typeUint, notXor01, xor0Res)
+		signBit := b.EmitConstantUint(typeUint, 0x80000000)
+		overflowBits := b.EmitBitwiseAnd(typeUint, andMask, signBit)
+
+		isOverflow := b.EmitINotEqual(typeBool, overflowBits, idC0)
+
+		// Store 1 into SCC if overflowed, else 0.
+		sccVal := b.EmitSelect(typeUint, isOverflow, b.EmitConstantUint(typeUint, 1), idC0)
+		ctx.StoreRegisterPointer(b, gcnSpec.OpScc, sccVal)
 	default:
 		panic(fmt.Sprintf("unknown sop2 op %s", gcnSpec.Mnemotics[gcnSpec.EncSOP2][details.Op]))
 	}

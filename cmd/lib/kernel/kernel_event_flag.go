@@ -2,6 +2,7 @@ package kernel
 
 import (
 	"encoding/binary"
+	"sync/atomic"
 	"time"
 	"unsafe"
 
@@ -169,7 +170,6 @@ func libKernel_sys_evf_wait(handle uintptr, waitPattern uint64, waitMode uint32,
 			eventFlag.Cond.Mutex.Unlock()
 			return 0
 		}
-		w := eventFlag.Cond.WaitChan()
 		eventFlag.Cond.Mutex.Unlock()
 
 		var remaining time.Duration
@@ -196,6 +196,8 @@ func libKernel_sys_evf_wait(handle uintptr, waitPattern uint64, waitMode uint32,
 				color.Yellow.Sprintf("0x%X", timeoutDuration.Microseconds()),
 			)
 		}
+		w := eventFlag.Cond.WaitChan()
+		atomic.AddInt32(&eventFlag.Cond.Waiters, 1)
 		if timeoutDuration == -1 {
 			<-w
 		} else {
@@ -209,9 +211,11 @@ func libKernel_sys_evf_wait(handle uintptr, waitPattern uint64, waitMode uint32,
 						GetEventFlagName(eventFlag),
 					)
 				}
+				atomic.AddInt32(&eventFlag.Cond.Waiters, -1)
 				return SCE_KERNEL_ERROR_TIMEDOUT
 			}
 		}
+		atomic.AddInt32(&eventFlag.Cond.Waiters, -1)
 	}
 }
 

@@ -4,6 +4,7 @@ import (
 	"path/filepath"
 
 	"github.com/LamkasDev/sharkie/cmd/config"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/kernel"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/psf"
 )
 
@@ -29,6 +30,9 @@ func NewAppContentInstance() *AppContentInstance {
 	instance.ParamSfo = p
 	if titleId := instance.ParamSfo.MapStrings["TITLE_ID"]; titleId == "" {
 		panic("missing title id")
+	}
+	if attribute, ok := instance.ParamSfo.MapIntegers["ATTRIBUTE"]; ok {
+		GlobalPsfAttributes = PsfAttributes(attribute)
 	}
 
 	return instance

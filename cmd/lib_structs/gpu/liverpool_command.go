@@ -85,10 +85,10 @@ func (s *LiverpoolCommandStream) Reset() {
 type LiverpoolBindPipeline struct {
 	// Pointers to parsed shader programs.
 	VertexShader   *GcnShader
+	PixelShader    *GcnShader
 	HullShader     *GcnShader
 	EvalShader     *GcnShader
 	GeometryShader *GcnShader
-	PixelShader    *GcnShader
 
 	LiverpoolBindPipelineInternal
 }

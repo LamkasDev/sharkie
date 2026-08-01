@@ -576,12 +576,6 @@ func (t *GpuTranslator) ResetFence() {
 	}
 }
 
-func (t *GpuTranslator) GetSurfaceByAddress(address uintptr) *vulkan.VulkanSurface {
-	t.surfacesMutex.Lock()
-	defer t.surfacesMutex.Unlock()
-	return t.surfaces[address]
-}
-
 func (t *GpuTranslator) CollectGpuResourcesInRange(address, size uintptr) []*vulkan.VulkanImage {
 	var images []*vulkan.VulkanImage
 	end := address + size

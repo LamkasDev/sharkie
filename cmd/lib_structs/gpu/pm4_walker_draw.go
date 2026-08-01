@@ -17,8 +17,9 @@ func (l *Liverpool) handleDrawIndexAuto(stream *LiverpoolCommandStream, payload 
 	}
 
 	// Record draw.
-	count := payload[0]
-	l.recordDraw(stream, count, false, 0)
+	l.DrawState.IndexCount = payload[0]
+	l.DrawState.IndexOffset = 0
+	l.recordDraw(stream, false)
 }
 
 func (l *Liverpool) handleDrawIndex2(stream *LiverpoolCommandStream, payload []uint32) {
@@ -31,12 +32,26 @@ func (l *Liverpool) handleDrawIndex2(stream *LiverpoolCommandStream, payload []u
 
 	// Record draw.
 	l.DrawState.IndexBase = uintptr(uint64(payload[1]) | uint64(payload[2])<<32)
-	l.DrawState.IndexBufferSize = payload[0]
-	count := payload[3]
-	l.recordDraw(stream, count, true, 0)
+	l.DrawState.IndexCount = payload[3]
+	l.DrawState.IndexOffset = 0
+	l.recordDraw(stream, true)
 }
 
-func (l *Liverpool) recordDraw(stream *LiverpoolCommandStream, count uint32, isIndexed bool, indexOffset uint32) {
+func (l *Liverpool) handleDrawIndexOffset2(stream *LiverpoolCommandStream, payload []uint32) {
+	if len(payload) < 4 {
+		logger.Printf("[%s] failed draw index offset 2 payload too short.\n",
+			color.Green.Sprintf("PM4-%s/%d", stream.Name, len(payload)),
+		)
+		return
+	}
+
+	// Record draw.
+	l.DrawState.IndexCount = payload[2]
+	l.DrawState.IndexOffset = payload[1]
+	l.recordDraw(stream, true)
+}
+
+func (l *Liverpool) recordDraw(stream *LiverpoolCommandStream, isIndexed bool) {
 	// Lock registers.
 	l.StateMutex.Lock()
 	defer l.StateMutex.Unlock()
@@ -44,7 +59,6 @@ func (l *Liverpool) recordDraw(stream *LiverpoolCommandStream, count uint32, isI
 	// Construct pipeline state.
 	bindPipeline := LiverpoolBindPipeline{
 		VertexShader: l.GetShader(GcnShaderStageVertex, l.VsGpuAddress()),
-		PixelShader:  l.GetShader(GcnShaderStageFragment, l.PsGpuAddress()),
 		LiverpoolBindPipelineInternal: LiverpoolBindPipelineInternal{
 			PrimType: l.Registers.UserConfig[GREG_MM_VGT_PRIMITIVE_TYPE__CI__VI],
 
@@ -138,7 +152,10 @@ func (l *Liverpool) recordDraw(stream *LiverpoolCommandStream, count uint32, isI
 	}
 	copy(bindPipeline.PsInputControls[:], l.Registers.Context[GREG_MM_SPI_PS_INPUT_CNTL_0:GREG_MM_SPI_PS_INPUT_CNTL_31+1])
 	bindPipeline.VertexShaderAddress = bindPipeline.VertexShader.Address
-	bindPipeline.PixelShaderAddress = bindPipeline.PixelShader.Address
+	if address := l.PsGpuAddress(); address != 0 {
+		bindPipeline.PixelShader = l.GetShader(GcnShaderStageFragment, address)
+		bindPipeline.PixelShaderAddress = address
+	}
 	if address := l.HsGpuAddress(); address != 0 {
 		bindPipeline.HullShader = l.GetShader(GcnShaderStageHull, address)
 		bindPipeline.HullShaderAddress = address
@@ -231,15 +248,14 @@ func (l *Liverpool) recordDraw(stream *LiverpoolCommandStream, count uint32, isI
 	// Construct draw.
 	draw := LiverpoolDraw{
 		LiverpoolDrawInternal: LiverpoolDrawInternal{
-			VertexCount:   count,
 			InstanceCount: max(l.DrawState.InstanceCount, 1),
 			PrimType:      bindPipeline.PrimType,
 			IsIndexed:     isIndexed,
 
-			IndexCount:       l.DrawState.IndexBufferSize,
-			IndexType:        l.DrawState.IndexType,
-			IndexBaseAddress: l.DrawState.IndexBase,
-			IndexOffset:      indexOffset,
+			IndexType:   l.DrawState.IndexType,
+			IndexBase:   l.DrawState.IndexBase,
+			IndexCount:  l.DrawState.IndexCount,
+			IndexOffset: l.DrawState.IndexOffset,
 
 			VertexShRsrc1:   l.Registers.Shader[GREG_MM_SPI_SHADER_PGM_RSRC1_VS],
 			VertexShRsrc2:   l.Registers.Shader[GREG_MM_SPI_SHADER_PGM_RSRC2_VS],
@@ -273,20 +289,19 @@ func (l *Liverpool) recordDraw(stream *LiverpoolCommandStream, count uint32, isI
 
 	if LogPM4Packets {
 		if isIndexed {
-			logger.Printf("[%s] draw index 2 (index_count=%s, max_size=%s, index_base=%s, prim=%s, rt=%s, vs=%s, ps=%s).\n",
+			logger.Printf("[%s] draw index 2 (index_base=%s, index_count=%s, prim=%s, rt=%s, vs=%s, ps=%s).\n",
 				color.Green.Sprintf("PM4-%s", stream.Name),
-				color.Green.Sprintf("%d", count),
-				color.Green.Sprintf("%d", l.DrawState.IndexBufferSize),
-				color.Yellow.Sprintf("0x%X", draw.IndexBaseAddress),
+				color.Yellow.Sprintf("0x%X", draw.IndexBase),
+				color.Green.Sprintf("%d", draw.IndexCount),
 				color.Green.Sprintf("%d", draw.PrimType),
 				color.Yellow.Sprintf("0x%X", bindPipeline.RtBase),
 				color.Yellow.Sprintf("0x%X", bindPipeline.VertexShader.Address),
 				color.Yellow.Sprintf("0x%X", bindPipeline.PixelShader.Address),
 			)
 		} else {
-			logger.Printf("[%s] draw index auto (vertex=%s, prim=%s, rt=%s, vs=%s, ps=%s).\n",
+			logger.Printf("[%s] draw index auto (index_count=%s, prim=%s, rt=%s, vs=%s, ps=%s).\n",
 				color.Green.Sprintf("PM4-%s", stream.Name),
-				color.Green.Sprintf("%d", count),
+				color.Green.Sprintf("%d", draw.IndexCount),
 				color.Green.Sprintf("%d", draw.PrimType),
 				color.Yellow.Sprintf("0x%X", bindPipeline.RtBase),
 				color.Yellow.Sprintf("0x%X", bindPipeline.VertexShader.Address),

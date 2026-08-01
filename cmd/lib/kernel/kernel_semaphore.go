@@ -3,6 +3,7 @@ package kernel
 import (
 	"encoding/binary"
 	"fmt"
+	"sync/atomic"
 	"time"
 	"unsafe"
 
@@ -89,6 +90,16 @@ func libKernel_sceKernelDeleteSema(handle uintptr) uintptr {
 	if semaphore == nil {
 		return SCE_KERNEL_ERROR_ENOENT
 	}
+
+	// Safely check for active waiters before deleting.
+	if atomic.LoadInt32(&semaphore.Cond.Waiters) > 0 {
+		logger.Printf("%-132s %s failed deleting semaphore %s (busy).\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceKernelDeleteSema"),
+			color.Blue.Sprint(semaphore.Name),
+		)
+		return SCE_KERNEL_ERROR_EBUSY
+	}
 	DeleteSemaphore(handle)
 
 	logger.Printf("%-132s %s deleted semaphore %s.\n",
@@ -129,7 +140,8 @@ func libKernel_sceKernelWaitSema(handle uintptr, needed int32, timeout *Timeout)
 			semaphore.Cond.Mutex.Unlock()
 			return 0
 		}
-		w := semaphore.Cond.WaitChan()
+		w := semaphore.Cond.WaitChanNoLock()
+		atomic.AddInt32(&semaphore.Cond.Waiters, 1)
 		semaphore.Cond.Mutex.Unlock()
 
 		var remaining time.Duration
@@ -143,6 +155,7 @@ func libKernel_sceKernelWaitSema(handle uintptr, needed int32, timeout *Timeout)
 						color.Blue.Sprint(semaphore.Name),
 					)
 				}
+				atomic.AddInt32(&semaphore.Cond.Waiters, -1)
 				return SCE_KERNEL_ERROR_TIMEDOUT
 			}
 		}
@@ -169,9 +182,11 @@ func libKernel_sceKernelWaitSema(handle uintptr, needed int32, timeout *Timeout)
 						color.Blue.Sprint(semaphore.Name),
 					)
 				}
+				atomic.AddInt32(&semaphore.Cond.Waiters, -1)
 				return SCE_KERNEL_ERROR_TIMEDOUT
 			}
 		}
+		atomic.AddInt32(&semaphore.Cond.Waiters, -1)
 	}
 }
 

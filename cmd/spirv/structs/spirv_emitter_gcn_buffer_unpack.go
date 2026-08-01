@@ -6,7 +6,7 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/spirv/spec"
 )
 
-func EmitFormatUnpackHelper(b *SpvBuilder, ctx *SpirvBlockContext, baseAddress, byteOffset, dataFormat, numFormat, outOfRange SpirvId, op uint32) SpirvId {
+func EmitFormatUnpackHelper(b *SpvBuilder, ctx *SpirvBlockContext, absoluteAddress, dataFormat, numFormat, outOfRange SpirvId, op uint32) SpirvId {
 	typeUint := ctx.GetId(BlockContextIdTypeUint)
 	typeInt := ctx.GetId(BlockContextIdTypeInt)
 	typeUint64 := ctx.GetId(BlockContextIdTypeUint64)
@@ -18,14 +18,15 @@ func EmitFormatUnpackHelper(b *SpvBuilder, ctx *SpirvBlockContext, baseAddress, 
 	cFF := ctx.GetConstId(ConstIdUint255)
 	cFFFF := ctx.GetConstId(ConstIdUintFFFF)
 
-	// Calculate final address.
-	byteOffsetAligned := b.EmitBitwiseAnd(typeUint, byteOffset, ctx.GetConstId(ConstIdUintFFFFFFFFC))
-	byteOffset64 := b.EmitUConvert(typeUint64, byteOffsetAligned)
-	totalAddress := b.EmitIAdd(typeUint64, baseAddress, byteOffset64)
-	translatedAddress := ctx.TranslateAddress(b, totalAddress)
+	// Calculate final aligned address.
+	cFFFFFFFFC_64 := b.EmitConstantUint64(typeUint64, 0xFFFFFFFFFFFFFFFC)
+	alignedAddress := b.EmitBitwiseAnd(typeUint64, absoluteAddress, cFFFFFFFFC_64)
+	translatedAddress := ctx.TranslateAddress(b, alignedAddress)
 
 	// Shift if unaligned access.
-	mod4 := b.EmitBitwiseAnd(typeUint, byteOffset, b.EmitConstantUint(typeUint, 3))
+	c3_64 := b.EmitConstantUint64(typeUint64, 3)
+	mod4_64 := b.EmitBitwiseAnd(typeUint64, absoluteAddress, c3_64)
+	mod4 := b.EmitUConvert(typeUint, mod4_64)
 	bitShift := b.EmitIMul(typeUint, mod4, b.EmitConstantUint(typeUint, 8))
 
 	// Load number of components based on instruction.

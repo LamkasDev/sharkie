@@ -171,6 +171,11 @@ func TranslateGcnFormat(dataFormat, numFormat uint8) (vk.Format, uint32) {
 		if numFormat == 7 {
 			return vk.FormatB10g11r11UfloatPack32, 4
 		}
+	case 7: // 11_11_10 (4 bytes)
+		if numFormat == 7 {
+			// TODO: fix this.
+			return vk.FormatB10g11r11UfloatPack32, 4
+		}
 	case 8: // 10_10_10_2 (4 bytes)
 		switch numFormat {
 		case 0:

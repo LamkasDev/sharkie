@@ -2,6 +2,7 @@ package translation
 
 import (
 	"fmt"
+	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/LamkasDev/sharkie/cmd/spirv"
@@ -87,6 +88,16 @@ func (t *GpuTranslator) BindResources(shaders []*spirv.SpirvShader, userData spi
 	boundText += ".\n"
 	if len(allLayouts) > 0 && logger.LogRenderer {
 		logger.Print(boundText)
+	}
+
+	accessText := fmt.Sprintf("[Frame %d] Accessed buffers", t.currentGuestFrame)
+	for i, access := range bufferAccesses {
+		data := unsafe.Slice((*uint32)(unsafe.Pointer(access.Descriptor.BaseAddress)), 16)
+		accessText += fmt.Sprintf(" %d (0x%X/%d) + %+v", i, access.Descriptor.BaseAddress, access.Descriptor.NumRecords, data)
+	}
+	accessText += ".\n"
+	if len(bufferAccesses) > 0 && logger.LogRenderer {
+		logger.Print(accessText)
 	}
 
 	// Download accessed buffer images.

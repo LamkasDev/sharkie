@@ -113,7 +113,11 @@ func EmitMIMG(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 				dataParts[i] = b.EmitBitcast(typeFloat, ctx.LoadRegisterPointer(b, gcnSpec.OpVgpr0+details.Vdata+vgprOffset))
 				vgprOffset++
 			} else {
-				dataParts[i] = idC0F
+				if i == 3 {
+					dataParts[i] = ctx.GetConstId(ConstIdFloat1)
+				} else {
+					dataParts[i] = idC0F
+				}
 			}
 		}
 		texel := b.EmitCompositeConstruct(typeV4Float, dataParts...)

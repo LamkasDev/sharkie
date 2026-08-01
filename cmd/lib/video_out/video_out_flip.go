@@ -130,12 +130,25 @@ func libSceVideoOut_sceVideoOutGetFlipStatus(rawHandle uintptr, flipStatus *Vide
 	}
 	*flipStatus = handle.FlipStatus
 
-	if false && logger.LogGraphics {
-		logger.Printf("%-132s %s returned %s's flip status.\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("sceVideoOutGetFlipStatus"),
-			color.Yellow.Sprintf("0x%X", handle.Id),
-		)
-	}
 	return 0
+}
+
+// 0x000000000000BF10
+// __int64 __fastcall sceVideoOutIsFlipPending(int)
+func libSceVideoOut_sceVideoOutIsFlipPending(rawHandle uintptr) uintptr {
+	handle, ok := GlobalDisplayCoreEngine.Handles[uint32(rawHandle)]
+	if !ok {
+		logger.Printf("%-132s %s failed due to invalid handle.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceVideoOutIsFlipPending"),
+		)
+		return SCE_VIDEO_OUT_ERROR_INVALID_HANDLE
+	}
+
+	logger.Printf("%-132s %s returned %s.\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("sceVideoOutIsFlipPending"),
+		color.Yellow.Sprintf("0x%X", uintptr(handle.FlipStatus.FlipPendingNumber)),
+	)
+	return uintptr(handle.FlipStatus.FlipPendingNumber)
 }

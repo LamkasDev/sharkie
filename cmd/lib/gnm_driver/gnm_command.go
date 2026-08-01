@@ -303,7 +303,18 @@ func gnmPatchPrepareFlip(lastDcbAddress uintptr, lastDcbSizeDW, videoOutHandle, 
 		writeLabel.AddressLow = previous[2] & 0xFFFFFFFC
 		writeLabel.AddressHigh = previous[3]
 		writeLabel.Data[0] = previous[4]
-	case 0x68750779: // PrepareFlipInterruptLabel.
+	case 0x68750780: // PrepareFlipInterrupt.
+		nop.Header = NewPM4TypedHeader(PM4_IT_NOP, 0x34)
+		nop.DataBlock[0] = 0x68750776 // PatchedFlip.
+
+		writeEop := (*PM4CmdEventWriteEop)(unsafe.Pointer(packetPtr + 0x3A*4))
+		writeEop.Header = NewPM4TypedHeader(PM4_IT_EVENT_WRITE_EOP, 5)
+		writeEop.EventControl = (previous[2] & 0x3F) + 0x500 + (previous[3]&0x3F)*0x1000
+		writeEop.AddressLow = 0
+		writeEop.DataControl = 0x1000000
+		writeEop.DataLow = 0
+		writeEop.DataHigh = 0
+	case 0x68750781: // PrepareFlipInterruptLabel.
 		nop.Header = NewPM4TypedHeader(PM4_IT_NOP, 0x34)
 		nop.DataBlock[0] = 0x68750776 // PatchedFlip.
 
@@ -313,17 +324,6 @@ func gnmPatchPrepareFlip(lastDcbAddress uintptr, lastDcbSizeDW, videoOutHandle, 
 		writeEop.AddressLow = previous[2] & 0xFFFFFFFC
 		writeEop.DataControl = (previous[3] & 0xFFFF) | 0x22000000
 		writeEop.DataLow = previous[4]
-		writeEop.DataHigh = 0
-	case 0x6875077A: // PrepareFlipInterrupt.
-		nop.Header = NewPM4TypedHeader(PM4_IT_NOP, 0x34)
-		nop.DataBlock[0] = 0x68750776 // PatchedFlip.
-
-		writeEop := (*PM4CmdEventWriteEop)(unsafe.Pointer(packetPtr + 0x3A*4))
-		writeEop.Header = NewPM4TypedHeader(PM4_IT_EVENT_WRITE_EOP, 5)
-		writeEop.EventControl = (previous[2] & 0x3F) + 0x500 + (previous[3]&0x3F)*0x1000
-		writeEop.AddressLow = 0
-		writeEop.DataControl = 0x02000000
-		writeEop.DataLow = 0
 		writeEop.DataHigh = 0
 	}
 

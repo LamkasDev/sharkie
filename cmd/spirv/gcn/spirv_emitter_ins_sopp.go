@@ -36,6 +36,8 @@ func EmitSOPP(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 			b.EmitConstantUint(ctx.GetId(BlockContextIdTypeUint), spec.SpvMemorySemanticsAcquireRelease|spec.SpvMemorySemanticsWorkgroupMemory))
 	case gcnSpec.SoppOpEndpgm:
 		// Not sure about this lol.
+	case gcnSpec.SoppOpNop:
+		// Nop.
 	default:
 		panic(fmt.Sprintf("unknown sopp op %s", gcnSpec.Mnemotics[gcnSpec.EncSOPP][details.Op]))
 	}

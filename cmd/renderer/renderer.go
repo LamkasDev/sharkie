@@ -152,10 +152,32 @@ func (r *Renderer) ConsumeFlips(done chan struct{}) {
 		)
 		r.UpdateCounters()
 
-		// Transition surface and update texture ID for display.
+		// Get surface.
+		var err error
 		surface := r.GpuTranslator.GetSurfaceByAddress(frame.Flip.GpuAddress)
+		if surface == nil {
+			image := r.GpuTranslator.GetImageByAddress(frame.Flip.GpuAddress)
+			if image == nil {
+				logger.Printf("[%s] failed to find surface image.\n",
+					color.Blue.Sprintf("Frame %d", frame.Number),
+				)
+			} else {
+				surface, err = r.GpuTranslator.GetSurface(image.FirstDescriptor, image.ImageFormat)
+				if err != nil {
+					panic(err)
+				}
+			}
+		}
+
+		// Transition surface and update texture ID for display.
 		if surface != nil {
-			err := vulkan.RunWithCommandBuffer(r.Handles.GraphicsQueue, r.Handles, func(commandBuffer *vulkan.VulkanCommandBuffer) {
+			err = vulkan.RunWithCommandBuffer(r.Handles.GraphicsQueue, r.Handles, func(commandBuffer *vulkan.VulkanCommandBuffer) {
+				if surface.ImageView.Image.ShouldUploadToVkImage(frame.Number) {
+					err = surface.ImageView.Image.UploadToVkImage(r.Handles, commandBuffer, r.GpuTranslator.GetLinearBuffer, frame.Number)
+					if err != nil {
+						panic(err)
+					}
+				}
 				surface.ImageView.Image.BarrierGeneralShaderAccess(commandBuffer)
 			}, frame.Number)
 			if err != nil {

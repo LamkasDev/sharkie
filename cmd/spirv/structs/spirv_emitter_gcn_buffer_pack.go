@@ -6,7 +6,7 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/spirv/spec"
 )
 
-func EmitFormatPackHelper(b *SpvBuilder, ctx *SpirvBlockContext, baseAddress, byteOffset, dataFormat, numFormat SpirvId, op uint32, storeVec4 SpirvId) {
+func EmitFormatPackHelper(b *SpvBuilder, ctx *SpirvBlockContext, absoluteAddress, dataFormat, numFormat SpirvId, op uint32, storeVec4 SpirvId) {
 	typeUint := ctx.GetId(BlockContextIdTypeUint)
 	typeUint8 := ctx.GetId(BlockContextIdTypeUint8)
 	typeUint16 := ctx.GetId(BlockContextIdTypeUint16)
@@ -21,14 +21,15 @@ func EmitFormatPackHelper(b *SpvBuilder, ctx *SpirvBlockContext, baseAddress, by
 	cFF := ctx.GetConstId(ConstIdUint255)
 	cFFFF := ctx.GetConstId(ConstIdUintFFFF)
 
-	// Calculate final address.
-	byteOffsetAligned := b.EmitBitwiseAnd(typeUint, byteOffset, ctx.GetConstId(ConstIdUintFFFFFFFFC))
-	byteOffset64 := b.EmitUConvert(typeUint64, byteOffsetAligned)
-	totalAddress := b.EmitIAdd(typeUint64, baseAddress, byteOffset64)
-	translatedAddress := ctx.TranslateAddress(b, totalAddress)
+	// Calculate final aligned address.
+	cFFFFFFFFC_64 := b.EmitConstantUint64(typeUint64, 0xFFFFFFFFFFFFFFFC)
+	alignedAddress := b.EmitBitwiseAnd(typeUint64, absoluteAddress, cFFFFFFFFC_64)
+	translatedAddress := ctx.TranslateAddress(b, alignedAddress)
 
 	// Shift if unaligned access.
-	mod4 := b.EmitBitwiseAnd(typeUint, byteOffset, b.EmitConstantUint(typeUint, 3))
+	c3_64 := b.EmitConstantUint64(typeUint64, 3)
+	mod4_64 := b.EmitBitwiseAnd(typeUint64, absoluteAddress, c3_64)
+	mod4 := b.EmitUConvert(typeUint, mod4_64)
 	bitShift := b.EmitIMul(typeUint, mod4, b.EmitConstantUint(typeUint, 8))
 
 	// Extract all 4 components from the input vec4.
@@ -176,8 +177,9 @@ func EmitFormatPackHelper(b *SpvBuilder, ctx *SpirvBlockContext, baseAddress, by
 
 		// 8-bit store block.
 		b.EmitLabel(label8Bit)
-		ptr8 := b.EmitConvertUToPtr(typePtrPsbUint8, addr)
-		val8 := b.EmitUConvert(typeUint8, shiftedVal)
+		addr8 := b.EmitIAdd(typeUint64, addr, b.EmitUConvert(typeUint64, mod4))
+		ptr8 := b.EmitConvertUToPtr(typePtrPsbUint8, addr8)
+		val8 := b.EmitUConvert(typeUint8, val)
 		b.EmitStore(ptr8, val8, spec.SpvMemoryAccessAligned, 1)
 		b.EmitBranch(labelMergeTotal)
 
@@ -188,8 +190,9 @@ func EmitFormatPackHelper(b *SpvBuilder, ctx *SpirvBlockContext, baseAddress, by
 
 		// 16-bit store block.
 		b.EmitLabel(label16Bit)
-		ptr16 := b.EmitConvertUToPtr(typePtrPsbUint16, addr)
-		val16 := b.EmitUConvert(typeUint16, shiftedVal)
+		addr16 := b.EmitIAdd(typeUint64, addr, b.EmitUConvert(typeUint64, mod4))
+		ptr16 := b.EmitConvertUToPtr(typePtrPsbUint16, addr16)
+		val16 := b.EmitUConvert(typeUint16, val)
 		b.EmitStore(ptr16, val16, spec.SpvMemoryAccessAligned, 2)
 		b.EmitBranch(labelMerge16)
 

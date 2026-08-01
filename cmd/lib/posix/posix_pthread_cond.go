@@ -1,6 +1,7 @@
 package posix
 
 import (
+	"sync/atomic"
 	"time"
 	"unsafe"
 
@@ -77,8 +78,30 @@ func libScePosix_pthread_cond_destroy(condHandlePtr *uintptr) uintptr {
 		return err
 	}
 
-	// Free the memory.
+	// Check if initialized.
 	condAddr := uintptr(unsafe.Pointer(cond))
+	if condAddr == PthreadCondInitializer {
+		return 0
+	}
+
+	// Safely check for active waiters and remove from repo.
+	CondLock.Lock()
+	hostCond, exists := CondRepo[condAddr]
+	if exists {
+		if atomic.LoadInt32(&hostCond.Waiters) > 0 {
+			logger.Printf("%-132s %s failed destroyind cond %s (busy).\n",
+				emu.GlobalModuleManager.GetCallSiteText(),
+				color.Magenta.Sprint("pthread_cond_destroy"),
+				color.Yellow.Sprintf("0x%X", condAddr),
+			)
+			CondLock.Unlock()
+			return EBUSY
+		}
+		delete(CondRepo, condAddr)
+	}
+	CondLock.Unlock()
+
+	// Free the memory from the guest allocator.
 	if !GlobalGoAllocator.Free(condAddr) {
 		logger.Printf("%-132s %s failed freeing untracked pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -200,11 +223,14 @@ func libScePosix_pthread_cond_wait(condHandlePtr, mutexHandlePtr *uintptr) uintp
 		condAddr = *condHandlePtr
 	}
 	cond := (*PthreadCond)(unsafe.Pointer(condAddr))
-
 	hostCond := GetCond(condAddr)
-	hostCond.Mutex.Lock()
+
+	// Get wait channel.
 	w := hostCond.WaitChan()
-	hostCond.Mutex.Unlock()
+	atomic.AddInt32(&hostCond.Waiters, 1)
+	defer atomic.AddInt32(&hostCond.Waiters, -1)
+
+	// Unlock mutex, wait on condition and relock mutex.
 	err := Pthread_mutex_unlock(mutexHandlePtr)
 	if err != 0 {
 		return err
@@ -250,6 +276,7 @@ func libScePosix_pthread_cond_timedwait(condHandlePtr, mutexHandlePtr *uintptr, 
 		condAddr = *condHandlePtr
 	}
 	cond := (*PthreadCond)(unsafe.Pointer(condAddr))
+	hostCond := GetCond(condAddr)
 
 	// Calculate actual timeout from absolute time.
 	targetTime := time.Unix(int64(timestamp.Seconds), int64(timestamp.Nanoseconds))
@@ -265,11 +292,12 @@ func libScePosix_pthread_cond_timedwait(condHandlePtr, mutexHandlePtr *uintptr, 
 		return ETIMEDOUT
 	}
 
-	// Unlock mutex, wait on condition and relock mutex.
-	hostCond := GetCond(condAddr)
-	hostCond.Mutex.Lock()
+	// Get wait channel.
 	w := hostCond.WaitChan()
-	hostCond.Mutex.Unlock()
+	atomic.AddInt32(&hostCond.Waiters, 1)
+	defer atomic.AddInt32(&hostCond.Waiters, -1)
+
+	// Unlock mutex, wait on condition and relock mutex.
 	err := Pthread_mutex_unlock(mutexHandlePtr)
 	if err != 0 {
 		return err
@@ -281,7 +309,6 @@ func libScePosix_pthread_cond_timedwait(condHandlePtr, mutexHandlePtr *uintptr, 
 			GetCondNameText(cond, condAddr),
 		)
 	}
-
 	select {
 	case <-w:
 	case <-time.After(timeout):
@@ -328,15 +355,17 @@ func libScePosix_pthread_cond_reltimedwait_np(condHandlePtr, mutexHandlePtr *uin
 		condAddr = *condHandlePtr
 	}
 	cond := (*PthreadCond)(unsafe.Pointer(condAddr))
+	hostCond := GetCond(condAddr)
 
 	// Calculate timeout.
 	timeout := time.Duration(micros) * time.Microsecond
 
-	// Unlock mutex, perform a timed wait on condition and relock mutex.
-	hostCond := GetCond(condAddr)
-	hostCond.Mutex.Lock()
+	// Get wait channel.
 	w := hostCond.WaitChan()
-	hostCond.Mutex.Unlock()
+	atomic.AddInt32(&hostCond.Waiters, 1)
+	defer atomic.AddInt32(&hostCond.Waiters, -1)
+
+	// Unlock mutex, perform a timed wait on condition and relock mutex.
 	err := Pthread_mutex_unlock(mutexHandlePtr)
 	if err != 0 {
 		return err
@@ -349,7 +378,6 @@ func libScePosix_pthread_cond_reltimedwait_np(condHandlePtr, mutexHandlePtr *uin
 			color.Green.Sprintf("%d", timeout.Microseconds()),
 		)
 	}
-
 	select {
 	case <-w:
 	case <-time.After(timeout):

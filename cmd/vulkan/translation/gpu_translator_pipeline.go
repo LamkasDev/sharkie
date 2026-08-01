@@ -54,7 +54,14 @@ func (t *GpuTranslator) BindPipeline(frame uint64, bind *gpu.LiverpoolBindPipeli
 	// Handle depth surface.
 	var depthSurface *vulkan.VulkanSurface
 	dbAddress := (uintptr(bind.DbZWriteBase) << 8) & 0xFFFFFFFFFF
-	if dbAddress != 0 {
+	depthFormat := t.TranslateGcnDepthFormat(bind.DbZFormat)
+	depthTestEnable := (bind.DbDepthControl>>1)&1 == 1
+	depthWriteEnable := (bind.DbDepthControl>>2)&1 == 1
+	zfunc := (bind.DbDepthControl >> 4) & 0x7
+	if zfunc == 7 { // ALWAYS
+		depthWriteEnable = false
+	}
+	if dbAddress != 0 && depthFormat != vk.FormatUndefined && (depthTestEnable || depthWriteEnable) {
 		depthSurface, err = t.GetSurface(spirvStructs.ImageDescriptor{
 			BaseAddress: dbAddress,
 			Width:       uint16(surface.ImageView.Image.FirstDescriptor.Width),
@@ -62,10 +69,12 @@ func (t *GpuTranslator) BindPipeline(frame uint64, bind *gpu.LiverpoolBindPipeli
 			DataFormat:  10, NumFormat: 0,
 			DstSelX: 4, DstSelY: 5, DstSelZ: 6, DstSelW: 7,
 			Depth: 1, Pitch: surface.ImageView.Image.FirstDescriptor.Width,
-		}, t.TranslateGcnDepthFormat(bind.DbZFormat))
+		}, depthFormat)
 		if err != nil {
 			return
 		}
+	} else {
+		dbAddress = 0
 	}
 
 	// Get or create framebuffer.
@@ -113,15 +122,21 @@ func (t *GpuTranslator) BindPipeline(frame uint64, bind *gpu.LiverpoolBindPipeli
 	if err != nil {
 		return
 	}
-	psSpirv, psKey := t.GetShaderWithContext(bind.PixelShader, spirv.SpirvShaderContext{
-		PsInControl:     bind.PsInControl,
-		PsInputAddress:  bind.PsInputAddress,
-		PsInputControls: bind.PsInputControls,
-	})
-	t.activeFragmentShader = psSpirv
-	psModule, err := t.GetShaderModule(psKey, psSpirv)
-	if err != nil {
-		return
+
+	var psModule vk.ShaderModule
+	if bind.PixelShader != nil {
+		psSpirv, psKey := t.GetShaderWithContext(bind.PixelShader, spirv.SpirvShaderContext{
+			PsInControl:     bind.PsInControl,
+			PsInputAddress:  bind.PsInputAddress,
+			PsInputControls: bind.PsInputControls,
+		})
+		t.activeFragmentShader = psSpirv
+		psModule, err = t.GetShaderModule(psKey, psSpirv)
+		if err != nil {
+			return
+		}
+	} else {
+		t.activeFragmentShader = nil
 	}
 
 	var tcsModule, tesModule, gsModule vk.ShaderModule
@@ -167,9 +182,9 @@ func (t *GpuTranslator) BindPipeline(frame uint64, bind *gpu.LiverpoolBindPipeli
 		FragmentModule:    psModule,
 		RenderPass:        fb.RenderPass,
 		GraphicsPipelineKey: vulkan.GraphicsPipelineKey{
-			VertexModuleAddress:   bind.VertexShader.Address,
+			VertexModuleAddress:   bind.VertexShaderAddress,
 			FetchShaderAddress:    vsKey.FetchShaderAddress,
-			FragmentModuleAddress: bind.PixelShader.Address,
+			FragmentModuleAddress: bind.PixelShaderAddress,
 			RenderTargetAddress:   rtAddress,
 			DepthTargetAddress:    dbAddress,
 
@@ -261,8 +276,8 @@ func (t *GpuTranslator) BindPipeline(frame uint64, bind *gpu.LiverpoolBindPipeli
 	if logger.LogRenderer {
 		logger.Printf("[%s] Bound pipeline (vertex=%s, fragment=%s, rtAddress=0x%X, rtPitch=%d, rtSize=%dx%d).\n",
 			color.Blue.Sprintf("Frame %d", frame),
-			color.Yellow.Sprintf("0x%X", bind.VertexShader.Address),
-			color.Yellow.Sprintf("0x%X", bind.PixelShader.Address),
+			color.Yellow.Sprintf("0x%X", bind.VertexShaderAddress),
+			color.Yellow.Sprintf("0x%X", bind.PixelShaderAddress),
 			rtAddress, bind.RtPitch, rtWidth, rtHeight,
 		)
 	}

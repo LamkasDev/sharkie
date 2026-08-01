@@ -4,6 +4,7 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	"github.com/LamkasDev/sharkie/cmd/lib/posix"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/kernel"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/time"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
@@ -42,6 +43,27 @@ func libKernel_sceKernelGetProcParam() uintptr {
 		color.Magenta.Sprint("sceKernelGetProcParam"),
 	)
 	return 0
+}
+
+// 0x0000000000015690
+// __int64 sceKernelGetCpumode()
+func libKernel_sceKernelGetCpumode() uintptr {
+	// 67, haha.
+	isCpu6, isCpu7 := GlobalPsfAttributes.Has(PsfAttributeSixCpuMode), GlobalPsfAttributes.Has(PsfAttributeSevenCpuMode)
+	cpuMode := uintptr(0)
+	if isCpu6 && isCpu7 {
+		cpuMode = 2
+	}
+	if isCpu7 {
+		cpuMode = 5
+	}
+
+	logger.Printf("%-132s %s returned cpu mode %s.\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("sceKernelGetCpumode"),
+		color.Yellow.Sprintf("0x%X", cpuMode),
+	)
+	return cpuMode
 }
 
 // 0x0000000000014BE0

@@ -18,6 +18,7 @@ import (
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/tcb"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/time"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/user"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/user_service"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/video"
 )
 
@@ -118,6 +119,10 @@ func CreateDispatcher(goFn any) asm.StubDispatcher {
 	case func(*UserId) uintptr:
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn((*UserId)(unsafe.Pointer(ctx.DI))))
+		}
+	case func(*UserServiceEvent) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn((*UserServiceEvent)(unsafe.Pointer(ctx.DI))))
 		}
 	case func(*VideoOutBufferAttribute, uintptr, uintptr, uintptr, uint32, uint32, uint32) uintptr:
 		return func(ctx *asm.RegContext) uintptr {

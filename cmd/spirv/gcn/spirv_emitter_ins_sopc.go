@@ -31,6 +31,13 @@ func EmitSOPC(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 		isEqual := b.EmitULessThanEqual(ctx.GetId(BlockContextIdTypeBool), val0, val1)
 		resScc := b.EmitSelect(ctx.GetId(BlockContextIdTypeUint), isEqual, ctx.GetConstId(ConstIdUint1), ctx.GetConstId(ConstIdUint0))
 		ctx.StoreRegisterPointer(b, gcnSpec.OpScc, resScc)
+	case gcnSpec.SopcOpCmpLtU32:
+		val0 := ctx.GetOperandUintValue(b, details.Src0, instr.Literal)
+		val1 := ctx.GetOperandUintValue(b, details.Src1, instr.Literal)
+
+		isEqual := b.EmitULessThan(ctx.GetId(BlockContextIdTypeBool), val0, val1)
+		resScc := b.EmitSelect(ctx.GetId(BlockContextIdTypeUint), isEqual, ctx.GetConstId(ConstIdUint1), ctx.GetConstId(ConstIdUint0))
+		ctx.StoreRegisterPointer(b, gcnSpec.OpScc, resScc)
 	default:
 		panic(fmt.Sprintf("unknown sopc op %s", gcnSpec.Mnemotics[gcnSpec.EncSOPC][details.Op]))
 	}

@@ -33,7 +33,8 @@ func (image *VulkanImage) DownloadFromVkImage(handles *VulkanHandles, commandBuf
 		}
 	}
 
-	if isLinearTileMode(image.FirstDescriptor.TilingIndex) {
+	linear := isLinearTileMode(image.FirstDescriptor.TilingIndex)
+	if linear {
 		texBuffer, texOffset, err := getLinearBuffer(image.Address)
 		if err != nil {
 			return err
@@ -70,7 +71,8 @@ func (image *VulkanImage) DownloadFromVkImage(handles *VulkanHandles, commandBuf
 		}
 
 		// Allocate staging buffer.
-		buffer, bufferMem, err := AllocateBuffer(handles, copyBytes,
+		stagingBytes := vk.DeviceSize(layoutWidth * layoutHeight * uint32(bpp))
+		buffer, bufferMem, err := AllocateBuffer(handles, stagingBytes,
 			vk.BufferUsageFlags(vk.BufferUsageTransferDstBit|vk.BufferUsageStorageBufferBit),
 			vk.MemoryPropertyFlags(vk.MemoryPropertyDeviceLocalBit))
 		if err != nil {
@@ -178,9 +180,10 @@ func (image *VulkanImage) DownloadFromVkImage(handles *VulkanHandles, commandBuf
 	}
 
 	image.MarkSynced(frame)
-	logger.Printf("[%s] downloaded image 0x%X (%dx%d) to RAM.\n",
+	logger.Printf("[%s] downloaded image 0x%X (%dx%d/%v) to RAM.\n",
 		color.Blue.Sprintf("Frame %d", frame),
 		image.Address, image.FirstDescriptor.Width, image.FirstDescriptor.Height,
+		linear,
 	)
 
 	return nil
@@ -188,7 +191,7 @@ func (image *VulkanImage) DownloadFromVkImage(handles *VulkanHandles, commandBuf
 
 func (image *VulkanImage) ShouldDownloadFromVkImage() bool {
 	// Uploading surfaces is too expensive.
-	if image.IsSurface || IsDepthFormat(image.ImageFormat) {
+	if IsDepthFormat(image.ImageFormat) {
 		return false
 	}
 	if image.HasSync(ImageSyncGpuModified) {

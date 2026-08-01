@@ -89,6 +89,7 @@ func RegisterKernelStubs() {
 	// Process functions.
 	elf.RegisterStub("libkernel", "sceKernelGetProcessType", libKernel_sceKernelGetProcessType)
 	elf.RegisterStub("libkernel", "sceKernelGetProcParam", libKernel_sceKernelGetProcParam)
+	elf.RegisterStub("libkernel", "sceKernelGetCpumode", libKernel_sceKernelGetCpumode)
 	elf.RegisterStub("libkernel", "sceKernelUsleep", libKernel_sceKernelUsleep)
 	elf.RegisterStub("libkernel", "sceKernelNanosleep", libKernel_sceKernelNanosleep)
 
@@ -172,6 +173,8 @@ func RegisterKernelStubs() {
 	// TSC functions.
 	elf.RegisterStub("libkernel", "sceKernelGetTscFrequency", libKernel_sceKernelGetTscFrequency)
 	elf.RegisterStub("libkernel", "sceKernelReadTsc", libKernel_sceKernelReadTsc)
+	elf.RegisterStub("libkernel", "sceKernelGetProcessTimeCounterFrequency", libKernel_sceKernelGetProcessTimeCounterFrequency)
+	elf.RegisterStub("libkernel", "sceKernelGetProcessTimeCounter", libKernel_sceKernelGetProcessTimeCounter)
 
 	// IPMI functions.
 	elf.RegisterStub("libkernel", "ipmimgr_call", libKernel_ipmimgr_call)

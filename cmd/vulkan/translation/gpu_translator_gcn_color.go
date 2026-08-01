@@ -1,7 +1,10 @@
 package translation
 
 import (
+	"math"
+
 	vk "github.com/goki/vulkan"
+	"github.com/x448/float16"
 )
 
 func translateLogicOp(rop3 uint32) vk.LogicOp {
@@ -209,6 +212,49 @@ func translateColorFormat(format uint32, numberType uint32, compSwap uint32) vk.
 func translateClearColor(word0 uint32, word1 uint32, format uint32, numberType uint32, compSwap uint32) []float32 {
 	var r, g, b, a float32 = 0.0, 0.0, 0.0, 1.0
 	switch format {
+	case 2:
+		switch numberType {
+		case 0:
+			r = float32(word0&0xFFFF) / 255.0
+		default:
+			panic("unhandled")
+		}
+	case 4:
+		switch numberType {
+		case 7:
+			r = math.Float32frombits(word0)
+		default:
+			panic("unhandled")
+		}
+	case 5:
+		switch numberType {
+		case 7:
+			r = float32(float16.Frombits(uint16(word0 & 0xFFFF)))
+			g = float32(float16.Frombits(uint16((word0 >> 16) & 0xFFFF)))
+		default:
+			panic("unhandled")
+		}
+	case 7:
+		switch numberType {
+		case 7:
+			// TODO: fix this.
+			_ = "todo"
+		default:
+			panic("unhandled")
+		}
+	case 9:
+		switch numberType {
+		case 0:
+			r = float32(word0&0x3) / 255.0
+			g = float32((word0>>2)&0x3FF) / 255.0
+			b = float32((word0>>12)&0x3FF) / 255.0
+			a = float32((word0>>22)&0x3FF) / 255.0
+		default:
+			panic("unhandled")
+		}
+		if compSwap == 1 {
+			r, b = b, r
+		}
 	case 10:
 		switch numberType {
 		case 0, 6:
@@ -221,6 +267,19 @@ func translateClearColor(word0 uint32, word1 uint32, format uint32, numberType u
 			g = float32((word0 >> 8) & 0xFF)
 			b = float32((word0 >> 16) & 0xFF)
 			a = float32((word0 >> 24) & 0xFF)
+		default:
+			panic("unhandled")
+		}
+		if compSwap == 1 {
+			r, b = b, r
+		}
+	case 12:
+		switch numberType {
+		case 7:
+			r = float32(float16.Frombits(uint16(word0 & 0xFFFF)))
+			g = float32(float16.Frombits(uint16((word0 >> 16) & 0xFFFF)))
+			b = float32(float16.Frombits(uint16(word1 & 0xFFFF)))
+			a = float32(float16.Frombits(uint16((word1 >> 16) & 0xFFFF)))
 		default:
 			panic("unhandled")
 		}

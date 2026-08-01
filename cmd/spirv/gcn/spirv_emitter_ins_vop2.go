@@ -155,6 +155,17 @@ func EmitVOP2(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 		cond := b.EmitINotEqual(typeBool, bitVal, idZeroU)
 		resU := b.EmitSelect(typeUint, cond, val1, val0)
 		StoreRegisterPointerMaskedModified(b, ctx, details.Clamp, details.OMod, details.Vdst+gcnSpec.OpVgpr0, resU, false)
+	case gcnSpec.Vop2OpMadmkF32:
+		typeUint := ctx.GetId(BlockContextIdTypeUint)
+		typeFloat := ctx.GetId(BlockContextIdTypeFloat)
+
+		val0 := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
+		val1 := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src1, instr.Literal, 1)
+		valK := b.EmitBitcast(typeFloat, b.EmitConstantUint(typeUint, instr.Literal))
+
+		// D.f = S0.f * K + S1.f
+		resF := b.EmitExtInst(typeFloat, ctx.GetId(BlockContextIdGlsl), spec.SpvGlslOpFma, val0, valK, val1)
+		StoreRegisterPointerMaskedModified(b, ctx, details.Clamp, details.OMod, details.Vdst+gcnSpec.OpVgpr0, resF, true)
 	default:
 		panic(fmt.Sprintf("unknown vop2 op %s", gcnSpec.Mnemotics[gcnSpec.EncVOP2][details.Op]))
 	}

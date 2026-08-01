@@ -77,6 +77,63 @@ func libScePosix_pthread_create_name_np(threadPtr uintptr, attrHandlePtr *uintpt
 	return 0
 }
 
+func Pthread_self() uintptr {
+	return libScePosix_pthread_self()
+}
+
+func libScePosix_pthread_self() uintptr {
+	thread := emu.GetCurrentThread()
+	threadPtr := (uintptr)(unsafe.Pointer(thread.Tcb.Thread))
+	/* logger.Printf("%-132s %s returned thread %s.\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("pthread_self"),
+		color.Yellow.Sprintf("0x%X", thread),
+	) */
+	return threadPtr
+}
+
+func Pthread_equal(t1, t2 uintptr) uintptr {
+	return libScePosix_pthread_equal(t1, t2)
+}
+
+func libScePosix_pthread_equal(t1, t2 uintptr) uintptr {
+	if t1 == t2 {
+		return 1
+	}
+	return 0
+}
+
+func Pthread_detach(threadPtr uintptr) uintptr {
+	return libScePosix_pthread_detach(threadPtr)
+}
+
+// TODO: finish this.
+func libScePosix_pthread_detach(threadPtr uintptr) uintptr {
+	if threadPtr == 0 {
+		logger.Printf("%-132s %s failed due to invalid thread pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("pthread_detach"),
+		)
+		return EINVAL
+	}
+	thread := emu.GetThreadForPtr(threadPtr)
+	if thread == nil {
+		logger.Printf("%-132s %s failed due to invalid thread %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("pthread_detach"),
+			color.Yellow.Sprintf("0x%X", threadPtr),
+		)
+		return ENOENT
+	}
+
+	logger.Printf("%-132s %s detached %s.\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("pthread_detach"),
+		color.Green.Sprint(thread.Name),
+	)
+	return 0
+}
+
 func Pthread_join(threadPtr, retValPtr uintptr) uintptr {
 	return libScePosix_pthread_join(threadPtr, retValPtr)
 }
@@ -136,29 +193,34 @@ func libScePosix_pthread_join(threadPtr, retValPtr uintptr) uintptr {
 	return 0
 }
 
-func Pthread_self() uintptr {
-	return libScePosix_pthread_self()
+func Pthread_cancel(threadPtr uintptr) uintptr {
+	return libScePosix_pthread_cancel(threadPtr)
 }
 
-func libScePosix_pthread_self() uintptr {
-	thread := emu.GetCurrentThread()
-	threadPtr := (uintptr)(unsafe.Pointer(thread.Tcb.Thread))
-	/* logger.Printf("%-132s %s returned thread %s.\n",
-		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprint("pthread_self"),
-		color.Yellow.Sprintf("0x%X", thread),
-	) */
-	return threadPtr
-}
-
-func Pthread_equal(t1, t2 uintptr) uintptr {
-	return libScePosix_pthread_equal(t1, t2)
-}
-
-func libScePosix_pthread_equal(t1, t2 uintptr) uintptr {
-	if t1 == t2 {
-		return 1
+func libScePosix_pthread_cancel(threadPtr uintptr) uintptr {
+	if threadPtr == 0 {
+		logger.Printf("%-132s %s failed due to invalid thread pointer %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("pthread_cancel"),
+			color.Yellow.Sprintf("0x%X", threadPtr),
+		)
+		return EINVAL
 	}
+	thread := emu.GetThreadForPtr(threadPtr)
+	if thread == nil {
+		logger.Printf("%-132s %s failed due to invalid thread %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("pthread_cancel"),
+			color.Yellow.Sprintf("0x%X", threadPtr),
+		)
+		return ENOENT
+	}
+
+	logger.Printf("%-132s %s tried cancelling thread %s.\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("pthread_cancel"),
+		color.Blue.Sprint(thread.Name),
+	)
 	return 0
 }
 
@@ -242,6 +304,47 @@ func libScePosix_pthread_setaffinity_np(threadPtr, cpuSetSize uintptr, cpuSet *T
 		color.Magenta.Sprint("pthread_setaffinity_np"),
 		color.Green.Sprint(thread.Name),
 		color.Yellow.Sprintf("0x%X", cpuSet.Low),
+	)
+	return 0
+}
+
+func Pthread_getschedparam() uintptr {
+	return libScePosix_pthread_getschedparam()
+}
+
+// TODO: finish this.
+func libScePosix_pthread_getschedparam() uintptr {
+	return 0
+}
+
+func Pthread_setschedparam() uintptr {
+	return libScePosix_pthread_setschedparam()
+}
+
+// TODO: finish this.
+func libScePosix_pthread_setschedparam() uintptr {
+	thread := emu.GetCurrentThread()
+	_ = thread
+
+	logger.Printf("%-132s %s tried setting sched param.\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("pthread_setschedparam"),
+	)
+	return 0
+}
+
+func Pthread_setcancelstate() uintptr {
+	return libScePosix_pthread_setcancelstate()
+}
+
+// TODO: finish this.
+func libScePosix_pthread_setcancelstate() uintptr {
+	thread := emu.GetCurrentThread()
+	_ = thread
+
+	logger.Printf("%-132s %s tried setting cancel state.\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("pthread_setcancelstate"),
 	)
 	return 0
 }

@@ -9,7 +9,7 @@ func RegisterUserServiceStubs() {
 	elf.RegisterStub("libSceUserService", "sceUserServiceInitialize", libSceUserService_sceUserServiceInitialize)
 
 	// Event functions.
-	// elf.RegisterStub("libSceUserService", "sceUserServiceGetEvent", SceUserServiceGetEvent)
+	elf.RegisterStub("libSceUserService", "sceUserServiceGetEvent", libSceUserService_sceUserServiceGetEvent)
 
 	// User functions.
 	elf.RegisterStub("libSceUserService", "sceUserServiceGetInitialUser", libSceUserService_sceUserServiceGetInitialUser)

@@ -27,11 +27,13 @@ func (l *Liverpool) SetupPM4Handlers() {
 
 	l.PM4Handlers[PM4_IT_DRAW_INDEX_AUTO] = l.handleDrawIndexAuto
 	l.PM4Handlers[PM4_IT_DRAW_INDEX_2] = l.handleDrawIndex2
+	l.PM4Handlers[PM4_IT_DRAW_INDEX_OFFSET_2] = l.handleDrawIndexOffset2
 
 	l.PM4Handlers[PM4_IT_CONTEXT_CONTROL] = l.handleContextControl
 	l.PM4Handlers[PM4_IT_CLEAR_STATE] = l.handleClearState
 	l.PM4Handlers[PM4_ACQUIRE_MEM] = l.handleAcquireMem
 	l.PM4Handlers[PM4_IT_NUM_INSTANCES] = l.handleNumInstances
+	l.PM4Handlers[PM4_IT_INDEX_BASE] = l.handleIndexBase
 	l.PM4Handlers[PM4_IT_INDEX_TYPE] = l.handleIndexType
 	l.PM4Handlers[PM4_IT_INDEX_BUFFER_SIZE] = l.handleIndexBufferSize
 	l.PM4Handlers[PM4_IT_EVENT_WRITE_EOP] = l.handleEventWriteEop
@@ -210,6 +212,22 @@ func (l *Liverpool) handleNumInstances(stream *LiverpoolCommandStream, payload [
 	}
 }
 
+func (l *Liverpool) handleIndexBase(stream *LiverpoolCommandStream, payload []uint32) {
+	if len(payload) < 2 {
+		logger.Printf("[%s] failed index base payload too short.\n",
+			color.Green.Sprintf("PM4-%s/%d", stream.Name, len(payload)),
+		)
+		return
+	}
+	l.DrawState.IndexBase = uintptr(uint64(payload[0]) | uint64(payload[1])<<32)
+	if LogPM4Packets {
+		logger.Printf("[%s] set index base to %s.\n",
+			color.Green.Sprintf("PM4-%s/%d", stream.Name, len(payload)),
+			color.Yellow.Sprintf("0x%X", l.DrawState.IndexBase),
+		)
+	}
+}
+
 func (l *Liverpool) handleIndexType(stream *LiverpoolCommandStream, payload []uint32) {
 	if len(payload) < 1 {
 		logger.Printf("[%s] failed index type payload too short.\n",
@@ -235,11 +253,11 @@ func (l *Liverpool) handleIndexBufferSize(stream *LiverpoolCommandStream, payloa
 		)
 		return
 	}
-	l.DrawState.IndexBufferSize = payload[0]
+	// l.DrawState.IndexBufferSize = payload[0]
 	if LogPM4Packets {
 		logger.Printf("[%s] set index buffer size to %s.\n",
 			color.Green.Sprintf("PM4-%s/%d", stream.Name, len(payload)),
-			color.Yellow.Sprintf("0x%X", l.DrawState.IndexBufferSize),
+			color.Yellow.Sprintf("0x%X", payload[0]),
 		)
 	}
 }

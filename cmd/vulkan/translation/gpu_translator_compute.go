@@ -18,11 +18,14 @@ func (t *GpuTranslator) Dispatch(frame uint64, dispatch *gpu.LiverpoolDispatch) 
 
 	// Wait for all prior draw work before compute reads rendered attachments.
 	vk.CmdPipelineBarrier(t.commandBuffer.CommandBuffer,
-		vk.PipelineStageFlags(vk.PipelineStageAllGraphicsBit),
+		vk.PipelineStageFlags(vk.PipelineStageAllCommandsBit),
 		vk.PipelineStageFlags(vk.PipelineStageComputeShaderBit),
 		0, 1, []vk.MemoryBarrier{{
-			SType:         vk.StructureTypeMemoryBarrier,
-			SrcAccessMask: vk.AccessFlags(vk.AccessColorAttachmentWriteBit | vk.AccessDepthStencilAttachmentWriteBit | vk.AccessShaderWriteBit | vk.AccessIndirectCommandReadBit | vk.AccessIndexReadBit | vk.AccessVertexAttributeReadBit),
+			SType: vk.StructureTypeMemoryBarrier,
+			SrcAccessMask: vk.AccessFlags(vk.AccessColorAttachmentWriteBit |
+				vk.AccessDepthStencilAttachmentWriteBit |
+				vk.AccessShaderWriteBit |
+				vk.AccessTransferWriteBit),
 			DstAccessMask: vk.AccessFlags(vk.AccessShaderReadBit | vk.AccessShaderWriteBit),
 		}}, 0, nil, 0, nil,
 	)
@@ -111,11 +114,12 @@ func (t *GpuTranslator) Dispatch(frame uint64, dispatch *gpu.LiverpoolDispatch) 
 	// Global memory barrier to make compute writes visible.
 	vk.CmdPipelineBarrier(t.commandBuffer.CommandBuffer,
 		vk.PipelineStageFlags(vk.PipelineStageComputeShaderBit),
-		vk.PipelineStageFlags(vk.PipelineStageAllCommandsBit),
+		vk.PipelineStageFlags(vk.PipelineStageAllCommandsBit|vk.PipelineStageHostBit),
 		0, 1, []vk.MemoryBarrier{{
 			SType:         vk.StructureTypeMemoryBarrier,
 			SrcAccessMask: vk.AccessFlags(vk.AccessShaderWriteBit),
-			DstAccessMask: vk.AccessFlags(vk.AccessColorAttachmentWriteBit | vk.AccessShaderReadBit | vk.AccessIndirectCommandReadBit | vk.AccessIndexReadBit | vk.AccessVertexAttributeReadBit),
+			DstAccessMask: vk.AccessFlags(vk.AccessColorAttachmentWriteBit | vk.AccessShaderReadBit | vk.AccessIndirectCommandReadBit |
+				vk.AccessIndexReadBit | vk.AccessVertexAttributeReadBit | vk.AccessTransferReadBit | vk.AccessHostReadBit),
 		}}, 0, nil, 0, nil,
 	)
 

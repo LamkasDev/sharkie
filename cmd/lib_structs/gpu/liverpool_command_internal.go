@@ -8,10 +8,10 @@ import "unsafe"
 type LiverpoolBindPipelineInternal struct {
 	// Shader addresses (for hashing).
 	VertexShaderAddress   uintptr
+	PixelShaderAddress    uintptr
 	HullShaderAddress     uintptr
 	EvalShaderAddress     uintptr
 	GeometryShaderAddress uintptr
-	PixelShaderAddress    uintptr
 
 	// Draw parameters.
 	PrimType uint32
@@ -182,16 +182,15 @@ type LiverpoolSetDynamicStateInternal struct {
 
 type LiverpoolDrawInternal struct {
 	// Draw parameters.
-	VertexCount   uint32
 	InstanceCount uint32
 	PrimType      uint32
 	IsIndexed     bool
 
 	// Indexed draw parameters.
-	IndexCount       uint32
-	IndexType        uint32
-	IndexBaseAddress uintptr
-	IndexOffset      uint32
+	IndexType   uint32
+	IndexBase   uintptr
+	IndexCount  uint32
+	IndexOffset uint32
 
 	// Shader resources.
 	VertexShRsrc1, VertexShRsrc2     uint32

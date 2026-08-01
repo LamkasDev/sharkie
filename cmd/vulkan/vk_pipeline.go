@@ -121,13 +121,15 @@ func CreateGraphicsPipeline(handles *VulkanHandles, request GraphicsPipelineRequ
 			PName:  "main\x00",
 		})
 	}
-	stages = append(stages, vk.PipelineShaderStageCreateInfo{
-		SType:  vk.StructureTypePipelineShaderStageCreateInfo,
-		Stage:  vk.ShaderStageFragmentBit,
-		Module: request.FragmentModule,
-		PName:  "main\x00",
-		PNext:  unsafe.Pointer(subgroupSizeFs),
-	})
+	if request.FragmentModule != vk.NullShaderModule {
+		stages = append(stages, vk.PipelineShaderStageCreateInfo{
+			SType:  vk.StructureTypePipelineShaderStageCreateInfo,
+			Stage:  vk.ShaderStageFragmentBit,
+			Module: request.FragmentModule,
+			PName:  "main\x00",
+			PNext:  unsafe.Pointer(subgroupSizeFs),
+		})
+	}
 
 	topology := translateTopology(request.PrimType)
 

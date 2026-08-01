@@ -29,6 +29,7 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/semaphore"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/system_service"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/user"
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/user_service"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/gookit/color"
@@ -98,6 +99,7 @@ func SetupEmulatorGuest(gameNameOrPath string) error {
 	user.SetupUserManager()
 	save_data.SetupSaveDataManager()
 	system_service.SetupSystemService()
+	user_service.SetupUserService()
 	app_content.SetupAppContentInstance()
 	net.SetupNetConnectionInstance()
 	gpu.SetupLiverpool()

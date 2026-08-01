@@ -1,10 +1,11 @@
 package gnm_driver
 
 import (
+	"github.com/LamkasDev/sharkie/cmd/emu"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/irq"
-	. "github.com/LamkasDev/sharkie/cmd/lib_structs/posix"
 	"github.com/LamkasDev/sharkie/cmd/logger"
+	"github.com/gookit/color"
 )
 
 // 0x0000000000002280
@@ -12,7 +13,11 @@ import (
 func libSceGnmDriver_sceGnmAddEqEvent(equeueHandle, id, userData uintptr) uintptr {
 	equeue := GetEqueue(equeueHandle)
 	if equeue == nil {
-		return EBADF
+		logger.Printf("%-132s %s failed due to invalid equeue.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceGnmAddEqEvent"),
+		)
+		return 0x80020009
 	}
 
 	GlobalInterruptHandler.Register(InterruptGraphicsFlip, func(irqType InterruptType) {
@@ -32,5 +37,10 @@ func libSceGnmDriver_sceGnmAddEqEvent(equeueHandle, id, userData uintptr) uintpt
 		}
 	})
 
+	logger.Printf("%-132s %s added flip event to %s.\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("sceGnmAddEqEvent"),
+		color.Blue.Sprint(equeue.Name),
+	)
 	return 0
 }

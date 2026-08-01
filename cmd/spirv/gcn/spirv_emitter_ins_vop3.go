@@ -61,6 +61,34 @@ func EmitVOP3(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 
 		resF := b.EmitExtInst(ctx.GetId(BlockContextIdTypeFloat), ctx.GetId(BlockContextIdGlsl), spec.SpvGlslOpFma, val0, val1, val2)
 		StoreRegisterPointerMaskedModified(b, ctx, details.Clamp, details.OMod, details.Vdst+gcnSpec.OpVgpr0, resF, true)
+	case details.Op == gcnSpec.Vop3OpMin3F32:
+		// TODO: add SPV_AMD_shader_trinary_minmax optimized version.
+		typeFloat := ctx.GetId(BlockContextIdTypeFloat)
+		idGlsl := ctx.GetId(BlockContextIdGlsl)
+
+		val0 := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
+		val1 := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src1, instr.Literal, 1)
+		val2 := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src2, instr.Literal, 2)
+
+		// D.f = min(S0.f, min(S1.f, S2.f))
+		min01 := b.EmitExtInst(typeFloat, idGlsl, spec.SpvGlslOpFMin, val0, val1)
+		resF := b.EmitExtInst(typeFloat, idGlsl, spec.SpvGlslOpFMin, min01, val2)
+
+		StoreRegisterPointerMaskedModified(b, ctx, details.Clamp, details.OMod, details.Vdst+gcnSpec.OpVgpr0, resF, true)
+	case details.Op == gcnSpec.Vop3OpMax3F32:
+		// TODO: add SPV_AMD_shader_trinary_minmax optimized version.
+		typeFloat := ctx.GetId(BlockContextIdTypeFloat)
+		idGlsl := ctx.GetId(BlockContextIdGlsl)
+
+		val0 := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
+		val1 := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src1, instr.Literal, 1)
+		val2 := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src2, instr.Literal, 2)
+
+		// D.f = max(S0.f, max(S1.f, S2.f))
+		max01 := b.EmitExtInst(typeFloat, idGlsl, spec.SpvGlslOpFMax, val0, val1)
+		resF := b.EmitExtInst(typeFloat, idGlsl, spec.SpvGlslOpFMax, max01, val2)
+
+		StoreRegisterPointerMaskedModified(b, ctx, details.Clamp, details.OMod, details.Vdst+gcnSpec.OpVgpr0, resF, true)
 	case details.Op == gcnSpec.Vop3OpMed3F32:
 		// TODO: add SPV_AMD_shader_trinary_minmax optimized version.
 		typeFloat := ctx.GetId(BlockContextIdTypeFloat)
@@ -101,6 +129,56 @@ func EmitVOP3(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 		// Final result based on anyNan
 		finalRes := b.EmitSelect(typeFloat, anyNan, min3, res)
 		StoreRegisterPointerMaskedModified(b, ctx, details.Clamp, details.OMod, details.Vdst+gcnSpec.OpVgpr0, finalRes, true)
+	case details.Op == gcnSpec.Vop3OpBfeU32:
+		typeUint := ctx.GetId(BlockContextIdTypeUint)
+		typeBool := ctx.GetId(BlockContextIdTypeBool)
+		idC0 := ctx.GetConstId(ConstIdUint0)
+
+		val0 := ctx.GetOperandUintValue(b, details.Src0, instr.Literal)
+		val1 := ctx.GetOperandUintValue(b, details.Src1, instr.Literal)
+		val2 := ctx.GetOperandUintValue(b, details.Src2, instr.Literal)
+
+		// offset = src1[4:0]
+		// width = src2[4:0]
+		mask31 := ctx.GetConstId(ConstIdUint31)
+		offset := b.EmitBitwiseAnd(typeUint, val1, mask31)
+		width := b.EmitBitwiseAnd(typeUint, val2, mask31)
+
+		// If (width == 0) dst = 0
+		// Else if (width + offset <= 32) dst = bitfieldUExtract(src0, offset, width)
+		// Else dst = src0 >> offset
+		isWidthZero := b.EmitIEqual(typeBool, width, idC0)
+		isShortExtract := b.EmitULessThan(typeBool, b.EmitIAdd(typeUint, width, offset), ctx.GetConstId(ConstIdUint33))
+
+		// Short extract: bitfieldUExtract(src0, offset, width)
+		resShort := b.EmitBitFieldUExtract(typeUint, val0, offset, width)
+
+		// Long extract: src0 >> offset
+		resLong := b.EmitShiftRightLogical(typeUint, val0, offset)
+
+		res := b.EmitSelect(typeUint, isWidthZero, idC0, b.EmitSelect(typeUint, isShortExtract, resShort, resLong))
+		StoreRegisterPointerMaskedModified(b, ctx, details.Clamp, details.OMod, details.Vdst+gcnSpec.OpVgpr0, res, false)
+	case details.Op == gcnSpec.Vop3OpSadU32:
+		typeUint := ctx.GetId(BlockContextIdTypeUint)
+		typeBool := ctx.GetId(BlockContextIdTypeBool)
+
+		val0 := ctx.GetOperandUintValue(b, details.Src0, instr.Literal)
+		val1 := ctx.GetOperandUintValue(b, details.Src1, instr.Literal)
+		val2 := ctx.GetOperandUintValue(b, details.Src2, instr.Literal)
+
+		// (A > B)
+		isGreater := b.EmitUGreaterThan(typeBool, val0, val1)
+
+		// (A - B) and (B - A)
+		subAB := b.EmitISub(typeUint, val0, val1)
+		subBA := b.EmitISub(typeUint, val1, val0)
+
+		// ABS_DIFF(A,B) = (A > B) ? (A - B) : (B - A)
+		absDiff := b.EmitSelect(typeUint, isGreater, subAB, subBA)
+
+		// D.u = ABS_DIFF(S0.u, S1.u) + S2.u
+		res := b.EmitIAdd(typeUint, absDiff, val2)
+		StoreRegisterPointerMaskedModified(b, ctx, details.Clamp, details.OMod, details.Vdst+gcnSpec.OpVgpr0, res, false)
 	default:
 		panic(fmt.Sprintf("unknown vop3 op %s", gcnSpec.Mnemotics[gcnSpec.EncVOP3][details.Op]))
 	}

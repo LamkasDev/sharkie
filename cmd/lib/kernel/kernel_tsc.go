@@ -36,3 +36,33 @@ func libKernel_sceKernelReadTsc() uintptr {
 	}
 	return ticks
 }
+
+// 0x000000000001A720
+// __int64 sceKernelGetProcessTimeCounterFrequency()
+func libKernel_sceKernelGetProcessTimeCounterFrequency() uintptr {
+	freq := uintptr(lib_structs.TSC_FREQUENCY)
+
+	if logger.LogMisc {
+		logger.Printf("%-132s %s returned frequency %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceKernelGetProcessTimeCounterFrequency"),
+			color.Yellow.Sprintf("0x%X", freq),
+		)
+	}
+	return freq
+}
+
+// 0x000000000001A700
+// unsigned __int64 sceKernelGetProcessTimeCounter()
+func libKernel_sceKernelGetProcessTimeCounter() uintptr {
+	ticks := lib_structs.ReadUptimeTsc()
+
+	if logger.LogMisc {
+		logger.Printf("%-132s %s returned %s ticks.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceKernelGetProcessTimeCounter"),
+			color.Green.Sprint(ticks),
+		)
+	}
+	return ticks
+}

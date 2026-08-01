@@ -61,11 +61,12 @@ func (l *Liverpool) SnapshotUserData() uint32 {
 
 // LiverpoolDrawState tracks per-draw state decoded from non-register packets.
 type LiverpoolDrawState struct {
-	InstanceCount   uint32
-	IndexType       uint32  // 0 = 16-bit, 1 = 32-bit
-	IndexBase       uintptr // host address of current index buffer
-	IndexBufferSize uint32
-	ConstRam        LiverpoolConstRam
+	InstanceCount uint32
+	IndexType     uint32  // 0 = 16-bit, 1 = 32-bit
+	IndexBase     uintptr // host address of current index buffer
+	IndexCount    uint32
+	IndexOffset   uint32
+	ConstRam      LiverpoolConstRam
 }
 
 // VsGpuAddress returns the full vertex shader GPU address.

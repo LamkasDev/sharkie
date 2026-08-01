@@ -7,6 +7,14 @@ import (
 	vk "github.com/goki/vulkan"
 )
 
+func (t *GpuTranslator) GetImageByAddress(address uintptr) *vulkan.VulkanImage {
+	t.imagesMutex.Lock()
+	image, _ := t.images[address]
+	t.imagesMutex.Unlock()
+
+	return image
+}
+
 func (t *GpuTranslator) GetImage(descriptor spirvStructs.ImageDescriptor, format vk.Format, isSurface bool) (*vulkan.VulkanImage, error, bool) {
 	t.imagesMutex.Lock()
 	image, ok := t.images[descriptor.BaseAddress]

@@ -12,7 +12,7 @@ func RegisterPosixStubs() {
 	RegisterPosixStub("sem_post", libScePosix_sem_post)
 	RegisterPosixStub("sem_wait", libScePosix_sem_wait)
 	RegisterPosixStub("sem_timedwait", libScePosix_sem_timedwait)
-	RegisterPosixStub("sem_destroy", libScePosix_stub)
+	RegisterPosixStub("sem_destroy", libScePosix_sem_destroy)
 	RegisterPosixStub("sem_init", libScePosix_sem_init)
 
 	// Clock functions.
@@ -27,12 +27,17 @@ func RegisterPosixStubs() {
 	// Thread functions.
 	RegisterPosixStub("pthread_create", libScePosix_pthread_create)
 	RegisterPosixStub("pthread_create_name_np", libScePosix_pthread_create_name_np)
-	RegisterPosixStub("pthread_setschedparam", libScePosix_stub)
 	RegisterPosixStub("pthread_self", libScePosix_pthread_self)
 	RegisterPosixStub("pthread_equal", libScePosix_pthread_equal)
+	RegisterPosixStub("pthread_detach", libScePosix_pthread_detach)
+	RegisterPosixStub("pthread_join", libScePosix_pthread_join)
+	RegisterPosixStub("pthread_cancel", libScePosix_pthread_cancel)
 	RegisterPosixStub("pthread_exit", libScePosix_pthread_exit)
 	RegisterPosixStub("pthread_getaffinity_np", libScePosix_pthread_getaffinity_np)
 	RegisterPosixStub("pthread_setaffinity_np", libScePosix_pthread_setaffinity_np)
+	RegisterPosixStub("pthread_getschedparam", libScePosix_pthread_getschedparam)
+	RegisterPosixStub("pthread_setschedparam", libScePosix_pthread_setschedparam)
+	RegisterPosixStub("pthread_setcancelstate", libScePosix_pthread_setcancelstate)
 
 	// Thread attribute functions.
 	RegisterPosixStub("pthread_attr_init", libScePosix_pthread_attr_init)
@@ -48,10 +53,9 @@ func RegisterPosixStubs() {
 
 	// Thread key functions.
 	RegisterPosixStub("pthread_key_create", libScePosix_pthread_key_create)
+	RegisterPosixStub("pthread_key_delete", libScePosix_pthread_key_delete)
 	RegisterPosixStub("pthread_getspecific", libScePosix_pthread_getspecific)
 	RegisterPosixStub("pthread_setspecific", libScePosix_pthread_setspecific)
-	RegisterPosixStub("pthread_getschedparam", libScePosix_pthread_getschedparam)
-	RegisterPosixStub("pthread_setschedparam", libScePosix_pthread_setschedparam)
 
 	// Mutex functions.
 	RegisterPosixStub("pthread_mutex_init", libScePosix_pthread_mutex_init)

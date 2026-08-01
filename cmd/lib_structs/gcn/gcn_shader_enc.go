@@ -58,12 +58,19 @@ func NewEncoding(dw uint32) spec.Encoding {
 }
 
 func GetEncodingDwordLen(dw uint32) int {
-	switch NewEncoding(dw) {
+	enc := NewEncoding(dw)
+	switch enc {
 	case spec.EncVOP3, spec.EncEXP, spec.EncDS, spec.EncMUBUF, spec.EncMTBUF, spec.EncMIMG:
 		return 2
 	case spec.EncVOP1, spec.EncVOPC, spec.EncVOP2:
 		if dw&0x1FF == 0xFF { // SRC0 == 0xFF
 			return 2
+		}
+		if enc == spec.EncVOP2 {
+			op := (dw >> 25) & 0x3F
+			if op == spec.Vop2OpMadmkF32 || op == spec.Vop2OpMadakF32 {
+				return 2
+			}
 		}
 	case spec.EncSOP1:
 		if dw&0xFF == 0xFF { // SSRC0 == 0xFF

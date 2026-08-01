@@ -27,9 +27,15 @@ func (t *GpuTranslator) Draw(frame uint64, draw *gpu.LiverpoolDraw) {
 	userData, _ := gpu.GlobalUserDataSnapshots[draw.UserDataHash]
 	t.userDataBuffersMutex.Unlock()
 
+	// Get shaders.
+	shaders := []*spirv.SpirvShader{t.activeVertexShader}
+	if t.activeFragmentShader != nil {
+		shaders = append(shaders, t.activeFragmentShader)
+	}
+
 	// Bind resources.
 	staticSetToBind := t.staticDescriptorPool.DefaultSet(frame)
-	_, _, activeStaticSet, err := t.BindResources([]*spirv.SpirvShader{t.activeVertexShader, t.activeFragmentShader}, userData)
+	_, _, activeStaticSet, err := t.BindResources(shaders, userData)
 	if err != nil {
 		panic(err)
 	}
@@ -110,7 +116,7 @@ func (t *GpuTranslator) Draw(frame uint64, draw *gpu.LiverpoolDraw) {
 	if logger.LogRenderer {
 		logger.Printf("[%s] Drawing %s vertices (userData=%s, topology=%s, indexed=%s).\n",
 			color.Blue.Sprintf("Frame %d", frame),
-			color.Green.Sprint(draw.VertexCount),
+			color.Green.Sprint(draw.IndexCount),
 			color.Yellow.Sprintf("0x%X", draw.UserDataHash),
 			color.Green.Sprint(draw.PrimType),
 			color.Green.Sprint(draw.IsIndexed),
@@ -120,7 +126,7 @@ func (t *GpuTranslator) Draw(frame uint64, draw *gpu.LiverpoolDraw) {
 		if draw.PrimType == 19 {
 			panic("Indexed QuadList drawing is not implemented")
 		}
-		targetBuffer, relativeOffset, err := t.GetLinearBuffer(draw.IndexBaseAddress)
+		targetBuffer, relativeOffset, err := t.GetLinearBuffer(draw.IndexBase)
 		if err != nil {
 			panic(err)
 		}
@@ -129,14 +135,14 @@ func (t *GpuTranslator) Draw(frame uint64, draw *gpu.LiverpoolDraw) {
 			indexType = vk.IndexTypeUint32
 		}
 		vk.CmdBindIndexBuffer(t.commandBuffer.CommandBuffer, targetBuffer, vk.DeviceSize(relativeOffset), indexType)
-		vk.CmdDrawIndexed(t.commandBuffer.CommandBuffer, draw.VertexCount, draw.InstanceCount, draw.IndexOffset, 0, 0)
+		vk.CmdDrawIndexed(t.commandBuffer.CommandBuffer, draw.IndexCount, draw.InstanceCount, draw.IndexOffset, 0, 0)
 	} else {
 		if draw.PrimType == 19 {
-			quadCount := draw.VertexCount / 4
+			quadCount := draw.IndexCount / 4
 			vk.CmdBindIndexBuffer(t.commandBuffer.CommandBuffer, t.quadListIndexBuffer, 0, vk.IndexTypeUint16)
 			vk.CmdDrawIndexed(t.commandBuffer.CommandBuffer, quadCount*6, draw.InstanceCount, 0, 0, 0)
 		} else {
-			vk.CmdDraw(t.commandBuffer.CommandBuffer, draw.VertexCount, draw.InstanceCount, 0, 0)
+			vk.CmdDraw(t.commandBuffer.CommandBuffer, draw.IndexCount, draw.InstanceCount, 0, 0)
 		}
 	}
 
