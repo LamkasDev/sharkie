@@ -4,6 +4,7 @@ import (
 	"math"
 
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/gcn"
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/gcn/reg"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
 )
@@ -62,90 +63,61 @@ func (l *Liverpool) recordDraw(stream *LiverpoolCommandStream, isIndexed bool) {
 		LiverpoolBindPipelineInternal: LiverpoolBindPipelineInternal{
 			PrimType: l.Registers.UserConfig[GREG_MM_VGT_PRIMITIVE_TYPE__CI__VI],
 
-			RtBase:         l.Registers.Context[GREG_MM_CB_COLOR0_BASE],
-			RtPitch:        l.Registers.Context[GREG_MM_CB_COLOR0_PITCH],
-			RtSlice:        l.Registers.Context[GREG_MM_CB_COLOR0_SLICE],
-			RtView:         l.Registers.Context[GREG_MM_CB_COLOR0_VIEW],
-			RtAttrib:       l.Registers.Context[GREG_MM_CB_COLOR0_ATTRIB],
-			RtTargetMask:   l.Registers.Context[GREG_MM_CB_TARGET_MASK],
-			RtColorControl: l.Registers.Context[GREG_MM_CB_COLOR_CONTROL],
-			RtBlendControl: l.Registers.Context[GREG_MM_CB_BLEND0_CONTROL],
-			RtClearWord0:   l.Registers.Context[GREG_MM_CB_COLOR0_CLEAR_WORD0],
-			RtClearWord1:   l.Registers.Context[GREG_MM_CB_COLOR0_CLEAR_WORD1],
+			RtBase:             reg.GpuMemoryBase(l.Registers.Context[GREG_MM_CB_COLOR0_BASE]),
+			RtPitch:            reg.CbColorPitch(l.Registers.Context[GREG_MM_CB_COLOR0_PITCH]),
+			RtSlice:            l.Registers.Context[GREG_MM_CB_COLOR0_SLICE],
+			RtView:             reg.CbColorView(l.Registers.Context[GREG_MM_CB_COLOR0_VIEW]),
+			RtAttrib:           reg.CbColorAttrib(l.Registers.Context[GREG_MM_CB_COLOR0_ATTRIB]),
+			RtTargetMask:       reg.CbTargetMask(l.Registers.Context[GREG_MM_CB_TARGET_MASK]),
+			RtColorControl:     reg.CbColorControl(l.Registers.Context[GREG_MM_CB_COLOR_CONTROL]),
+			RtBlendControl:     reg.CbBlendControl(l.Registers.Context[GREG_MM_CB_BLEND0_CONTROL]),
+			SpiShaderColFormat: reg.SpiShaderColFormat(l.Registers.Context[GREG_MM_SPI_SHADER_COL_FORMAT]),
+			SpiShaderZFormat:   reg.SpiShaderZFormat(l.Registers.Context[GREG_MM_SPI_SHADER_Z_FORMAT]),
+			PaClVsOutCntl:      reg.PaClVsOutCntl(l.Registers.Context[GREG_MM_PA_CL_VS_OUT_CNTL]),
+			RtClearWord0:       l.Registers.Context[GREG_MM_CB_COLOR0_CLEAR_WORD0],
+			RtClearWord1:       l.Registers.Context[GREG_MM_CB_COLOR0_CLEAR_WORD1],
 
-			CullFront:             (l.Registers.Context[GREG_MM_PA_SU_SC_MODE_CNTL]>>0)&1 == 1,
-			CullBack:              (l.Registers.Context[GREG_MM_PA_SU_SC_MODE_CNTL]>>1)&1 == 1,
-			Face:                  (l.Registers.Context[GREG_MM_PA_SU_SC_MODE_CNTL]>>2)&1 == 1,
-			PolyMode:              (l.Registers.Context[GREG_MM_PA_SU_SC_MODE_CNTL] >> 3) & 0x3,
-			PolyModeFrontPtype:    (l.Registers.Context[GREG_MM_PA_SU_SC_MODE_CNTL] >> 5) & 0x7,
-			PolyModeBackPtype:     (l.Registers.Context[GREG_MM_PA_SU_SC_MODE_CNTL] >> 8) & 0x7,
-			PolyOffsetFrontEnable: (l.Registers.Context[GREG_MM_PA_SU_SC_MODE_CNTL]>>11)&1 == 1,
-			PolyOffsetBackEnable:  (l.Registers.Context[GREG_MM_PA_SU_SC_MODE_CNTL]>>12)&1 == 1,
-			PolyOffsetParaEnable:  (l.Registers.Context[GREG_MM_PA_SU_SC_MODE_CNTL]>>13)&1 == 1,
-			ProvokingVertexLast:   (l.Registers.Context[GREG_MM_PA_SU_SC_MODE_CNTL]>>19)&1 == 1,
+			PaSuScModeCntl: reg.PaSuScModeCntl(l.Registers.Context[GREG_MM_PA_SU_SC_MODE_CNTL]),
 
-			RtFormat:               (l.Registers.Context[GREG_MM_CB_COLOR0_INFO] >> 2) & 0x1F,
-			RtNumberType:           (l.Registers.Context[GREG_MM_CB_COLOR0_INFO] >> 8) & 0x7,
-			RtCompSwap:             (l.Registers.Context[GREG_MM_CB_COLOR0_INFO] >> 11) & 0x3,
-			RtLinearGeneral:        (l.Registers.Context[GREG_MM_CB_COLOR0_INFO]>>7)&1 == 1,
-			RtFastClear:            (l.Registers.Context[GREG_MM_CB_COLOR0_INFO]>>13)&1 == 1,
-			RtCompression:          (l.Registers.Context[GREG_MM_CB_COLOR0_INFO]>>14)&1 == 1,
-			RtBlendClamp:           (l.Registers.Context[GREG_MM_CB_COLOR0_INFO]>>15)&1 == 1,
-			RtBlendBypass:          (l.Registers.Context[GREG_MM_CB_COLOR0_INFO]>>16)&1 == 1,
-			RtSimpleFloat:          (l.Registers.Context[GREG_MM_CB_COLOR0_INFO]>>17)&1 == 1,
-			RtRoundMode:            (l.Registers.Context[GREG_MM_CB_COLOR0_INFO] >> 18) & 1,
-			RtCmaskIsLinear:        (l.Registers.Context[GREG_MM_CB_COLOR0_INFO]>>19)&1 == 1,
-			RtBlendOptDontRdDst:    (l.Registers.Context[GREG_MM_CB_COLOR0_INFO] >> 20) & 0x7,
-			RtBlendOptDiscardPixel: (l.Registers.Context[GREG_MM_CB_COLOR0_INFO] >> 23) & 0x7,
-			RtFmaskCompressionDis:  (l.Registers.Context[GREG_MM_CB_COLOR0_INFO]>>26)&1 == 1,
+			CbColorInfo0: reg.CbColorInfo(l.Registers.Context[GREG_MM_CB_COLOR0_INFO]),
+			CbShaderMask: reg.CbShaderMask(l.Registers.Context[GREG_MM_CB_SHADER_MASK]),
 
-			DbZExportEnable:              (l.Registers.Context[GREG_MM_DB_SHADER_CONTROL]>>0)&1 == 1,
-			DbStencilTestValExportEnable: (l.Registers.Context[GREG_MM_DB_SHADER_CONTROL]>>1)&1 == 1,
-			DbStencilOpValExportEnable:   (l.Registers.Context[GREG_MM_DB_SHADER_CONTROL]>>2)&1 == 1,
-			DbZOrder:                     (l.Registers.Context[GREG_MM_DB_SHADER_CONTROL] >> 4) & 0x3,
-			DbKillEnable:                 (l.Registers.Context[GREG_MM_DB_SHADER_CONTROL]>>6)&1 == 1,
-			DbCoverageToMaskEnable:       (l.Registers.Context[GREG_MM_DB_SHADER_CONTROL]>>7)&1 == 1,
-			DbMaskExportEnable:           (l.Registers.Context[GREG_MM_DB_SHADER_CONTROL]>>8)&1 == 1,
-			DbExecOnHierFail:             (l.Registers.Context[GREG_MM_DB_SHADER_CONTROL]>>9)&1 == 1,
-			DbExecOnNoop:                 (l.Registers.Context[GREG_MM_DB_SHADER_CONTROL]>>10)&1 == 1,
-			DbAlphaToMaskDisable:         (l.Registers.Context[GREG_MM_DB_SHADER_CONTROL]>>11)&1 == 1,
-			DbDepthBeforeShader:          (l.Registers.Context[GREG_MM_DB_SHADER_CONTROL]>>12)&1 == 1,
-			DbConservativeZExport:        (l.Registers.Context[GREG_MM_DB_SHADER_CONTROL] >> 13) & 0x3,
+			PaSuPolyOffsetClamp:       reg.PaSuPolyOffsetClamp(l.Registers.Context[GREG_MM_PA_SU_POLY_OFFSET_CLAMP]),
+			PaSuPolyOffsetFrontScale:  reg.PaSuPolyOffsetFrontScale(l.Registers.Context[GREG_MM_PA_SU_POLY_OFFSET_FRONT_SCALE]),
+			PaSuPolyOffsetFrontOffset: reg.PaSuPolyOffsetFrontOffset(l.Registers.Context[GREG_MM_PA_SU_POLY_OFFSET_FRONT_OFFSET]),
+			PaSuPolyOffsetBackScale:   reg.PaSuPolyOffsetBackScale(l.Registers.Context[GREG_MM_PA_SU_POLY_OFFSET_BACK_SCALE]),
+			PaSuPolyOffsetBackOffset:  reg.PaSuPolyOffsetBackOffset(l.Registers.Context[GREG_MM_PA_SU_POLY_OFFSET_BACK_OFFSET]),
+			DbShaderControl:           reg.DbShaderControl(l.Registers.Context[GREG_MM_DB_SHADER_CONTROL]),
 
-			DbDepthControl:    l.Registers.Context[GREG_MM_DB_DEPTH_CONTROL],
+			DbDepthControl:    reg.DbDepthControl(l.Registers.Context[GREG_MM_DB_DEPTH_CONTROL]),
 			DbDepthClearValue: l.Registers.Context[GREG_MM_DB_DEPTH_CLEAR],
-			DbDepthSize:       l.Registers.Context[GREG_MM_DB_DEPTH_SIZE],
-			DbZWriteBase: func() uint32 {
+			DbDepthSize:       reg.DbDepthSize(l.Registers.Context[GREG_MM_DB_DEPTH_SIZE]),
+			DbZWriteBase: func() reg.GpuMemoryBase {
 				if l.Registers.Context[GREG_MM_DB_Z_WRITE_BASE] != 0 {
-					return l.Registers.Context[GREG_MM_DB_Z_WRITE_BASE]
+					return reg.GpuMemoryBase(l.Registers.Context[GREG_MM_DB_Z_WRITE_BASE])
 				}
-				return l.Registers.Context[GREG_MM_DB_Z_READ_BASE]
+				return reg.GpuMemoryBase(l.Registers.Context[GREG_MM_DB_Z_READ_BASE])
 			}(),
-			DbZFormat: l.Registers.Context[GREG_MM_DB_Z_INFO] & 0x3,
+			DbZInfo: reg.DbZInfo(l.Registers.Context[GREG_MM_DB_Z_INFO]),
 
-			DbStencilControl:    l.Registers.Context[GREG_MM_DB_STENCIL_CONTROL],
-			DbStencilRefMask:    l.Registers.Context[GREG_MM_DB_STENCILREFMASK],
-			DbStencilRefMaskBf:  l.Registers.Context[GREG_MM_DB_STENCILREFMASK_BF],
+			DbStencilControl:    reg.DbStencilControl(l.Registers.Context[GREG_MM_DB_STENCIL_CONTROL]),
+			DbStencilRefMask:    reg.DbStencilrefmask(l.Registers.Context[GREG_MM_DB_STENCILREFMASK]),
+			DbStencilRefMaskBf:  reg.DbStencilrefmaskBf(l.Registers.Context[GREG_MM_DB_STENCILREFMASK_BF]),
 			DbStencilClearValue: l.Registers.Context[GREG_MM_DB_STENCIL_CLEAR],
 
-			DbDepthClearEnable:   (l.Registers.Context[GREG_MM_DB_RENDER_CONTROL]>>0)&1 == 1,
-			DbStencilClearEnable: (l.Registers.Context[GREG_MM_DB_RENDER_CONTROL]>>1)&1 == 1,
-			DbDepthCopy:          (l.Registers.Context[GREG_MM_DB_RENDER_CONTROL]>>2)&1 == 1,
-			DbStencilCopy:        (l.Registers.Context[GREG_MM_DB_RENDER_CONTROL]>>3)&1 == 1,
+			DbRenderControl: reg.DbRenderControl(l.Registers.Context[GREG_MM_DB_RENDER_CONTROL]),
 
-			VpScissorEnable:    (l.Registers.Context[GREG_MM_PA_SC_MODE_CNTL_0]>>1)&1 == 1,
-			WindowOffsetEnable: (l.Registers.Context[GREG_MM_PA_SU_SC_MODE_CNTL]>>16)&1 == 1,
+			PaScModeCntl0:         reg.PaScModeCntl0(l.Registers.Context[GREG_MM_PA_SC_MODE_CNTL_0]),
+			PaScAaConfig:          reg.PaScAaConfig(l.Registers.Context[GREG_MM_PA_SC_AA_CONFIG]),
+			VgtMultiPrimIbResetEn: reg.VgtMultiPrimIbResetEn(l.Registers.Context[GREG_MM_VGT_MULTI_PRIM_IB_RESET_EN]),
+			PaSuLineCntl:          reg.PaSuLineCntl(l.Registers.Context[GREG_MM_PA_SU_LINE_CNTL]),
+			PaScAaMaskX0y0X1y0:    reg.PaScAaMaskX0y0X1y0(l.Registers.Context[GREG_MM_PA_SC_AA_MASK_X0Y0_X1Y0]),
+			PaScAaMaskX0y1X1y1:    reg.PaScAaMaskX0y1X1y1(l.Registers.Context[GREG_MM_PA_SC_AA_MASK_X0Y1_X1Y1]),
 
-			LineStippleEnable: (l.Registers.Context[GREG_MM_PA_SC_MODE_CNTL_0]>>2)&1 == 1,
+			PsInControl:    reg.SpiPsInControl(l.Registers.Context[GREG_MM_SPI_PS_IN_CONTROL]),
+			PsInputAddress: reg.SpiPsInputAddr(l.Registers.Context[GREG_MM_SPI_PS_INPUT_ADDR]),
 
-			MsaaEnable:          (l.Registers.Context[GREG_MM_PA_SC_MODE_CNTL_0]>>0)&1 == 1,
-			MsaaSampleLocations: l.Registers.Context[GREG_MM_PA_SC_AA_CONFIG] & 0x7,
-
-			PsInControl:    l.Registers.Context[GREG_MM_SPI_PS_IN_CONTROL],
-			PsInputAddress: l.Registers.Context[GREG_MM_SPI_PS_INPUT_ADDR],
-
-			MultiPrimIbResetEnable: l.Registers.Context[GREG_MM_VGT_MULTI_PRIM_IB_RESET_EN]&1 == 1,
-			MultiPrimIbResetIndex:  l.Registers.Context[GREG_MM_VGT_MULTI_PRIM_IB_RESET_INDX],
+			MultiPrimIbResetIndex: l.Registers.Context[GREG_MM_VGT_MULTI_PRIM_IB_RESET_INDX],
 
 			UserDataHash: l.SnapshotUserData(),
 		},
@@ -172,7 +144,7 @@ func (l *Liverpool) recordDraw(stream *LiverpoolCommandStream, isIndexed bool) {
 	// Add to command stream.
 	bindHash := bindPipeline.Hash()
 	bindIndex, ok := stream.PipelinesMap[bindHash]
-	if !ok {
+	if !ok || true {
 		bindIndex = uint32(len(stream.Pipelines))
 		stream.Pipelines = append(stream.Pipelines, bindPipeline)
 		stream.PipelinesMap[bindHash] = bindIndex
@@ -191,54 +163,45 @@ func (l *Liverpool) recordDraw(stream *LiverpoolCommandStream, isIndexed bool) {
 			VpZMin:    math.Float32frombits(l.Registers.Context[GREG_MM_PA_SC_VPORT_ZMIN_0]),
 			VpZMax:    math.Float32frombits(l.Registers.Context[GREG_MM_PA_SC_VPORT_ZMAX_0]),
 
-			VteControl:      l.Registers.Context[GREG_MM_PA_CL_VTE_CNTL],
-			VpXScaleEnable:  (l.Registers.Context[GREG_MM_PA_CL_VTE_CNTL]>>0)&1 == 1,
-			VpXOffsetEnable: (l.Registers.Context[GREG_MM_PA_CL_VTE_CNTL]>>1)&1 == 1,
-			VpYScaleEnable:  (l.Registers.Context[GREG_MM_PA_CL_VTE_CNTL]>>2)&1 == 1,
-			VpYOffsetEnable: (l.Registers.Context[GREG_MM_PA_CL_VTE_CNTL]>>3)&1 == 1,
-			VpZScaleEnable:  (l.Registers.Context[GREG_MM_PA_CL_VTE_CNTL]>>4)&1 == 1,
-			VpZOffsetEnable: (l.Registers.Context[GREG_MM_PA_CL_VTE_CNTL]>>5)&1 == 1,
-			VtxXyFmt:        (l.Registers.Context[GREG_MM_PA_CL_VTE_CNTL]>>8)&1 == 1,
-			VtxZFmt:         (l.Registers.Context[GREG_MM_PA_CL_VTE_CNTL]>>9)&1 == 1,
-			VtxW0Fmt:        (l.Registers.Context[GREG_MM_PA_CL_VTE_CNTL]>>10)&1 == 1,
+			PaClVteCntl: reg.PaClVteCntl(l.Registers.Context[GREG_MM_PA_CL_VTE_CNTL]),
 
-			ClipControl:   l.Registers.Context[GREG_MM_PA_CL_CLIP_CNTL],
-			GbVertClipAdj: math.Float32frombits(l.Registers.Context[GREG_MM_PA_CL_GB_VERT_CLIP_ADJ]),
-			GbVertDiscAdj: math.Float32frombits(l.Registers.Context[GREG_MM_PA_CL_GB_VERT_DISC_ADJ]),
-			GbHorzClipAdj: math.Float32frombits(l.Registers.Context[GREG_MM_PA_CL_GB_HORZ_CLIP_ADJ]),
-			GbHorzDiscAdj: math.Float32frombits(l.Registers.Context[GREG_MM_PA_CL_GB_HORZ_DISC_ADJ]),
+			ClipControl:    reg.PaClClipCntl(l.Registers.Context[GREG_MM_PA_CL_CLIP_CNTL]),
+			PaScModeCntl0:  reg.PaScModeCntl0(l.Registers.Context[GREG_MM_PA_SC_MODE_CNTL_0]),
+			PaSuScModeCntl: reg.PaSuScModeCntl(l.Registers.Context[GREG_MM_PA_SU_SC_MODE_CNTL]),
+			GbVertClipAdj:  math.Float32frombits(l.Registers.Context[GREG_MM_PA_CL_GB_VERT_CLIP_ADJ]),
+			GbVertDiscAdj:  math.Float32frombits(l.Registers.Context[GREG_MM_PA_CL_GB_VERT_DISC_ADJ]),
+			GbHorzClipAdj:  math.Float32frombits(l.Registers.Context[GREG_MM_PA_CL_GB_HORZ_CLIP_ADJ]),
+			GbHorzDiscAdj:  math.Float32frombits(l.Registers.Context[GREG_MM_PA_CL_GB_HORZ_DISC_ADJ]),
 
 			BlendRed:   l.Registers.Context[GREG_MM_CB_BLEND_RED],
 			BlendGreen: l.Registers.Context[GREG_MM_CB_BLEND_GREEN],
 			BlendBlue:  l.Registers.Context[GREG_MM_CB_BLEND_BLUE],
 			BlendAlpha: l.Registers.Context[GREG_MM_CB_BLEND_ALPHA],
 
-			ScissorTl: l.Registers.Context[GREG_MM_PA_SC_SCREEN_SCISSOR_TL],
+			ScissorTl: reg.PaScScreenScissorTl(l.Registers.Context[GREG_MM_PA_SC_SCREEN_SCISSOR_TL]),
 			ScissorBr: l.Registers.Context[GREG_MM_PA_SC_SCREEN_SCISSOR_BR],
 
-			VpScissorEnable: (l.Registers.Context[GREG_MM_PA_SC_MODE_CNTL_0]>>1)&1 == 1,
-			VpScissorTl:     l.Registers.Context[GREG_MM_PA_SC_VPORT_SCISSOR_0_TL],
-			VpScissorBr:     l.Registers.Context[GREG_MM_PA_SC_VPORT_SCISSOR_0_BR],
+			VpScissorTl: reg.PaScVportScissorTl(l.Registers.Context[GREG_MM_PA_SC_VPORT_SCISSOR_0_TL]),
+			VpScissorBr: l.Registers.Context[GREG_MM_PA_SC_VPORT_SCISSOR_0_BR],
 
-			GenericScissorTl: l.Registers.Context[GREG_MM_PA_SC_GENERIC_SCISSOR_TL],
+			GenericScissorTl: reg.PaScGenericScissorTl(l.Registers.Context[GREG_MM_PA_SC_GENERIC_SCISSOR_TL]),
 			GenericScissorBr: l.Registers.Context[GREG_MM_PA_SC_GENERIC_SCISSOR_BR],
 
-			WindowScissorTl:    l.Registers.Context[GREG_MM_PA_SC_WINDOW_SCISSOR_TL],
-			WindowScissorBr:    l.Registers.Context[GREG_MM_PA_SC_WINDOW_SCISSOR_BR],
-			WindowOffset:       l.Registers.Context[GREG_MM_PA_SC_WINDOW_OFFSET],
-			WindowOffsetEnable: (l.Registers.Context[GREG_MM_PA_SU_SC_MODE_CNTL]>>16)&1 == 1,
+			WindowScissorTl: reg.PaScWindowScissorTl(l.Registers.Context[GREG_MM_PA_SC_WINDOW_SCISSOR_TL]),
+			WindowScissorBr: l.Registers.Context[GREG_MM_PA_SC_WINDOW_SCISSOR_BR],
+			WindowOffset:    reg.PaScWindowOffset(l.Registers.Context[GREG_MM_PA_SC_WINDOW_OFFSET]),
 
 			LineStippleRepeatCount: (l.Registers.Context[GREG_MM_PA_SU_LINE_STIPPLE_CNTL] >> 16) & 0xFF,
 			LineStipplePattern:     l.Registers.Context[GREG_MM_PA_SU_LINE_STIPPLE_CNTL] & 0xFFFF,
 
-			HardwareScreenOffset: l.Registers.Context[GREG_MM_PA_SU_HARDWARE_SCREEN_OFFSET],
+			HardwareScreenOffset: reg.PaSuHardwareScreenOffset(l.Registers.Context[GREG_MM_PA_SU_HARDWARE_SCREEN_OFFSET]),
 		},
 	}
 
 	// Add to command stream.
 	dynHash := setDynamicState.Hash()
 	dynIndex, ok := stream.DynamicStatesMap[dynHash]
-	if !ok {
+	if !ok || true {
 		dynIndex = uint32(len(stream.DynamicStates))
 		stream.DynamicStates = append(stream.DynamicStates, setDynamicState)
 		stream.DynamicStatesMap[dynHash] = dynIndex
@@ -268,10 +231,9 @@ func (l *Liverpool) recordDraw(stream *LiverpoolCommandStream, isIndexed bool) {
 			GeometryShRsrc1: l.Registers.Shader[GREG_MM_SPI_SHADER_PGM_RSRC1_GS],
 			GeometryShRsrc2: l.Registers.Shader[GREG_MM_SPI_SHADER_PGM_RSRC2_GS],
 
-			DbDepthClearEnable:   (l.Registers.Context[GREG_MM_DB_RENDER_CONTROL]>>0)&1 == 1,
-			DbStencilClearEnable: (l.Registers.Context[GREG_MM_DB_RENDER_CONTROL]>>1)&1 == 1,
-			DbDepthClearValue:    l.Registers.Context[GREG_MM_DB_DEPTH_CLEAR],
-			DbStencilClearValue:  l.Registers.Context[GREG_MM_DB_STENCIL_CLEAR],
+			DbRenderControl:     reg.DbRenderControl(l.Registers.Context[GREG_MM_DB_RENDER_CONTROL]),
+			DbDepthClearValue:   l.Registers.Context[GREG_MM_DB_DEPTH_CLEAR],
+			DbStencilClearValue: l.Registers.Context[GREG_MM_DB_STENCIL_CLEAR],
 
 			UserDataHash: bindPipeline.UserDataHash,
 		},
@@ -280,7 +242,7 @@ func (l *Liverpool) recordDraw(stream *LiverpoolCommandStream, isIndexed bool) {
 	// Add to command stream.
 	drawHash := draw.Hash()
 	drawIndex, ok := stream.DrawsMap[bindHash]
-	if !ok {
+	if !ok || true {
 		drawIndex = uint32(len(stream.Draws))
 		stream.Draws = append(stream.Draws, draw)
 		stream.DrawsMap[drawHash] = drawIndex

@@ -116,7 +116,7 @@ func EmitSOP2(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 		emitSccUpdateNonZero(b, ctx, res)
 	case gcnSpec.Sop2OpMulI32:
 		val0 := ctx.GetOperandIntValue(b, details.Src0, instr.Literal)
-		val1 := ctx.GetOperandIntValue(b, details.Src0, instr.Literal)
+		val1 := ctx.GetOperandIntValue(b, details.Src1, instr.Literal)
 		res := b.EmitIMul(typeUint, val0, val1)
 		ctx.StoreRegisterPointer(b, details.Dst, res)
 	case gcnSpec.Sop2OpAddI32:

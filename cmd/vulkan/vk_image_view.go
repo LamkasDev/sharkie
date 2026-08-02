@@ -2,6 +2,7 @@ package vulkan
 
 import (
 	spirvStructs "github.com/LamkasDev/sharkie/cmd/spirv/structs"
+	"github.com/LamkasDev/sharkie/cmd/vulkan/gcn"
 	vk "github.com/goki/vulkan"
 )
 
@@ -38,10 +39,10 @@ func CreateImageView(handles *VulkanHandles, request VulkanImageViewRequest) (*V
 
 func CreateVkImageView(handles *VulkanHandles, request VulkanImageViewRequest, storageLayout bool) (vk.ImageView, error) {
 	components := vk.ComponentMapping{
-		R: translateDstSelToVkSwizzle(request.Descriptor.DstSelX),
-		G: translateDstSelToVkSwizzle(request.Descriptor.DstSelY),
-		B: translateDstSelToVkSwizzle(request.Descriptor.DstSelZ),
-		A: translateDstSelToVkSwizzle(request.Descriptor.DstSelW),
+		R: gcn.TranslateDstSelToVkSwizzle(request.Descriptor.DstSelX),
+		G: gcn.TranslateDstSelToVkSwizzle(request.Descriptor.DstSelY),
+		B: gcn.TranslateDstSelToVkSwizzle(request.Descriptor.DstSelZ),
+		A: gcn.TranslateDstSelToVkSwizzle(request.Descriptor.DstSelW),
 	}
 	if storageLayout {
 		components = vk.ComponentMapping{

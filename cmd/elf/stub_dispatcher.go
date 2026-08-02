@@ -64,6 +64,10 @@ func CreateDispatcher(goFn any) asm.StubDispatcher {
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn((*RtcDateTime)(unsafe.Pointer(ctx.DI)), (*RtcTick)(unsafe.Pointer(ctx.SI))))
 		}
+	case func(*RtcDateTime, uint64) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn((*RtcDateTime)(unsafe.Pointer(ctx.DI)), uint64(ctx.SI)))
+		}
 	case func(*RtcTick) uintptr:
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn((*RtcTick)(unsafe.Pointer(ctx.DI))))

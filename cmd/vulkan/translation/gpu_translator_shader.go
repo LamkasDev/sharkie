@@ -26,10 +26,26 @@ type SpirvShaderKey struct {
 	PsInputControls [32]uint32
 
 	FetchShaderAddress uintptr
+	ClipDistEnable     uint8
+	CullDistEnable     uint8
+
+	DepthBeforeShader bool
+	ZOrder            uint32
+	BlendClamp        bool
+	FrontFaceEnable   bool
 }
 
 func (t *GpuTranslator) GetShader(gcnShader *gcn.GcnShader) *spirv.SpirvShader {
-	shader, _ := t.GetShaderWithContext(gcnShader, spirv.SpirvShaderContext{})
+	var ctx common.SpirvShaderContext
+	switch gcnShader.Stage {
+	case gcn.GcnShaderStageVertex:
+		ctx = common.SpirvVertexShaderContext{}
+	case gcn.GcnShaderStageFragment:
+		ctx = common.SpirvFragmentShaderContext{}
+	case gcn.GcnShaderStageCompute:
+		ctx = common.SpirvComputeShaderContext{}
+	}
+	shader, _ := t.GetShaderWithContext(gcnShader, ctx)
 	return shader
 }
 
@@ -45,18 +61,26 @@ func (t *GpuTranslator) GetShaderAt(address uintptr) *spirv.SpirvShader {
 	return nil
 }
 
-func (t *GpuTranslator) GetShaderWithContext(gcnShader *gcn.GcnShader, context spirv.SpirvShaderContext) (*spirv.SpirvShader, SpirvShaderKey) {
+func (t *GpuTranslator) GetShaderWithContext(gcnShader *gcn.GcnShader, context common.SpirvShaderContext) (*spirv.SpirvShader, SpirvShaderKey) {
 	key := SpirvShaderKey{
 		Address: gcnShader.Address,
-		ThreadX: context.ThreadX,
-		ThreadY: context.ThreadY,
-		ThreadZ: context.ThreadZ,
-
-		PsInControl:     context.PsInControl,
-		PsInputAddress:  context.PsInputAddress,
-		PsInputControls: context.PsInputControls,
-
-		FetchShaderAddress: context.FetchShaderAddress,
+	}
+	switch c := context.(type) {
+	case common.SpirvComputeShaderContext:
+		key.ThreadX = c.ThreadX
+		key.ThreadY = c.ThreadY
+		key.ThreadZ = c.ThreadZ
+	case common.SpirvFragmentShaderContext:
+		key.PsInControl = c.PsInControl
+		key.PsInputAddress = c.PsInputAddress
+		key.PsInputControls = c.PsInputControls
+		key.DepthBeforeShader = c.DepthBeforeShader
+		key.ZOrder = c.ZOrder
+		key.FrontFaceEnable = c.FrontFaceEnable
+	case common.SpirvVertexShaderContext:
+		key.FetchShaderAddress = c.FetchShaderAddress
+		key.ClipDistEnable = c.ClipDistEnable
+		key.CullDistEnable = c.CullDistEnable
 	}
 
 	// Get already loaded shader.

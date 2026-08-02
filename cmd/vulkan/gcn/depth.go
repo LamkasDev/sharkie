@@ -1,61 +1,58 @@
-package translation
+package gcn
 
 import (
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/gcn/reg"
 	vk "github.com/goki/vulkan"
 	"go101.org/nstd"
 )
 
-func translateDepthControl(depthControl uint32, stencilControl uint32, stencilRefMask uint32, stencilRefMaskBf uint32) vk.PipelineDepthStencilStateCreateInfo {
-	backfaceEnable := (depthControl>>7)&1 == 1
+func TranslateDepthControl(depthControl reg.DbDepthControl, stencilControl reg.DbStencilControl, stencilRefMask reg.DbStencilrefmask, stencilRefMaskBf reg.DbStencilrefmaskBf) vk.PipelineDepthStencilStateCreateInfo {
+	backfaceEnable := depthControl.BackfaceEnable()
 
 	frontState := vk.StencilOpState{
-		FailOp:      translateStencilOp(stencilControl & 0xf),
-		PassOp:      translateStencilOp((stencilControl >> 4) & 0xf),
-		DepthFailOp: translateStencilOp((stencilControl >> 8) & 0xf),
-		CompareOp:   translateCompareOp((depthControl >> 8) & 0x7),
-		CompareMask: (stencilRefMask >> 8) & 0xff,
-		WriteMask:   (stencilRefMask >> 16) & 0xff,
-		Reference:   stencilRefMask & 0xff,
+		FailOp:      TranslateStencilOp(stencilControl.Stencilfail()),
+		PassOp:      TranslateStencilOp(stencilControl.Stencilzpass()),
+		DepthFailOp: TranslateStencilOp(stencilControl.Stencilzfail()),
+		CompareOp:   TranslateCompareOp(depthControl.Stencilfunc()),
+		CompareMask: stencilRefMask.Stencilmask(),
+		WriteMask:   stencilRefMask.Stencilwritemask(),
+		Reference:   stencilRefMask.Stenciltestval(),
 	}
 
 	var backState vk.StencilOpState
 	if backfaceEnable {
 		backState = vk.StencilOpState{
-			FailOp:      translateStencilOp((stencilControl >> 12) & 0xf),
-			PassOp:      translateStencilOp((stencilControl >> 16) & 0xf),
-			DepthFailOp: translateStencilOp((stencilControl >> 20) & 0xf),
-			CompareOp:   translateCompareOp((depthControl >> 20) & 0x7),
-			CompareMask: (stencilRefMaskBf >> 8) & 0xff,
-			WriteMask:   (stencilRefMaskBf >> 16) & 0xff,
-			Reference:   stencilRefMaskBf & 0xff,
+			FailOp:      TranslateStencilOp(stencilControl.StencilfailBf()),
+			PassOp:      TranslateStencilOp(stencilControl.StencilzpassBf()),
+			DepthFailOp: TranslateStencilOp(stencilControl.StencilzfailBf()),
+			CompareOp:   TranslateCompareOp(depthControl.StencilfuncBf()),
+			CompareMask: stencilRefMaskBf.StencilmaskBf(),
+			WriteMask:   stencilRefMaskBf.StencilwritemaskBf(),
+			Reference:   stencilRefMaskBf.StenciltestvalBf(),
 		}
 	} else {
 		backState = frontState
 	}
 
-	// When ZFUNC is ALWAYS (7), disable depth writes unconditionally.
-	// Writing depth from ZFUNC=ALWAYS draws provides no occlusion benefit
-	// and, with depth-clearing to 1.0, any geometry that maps to depth < 1
-	// will corrupt the depth buffer for subsequent LESS comparisons.
-	zfunc := (depthControl >> 4) & 0x7
-	depthWriteEnable := (depthControl>>2)&1 == 1
+	zfunc := depthControl.Zfunc()
+	depthWriteEnable := depthControl.ZWriteEnable()
 	if zfunc == 7 {
 		depthWriteEnable = false
 	}
 
 	return vk.PipelineDepthStencilStateCreateInfo{
 		SType:                 vk.StructureTypePipelineDepthStencilStateCreateInfo,
-		DepthTestEnable:       vk.Bool32(nstd.Btoi((depthControl>>1)&1 == 1)),
+		DepthTestEnable:       vk.Bool32(nstd.Btoi(depthControl.ZEnable())),
 		DepthWriteEnable:      vk.Bool32(nstd.Btoi(depthWriteEnable)),
-		DepthCompareOp:        translateCompareOp(zfunc),
-		DepthBoundsTestEnable: vk.Bool32(nstd.Btoi((depthControl>>3)&1 == 1)),
-		StencilTestEnable:     vk.Bool32(nstd.Btoi((depthControl>>0)&1 == 1)),
+		DepthCompareOp:        TranslateCompareOp(zfunc),
+		DepthBoundsTestEnable: vk.Bool32(nstd.Btoi(depthControl.DepthBoundsEnable())),
+		StencilTestEnable:     vk.Bool32(nstd.Btoi(depthControl.StencilEnable())),
 		Front:                 frontState,
 		Back:                  backState,
 	}
 }
 
-func translateCompareOp(op uint32) vk.CompareOp {
+func TranslateCompareOp(op uint32) vk.CompareOp {
 	switch op {
 	case 0: // FRAG_NEVER / REF_NEVER
 		return vk.CompareOpNever
@@ -78,7 +75,7 @@ func translateCompareOp(op uint32) vk.CompareOp {
 	}
 }
 
-func translateStencilOp(op uint32) vk.StencilOp {
+func TranslateStencilOp(op uint32) vk.StencilOp {
 	switch op {
 	case 0: // STENCIL_KEEP
 		return vk.StencilOpKeep
@@ -105,7 +102,7 @@ func translateStencilOp(op uint32) vk.StencilOp {
 	}
 }
 
-func (t *GpuTranslator) TranslateGcnDepthFormat(format uint32) vk.Format {
+func TranslateGcnDepthFormat(format uint32, formatProperties map[vk.Format]vk.FormatProperties) vk.Format {
 	var requested vk.Format
 	switch format {
 	case 1: // Z_16: 16-bit UNORM depth surface.
@@ -120,7 +117,7 @@ func (t *GpuTranslator) TranslateGcnDepthFormat(format uint32) vk.Format {
 
 	// Check if the physical device supports optimal tiling for this format as both a depth-stencil attachment and a sampled image.
 	required := vk.FormatFeatureFlags(vk.FormatFeatureDepthStencilAttachmentBit | vk.FormatFeatureSampledImageBit)
-	if (t.handles.FormatProperties[requested].OptimalTilingFeatures & required) == required {
+	if (formatProperties[requested].OptimalTilingFeatures & required) == required {
 		return requested
 	}
 

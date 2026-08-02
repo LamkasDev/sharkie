@@ -92,7 +92,7 @@ func (t *GpuTranslator) BindResources(shaders []*spirv.SpirvShader, userData spi
 
 	accessText := fmt.Sprintf("[Frame %d] Accessed buffers", t.currentGuestFrame)
 	for i, access := range bufferAccesses {
-		data := unsafe.Slice((*uint32)(unsafe.Pointer(access.Descriptor.BaseAddress)), 16)
+		data := unsafe.Slice((*uint32)(unsafe.Pointer(access.Descriptor.BaseAddress)), 8)
 		accessText += fmt.Sprintf(" %d (0x%X/%d) + %+v", i, access.Descriptor.BaseAddress, access.Descriptor.NumRecords, data)
 	}
 	accessText += ".\n"

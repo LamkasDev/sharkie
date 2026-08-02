@@ -1,13 +1,14 @@
-package translation
+package gcn
 
 import (
 	"math"
 
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/gcn/reg"
 	vk "github.com/goki/vulkan"
 	"github.com/x448/float16"
 )
 
-func translateLogicOp(rop3 uint32) vk.LogicOp {
+func TranslateLogicOp(rop3 uint32) vk.LogicOp {
 	switch rop3 {
 	case 0x00: // BLACKNESS
 		return vk.LogicOpClear
@@ -70,7 +71,22 @@ func translateLogicOp(rop3 uint32) vk.LogicOp {
 	}
 }
 
-func translateColorFormat(format uint32, numberType uint32, compSwap uint32) vk.Format {
+func ColorBufferPitch(pitch reg.CbColorPitch) uint32 {
+	return (pitch.TileMax() + 1) * 8
+}
+
+func ColorBufferHeight(pitch reg.CbColorPitch, sliceReg uint32) uint32 {
+	sliceTileMax := sliceReg & 0x3FFFFF // TILE_MAX for slice
+	totalTiles := sliceTileMax + 1
+	p := ColorBufferPitch(pitch)
+	if p == 0 {
+		return 1080
+	}
+
+	return (totalTiles * 64) / p
+}
+
+func TranslateColorFormat(format uint32, numberType uint32, compSwap uint32) vk.Format {
 	switch format {
 	case 1: // COLOR_8
 		switch numberType {
@@ -209,7 +225,7 @@ func translateColorFormat(format uint32, numberType uint32, compSwap uint32) vk.
 	return vk.FormatR8g8b8a8Unorm
 }
 
-func translateClearColor(word0 uint32, word1 uint32, format uint32, numberType uint32, compSwap uint32) []float32 {
+func TranslateClearColor(word0 uint32, word1 uint32, format uint32, numberType uint32, compSwap uint32) []float32 {
 	var r, g, b, a float32 = 0.0, 0.0, 0.0, 1.0
 	switch format {
 	case 2:
@@ -291,20 +307,4 @@ func translateClearColor(word0 uint32, word1 uint32, format uint32, numberType u
 	}
 
 	return []float32{r, g, b, a}
-}
-
-func colorBufferPitch(pitchReg uint32) uint32 {
-	tileMax := pitchReg & 0x7FF
-	return (tileMax + 1) * 8
-}
-
-func colorBufferHeight(pitchReg, sliceReg uint32) uint32 {
-	sliceTileMax := sliceReg & 0x3FFFFF
-	totalTiles := sliceTileMax + 1
-	pitch := colorBufferPitch(pitchReg)
-	if pitch == 0 {
-		return 1080
-	}
-
-	return (totalTiles * 64) / pitch
 }

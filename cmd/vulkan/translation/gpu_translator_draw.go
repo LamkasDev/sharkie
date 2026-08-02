@@ -53,12 +53,12 @@ func (t *GpuTranslator) Draw(frame uint64, draw *gpu.LiverpoolDraw) {
 	)
 
 	// Perform depth/stencil clears before rendering the draw
-	if draw.DbDepthClearEnable || draw.DbStencilClearEnable {
+	if draw.DbRenderControl.DepthClearEnable() || draw.DbRenderControl.StencilClearEnable() {
 		var aspectMask vk.ImageAspectFlags
-		if draw.DbDepthClearEnable {
+		if draw.DbRenderControl.DepthClearEnable() {
 			aspectMask |= vk.ImageAspectFlags(vk.ImageAspectDepthBit)
 		}
-		if draw.DbStencilClearEnable {
+		if draw.DbRenderControl.StencilClearEnable() {
 			aspectMask |= vk.ImageAspectFlags(vk.ImageAspectStencilBit)
 		}
 
@@ -152,8 +152,8 @@ func (t *GpuTranslator) Draw(frame uint64, draw *gpu.LiverpoolDraw) {
 }
 
 func (t *GpuTranslator) SetDynamicState(dynamicState *gpu.LiverpoolSetDynamicState) {
-	t.activeVteControl = dynamicState.VteControl
-	t.activeClipControl = dynamicState.ClipControl
+	t.activeVteControl = uint32(dynamicState.PaClVteCntl)
+	t.activeClipControl = uint32(dynamicState.ClipControl)
 	t.activeDynamicState = dynamicState
 
 	t.setViewport(dynamicState)
@@ -171,31 +171,31 @@ func (t *GpuTranslator) SetDynamicState(dynamicState *gpu.LiverpoolSetDynamicSta
 func (t *GpuTranslator) setViewport(dynamicState *gpu.LiverpoolSetDynamicState) {
 	// Derive viewport from GCN scale/offset/control registers.
 	vpxScale := dynamicState.VpXScale
-	if !dynamicState.VpXScaleEnable {
+	if !dynamicState.PaClVteCntl.VpXScaleEnable() {
 		vpxScale = 1.0
 	}
 	vpxOffset := dynamicState.VpXOffset
-	if !dynamicState.VpXOffsetEnable {
+	if !dynamicState.PaClVteCntl.VpXOffsetEnable() {
 		vpxOffset = 0.0
 	}
 	vpyScale := dynamicState.VpYScale
-	if !dynamicState.VpYScaleEnable {
+	if !dynamicState.PaClVteCntl.VpYScaleEnable() {
 		vpyScale = 1.0
 	}
 	vpyOffset := dynamicState.VpYOffset
-	if !dynamicState.VpYOffsetEnable {
+	if !dynamicState.PaClVteCntl.VpYOffsetEnable() {
 		vpyOffset = 0.0
 	}
 	vpzScale := dynamicState.VpZScale
-	if !dynamicState.VpZScaleEnable {
+	if !dynamicState.PaClVteCntl.VpZScaleEnable() {
 		vpzScale = 1.0
 	}
 	vpzOffset := dynamicState.VpZOffset
-	if !dynamicState.VpZOffsetEnable {
+	if !dynamicState.PaClVteCntl.VpZOffsetEnable() {
 		vpzOffset = 0.0
 	}
-	windowOffsetX := int32(int16(dynamicState.WindowOffset & 0xFFFF))
-	windowOffsetY := int32(int16((dynamicState.WindowOffset >> 16) & 0xFFFF))
+	windowOffsetX := int32(int16(dynamicState.WindowOffset.WindowXOffset()))
+	windowOffsetY := int32(int16(dynamicState.WindowOffset.WindowYOffset()))
 	// hwOffsetX := float32(int32(int16(dynamicState.HardwareScreenOffset & 0xFFFF)))
 	// hwOffsetY := float32(int32(int16((dynamicState.HardwareScreenOffset >> 16) & 0xFFFF)))
 
@@ -203,7 +203,7 @@ func (t *GpuTranslator) setViewport(dynamicState *gpu.LiverpoolSetDynamicState) 
 	vpWidth := vpxScale * 2
 	vpHeight := vpyScale * 2
 	vpX, vpY := vpxOffset-vpxScale, vpyOffset-vpyScale
-	if dynamicState.WindowOffsetEnable {
+	if dynamicState.PaSuScModeCntl.WindowOffsetEnable() {
 		vpX += float32(windowOffsetX)
 		vpY += float32(windowOffsetY)
 	}
@@ -214,7 +214,7 @@ func (t *GpuTranslator) setViewport(dynamicState *gpu.LiverpoolSetDynamicState) 
 	if vpWidth == 0 || vpHeight == 0 {
 		vpWidth, vpHeight = float32(t.activeSurface.ImageView.Image.FirstDescriptor.Width), float32(t.activeSurface.ImageView.Image.FirstDescriptor.Height)
 		vpX, vpY = 0, 0
-		if dynamicState.WindowOffsetEnable {
+		if dynamicState.PaSuScModeCntl.WindowOffsetEnable() {
 			vpX, vpY = float32(windowOffsetX), float32(windowOffsetY)
 		}
 	}
@@ -243,11 +243,11 @@ func (s ScissorRect) Intersect(other ScissorRect) ScissorRect {
 }
 
 func (t *GpuTranslator) setScissor(dynamicState *gpu.LiverpoolSetDynamicState) {
-	windowOffsetX := int32(int16(dynamicState.WindowOffset & 0xFFFF))
-	windowOffsetY := int32(int16((dynamicState.WindowOffset >> 16) & 0xFFFF))
+	windowOffsetX := int32(int16(dynamicState.WindowOffset.WindowXOffset()))
+	windowOffsetY := int32(int16(dynamicState.WindowOffset.WindowYOffset()))
 
 	// Helper to decode a GCN scissor register.
-	decodeScissor := func(tl, br uint32) ScissorRect {
+	decodeScissor := func(tl uint32, br uint32) ScissorRect {
 		windowOffsetDisable := (tl >> 31) & 1
 		x1 := int32(tl & 0x7FFF)
 		y1 := int32((tl >> 16) & 0x7FFF)
@@ -265,8 +265,8 @@ func (t *GpuTranslator) setScissor(dynamicState *gpu.LiverpoolSetDynamicState) {
 
 	// Apply screen scissor (no offset).
 	screenScissor := ScissorRect{
-		X1: int32(int16(dynamicState.ScissorTl & 0xFFFF)),
-		Y1: int32(int16((dynamicState.ScissorTl >> 16) & 0xFFFF)),
+		X1: int32(int16(dynamicState.ScissorTl.TlX())),
+		Y1: int32(int16(dynamicState.ScissorTl.TlY())),
 		X2: int32(int16(dynamicState.ScissorBr & 0xFFFF)),
 		Y2: int32(int16((dynamicState.ScissorBr >> 16) & 0xFFFF)),
 	}
@@ -274,19 +274,19 @@ func (t *GpuTranslator) setScissor(dynamicState *gpu.LiverpoolSetDynamicState) {
 
 	// Apply window scissor.
 	if dynamicState.WindowScissorTl != 0 || dynamicState.WindowScissorBr != 0 {
-		windowScissor := decodeScissor(dynamicState.WindowScissorTl, dynamicState.WindowScissorBr)
+		windowScissor := decodeScissor(uint32(dynamicState.WindowScissorTl), dynamicState.WindowScissorBr)
 		finalScissor = screenScissor.Intersect(windowScissor)
 	}
 
 	// Apply optional viewport scissor.
-	if dynamicState.VpScissorEnable {
-		vpScissor := decodeScissor(dynamicState.VpScissorTl, dynamicState.VpScissorBr)
+	if dynamicState.PaScModeCntl0.VpScissorEnable() {
+		vpScissor := decodeScissor(uint32(dynamicState.VpScissorTl), dynamicState.VpScissorBr)
 		finalScissor = finalScissor.Intersect(vpScissor)
 	}
 
 	// Apply generic scissor.
 	if dynamicState.GenericScissorTl != 0 || dynamicState.GenericScissorBr != 0 {
-		genericScissor := decodeScissor(dynamicState.GenericScissorTl, dynamicState.GenericScissorBr)
+		genericScissor := decodeScissor(uint32(dynamicState.GenericScissorTl), dynamicState.GenericScissorBr)
 		finalScissor = finalScissor.Intersect(genericScissor)
 	}
 

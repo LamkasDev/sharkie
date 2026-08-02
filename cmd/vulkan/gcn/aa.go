@@ -1,8 +1,8 @@
-package vulkan
+package gcn
 
 import vk "github.com/goki/vulkan"
 
-func translateMsaaSamples(msaaSampleLocations uint32) vk.SampleCountFlagBits {
+func TranslateMsaaSamples(msaaSampleLocations uint32) vk.SampleCountFlagBits {
 	switch msaaSampleLocations {
 	case 0:
 		return vk.SampleCount1Bit

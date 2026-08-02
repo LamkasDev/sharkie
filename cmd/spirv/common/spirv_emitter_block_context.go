@@ -22,17 +22,31 @@ type SpirvBlockContext struct {
 	GcnConditionId SpirvId
 	StaticLayout   []ShaderResourceBinding
 
-	// SpirvShaderContext contents.
+	Context SpirvShaderContext
+}
+
+type SpirvShaderContext interface{}
+
+type SpirvVertexShaderContext struct {
+	ClipDistEnable          uint8
+	CullDistEnable          uint8
+	FetchShaderAddress      uintptr
+	FetchShaderInstructions []*gcnSpec.Instruction
+}
+
+type SpirvFragmentShaderContext struct {
+	PsInControl       uint32
+	PsInputAddress    uint32
+	PsInputControls   [32]uint32
+	DepthBeforeShader bool
+	ZOrder            uint32
+	FrontFaceEnable   bool
+}
+
+type SpirvComputeShaderContext struct {
 	ThreadX uint32
 	ThreadY uint32
 	ThreadZ uint32
-
-	PsInControl     uint32
-	PsInputAddress  uint32
-	PsInputControls [32]uint32
-
-	FetchShaderAddress      uintptr
-	FetchShaderInstructions []*gcnSpec.Instruction
 }
 
 type ShaderResourceBinding struct {
@@ -323,7 +337,7 @@ func (ctx *SpirvBlockContext) LoadPushConstantValue(b *SpvBuilder, i uint32) Spi
 // LoadPsInputParameter loads a pixel shader input parameter.
 func (ctx *SpirvBlockContext) LoadPsInputParameter(b *SpvBuilder, i uint32) SpirvId {
 	typeV4Float := ctx.GetId(BlockContextIdTypeV4Float)
-	control := ctx.PsInputControls[i]
+	control := ctx.Context.(SpirvFragmentShaderContext).PsInputControls[i]
 	offset := control & 0x3F
 	if match := offset&0x20 == 0; match {
 		ptr := ctx.GetId(BlockContextIdParamIn0 + SpirvId(i))

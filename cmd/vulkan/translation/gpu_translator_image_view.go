@@ -5,12 +5,13 @@ import (
 
 	spirvStructs "github.com/LamkasDev/sharkie/cmd/spirv/structs"
 	"github.com/LamkasDev/sharkie/cmd/vulkan"
+	vkGcn "github.com/LamkasDev/sharkie/cmd/vulkan/gcn"
 	vk "github.com/goki/vulkan"
 )
 
 func (t *GpuTranslator) GetImageView(descriptor spirvStructs.ImageDescriptor) (*vulkan.VulkanImageView, error, bool) {
 	hash := descriptor.Hash()
-	format, _ := vulkan.TranslateGcnFormat(descriptor.DataFormat, descriptor.NumFormat)
+	format, _ := vkGcn.TranslateGcnFormat(descriptor.DataFormat, descriptor.NumFormat)
 	if format == vk.FormatUndefined {
 		return nil, fmt.Errorf("invalid format"), false
 	}

@@ -8,6 +8,7 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	spirvStructs "github.com/LamkasDev/sharkie/cmd/spirv/structs"
 	"github.com/LamkasDev/sharkie/cmd/structs"
+	"github.com/LamkasDev/sharkie/cmd/vulkan/gcn"
 	vk "github.com/goki/vulkan"
 	"github.com/gookit/color"
 )
@@ -350,8 +351,8 @@ func (image *VulkanImage) NeedsRecreate(descriptor spirvStructs.ImageDescriptor,
 		return true
 	}
 	stored := image.FirstDescriptor
-	requestedBpp := GetBytesPerPixel(descriptor.DataFormat)
-	storedBpp := GetBytesPerPixel(stored.DataFormat)
+	requestedBpp := gcn.GetBytesPerPixel(descriptor.DataFormat)
+	storedBpp := gcn.GetBytesPerPixel(stored.DataFormat)
 	requestedIsBlock := descriptor.DataFormat >= 35 && descriptor.DataFormat <= 41
 	storedIsBlock := stored.DataFormat >= 35 && stored.DataFormat <= 41
 	if descriptor.TilingIndex != stored.TilingIndex || requestedBpp != storedBpp || requestedIsBlock != storedIsBlock {

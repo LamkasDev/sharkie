@@ -3,8 +3,9 @@ package vulkan
 import (
 	"unsafe"
 
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/gcn/reg"
+	"github.com/LamkasDev/sharkie/cmd/vulkan/gcn"
 	vk "github.com/goki/vulkan"
-	"go101.org/nstd"
 )
 
 type GraphicsPipelineRequest struct {
@@ -30,42 +31,34 @@ type GraphicsPipelineKey struct {
 	Height   uint32
 	PrimType uint32
 
-	// Culling and polygon mode.
-	CullFront             bool
-	CullBack              bool
-	Face                  bool
-	PolyMode              uint32
-	PolyModeFrontPtype    uint32
-	PolyModeBackPtype     uint32
-	PolyOffsetFrontEnable bool
-	PolyOffsetBackEnable  bool
-	PolyOffsetParaEnable  bool
-	ProvokingVertexLast   bool
+	// GCN registers.
+	PaSuScModeCntl            reg.PaSuScModeCntl
+	PaScModeCntl0             reg.PaScModeCntl0
+	DbShaderControl           reg.DbShaderControl
+	PaScAaConfig              reg.PaScAaConfig
+	VgtMultiPrimIbResetEn     reg.VgtMultiPrimIbResetEn
+	PaSuLineCntl              reg.PaSuLineCntl
+	PaScAaMaskX0y0X1y0        reg.PaScAaMaskX0y0X1y0
+	PaScAaMaskX0y1X1y1        reg.PaScAaMaskX0y1X1y1
+	SpiShaderColFormat        reg.SpiShaderColFormat
+	SpiShaderZFormat          reg.SpiShaderZFormat
+	PaClVsOutCntl             reg.PaClVsOutCntl
+	CbColorInfo0              reg.CbColorInfo
+	CbTargetMask              reg.CbTargetMask
+	CbShaderMask              reg.CbShaderMask
+	CbColorControl            reg.CbColorControl
+	PaSuPolyOffsetClamp       reg.PaSuPolyOffsetClamp
+	PaSuPolyOffsetFrontScale  reg.PaSuPolyOffsetFrontScale
+	PaSuPolyOffsetFrontOffset reg.PaSuPolyOffsetFrontOffset
+	PaSuPolyOffsetBackScale   reg.PaSuPolyOffsetBackScale
+	PaSuPolyOffsetBackOffset  reg.PaSuPolyOffsetBackOffset
+	DbRenderControl           reg.DbRenderControl
 
 	// Render control flags.
 	BlendAttachment   vk.PipelineColorBlendAttachmentState
 	DepthStencilState vk.PipelineDepthStencilStateCreateInfo
 	LogicOpEnable     vk.Bool32
 	LogicOp           vk.LogicOp
-
-	// Shader control flags.
-	DbKillEnable           bool
-	DbCoverageToMaskEnable bool
-	DbAlphaToMaskDisable   bool
-
-	// Viewport/window control.
-	VpScissorEnable    bool
-	WindowOffsetEnable bool
-
-	// Line stipple.
-	LineStippleEnable bool
-
-	// Anti-aliasing flags.
-	MsaaEnable          bool
-	MsaaSampleLocations uint32
-
-	// Primitive restart options.
-	MultiPrimIbResetEnable bool
 }
 
 type ComputePipelineRequest struct {
@@ -131,23 +124,11 @@ func CreateGraphicsPipeline(handles *VulkanHandles, request GraphicsPipelineRequ
 		})
 	}
 
-	topology := translateTopology(request.PrimType)
-
 	// No vertex input.
 	vertexInput := vk.PipelineVertexInputStateCreateInfo{
 		SType: vk.StructureTypePipelineVertexInputStateCreateInfo,
 	}
-	inputAssembly := vk.PipelineInputAssemblyStateCreateInfo{
-		SType:    vk.StructureTypePipelineInputAssemblyStateCreateInfo,
-		Topology: topology,
-		PrimitiveRestartEnable: vk.Bool32(
-			nstd.Btoi(request.MultiPrimIbResetEnable &&
-				(topology == vk.PrimitiveTopologyLineStrip ||
-					topology == vk.PrimitiveTopologyTriangleStrip ||
-					topology == vk.PrimitiveTopologyTriangleFan ||
-					topology == vk.PrimitiveTopologyPatchList)),
-		),
-	}
+	inputAssembly := gcn.CreateInputAssemblyState(request.PrimType, request.VgtMultiPrimIbResetEn)
 
 	var tessellationState *vk.PipelineTessellationStateCreateInfo
 	if request.PrimType == 17 { // RECTLIST
@@ -160,7 +141,7 @@ func CreateGraphicsPipeline(handles *VulkanHandles, request GraphicsPipelineRequ
 
 	// Viewport and scissor are dynamic so they match each draw call without rebuilding the pipeline.
 	dynStates := []vk.DynamicState{vk.DynamicStateViewport, vk.DynamicStateScissor, vk.DynamicStateBlendConstants}
-	if request.LineStippleEnable {
+	if request.PaScModeCntl0.LineStippleEnable() {
 		// dynStates = append(dynStates, vk.DynamicStateLineStippleExt)
 	}
 	dynamicState := vk.PipelineDynamicStateCreateInfo{
@@ -178,43 +159,8 @@ func CreateGraphicsPipeline(handles *VulkanHandles, request GraphicsPipelineRequ
 		}},
 	}
 
-	// Setup rasterizer.
-	frontFace := vk.FrontFaceCounterClockwise
-	if request.Face {
-		frontFace = vk.FrontFaceClockwise
-	}
-	cullMode := vk.CullModeNone
-	if request.CullFront {
-		cullMode |= vk.CullModeFrontBit
-	}
-	if request.CullBack {
-		cullMode |= vk.CullModeBackBit
-	}
-	polygonMode := vk.PolygonModeFill
-	switch request.PolyMode {
-	case 1:
-		polygonMode = vk.PolygonModeLine
-	case 2:
-		polygonMode = vk.PolygonModePoint
-	}
-
-	provokingVertex := vk.PipelineRasterizationProvokingVertexStateCreateInfo{
-		SType:               vk.StructureTypePipelineRasterizationProvokingVertexStateCreateInfo,
-		ProvokingVertexMode: vk.ProvokingVertexModeFirstVertex,
-	}
-	if request.ProvokingVertexLast {
-		provokingVertex.ProvokingVertexMode = vk.ProvokingVertexModeLastVertex
-	}
-
-	raster := vk.PipelineRasterizationStateCreateInfo{
-		SType:            vk.StructureTypePipelineRasterizationStateCreateInfo,
-		PNext:            unsafe.Pointer(&provokingVertex),
-		DepthClampEnable: vk.False,
-		PolygonMode:      polygonMode,
-		CullMode:         vk.CullModeFlags(cullMode),
-		FrontFace:        frontFace,
-		LineWidth:        1.0,
-	}
+	raster, provokingVertex := gcn.CreateRasterizationState(request.PaSuScModeCntl, request.PaSuLineCntl, request.PaSuPolyOffsetClamp, request.PaSuPolyOffsetFrontScale, request.PaSuPolyOffsetFrontOffset, request.PaSuPolyOffsetBackScale, request.PaSuPolyOffsetBackOffset)
+	raster.PNext = unsafe.Pointer(&provokingVertex)
 	depthStencil := request.DepthStencilState
 	if request.DepthTargetAddress == 0 {
 		depthStencil.DepthTestEnable = vk.False
@@ -223,22 +169,9 @@ func CreateGraphicsPipeline(handles *VulkanHandles, request GraphicsPipelineRequ
 	}
 
 	// Setup anti-aliasing.
-	multisample := vk.PipelineMultisampleStateCreateInfo{
-		SType:                 vk.StructureTypePipelineMultisampleStateCreateInfo,
-		RasterizationSamples:  translateMsaaSamples(request.MsaaSampleLocations),
-		SampleShadingEnable:   vk.False,
-		MinSampleShading:      1.0,
-		PSampleMask:           nil,
-		AlphaToCoverageEnable: vk.Bool32(nstd.Btoi((request.DbKillEnable || request.DbCoverageToMaskEnable) && !request.DbAlphaToMaskDisable)),
-		AlphaToOneEnable:      vk.False,
-	}
+	multisample := gcn.CreateMultisampleState(request.PaScAaConfig, request.DbShaderControl, request.PaScAaMaskX0y0X1y0, request.PaScAaMaskX0y1X1y1)
 
-	blendAttachments := make([]vk.PipelineColorBlendAttachmentState, 8)
-	blendAttachments[0] = request.BlendAttachment
-	for i := 1; i < 8; i++ {
-		blendAttachments[i] = request.BlendAttachment
-		blendAttachments[i].ColorWriteMask = 0
-	}
+	blendAttachments := gcn.CreateBlendAttachments(request.BlendAttachment, request.CbTargetMask, request.CbShaderMask, request.SpiShaderColFormat, request.CbColorControl)
 
 	// Setup blending.
 	blend := vk.PipelineColorBlendStateCreateInfo{

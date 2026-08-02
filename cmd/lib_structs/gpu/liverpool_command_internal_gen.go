@@ -10,95 +10,66 @@ import (
 func (z *LiverpoolBindPipelineInternal) MarshalHash() (o []byte, err error) {
 	var b []byte
 	o = hsp.Require(b, z.Msgsize())
-	// map header, size 78
-	o = append(o, 0xde, 0x0, 0x4e)
-	o = hsp.AppendBool(o, z.CullBack)
-	o = hsp.AppendBool(o, z.CullFront)
-	o = hsp.AppendBool(o, z.DbAlphaToMaskDisable)
-	o = hsp.AppendUint32(o, z.DbConservativeZExport)
-	o = hsp.AppendBool(o, z.DbCoverageToMaskEnable)
-	o = hsp.AppendBool(o, z.DbDepthBeforeShader)
-	o = hsp.AppendBool(o, z.DbDepthClearEnable)
+	// map header, size 49
+	o = append(o, 0xde, 0x0, 0x31)
+	o = hsp.AppendUint64(o, uint64(z.CbColorInfo0))
+	o = hsp.AppendUint64(o, uint64(z.CbShaderMask))
 	o = hsp.AppendUint32(o, z.DbDepthClearValue)
-	o = hsp.AppendUint32(o, z.DbDepthControl)
-	o = hsp.AppendBool(o, z.DbDepthCopy)
-	o = hsp.AppendUint32(o, z.DbDepthSize)
-	o = hsp.AppendBool(o, z.DbExecOnHierFail)
-	o = hsp.AppendBool(o, z.DbExecOnNoop)
-	o = hsp.AppendBool(o, z.DbKillEnable)
-	o = hsp.AppendBool(o, z.DbMaskExportEnable)
-	o = hsp.AppendBool(o, z.DbStencilClearEnable)
+	o = hsp.AppendUint64(o, uint64(z.DbDepthControl))
+	o = hsp.AppendUint64(o, uint64(z.DbDepthSize))
+	o = hsp.AppendUint64(o, uint64(z.DbRenderControl))
+	o = hsp.AppendUint64(o, uint64(z.DbShaderControl))
 	o = hsp.AppendUint32(o, z.DbStencilClearValue)
-	o = hsp.AppendUint32(o, z.DbStencilControl)
-	o = hsp.AppendBool(o, z.DbStencilCopy)
-	o = hsp.AppendBool(o, z.DbStencilOpValExportEnable)
-	o = hsp.AppendUint32(o, z.DbStencilRefMask)
-	o = hsp.AppendUint32(o, z.DbStencilRefMaskBf)
-	o = hsp.AppendBool(o, z.DbStencilTestValExportEnable)
-	o = hsp.AppendBool(o, z.DbZExportEnable)
-	o = hsp.AppendUint32(o, z.DbZFormat)
-	o = hsp.AppendUint32(o, z.DbZOrder)
-	o = hsp.AppendUint32(o, z.DbZWriteBase)
+	o = hsp.AppendUint64(o, uint64(z.DbStencilControl))
+	o = hsp.AppendUint64(o, uint64(z.DbStencilRefMask))
+	o = hsp.AppendUint64(o, uint64(z.DbStencilRefMaskBf))
+	o = hsp.AppendUint64(o, uint64(z.DbZInfo))
+	o = hsp.AppendUint64(o, uint64(z.DbZWriteBase))
 	o = hsp.AppendUint64(o, uint64(z.EvalShaderAddress))
-	o = hsp.AppendBool(o, z.Face)
 	o = hsp.AppendUint64(o, uint64(z.GeometryShaderAddress))
 	o = hsp.AppendUint64(o, uint64(z.HullShaderAddress))
-	o = hsp.AppendBool(o, z.LineStippleEnable)
-	o = hsp.AppendUint32(o, z.LineStipplePattern)
-	o = hsp.AppendUint32(o, z.LineStippleRepeatCount)
-	o = hsp.AppendBool(o, z.MsaaEnable)
-	o = hsp.AppendUint32(o, z.MsaaSampleLocations)
-	o = hsp.AppendBool(o, z.MultiPrimIbResetEnable)
 	o = hsp.AppendUint32(o, z.MultiPrimIbResetIndex)
+	o = hsp.AppendUint64(o, uint64(z.PaClVsOutCntl))
+	o = hsp.AppendUint64(o, uint64(z.PaScAaConfig))
+	o = hsp.AppendUint64(o, uint64(z.PaScAaMaskX0y0X1y0))
+	o = hsp.AppendUint64(o, uint64(z.PaScAaMaskX0y1X1y1))
+	o = hsp.AppendUint64(o, uint64(z.PaScModeCntl0))
+	o = hsp.AppendUint64(o, uint64(z.PaSuLineCntl))
+	o = hsp.AppendUint64(o, uint64(z.PaSuPolyOffsetBackOffset))
+	o = hsp.AppendUint64(o, uint64(z.PaSuPolyOffsetBackScale))
+	o = hsp.AppendUint64(o, uint64(z.PaSuPolyOffsetClamp))
+	o = hsp.AppendUint64(o, uint64(z.PaSuPolyOffsetFrontOffset))
+	o = hsp.AppendUint64(o, uint64(z.PaSuPolyOffsetFrontScale))
+	o = hsp.AppendUint64(o, uint64(z.PaSuScModeCntl))
 	o = hsp.AppendUint64(o, uint64(z.PixelShaderAddress))
-	o = hsp.AppendUint32(o, z.PolyMode)
-	o = hsp.AppendUint32(o, z.PolyModeBackPtype)
-	o = hsp.AppendUint32(o, z.PolyModeFrontPtype)
-	o = hsp.AppendBool(o, z.PolyOffsetBackEnable)
-	o = hsp.AppendBool(o, z.PolyOffsetFrontEnable)
-	o = hsp.AppendBool(o, z.PolyOffsetParaEnable)
 	o = hsp.AppendUint32(o, z.PrimType)
-	o = hsp.AppendBool(o, z.ProvokingVertexLast)
-	o = hsp.AppendUint32(o, z.PsInControl)
-	o = hsp.AppendUint32(o, z.PsInputAddress)
+	o = hsp.AppendUint64(o, uint64(z.PsInControl))
+	o = hsp.AppendUint64(o, uint64(z.PsInputAddress))
 	o = hsp.AppendArrayHeader(o, uint32(32))
 	for za0001 := range z.PsInputControls {
 		o = hsp.AppendUint32(o, z.PsInputControls[za0001])
 	}
-	o = hsp.AppendUint32(o, z.RtAttrib)
-	o = hsp.AppendUint32(o, z.RtBase)
-	o = hsp.AppendBool(o, z.RtBlendBypass)
-	o = hsp.AppendBool(o, z.RtBlendClamp)
-	o = hsp.AppendUint32(o, z.RtBlendControl)
-	o = hsp.AppendUint32(o, z.RtBlendOptDiscardPixel)
-	o = hsp.AppendUint32(o, z.RtBlendOptDontRdDst)
+	o = hsp.AppendUint64(o, uint64(z.RtAttrib))
+	o = hsp.AppendUint64(o, uint64(z.RtBase))
+	o = hsp.AppendUint64(o, uint64(z.RtBlendControl))
 	o = hsp.AppendUint32(o, z.RtClearWord0)
 	o = hsp.AppendUint32(o, z.RtClearWord1)
-	o = hsp.AppendBool(o, z.RtCmaskIsLinear)
-	o = hsp.AppendUint32(o, z.RtColorControl)
-	o = hsp.AppendUint32(o, z.RtCompSwap)
-	o = hsp.AppendBool(o, z.RtCompression)
-	o = hsp.AppendBool(o, z.RtFastClear)
-	o = hsp.AppendBool(o, z.RtFmaskCompressionDis)
-	o = hsp.AppendUint32(o, z.RtFormat)
-	o = hsp.AppendBool(o, z.RtLinearGeneral)
-	o = hsp.AppendUint32(o, z.RtNumberType)
-	o = hsp.AppendUint32(o, z.RtPitch)
-	o = hsp.AppendUint32(o, z.RtRoundMode)
-	o = hsp.AppendBool(o, z.RtSimpleFloat)
+	o = hsp.AppendUint64(o, uint64(z.RtColorControl))
+	o = hsp.AppendUint64(o, uint64(z.RtPitch))
 	o = hsp.AppendUint32(o, z.RtSlice)
-	o = hsp.AppendUint32(o, z.RtTargetMask)
-	o = hsp.AppendUint32(o, z.RtView)
+	o = hsp.AppendUint64(o, uint64(z.RtTargetMask))
+	o = hsp.AppendUint64(o, uint64(z.RtView))
+	o = hsp.AppendUint64(o, uint64(z.SpiShaderColFormat))
+	o = hsp.AppendUint64(o, uint64(z.SpiShaderZFormat))
 	o = hsp.AppendUint32(o, z.UserDataHash)
 	o = hsp.AppendUint64(o, uint64(z.VertexShaderAddress))
-	o = hsp.AppendBool(o, z.VpScissorEnable)
-	o = hsp.AppendBool(o, z.WindowOffsetEnable)
+	o = hsp.AppendUint64(o, uint64(z.VgtMultiPrimIbResetEn))
 	return
 }
 
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
 func (z *LiverpoolBindPipelineInternal) Msgsize() (s int) {
-	s = 3 + 9 + hsp.BoolSize + 10 + hsp.BoolSize + 21 + hsp.BoolSize + 22 + hsp.Uint32Size + 23 + hsp.BoolSize + 20 + hsp.BoolSize + 19 + hsp.BoolSize + 18 + hsp.Uint32Size + 15 + hsp.Uint32Size + 12 + hsp.BoolSize + 12 + hsp.Uint32Size + 17 + hsp.BoolSize + 13 + hsp.BoolSize + 13 + hsp.BoolSize + 19 + hsp.BoolSize + 21 + hsp.BoolSize + 20 + hsp.Uint32Size + 17 + hsp.Uint32Size + 14 + hsp.BoolSize + 27 + hsp.BoolSize + 17 + hsp.Uint32Size + 19 + hsp.Uint32Size + 29 + hsp.BoolSize + 16 + hsp.BoolSize + 10 + hsp.Uint32Size + 9 + hsp.Uint32Size + 13 + hsp.Uint32Size + hsp.Uint64Size + 5 + hsp.BoolSize + hsp.Uint64Size + hsp.Uint64Size + 18 + hsp.BoolSize + 19 + hsp.Uint32Size + 23 + hsp.Uint32Size + 11 + hsp.BoolSize + 20 + hsp.Uint32Size + 23 + hsp.BoolSize + 22 + hsp.Uint32Size + hsp.Uint64Size + 9 + hsp.Uint32Size + 18 + hsp.Uint32Size + 19 + hsp.Uint32Size + 21 + hsp.BoolSize + 22 + hsp.BoolSize + 21 + hsp.BoolSize + 9 + hsp.Uint32Size + 20 + hsp.BoolSize + 12 + hsp.Uint32Size + 15 + hsp.Uint32Size + 16 + hsp.ArrayHeaderSize + (int(32) * (hsp.Uint32Size)) + 9 + hsp.Uint32Size + 7 + hsp.Uint32Size + 14 + hsp.BoolSize + 13 + hsp.BoolSize + 15 + hsp.Uint32Size + 23 + hsp.Uint32Size + 20 + hsp.Uint32Size + 13 + hsp.Uint32Size + 13 + hsp.Uint32Size + 16 + hsp.BoolSize + 15 + hsp.Uint32Size + 11 + hsp.Uint32Size + 14 + hsp.BoolSize + 12 + hsp.BoolSize + 22 + hsp.BoolSize + 9 + hsp.Uint32Size + 16 + hsp.BoolSize + 13 + hsp.Uint32Size + 8 + hsp.Uint32Size + 12 + hsp.Uint32Size + 14 + hsp.BoolSize + 8 + hsp.Uint32Size + 13 + hsp.Uint32Size + 7 + hsp.Uint32Size + 13 + hsp.Uint32Size + hsp.Uint64Size + 16 + hsp.BoolSize + 19 + hsp.BoolSize
+	s = 3 + hsp.Uint64Size + hsp.Uint64Size + 18 + hsp.Uint32Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + 20 + hsp.Uint32Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + 22 + hsp.Uint32Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + 9 + hsp.Uint32Size + hsp.Uint64Size + hsp.Uint64Size + 16 + hsp.ArrayHeaderSize + (int(32) * (hsp.Uint32Size)) + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + 13 + hsp.Uint32Size + 13 + hsp.Uint32Size + hsp.Uint64Size + hsp.Uint64Size + 8 + hsp.Uint32Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + 13 + hsp.Uint32Size + hsp.Uint64Size + hsp.Uint64Size
 	return
 }
 
@@ -149,11 +120,10 @@ func (z *LiverpoolDmaCopyInternal) Msgsize() (s int) {
 func (z *LiverpoolDrawInternal) MarshalHash() (o []byte, err error) {
 	var b []byte
 	o = hsp.Require(b, z.Msgsize())
-	// map header, size 22
-	o = append(o, 0xde, 0x0, 0x16)
-	o = hsp.AppendBool(o, z.DbDepthClearEnable)
+	// map header, size 21
+	o = append(o, 0xde, 0x0, 0x15)
 	o = hsp.AppendUint32(o, z.DbDepthClearValue)
-	o = hsp.AppendBool(o, z.DbStencilClearEnable)
+	o = hsp.AppendUint64(o, uint64(z.DbRenderControl))
 	o = hsp.AppendUint32(o, z.DbStencilClearValue)
 	o = hsp.AppendUint32(o, z.EvalShRsrc1)
 	o = hsp.AppendUint32(o, z.EvalShRsrc2)
@@ -178,7 +148,7 @@ func (z *LiverpoolDrawInternal) MarshalHash() (o []byte, err error) {
 
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
 func (z *LiverpoolDrawInternal) Msgsize() (s int) {
-	s = 3 + 19 + hsp.BoolSize + 18 + hsp.Uint32Size + 21 + hsp.BoolSize + 20 + hsp.Uint32Size + 12 + hsp.Uint32Size + 12 + hsp.Uint32Size + 16 + hsp.Uint32Size + 16 + hsp.Uint32Size + 12 + hsp.Uint32Size + 12 + hsp.Uint32Size + hsp.Uint64Size + 11 + hsp.Uint32Size + 12 + hsp.Uint32Size + 10 + hsp.Uint32Size + 14 + hsp.Uint32Size + 10 + hsp.BoolSize + 13 + hsp.Uint32Size + 13 + hsp.Uint32Size + 9 + hsp.Uint32Size + 13 + hsp.Uint32Size + 14 + hsp.Uint32Size + 14 + hsp.Uint32Size
+	s = 3 + 18 + hsp.Uint32Size + hsp.Uint64Size + 20 + hsp.Uint32Size + 12 + hsp.Uint32Size + 12 + hsp.Uint32Size + 16 + hsp.Uint32Size + 16 + hsp.Uint32Size + 12 + hsp.Uint32Size + 12 + hsp.Uint32Size + hsp.Uint64Size + 11 + hsp.Uint32Size + 12 + hsp.Uint32Size + 10 + hsp.Uint32Size + 14 + hsp.Uint32Size + 10 + hsp.BoolSize + 13 + hsp.Uint32Size + 13 + hsp.Uint32Size + 9 + hsp.Uint32Size + 13 + hsp.Uint32Size + 14 + hsp.Uint32Size + 14 + hsp.Uint32Size
 	return
 }
 
@@ -186,55 +156,46 @@ func (z *LiverpoolDrawInternal) Msgsize() (s int) {
 func (z *LiverpoolSetDynamicStateInternal) MarshalHash() (o []byte, err error) {
 	var b []byte
 	o = hsp.Require(b, z.Msgsize())
-	// map header, size 41
-	o = append(o, 0xde, 0x0, 0x29)
+	// map header, size 32
+	o = append(o, 0xde, 0x0, 0x20)
 	o = hsp.AppendUint32(o, z.BlendAlpha)
 	o = hsp.AppendUint32(o, z.BlendBlue)
 	o = hsp.AppendUint32(o, z.BlendGreen)
 	o = hsp.AppendUint32(o, z.BlendRed)
-	o = hsp.AppendUint32(o, z.ClipControl)
+	o = hsp.AppendUint64(o, uint64(z.ClipControl))
 	o = hsp.AppendFloat32(o, z.GbHorzClipAdj)
 	o = hsp.AppendFloat32(o, z.GbHorzDiscAdj)
 	o = hsp.AppendFloat32(o, z.GbVertClipAdj)
 	o = hsp.AppendFloat32(o, z.GbVertDiscAdj)
 	o = hsp.AppendUint32(o, z.GenericScissorBr)
-	o = hsp.AppendUint32(o, z.GenericScissorTl)
-	o = hsp.AppendUint32(o, z.HardwareScreenOffset)
+	o = hsp.AppendUint64(o, uint64(z.GenericScissorTl))
+	o = hsp.AppendUint64(o, uint64(z.HardwareScreenOffset))
 	o = hsp.AppendUint32(o, z.LineStipplePattern)
 	o = hsp.AppendUint32(o, z.LineStippleRepeatCount)
+	o = hsp.AppendUint64(o, uint64(z.PaClVteCntl))
+	o = hsp.AppendUint64(o, uint64(z.PaScModeCntl0))
+	o = hsp.AppendUint64(o, uint64(z.PaSuScModeCntl))
 	o = hsp.AppendUint32(o, z.ScissorBr)
-	o = hsp.AppendUint32(o, z.ScissorTl)
+	o = hsp.AppendUint64(o, uint64(z.ScissorTl))
 	o = hsp.AppendUint32(o, z.VpScissorBr)
-	o = hsp.AppendBool(o, z.VpScissorEnable)
-	o = hsp.AppendUint32(o, z.VpScissorTl)
+	o = hsp.AppendUint64(o, uint64(z.VpScissorTl))
 	o = hsp.AppendFloat32(o, z.VpXOffset)
-	o = hsp.AppendBool(o, z.VpXOffsetEnable)
 	o = hsp.AppendFloat32(o, z.VpXScale)
-	o = hsp.AppendBool(o, z.VpXScaleEnable)
 	o = hsp.AppendFloat32(o, z.VpYOffset)
-	o = hsp.AppendBool(o, z.VpYOffsetEnable)
 	o = hsp.AppendFloat32(o, z.VpYScale)
-	o = hsp.AppendBool(o, z.VpYScaleEnable)
 	o = hsp.AppendFloat32(o, z.VpZMax)
 	o = hsp.AppendFloat32(o, z.VpZMin)
 	o = hsp.AppendFloat32(o, z.VpZOffset)
-	o = hsp.AppendBool(o, z.VpZOffsetEnable)
 	o = hsp.AppendFloat32(o, z.VpZScale)
-	o = hsp.AppendBool(o, z.VpZScaleEnable)
-	o = hsp.AppendUint32(o, z.VteControl)
-	o = hsp.AppendBool(o, z.VtxW0Fmt)
-	o = hsp.AppendBool(o, z.VtxXyFmt)
-	o = hsp.AppendBool(o, z.VtxZFmt)
-	o = hsp.AppendUint32(o, z.WindowOffset)
-	o = hsp.AppendBool(o, z.WindowOffsetEnable)
+	o = hsp.AppendUint64(o, uint64(z.WindowOffset))
 	o = hsp.AppendUint32(o, z.WindowScissorBr)
-	o = hsp.AppendUint32(o, z.WindowScissorTl)
+	o = hsp.AppendUint64(o, uint64(z.WindowScissorTl))
 	return
 }
 
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
 func (z *LiverpoolSetDynamicStateInternal) Msgsize() (s int) {
-	s = 3 + 11 + hsp.Uint32Size + 10 + hsp.Uint32Size + 11 + hsp.Uint32Size + 9 + hsp.Uint32Size + 12 + hsp.Uint32Size + 14 + hsp.Float32Size + 14 + hsp.Float32Size + 14 + hsp.Float32Size + 14 + hsp.Float32Size + 17 + hsp.Uint32Size + 17 + hsp.Uint32Size + 21 + hsp.Uint32Size + 19 + hsp.Uint32Size + 23 + hsp.Uint32Size + 10 + hsp.Uint32Size + 10 + hsp.Uint32Size + 12 + hsp.Uint32Size + 16 + hsp.BoolSize + 12 + hsp.Uint32Size + 10 + hsp.Float32Size + 16 + hsp.BoolSize + 9 + hsp.Float32Size + 15 + hsp.BoolSize + 10 + hsp.Float32Size + 16 + hsp.BoolSize + 9 + hsp.Float32Size + 15 + hsp.BoolSize + 7 + hsp.Float32Size + 7 + hsp.Float32Size + 10 + hsp.Float32Size + 16 + hsp.BoolSize + 9 + hsp.Float32Size + 15 + hsp.BoolSize + 11 + hsp.Uint32Size + 9 + hsp.BoolSize + 9 + hsp.BoolSize + 8 + hsp.BoolSize + 13 + hsp.Uint32Size + 19 + hsp.BoolSize + 16 + hsp.Uint32Size + 16 + hsp.Uint32Size
+	s = 3 + 11 + hsp.Uint32Size + 10 + hsp.Uint32Size + 11 + hsp.Uint32Size + 9 + hsp.Uint32Size + hsp.Uint64Size + 14 + hsp.Float32Size + 14 + hsp.Float32Size + 14 + hsp.Float32Size + 14 + hsp.Float32Size + 17 + hsp.Uint32Size + hsp.Uint64Size + hsp.Uint64Size + 19 + hsp.Uint32Size + 23 + hsp.Uint32Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + 10 + hsp.Uint32Size + hsp.Uint64Size + 12 + hsp.Uint32Size + hsp.Uint64Size + 10 + hsp.Float32Size + 9 + hsp.Float32Size + 10 + hsp.Float32Size + 9 + hsp.Float32Size + 7 + hsp.Float32Size + 7 + hsp.Float32Size + 10 + hsp.Float32Size + 9 + hsp.Float32Size + hsp.Uint64Size + 16 + hsp.Uint32Size + hsp.Uint64Size
 	return
 }
 

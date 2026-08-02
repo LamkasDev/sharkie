@@ -51,6 +51,29 @@ func libSceRtc_sceRtcGetCurrentRawNetworkTick(tick *RtcTick) uintptr {
 	return 0
 }
 
+// 0x0000000000002E60
+// __int64 __fastcall sceRtcSetTime_t(__int64, __int64)
+func libSceRtc_sceRtcSetTick_t(datetime *RtcDateTime, time uint64) uintptr {
+	if datetime == nil {
+		logger.Printf("%-132s %s failed due to invalid date time pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceRtcSetTime_t"),
+		)
+		return 0x80B50002
+	}
+	if time == 0 {
+		logger.Printf("%-132s %s failed due to invalid time.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceRtcSetTime_t"),
+		)
+		return 0x80B50003
+	}
+	tick := RtcTick{Tick: uint64(UnixEpochTicks) + time*1000000}
+	libSceRtc_sceRtcSetTick(datetime, &tick)
+
+	return 0
+}
+
 func SceRtcSetTick(datetime *RtcDateTime, tick *RtcTick) uintptr {
 	return libSceRtc_sceRtcSetTick(datetime, tick)
 }

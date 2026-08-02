@@ -1,8 +1,8 @@
-package vulkan
+package gcn
 
 import vk "github.com/goki/vulkan"
 
-func translateTopology(primType uint32) vk.PrimitiveTopology {
+func TranslateTopology(primType uint32) vk.PrimitiveTopology {
 	switch primType {
 	case 0: // NONE
 		panic("unsupported")

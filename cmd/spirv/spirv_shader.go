@@ -3,6 +3,7 @@ package spirv
 import (
 	"fmt"
 	"math"
+	"math/bits"
 
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/gcn"
 	gcnSpec "github.com/LamkasDev/sharkie/cmd/lib_structs/gcn/spec"
@@ -12,19 +13,6 @@ import (
 	. "github.com/LamkasDev/sharkie/cmd/spirv/structs"
 	"go101.org/nstd"
 )
-
-type SpirvShaderContext struct {
-	ThreadX uint32
-	ThreadY uint32
-	ThreadZ uint32
-
-	PsInControl     uint32
-	PsInputAddress  uint32
-	PsInputControls [32]uint32
-
-	FetchShaderAddress      uintptr
-	FetchShaderInstructions []*gcnSpec.Instruction
-}
 
 type SpirvShader struct {
 	GcnShader    *GcnShader
@@ -240,13 +228,38 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	var idParamOuts [32]SpirvId
 	var idParamIns [32]SpirvId
 	var idWorkgroupId, idLocalInvocationId SpirvId
+	var idFrontFacing SpirvId
 	switch shader.Stage {
 	case GcnShaderStageVertex:
+		ctxVs := ctx.(SpirvVertexShaderContext)
 		typePosOut = b.EmitVariable(idPtrOutV4, spec.SpvStorageOutput)
 		b.EmitName(typePosOut, "pos_out")
 		b.EmitDecorate(typePosOut, spec.SpvDecorationBuiltIn, spec.SpvBuiltInPosition)
 
 		interfaceIds = append(interfaceIds, typePosOut)
+
+		if ctxVs.ClipDistEnable != 0 {
+			count := uint32(bits.OnesCount8(ctxVs.ClipDistEnable))
+			idCount := b.EmitConstantUint(typeUint, count)
+			typeArray := b.EmitTypeArray(typeFloat, idCount)
+			typePtrArray := b.EmitTypePointer(spec.SpvStorageOutput, typeArray)
+			idClipDist := b.EmitVariable(typePtrArray, spec.SpvStorageOutput)
+			b.EmitName(idClipDist, "clip_distance")
+			b.EmitDecorate(idClipDist, spec.SpvDecorationBuiltIn, spec.SpvBuiltInClipDistance)
+			interfaceIds = append(interfaceIds, idClipDist)
+		}
+
+		if ctxVs.CullDistEnable != 0 {
+			count := uint32(bits.OnesCount8(ctxVs.CullDistEnable))
+			idCount := b.EmitConstantUint(typeUint, count)
+			typeArray := b.EmitTypeArray(typeFloat, idCount)
+			typePtrArray := b.EmitTypePointer(spec.SpvStorageOutput, typeArray)
+			idCullDist := b.EmitVariable(typePtrArray, spec.SpvStorageOutput)
+			b.EmitName(idCullDist, "cull_distance")
+			b.EmitDecorate(idCullDist, spec.SpvDecorationBuiltIn, spec.SpvBuiltInCullDistance)
+			interfaceIds = append(interfaceIds, idCullDist)
+		}
+
 		// TODO: this
 		for i := range 16 {
 			idParamOuts[i] = b.EmitVariable(idPtrOutV4, spec.SpvStorageOutput)
@@ -254,6 +267,7 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 			interfaceIds = append(interfaceIds, idParamOuts[i])
 		}
 	case GcnShaderStageFragment:
+		ctxFs := ctx.(SpirvFragmentShaderContext)
 		for i := range idColorOuts {
 			idColorOuts[i] = b.EmitVariable(idPtrOutV4, spec.SpvStorageOutput)
 			b.EmitDecorate(idColorOuts[i], spec.SpvDecorationLocation, uint32(i))
@@ -262,17 +276,17 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 
 		// Use PsInControl.NUM_INTERP to determine which parameters to declare.
 		// Bits 5:0 specify the number of parameters to interpolate (0-32).
-		numInterp := ctx.PsInControl & 0x3F
+		numInterp := ctxFs.PsInControl & 0x3F
 		var usedParamTypes []uint8
 		for i := uint32(0); i < numInterp; i++ {
-			control := ctx.PsInputControls[i]
+			control := ctxFs.PsInputControls[i]
 			if (control & 0x3F) != 0x20 { // 0x20 means no match
 				usedParamTypes = append(usedParamTypes, uint8(i))
 			}
 		}
 
 		for _, paramIdx := range usedParamTypes {
-			control := ctx.PsInputControls[paramIdx]
+			control := ctxFs.PsInputControls[paramIdx]
 			offset := control & 0x3F
 			if match := offset&0x20 == 0; match {
 				// Vertex shader match found.
@@ -288,12 +302,20 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 		}
 
 		// Handle system inputs based on address bits.
-		if (ctx.PsInputAddress>>8)&0xF != 0 {
+		if (ctxFs.PsInputAddress>>8)&0xF != 0 {
 			typePtrInputV4F := b.EmitTypePointer(spec.SpvStorageInput, typeV4Float)
 			typeFragCoord := b.EmitVariable(typePtrInputV4F, spec.SpvStorageInput)
 			b.EmitName(typeFragCoord, "frag_coord")
 			b.EmitDecorate(typeFragCoord, spec.SpvDecorationBuiltIn, spec.SpvBuiltInFragCoord)
 			interfaceIds = append(interfaceIds, typeFragCoord)
+		}
+
+		if ctxFs.FrontFaceEnable {
+			typePtrInputBool := b.EmitTypePointer(spec.SpvStorageInput, typeBool)
+			idFrontFacing = b.EmitVariable(typePtrInputBool, spec.SpvStorageInput)
+			b.EmitName(idFrontFacing, "front_facing")
+			b.EmitDecorate(idFrontFacing, spec.SpvDecorationBuiltIn, spec.SpvBuiltInFrontFacing)
+			interfaceIds = append(interfaceIds, idFrontFacing)
 		}
 
 		writesDepth := false
@@ -333,12 +355,17 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	// Execution modes.
 	switch shader.Stage {
 	case GcnShaderStageFragment:
+		ctxFs := ctx.(SpirvFragmentShaderContext)
 		b.EmitExecutionMode(idMain, spec.SpvExecModeOriginUpperLeft)
+		if ctxFs.DepthBeforeShader || ctxFs.ZOrder == 1 || ctxFs.ZOrder == 3 {
+			b.EmitExecutionMode(idMain, spec.SpvExecModeEarlyFragmentTests)
+		}
 		if typeFragDepthOut != 0 {
 			b.EmitExecutionMode(idMain, spec.SpvExecModeDepthReplacing)
 		}
 	case GcnShaderStageCompute:
-		b.EmitExecutionMode(idMain, spec.SpvExecModeLocalSize, nstd.Clamp(ctx.ThreadX, 0, 1024), ctx.ThreadY, ctx.ThreadZ)
+		ctxCs := ctx.(SpirvComputeShaderContext)
+		b.EmitExecutionMode(idMain, spec.SpvExecModeLocalSize, nstd.Clamp(ctxCs.ThreadX, 0, 1024), ctxCs.ThreadY, ctxCs.ThreadZ)
 	}
 
 	// Register GCN SGPRs and VGPRs.
@@ -527,18 +554,7 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 		GcnSpecialIds:  gcnSpecialIds,
 		GcnConstIds:    gcnConstIds,
 		StaticLayout:   staticLayout,
-
-		// SpirvShaderContext contents.
-		ThreadX: ctx.ThreadX,
-		ThreadY: ctx.ThreadY,
-		ThreadZ: ctx.ThreadZ,
-
-		PsInControl:     ctx.PsInControl,
-		PsInputAddress:  ctx.PsInputAddress,
-		PsInputControls: ctx.PsInputControls,
-
-		FetchShaderAddress:      ctx.FetchShaderAddress,
-		FetchShaderInstructions: ctx.FetchShaderInstructions,
+		Context:        ctx,
 	}
 
 	// Function body.

@@ -7,6 +7,7 @@ import (
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/posix"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/LamkasDev/sharkie/cmd/spirv"
+	"github.com/LamkasDev/sharkie/cmd/spirv/common"
 	spirvStructs "github.com/LamkasDev/sharkie/cmd/spirv/structs"
 	"github.com/LamkasDev/sharkie/cmd/vulkan"
 	vk "github.com/goki/vulkan"
@@ -31,7 +32,7 @@ func (t *GpuTranslator) Dispatch(frame uint64, dispatch *gpu.LiverpoolDispatch) 
 	)
 
 	// Get scoped compute shader.
-	csSpirv, csKey := t.GetShaderWithContext(dispatch.ComputeShader, spirv.SpirvShaderContext{
+	csSpirv, csKey := t.GetShaderWithContext(dispatch.ComputeShader, common.SpirvComputeShaderContext{
 		ThreadX: dispatch.ThreadX,
 		ThreadY: dispatch.ThreadY,
 		ThreadZ: dispatch.ThreadZ,

@@ -1,6 +1,10 @@
 package gpu
 
-import "unsafe"
+import (
+	"unsafe"
+
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/gcn/reg"
+)
 
 //go:generate hsp
 //go:generate go run ../../hsp_gen/hsp_gen.go -- liverpool_command_internal_gen.go
@@ -17,99 +21,69 @@ type LiverpoolBindPipelineInternal struct {
 	PrimType uint32
 
 	// Render target.
-	RtBase         uint32
-	RtPitch        uint32
+	RtBase         reg.GpuMemoryBase
+	RtPitch        reg.CbColorPitch
 	RtSlice        uint32
-	RtView         uint32
-	RtAttrib       uint32
-	RtTargetMask   uint32
-	RtColorControl uint32
-	RtBlendControl uint32
+	RtView         reg.CbColorView
+	RtAttrib       reg.CbColorAttrib
+	RtTargetMask   reg.CbTargetMask
+	RtColorControl reg.CbColorControl
+	RtBlendControl reg.CbBlendControl
 	RtClearWord0   uint32
 	RtClearWord1   uint32
 
 	// Culling and polygon mode.
-	CullFront             bool
-	CullBack              bool
-	Face                  bool
-	PolyMode              uint32
-	PolyModeFrontPtype    uint32
-	PolyModeBackPtype     uint32
-	PolyOffsetFrontEnable bool
-	PolyOffsetBackEnable  bool
-	PolyOffsetParaEnable  bool
-	ProvokingVertexLast   bool
+	PaSuScModeCntl reg.PaSuScModeCntl
 
 	// Render target info (decoded from CB_COLOR0_INFO).
-	RtFormat               uint32
-	RtNumberType           uint32
-	RtCompSwap             uint32
-	RtLinearGeneral        bool
-	RtFastClear            bool
-	RtCompression          bool
-	RtBlendClamp           bool
-	RtBlendBypass          bool
-	RtSimpleFloat          bool
-	RtRoundMode            uint32
-	RtCmaskIsLinear        bool
-	RtBlendOptDontRdDst    uint32
-	RtBlendOptDiscardPixel uint32
-	RtFmaskCompressionDis  bool
+	CbColorInfo0 reg.CbColorInfo
+	CbShaderMask reg.CbShaderMask
+
+	PaSuPolyOffsetClamp       reg.PaSuPolyOffsetClamp
+	PaSuPolyOffsetFrontScale  reg.PaSuPolyOffsetFrontScale
+	PaSuPolyOffsetFrontOffset reg.PaSuPolyOffsetFrontOffset
+	PaSuPolyOffsetBackScale   reg.PaSuPolyOffsetBackScale
+	PaSuPolyOffsetBackOffset  reg.PaSuPolyOffsetBackOffset
 
 	// Shader control (decoded from DB_SHADER_CONTROL).
-	DbZExportEnable              bool
-	DbStencilTestValExportEnable bool
-	DbStencilOpValExportEnable   bool
-	DbZOrder                     uint32
-	DbKillEnable                 bool
-	DbCoverageToMaskEnable       bool
-	DbMaskExportEnable           bool
-	DbExecOnHierFail             bool
-	DbExecOnNoop                 bool
-	DbAlphaToMaskDisable         bool
-	DbDepthBeforeShader          bool
-	DbConservativeZExport        uint32
+	DbShaderControl reg.DbShaderControl
 
 	// Pixel shader input controls.
-	PsInControl     uint32
-	PsInputAddress  uint32
+	PsInControl     reg.SpiPsInControl
+	PsInputAddress  reg.SpiPsInputAddr
 	PsInputControls [32]uint32
 
+	// Shader format exports.
+	SpiShaderColFormat reg.SpiShaderColFormat
+	SpiShaderZFormat   reg.SpiShaderZFormat
+
+	// Vertex shader out control.
+	PaClVsOutCntl reg.PaClVsOutCntl
+
 	// Depth buffer control.
-	DbDepthControl    uint32
-	DbDepthSize       uint32
-	DbZWriteBase      uint32
-	DbZFormat         uint32
+	DbDepthControl    reg.DbDepthControl
+	DbDepthSize       reg.DbDepthSize
+	DbZWriteBase      reg.GpuMemoryBase
+	DbZInfo           reg.DbZInfo
 	DbDepthClearValue uint32
 
 	// Stencil buffer control.
-	DbStencilControl    uint32
-	DbStencilRefMask    uint32
-	DbStencilRefMaskBf  uint32
+	DbStencilControl    reg.DbStencilControl
+	DbStencilRefMask    reg.DbStencilrefmask
+	DbStencilRefMaskBf  reg.DbStencilrefmaskBf
 	DbStencilClearValue uint32
 
 	// Render control.
-	DbDepthClearEnable   bool
-	DbStencilClearEnable bool
-	DbDepthCopy          bool
-	DbStencilCopy        bool
+	DbRenderControl reg.DbRenderControl
 
 	// Viewport/window control.
-	VpScissorEnable    bool
-	WindowOffsetEnable bool
-
-	// Line stipple.
-	LineStippleEnable      bool
-	LineStippleRepeatCount uint32
-	LineStipplePattern     uint32
-
-	// Anti-aliasing control.
-	MsaaEnable          bool
-	MsaaSampleLocations uint32
-
-	// Multi primitive index buffer reset.
-	MultiPrimIbResetEnable bool
-	MultiPrimIbResetIndex  uint32
+	PaScModeCntl0         reg.PaScModeCntl0
+	PaScAaConfig          reg.PaScAaConfig
+	VgtMultiPrimIbResetEn reg.VgtMultiPrimIbResetEn
+	PaSuLineCntl          reg.PaSuLineCntl
+	PaScAaMaskX0y0X1y0    reg.PaScAaMaskX0y0X1y0
+	PaScAaMaskX0y1X1y1    reg.PaScAaMaskX0y1X1y1
+	MultiPrimIbResetIndex uint32
 
 	// Hash of user data registers.
 	UserDataHash uint32
@@ -127,19 +101,13 @@ type LiverpoolSetDynamicStateInternal struct {
 	VpZMax    float32
 
 	// Viewport transform engine control.
-	VteControl      uint32
-	VpXScaleEnable  bool
-	VpXOffsetEnable bool
-	VpYScaleEnable  bool
-	VpYOffsetEnable bool
-	VpZScaleEnable  bool
-	VpZOffsetEnable bool
-	VtxXyFmt        bool
-	VtxZFmt         bool
-	VtxW0Fmt        bool
+	PaClVteCntl reg.PaClVteCntl
 
 	// Clip control.
-	ClipControl uint32
+	ClipControl reg.PaClClipCntl
+
+	PaScModeCntl0  reg.PaScModeCntl0
+	PaSuScModeCntl reg.PaSuScModeCntl
 
 	// Guard band adjust.
 	GbVertClipAdj float32
@@ -154,30 +122,28 @@ type LiverpoolSetDynamicStateInternal struct {
 	BlendAlpha uint32
 
 	// Screen scissor.
-	ScissorTl uint32
+	ScissorTl reg.PaScScreenScissorTl
 	ScissorBr uint32
 
 	// Viewport scissor.
-	VpScissorEnable bool
-	VpScissorTl     uint32
-	VpScissorBr     uint32
+	VpScissorTl reg.PaScVportScissorTl
+	VpScissorBr uint32
 
 	// Generic scissor.
-	GenericScissorTl uint32
+	GenericScissorTl reg.PaScGenericScissorTl
 	GenericScissorBr uint32
 
 	// Window scissor and offset.
-	WindowOffsetEnable bool
-	WindowScissorTl    uint32
-	WindowScissorBr    uint32
-	WindowOffset       uint32
+	WindowScissorTl reg.PaScWindowScissorTl
+	WindowScissorBr uint32
+	WindowOffset    reg.PaScWindowOffset
 
 	// Line stipple.
 	LineStippleRepeatCount uint32
 	LineStipplePattern     uint32
 
 	// Hardware screen offset.
-	HardwareScreenOffset uint32
+	HardwareScreenOffset reg.PaSuHardwareScreenOffset
 }
 
 type LiverpoolDrawInternal struct {
@@ -200,10 +166,9 @@ type LiverpoolDrawInternal struct {
 	GeometryShRsrc1, GeometryShRsrc2 uint32
 
 	// Clear flags (from DB_RENDER_CONTROL).
-	DbDepthClearEnable   bool
-	DbStencilClearEnable bool
-	DbDepthClearValue    uint32
-	DbStencilClearValue  uint32
+	DbRenderControl     reg.DbRenderControl
+	DbDepthClearValue   uint32
+	DbStencilClearValue uint32
 
 	// Hash of user data registers.
 	UserDataHash uint32

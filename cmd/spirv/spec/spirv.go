@@ -33,9 +33,13 @@ const (
 // SPIR-V built-in decorations.
 const (
 	SpvBuiltInPosition                  = uint32(0)
+	SpvBuiltInPointSize                 = uint32(1)
+	SpvBuiltInClipDistance              = uint32(3)
+	SpvBuiltInCullDistance              = uint32(4)
 	SpvBuiltInWorkgroupId               = uint32(26)
 	SpvBuiltInLocalInvocationId         = uint32(27)
 	SpvBuiltInFragCoord                 = uint32(15)
+	SpvBuiltInFrontFacing               = uint32(17)
 	SpvBuiltInFragDepth                 = uint32(22)
 	SpvBuiltInSubgroupLocalInvocationId = uint32(41)
 	SpvBuiltInVertexIndex               = uint32(42)
@@ -75,9 +79,11 @@ var GncStageToSpvExecModel = map[GcnShaderStage]uint32{
 
 // SPIR-V execution modes.
 const (
-	SpvExecModeOriginUpperLeft = uint32(7)
-	SpvExecModeDepthReplacing  = uint32(12)
-	SpvExecModeLocalSize       = uint32(17)
+	SpvExecModeOriginUpperLeft    = uint32(7)
+	SpvExecModeOriginLowerLeft    = uint32(8)
+	SpvExecModeEarlyFragmentTests = uint32(9)
+	SpvExecModeDepthReplacing     = uint32(12)
+	SpvExecModeLocalSize          = uint32(17)
 )
 
 // SPIR-V storage classes.

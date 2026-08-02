@@ -2,6 +2,7 @@ package vulkan
 
 import (
 	spirvStructs "github.com/LamkasDev/sharkie/cmd/spirv/structs"
+	"github.com/LamkasDev/sharkie/cmd/vulkan/gcn"
 )
 
 type MipLayout struct {
@@ -96,7 +97,7 @@ func computeMipLayouts(descriptor spirvStructs.ImageDescriptor, numLevels uint8)
 		numLevels = 16
 	}
 
-	bpp := uint32(GetBytesPerPixel(descriptor.DataFormat) * 8)
+	bpp := uint32(gcn.GetBytesPerPixel(descriptor.DataFormat) * 8)
 	linear := isLinearTileMode(descriptor.TilingIndex)
 	isBlock := descriptor.DataFormat >= 35 && descriptor.DataFormat <= 41
 

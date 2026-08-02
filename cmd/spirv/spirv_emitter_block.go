@@ -59,9 +59,9 @@ func emitBlock(b *SpvBuilder, block *GcnShaderCfgBlock, ctx *SpirvBlockContext) 
 			ctx.SetGcnVgprId(b, 1, v1)
 
 			// Inline fetch shader instructions.
-			if len(ctx.FetchShaderInstructions) > 0 {
+			if len(ctx.Context.(SpirvVertexShaderContext).FetchShaderInstructions) > 0 {
 				b.EmitString("inline fetch shader loads")
-				for _, instr := range ctx.FetchShaderInstructions {
+				for _, instr := range ctx.Context.(SpirvVertexShaderContext).FetchShaderInstructions {
 					emitInstruction(b, instr, ctx)
 				}
 			}
@@ -97,9 +97,8 @@ func emitBlock(b *SpvBuilder, block *GcnShaderCfgBlock, ctx *SpirvBlockContext) 
 			ptrX := b.EmitAccessChain(typePtrFnUint, ctx.GcnSgprArrayId, sgprIdx)
 			wgXRaw := b.EmitCompositeExtract(typeUint, workgroupVec, 0)
 			wgXFinal := wgXRaw
-			if ctx.ThreadX > 1024 {
-				// Restore original Workgroup ID.
-				splitFactor := b.EmitConstantUint(typeUint, (ctx.ThreadX+1023)/1024)
+			if ctx.Context.(SpirvComputeShaderContext).ThreadX > 1024 {
+				splitFactor := b.EmitConstantUint(typeUint, (ctx.Context.(SpirvComputeShaderContext).ThreadX+1023)/1024)
 				wgXFinal = b.EmitUDiv(typeUint, wgXRaw, splitFactor)
 			}
 			b.EmitStore(ptrX, wgXFinal)
@@ -127,9 +126,9 @@ func emitBlock(b *SpvBuilder, block *GcnShaderCfgBlock, ctx *SpirvBlockContext) 
 			localVec := b.EmitLoad(ctx.GetId(BlockContextIdTypeV3Uint), ctx.GetId(BlockContextIdLocalInvocationId))
 			localXRaw := b.EmitCompositeExtract(typeUint, localVec, 0)
 			localXFinal := localXRaw
-			if ctx.ThreadX > 1024 {
+			if ctx.Context.(SpirvComputeShaderContext).ThreadX > 1024 {
 				// Restore original Local ID.
-				splitFactor := b.EmitConstantUint(typeUint, (ctx.ThreadX+1023)/1024)
+				splitFactor := b.EmitConstantUint(typeUint, (ctx.Context.(SpirvComputeShaderContext).ThreadX+1023)/1024)
 				wgMod := b.EmitUMod(typeUint, wgXRaw, splitFactor)
 				offset := b.EmitIMul(typeUint, wgMod, b.EmitConstantUint(typeUint, 1024))
 				localXFinal = b.EmitIAdd(typeUint, localXRaw, offset)

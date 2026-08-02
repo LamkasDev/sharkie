@@ -3,6 +3,7 @@ package translation
 import (
 	spirvStructs "github.com/LamkasDev/sharkie/cmd/spirv/structs"
 	"github.com/LamkasDev/sharkie/cmd/vulkan"
+	vkGcn "github.com/LamkasDev/sharkie/cmd/vulkan/gcn"
 	vk "github.com/goki/vulkan"
 )
 
@@ -26,16 +27,16 @@ func (t *GpuTranslator) GetSampler(descriptor spirvStructs.SamplerDescriptor) (v
 	var sampler vk.Sampler
 	result := vk.CreateSampler(t.handles.Device, &vk.SamplerCreateInfo{
 		SType:            vk.StructureTypeSamplerCreateInfo,
-		MagFilter:        vulkan.TranslateFilter(descriptor.XyMagFilter),
-		MinFilter:        vulkan.TranslateFilter(descriptor.XyMinFilter),
-		MipmapMode:       vulkan.TranslateMipmapMode(descriptor.ZFilter),
-		AddressModeU:     vulkan.TranslateClampMode(descriptor.ClampX),
-		AddressModeV:     vulkan.TranslateClampMode(descriptor.ClampY),
-		AddressModeW:     vulkan.TranslateClampMode(descriptor.ClampZ),
+		MagFilter:        vkGcn.TranslateFilter(descriptor.XyMagFilter),
+		MinFilter:        vkGcn.TranslateFilter(descriptor.XyMinFilter),
+		MipmapMode:       vkGcn.TranslateMipmapMode(descriptor.ZFilter),
+		AddressModeU:     vkGcn.TranslateClampMode(descriptor.ClampX),
+		AddressModeV:     vkGcn.TranslateClampMode(descriptor.ClampY),
+		AddressModeW:     vkGcn.TranslateClampMode(descriptor.ClampZ),
 		AnisotropyEnable: anisotropyEnable,
 		MaxAnisotropy:    float32(descriptor.MaxAnisoRatio),
 		MaxLod:           descriptor.MaxLod,
-		BorderColor:      vulkan.TranslateBorderColorType(descriptor.BorderColorType),
+		BorderColor:      vkGcn.TranslateBorderColorType(descriptor.BorderColorType),
 	}, nil, &sampler)
 	if err := vulkan.NewError(result); err != nil {
 		return vk.NullSampler, err

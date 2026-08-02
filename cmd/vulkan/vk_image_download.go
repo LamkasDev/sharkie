@@ -5,6 +5,7 @@ import (
 
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	spirvStructs "github.com/LamkasDev/sharkie/cmd/spirv/structs"
+	"github.com/LamkasDev/sharkie/cmd/vulkan/gcn"
 	vk "github.com/goki/vulkan"
 	"github.com/gookit/color"
 )
@@ -17,7 +18,7 @@ func (image *VulkanImage) DownloadFromVkImage(handles *VulkanHandles, commandBuf
 	width := uint32(image.FirstDescriptor.Width)
 	height := uint32(image.FirstDescriptor.Height)
 	pitch := uint32(image.FirstDescriptor.Pitch)
-	bpp := GetBytesPerPixel(image.FirstDescriptor.DataFormat)
+	bpp := gcn.GetBytesPerPixel(image.FirstDescriptor.DataFormat)
 
 	var copyBytes vk.DeviceSize
 	var rowPitch uint32
