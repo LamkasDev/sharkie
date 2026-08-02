@@ -59,8 +59,11 @@ func NewGcnShader(stage GcnShaderStage, address uintptr) (*GcnShader, error) {
 	var foundEndProgram bool
 	for i := uintptr(0); i < GcnShaderMaxDwords; i += 4 {
 		dw := *(*uint32)(unsafe.Pointer(address + i))
+		if dw == GcnShaderEndProgramRaw {
+			dw = GcnShaderEndProgramStandard
+		}
 		dwords = append(dwords, dw)
-		if dw == GcnShaderEndProgram {
+		if dw == GcnShaderEndProgramStandard {
 			foundEndProgram = true
 			break
 		}

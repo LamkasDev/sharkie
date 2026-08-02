@@ -26,7 +26,6 @@ func (t *GpuTranslator) GetImageView(descriptor spirvStructs.ImageDescriptor) (*
 	if ok && view.Image == image && view.Image.Generation == image.Generation {
 		t.imagesMutex.Unlock()
 		if image.ShouldUploadToVkImage(t.currentGuestFrame) {
-			t.EndRenderPass()
 			if err = image.UploadToVkImage(t.handles, t.commandBuffer, t.GetLinearBuffer, t.currentGuestFrame); err != nil {
 				return nil, err, false
 			}

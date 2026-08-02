@@ -213,6 +213,7 @@ func StackChkFail() uintptr {
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Red.Sprintf("stack check failed :("),
 	)
+	logger.Print(emu.SprintStackTrace())
 	logger.CleanupAndExit()
 
 	return 0

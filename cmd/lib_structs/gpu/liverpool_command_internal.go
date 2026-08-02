@@ -4,19 +4,28 @@ import (
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/gcn/reg"
+	spirvCommon "github.com/LamkasDev/sharkie/cmd/spirv/common"
 )
 
 //go:generate hsp
 //go:generate go run ../../hsp_gen/hsp_gen.go -- liverpool_command_internal_gen.go
 
-type LiverpoolBindPipelineInternal struct {
-	// Shader addresses (for hashing).
+type LiverpoolBindResourcesInternal struct {
 	VertexShaderAddress   uintptr
-	PixelShaderAddress    uintptr
+	FragmentShaderAddress uintptr
 	HullShaderAddress     uintptr
 	EvalShaderAddress     uintptr
 	GeometryShaderAddress uintptr
+	ComputeShaderAddress  uintptr
 
+	VertexContext   spirvCommon.SpirvVertexShaderContext
+	FragmentContext spirvCommon.SpirvFragmentShaderContext
+	ComputeContext  spirvCommon.SpirvComputeShaderContext
+
+	UserDataHash uint32
+}
+
+type LiverpoolBindPipelineInternal struct {
 	// Draw parameters.
 	PrimType uint32
 
@@ -88,6 +97,8 @@ type LiverpoolBindPipelineInternal struct {
 	// Hash of user data registers.
 	UserDataHash uint32
 }
+
+type LiverpoolBindComputePipelineInternal struct{}
 
 type LiverpoolSetDynamicStateInternal struct {
 	// Viewport.
@@ -175,9 +186,6 @@ type LiverpoolDrawInternal struct {
 }
 
 type LiverpoolDispatchInternal struct {
-	// Shader addresses (for hashing).
-	ComputeShaderAddress uintptr
-
 	// Compute parameters.
 	DimX, DimY, DimZ          uint32
 	ThreadX, ThreadY, ThreadZ uint32

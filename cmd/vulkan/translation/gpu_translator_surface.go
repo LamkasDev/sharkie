@@ -27,7 +27,6 @@ func (t *GpuTranslator) GetSurface(descriptor spirvStructs.ImageDescriptor, form
 		if !recreate {
 			surface.ImageView.Image.IsSurface = true
 			if surface.ImageView.Image.ShouldUploadToVkImage(t.currentGuestFrame) {
-				t.EndRenderPass()
 				if err := surface.ImageView.Image.UploadToVkImage(t.handles, t.commandBuffer, t.GetLinearBuffer, t.currentGuestFrame); err != nil {
 					logger.Printf("failed to upload image: %v\n", err)
 				}
@@ -59,7 +58,6 @@ func (t *GpuTranslator) GetSurface(descriptor spirvStructs.ImageDescriptor, form
 	t.surfacesMutex.Unlock()
 
 	if surface.ImageView.Image.ShouldUploadToVkImage(t.currentGuestFrame) {
-		t.EndRenderPass()
 		if err = surface.ImageView.Image.UploadToVkImage(t.handles, t.commandBuffer, t.GetLinearBuffer, t.currentGuestFrame); err != nil {
 			logger.Printf("failed to upload image: %v\n", err)
 		}

@@ -88,17 +88,24 @@ type GpuTranslator struct {
 	fenceMutex sync.Mutex
 
 	// Active state for chronological stream processing.
-	lastColorRtAddress   uintptr
-	activeSurface        *vulkan.VulkanSurface
-	activePass           vk.RenderPass
-	activePassNoClear    vk.RenderPass
-	activeFramebuffer    vk.Framebuffer
-	activePipeline       vk.Pipeline
-	activeFragmentShader *spirv.SpirvShader
-	activeVertexShader   *spirv.SpirvShader
-	activeVteControl     uint32
-	activeClipControl    uint32
-	activeDynamicState   *gpu.LiverpoolSetDynamicState
+	lastColorRtAddress              uintptr
+	activeSurface                   *vulkan.VulkanSurface
+	activeFramebuffer               vk.Framebuffer
+	activePipeline                  vk.Pipeline
+	activeFragmentShader            *spirv.SpirvShader
+	activeGeometryShader            *spirv.SpirvShader
+	activeComputeShader             *spirv.SpirvShader
+	activeComputeStoreTargets       []*vulkan.VulkanImage
+	activeComputeStoreBufferTargets []*vulkan.VulkanImage
+	activeVertexShader              *spirv.SpirvShader
+	activeVteControl                uint32
+	activeClipControl               uint32
+	activeDynamicState              *gpu.LiverpoolSetDynamicState
+
+	activeFragmentShaderKey SpirvShaderKey
+	activeGeometryShaderKey SpirvShaderKey
+	activeComputeShaderKey  SpirvShaderKey
+	activeVertexShaderKey   SpirvShaderKey
 
 	// Direct allocations for Option A translation.
 	directAllocationsMutex      sync.Mutex
@@ -308,7 +315,6 @@ func NewGpuTranslator(handles *vulkan.VulkanHandles, bknd backend.Backend[glfwvu
 			DescriptorCount: 1,
 		},
 	})
-	t.activePass = vk.NullRenderPass
 	t.activePipeline = vk.NullPipeline
 
 	// Allocate quad list index buffer.
@@ -415,13 +421,15 @@ func (t *GpuTranslator) ResetFrameState(frame uint64) {
 	t.currentGuestFrame = frame
 	t.activeSurface = nil
 	t.lastColorRtAddress = 0
-	t.activePass = vk.NullRenderPass
-	t.activePassNoClear = vk.NullRenderPass
 	t.activeFramebuffer = vk.NullFramebuffer
 	t.activePipeline = vk.NullPipeline
 	t.activeVteControl = 0
 	t.activeClipControl = 0
 	t.activeDynamicState = nil
+	t.activeVertexShader = nil
+	t.activeFragmentShader = nil
+	t.activeGeometryShader = nil
+	t.activeComputeShader = nil
 
 	if frame != t.lastProcessedFrame {
 		t.surfacesMutex.Lock()
@@ -459,6 +467,10 @@ func (t *GpuTranslator) Translate(frame uint64, stream *gpu.LiverpoolCommandStre
 			t.DmaCopy(frame, &stream.DmaCopies[command.Index])
 		case gpu.LiverpoolCommandTypeBindPipeline:
 			t.BindPipeline(frame, &stream.Pipelines[command.Index])
+		case gpu.LiverpoolCommandTypeBindResources:
+			t.BindResources(frame, &stream.BindResources[command.Index])
+		case gpu.LiverpoolCommandTypeBindComputePipeline:
+			t.BindComputePipeline(frame, &stream.ComputePipelines[command.Index])
 		case gpu.LiverpoolCommandTypeSetDynamicState:
 			t.SetDynamicState(&stream.DynamicStates[command.Index])
 		case gpu.LiverpoolCommandTypeWriteData:
@@ -490,6 +502,14 @@ func (t *GpuTranslator) StartCommandBuffer() {
 		SType: vk.StructureTypeCommandBufferBeginInfo,
 		Flags: vk.CommandBufferUsageFlags(vk.CommandBufferUsageOneTimeSubmitBit),
 	})
+}
+
+func (t *GpuTranslator) EndRenderPass() {
+	if t.activeFramebuffer != vk.NullFramebuffer {
+		vk.CmdEndRenderPass(t.commandBuffer.CommandBuffer)
+		t.activeFramebuffer = vk.NullFramebuffer
+		t.activePipeline = vk.NullPipeline
+	}
 }
 
 func (t *GpuTranslator) EndCommandBuffer() {

@@ -20,11 +20,23 @@ func main() {
 
 		// Fix MarshalHash calls.
 		reHash := regexp.MustCompile(`(?s)if oTemp, err := z\.([a-zA-Z0-9]+)\.MarshalHash\(\); err != nil \{\s+return nil, err\s+\} else \{\s+o = hsp\.AppendBytes\(o, oTemp\)\s+\}`)
-		content = reHash.ReplaceAll(content, []byte("o = hsp.AppendUint64(o, uint64(z.$1))"))
+		content = reHash.ReplaceAllFunc(content, func(match []byte) []byte {
+			submatch := reHash.FindSubmatch(match)
+			if strings.HasSuffix(string(submatch[1]), "Context") {
+				return match
+			}
+			return []byte("o = hsp.AppendUint64(o, uint64(z." + string(submatch[1]) + "))")
+		})
 
 		// Fix Msgsize calculations.
 		reSize := regexp.MustCompile(`\+ \d+ \+ z\.([a-zA-Z0-9]+)\.Msgsize\(\)`)
-		content = reSize.ReplaceAll(content, []byte("+ hsp.Uint64Size"))
+		content = reSize.ReplaceAllFunc(content, func(match []byte) []byte {
+			submatch := reSize.FindSubmatch(match)
+			if strings.HasSuffix(string(submatch[1]), "Context") {
+				return match
+			}
+			return []byte("+ hsp.Uint64Size")
+		})
 
 		if err = os.WriteFile(filePath, []byte(content), 0644); err != nil {
 			panic(err)

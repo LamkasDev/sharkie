@@ -4,7 +4,11 @@ import (
 	"fmt"
 	"unsafe"
 
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/gcn"
+	gcnSpec "github.com/LamkasDev/sharkie/cmd/lib_structs/gcn/spec"
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/gpu"
 	"github.com/LamkasDev/sharkie/cmd/logger"
+
 	"github.com/LamkasDev/sharkie/cmd/spirv"
 	spirvCommon "github.com/LamkasDev/sharkie/cmd/spirv/common"
 	spirvStructs "github.com/LamkasDev/sharkie/cmd/spirv/structs"
@@ -12,8 +16,87 @@ import (
 	vk "github.com/goki/vulkan"
 )
 
-// BindResources resolves compute operands, prepares VkImages, updates bindless and/or set 2.
-func (t *GpuTranslator) BindResources(shaders []*spirv.SpirvShader, userData spirvStructs.UserData) ([]*vulkan.VulkanImage, []*vulkan.VulkanImage, vk.DescriptorSet, error) {
+func (t *GpuTranslator) BindResources(frame uint64, bind *gpu.LiverpoolBindResources) {
+	t.EndRenderPass()
+
+	// Get buffer addresses.
+	t.userDataBuffersMutex.Lock()
+	userData, _ := gpu.GlobalUserDataSnapshots[bind.UserDataHash]
+	t.userDataBuffersMutex.Unlock()
+
+	// Gather shaders.
+	var shaders []*spirv.SpirvShader
+	if bind.VertexShader != nil {
+		// Parse fetch shader layout.
+		var fetchInstructions []*gcnSpec.Instruction
+		fetchShaderAddress := GetFetchShaderPC(bind.VertexShader, userData[:])
+		if fetchShaderAddress != 0 {
+			fetchShader := gpu.GlobalLiverpool.GetShader(gcn.GcnShaderStageVertex, fetchShaderAddress)
+			if fetchShader != nil {
+				fetchInstructions = ParseFetchShaderInstructions(fetchShader)
+			}
+		}
+		bind.VertexContext.FetchShaderAddress = fetchShaderAddress
+		bind.VertexContext.FetchShaderInstructions = fetchInstructions
+
+		vsSpirv, vsKey := t.GetShaderWithContext(bind.VertexShader, bind.VertexContext)
+		t.activeVertexShader = vsSpirv
+		t.activeVertexShaderKey = vsKey
+		shaders = append(shaders, vsSpirv)
+	} else {
+		t.activeVertexShader = nil
+		t.activeVertexShaderKey = SpirvShaderKey{}
+	}
+	if bind.FragmentShader != nil {
+		psSpirv, psKey := t.GetShaderWithContext(bind.FragmentShader, bind.FragmentContext)
+		t.activeFragmentShader = psSpirv
+		t.activeFragmentShaderKey = psKey
+		shaders = append(shaders, psSpirv)
+	} else {
+		t.activeFragmentShader = nil
+		t.activeFragmentShaderKey = SpirvShaderKey{}
+	}
+	if bind.GeometryShader != nil {
+		gsSpirv, gsKey := t.GetShaderWithContext(bind.GeometryShader, spirvCommon.SpirvShaderContext(nil))
+		t.activeGeometryShader = gsSpirv
+		t.activeGeometryShaderKey = gsKey
+		shaders = append(shaders, gsSpirv)
+	}
+	if bind.ComputeShader != nil {
+		csSpirv, csKey := t.GetShaderWithContext(bind.ComputeShader, bind.ComputeContext)
+		t.activeComputeShader = csSpirv
+		t.activeComputeShaderKey = csKey
+		shaders = append(shaders, csSpirv)
+	}
+
+	// Bind resources.
+	staticSetToBind := t.staticDescriptorPool.DefaultSet(frame)
+	storeTargets, storeBufferTargets, activeStaticSet, err := t.GetBindDescriptorSet(shaders, userData)
+	if err != nil {
+		return
+	}
+	if activeStaticSet != vk.NullDescriptorSet {
+		staticSetToBind = activeStaticSet
+	}
+	t.activeComputeStoreTargets = storeTargets
+	t.activeComputeStoreBufferTargets = storeBufferTargets
+
+	vk.CmdBindDescriptorSets(
+		t.commandBuffer.CommandBuffer, vk.PipelineBindPointGraphics,
+		t.pipelineLayout, spirvStructs.DescriptorSetSlotStatic,
+		1, []vk.DescriptorSet{staticSetToBind},
+		0, nil,
+	)
+	vk.CmdBindDescriptorSets(
+		t.commandBuffer.CommandBuffer, vk.PipelineBindPointCompute,
+		t.pipelineLayout, spirvStructs.DescriptorSetSlotStatic,
+		1, []vk.DescriptorSet{staticSetToBind},
+		0, nil,
+	)
+}
+
+// GetBindDescriptorSet resolves compute operands, prepares VkImages and returns a descriptor set to bind.
+func (t *GpuTranslator) GetBindDescriptorSet(shaders []*spirv.SpirvShader, userData spirvStructs.UserData) ([]*vulkan.VulkanImage, []*vulkan.VulkanImage, vk.DescriptorSet, error) {
 	// Resolve resources accessed by the shaders.
 	var imageAccesses []ResolvedImageAccess
 	var bufferAccesses []ResolvedBufferAccess
@@ -75,11 +158,9 @@ func (t *GpuTranslator) BindResources(shaders []*spirv.SpirvShader, userData spi
 		// Transition image layout, update descriptor set.
 		switch binding.Access {
 		case spirvCommon.BindingAccessSampledRead:
-			t.EndRenderPass()
 			view.Image.BarrierSampledRead(t.commandBuffer)
 			t.updateStaticDescriptorBinding(activeStaticSet, binding.BindingIndex, view.ImageView, vk.NullImageView, sampler, vk.NullBufferView)
 		case spirvCommon.BindingAccessStorageWrite:
-			t.EndRenderPass()
 			view.Image.BarrierComputeStorageWrite(t.commandBuffer)
 			t.updateStaticDescriptorBinding(activeStaticSet, binding.BindingIndex, vk.NullImageView, view.StorageImageView, sampler, vk.NullBufferView)
 		}

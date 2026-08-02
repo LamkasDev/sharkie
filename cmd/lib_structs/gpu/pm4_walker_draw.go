@@ -6,6 +6,7 @@ import (
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/gcn"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/gcn/reg"
 	"github.com/LamkasDev/sharkie/cmd/logger"
+	"github.com/LamkasDev/sharkie/cmd/spirv/common"
 	"github.com/gookit/color"
 )
 
@@ -57,9 +58,62 @@ func (l *Liverpool) recordDraw(stream *LiverpoolCommandStream, isIndexed bool) {
 	l.StateMutex.Lock()
 	defer l.StateMutex.Unlock()
 
+	// Construct resource binds.
+	bindResources := LiverpoolBindResources{
+		LiverpoolBindResourcesInternal: LiverpoolBindResourcesInternal{
+			UserDataHash: l.SnapshotUserData(),
+		},
+	}
+	if address := l.VsGpuAddress(); address != 0 {
+		bindResources.VertexShader = l.GetShader(GcnShaderStageVertex, address)
+		bindResources.VertexShaderAddress = address
+		paClVsOutCntl := reg.PaClVsOutCntl(l.Registers.Context[GREG_MM_PA_CL_VS_OUT_CNTL])
+		bindResources.VertexContext = common.SpirvVertexShaderContext{
+			ClipDistEnable: paClVsOutCntl.ClipDistEna(),
+			CullDistEnable: paClVsOutCntl.CullDistEna(),
+		}
+	} else {
+		panic("no vertex shader")
+	}
+	if address := l.PsGpuAddress(); address != 0 {
+		bindResources.FragmentShader = l.GetShader(GcnShaderStageFragment, address)
+		bindResources.FragmentShaderAddress = address
+		psInputAddress := reg.SpiPsInputAddr(l.Registers.Context[GREG_MM_SPI_PS_INPUT_ADDR])
+		dbShaderControl := reg.DbShaderControl(l.Registers.Context[GREG_MM_DB_SHADER_CONTROL])
+		bindResources.FragmentContext = common.SpirvFragmentShaderContext{
+			PsInControl:       l.Registers.Context[GREG_MM_SPI_PS_IN_CONTROL],
+			PsInputAddress:    l.Registers.Context[GREG_MM_SPI_PS_INPUT_ADDR],
+			DepthBeforeShader: dbShaderControl.DepthBeforeShader(),
+			ZOrder:            dbShaderControl.ZOrder(),
+			FrontFaceEnable:   psInputAddress.FrontFaceEna(),
+		}
+		copy(bindResources.FragmentContext.PsInputControls[:], l.Registers.Context[GREG_MM_SPI_PS_INPUT_CNTL_0:GREG_MM_SPI_PS_INPUT_CNTL_31+1])
+	}
+	if address := l.HsGpuAddress(); address != 0 {
+		bindResources.HullShader = l.GetShader(GcnShaderStageHull, address)
+		bindResources.HullShaderAddress = address
+	}
+	if address := l.EsGpuAddress(); address != 0 {
+		bindResources.EvalShader = l.GetShader(GcnShaderStageEvaluation, address)
+		bindResources.EvalShaderAddress = address
+	}
+	if address := l.GsGpuAddress(); address != 0 {
+		bindResources.GeometryShader = l.GetShader(GcnShaderStageGeometry, address)
+		bindResources.GeometryShaderAddress = address
+	}
+
+	// Add to command stream.
+	resHash := bindResources.Hash()
+	resIndex, ok := stream.BindResourcesMap[resHash]
+	if !ok {
+		resIndex = uint32(len(stream.BindResources))
+		stream.BindResources = append(stream.BindResources, bindResources)
+		stream.BindResourcesMap[resHash] = resIndex
+	}
+	stream.Commands = append(stream.Commands, LiverpoolCommand{Type: LiverpoolCommandTypeBindResources, Index: resIndex})
+
 	// Construct pipeline state.
 	bindPipeline := LiverpoolBindPipeline{
-		VertexShader: l.GetShader(GcnShaderStageVertex, l.VsGpuAddress()),
 		LiverpoolBindPipelineInternal: LiverpoolBindPipelineInternal{
 			PrimType: l.Registers.UserConfig[GREG_MM_VGT_PRIMITIVE_TYPE__CI__VI],
 
@@ -119,32 +173,14 @@ func (l *Liverpool) recordDraw(stream *LiverpoolCommandStream, isIndexed bool) {
 
 			MultiPrimIbResetIndex: l.Registers.Context[GREG_MM_VGT_MULTI_PRIM_IB_RESET_INDX],
 
-			UserDataHash: l.SnapshotUserData(),
+			UserDataHash: bindResources.UserDataHash,
 		},
-	}
-	copy(bindPipeline.PsInputControls[:], l.Registers.Context[GREG_MM_SPI_PS_INPUT_CNTL_0:GREG_MM_SPI_PS_INPUT_CNTL_31+1])
-	bindPipeline.VertexShaderAddress = bindPipeline.VertexShader.Address
-	if address := l.PsGpuAddress(); address != 0 {
-		bindPipeline.PixelShader = l.GetShader(GcnShaderStageFragment, address)
-		bindPipeline.PixelShaderAddress = address
-	}
-	if address := l.HsGpuAddress(); address != 0 {
-		bindPipeline.HullShader = l.GetShader(GcnShaderStageHull, address)
-		bindPipeline.HullShaderAddress = address
-	}
-	if address := l.EsGpuAddress(); address != 0 {
-		bindPipeline.EvalShader = l.GetShader(GcnShaderStageEvaluation, address)
-		bindPipeline.EvalShaderAddress = address
-	}
-	if address := l.GsGpuAddress(); address != 0 {
-		bindPipeline.GeometryShader = l.GetShader(GcnShaderStageGeometry, address)
-		bindPipeline.GeometryShaderAddress = address
 	}
 
 	// Add to command stream.
 	bindHash := bindPipeline.Hash()
 	bindIndex, ok := stream.PipelinesMap[bindHash]
-	if !ok || true {
+	if !ok {
 		bindIndex = uint32(len(stream.Pipelines))
 		stream.Pipelines = append(stream.Pipelines, bindPipeline)
 		stream.PipelinesMap[bindHash] = bindIndex
@@ -201,7 +237,7 @@ func (l *Liverpool) recordDraw(stream *LiverpoolCommandStream, isIndexed bool) {
 	// Add to command stream.
 	dynHash := setDynamicState.Hash()
 	dynIndex, ok := stream.DynamicStatesMap[dynHash]
-	if !ok || true {
+	if !ok {
 		dynIndex = uint32(len(stream.DynamicStates))
 		stream.DynamicStates = append(stream.DynamicStates, setDynamicState)
 		stream.DynamicStatesMap[dynHash] = dynIndex
@@ -257,8 +293,8 @@ func (l *Liverpool) recordDraw(stream *LiverpoolCommandStream, isIndexed bool) {
 				color.Green.Sprintf("%d", draw.IndexCount),
 				color.Green.Sprintf("%d", draw.PrimType),
 				color.Yellow.Sprintf("0x%X", bindPipeline.RtBase),
-				color.Yellow.Sprintf("0x%X", bindPipeline.VertexShader.Address),
-				color.Yellow.Sprintf("0x%X", bindPipeline.PixelShader.Address),
+				color.Yellow.Sprintf("0x%X", bindResources.VertexShader.Address),
+				color.Yellow.Sprintf("0x%X", bindResources.FragmentShader.Address),
 			)
 		} else {
 			logger.Printf("[%s] draw index auto (index_count=%s, prim=%s, rt=%s, vs=%s, ps=%s).\n",
@@ -266,8 +302,8 @@ func (l *Liverpool) recordDraw(stream *LiverpoolCommandStream, isIndexed bool) {
 				color.Green.Sprintf("%d", draw.IndexCount),
 				color.Green.Sprintf("%d", draw.PrimType),
 				color.Yellow.Sprintf("0x%X", bindPipeline.RtBase),
-				color.Yellow.Sprintf("0x%X", bindPipeline.VertexShader.Address),
-				color.Yellow.Sprintf("0x%X", bindPipeline.PixelShader.Address),
+				color.Yellow.Sprintf("0x%X", bindResources.VertexShader.Address),
+				color.Yellow.Sprintf("0x%X", bindResources.FragmentShader.Address),
 			)
 		}
 	}

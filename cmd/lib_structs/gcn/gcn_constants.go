@@ -13,9 +13,11 @@ const (
 )
 
 const (
-	// GCN SOPP encoding: type[31:23]=0b101111111, op[22:16], simm16[15:0]
-	// S_ENDPGM: op=1, simm16=0
-	GcnShaderEndProgram = uint32(0xBF810000)
+	// S_ENDPGM: type[31:23]=0b101111111 (SOPP), op[22:16]=1, simm16[15:0]=0
+	GcnShaderEndProgramStandard = uint32(0xBF810000)
+
+	// S_ENDPGM: raw encoding where bits[9:0] = 0x3FF
+	GcnShaderEndProgramRaw = uint32(0xFF00FFFF)
 
 	// Maximum shader size we'll scan before giving up.
 	GcnShaderMaxDwords = 16 * 1024

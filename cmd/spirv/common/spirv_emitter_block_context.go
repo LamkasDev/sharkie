@@ -25,30 +25,6 @@ type SpirvBlockContext struct {
 	Context SpirvShaderContext
 }
 
-type SpirvShaderContext interface{}
-
-type SpirvVertexShaderContext struct {
-	ClipDistEnable          uint8
-	CullDistEnable          uint8
-	FetchShaderAddress      uintptr
-	FetchShaderInstructions []*gcnSpec.Instruction
-}
-
-type SpirvFragmentShaderContext struct {
-	PsInControl       uint32
-	PsInputAddress    uint32
-	PsInputControls   [32]uint32
-	DepthBeforeShader bool
-	ZOrder            uint32
-	FrontFaceEnable   bool
-}
-
-type SpirvComputeShaderContext struct {
-	ThreadX uint32
-	ThreadY uint32
-	ThreadZ uint32
-}
-
 type ShaderResourceBinding struct {
 	InstructionOffset uintptr
 	Kind              ImageAccessKind

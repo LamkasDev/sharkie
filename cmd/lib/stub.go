@@ -23,6 +23,7 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/lib/np_manager"
 	"github.com/LamkasDev/sharkie/cmd/lib/np_matching2"
 	"github.com/LamkasDev/sharkie/cmd/lib/np_score"
+	"github.com/LamkasDev/sharkie/cmd/lib/np_signaling"
 	"github.com/LamkasDev/sharkie/cmd/lib/np_sns"
 	"github.com/LamkasDev/sharkie/cmd/lib/np_sns_facebook_dialog"
 	"github.com/LamkasDev/sharkie/cmd/lib/np_trophy"
@@ -71,6 +72,7 @@ func RegisterStubs() {
 	np_manager.RegisterNpManagerStubs()
 	np_matching2.RegisterNpMatching2Stubs()
 	np_score.RegisterNpScoreStubs()
+	np_signaling.RegisterNpSignalingStubs()
 	np_sns.RegisterNpSnsStubs()
 	np_sns_facebook_dialog.RegisterNpSnsFacebookDialogStubs()
 	np_trophy.RegisterNpTrophyStubs()

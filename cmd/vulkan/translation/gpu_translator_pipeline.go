@@ -4,13 +4,10 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/LamkasDev/sharkie/cmd/lib_structs/gcn"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/gcn/reg"
-	gcnSpec "github.com/LamkasDev/sharkie/cmd/lib_structs/gcn/spec"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/gpu"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 
-	"github.com/LamkasDev/sharkie/cmd/spirv/common"
 	spirvStructs "github.com/LamkasDev/sharkie/cmd/spirv/structs"
 	"github.com/LamkasDev/sharkie/cmd/vulkan"
 	vkGcn "github.com/LamkasDev/sharkie/cmd/vulkan/gcn"
@@ -19,7 +16,6 @@ import (
 )
 
 func (t *GpuTranslator) BindPipeline(frame uint64, bind *gpu.LiverpoolBindPipeline) {
-	t.EndRenderPass()
 	rtAddress := bind.RtBase.Address()
 	if rtAddress == 0 {
 		return
@@ -103,56 +99,25 @@ func (t *GpuTranslator) BindPipeline(frame uint64, bind *gpu.LiverpoolBindPipeli
 		return
 	}
 
-	// Get buffer addresses.
-	t.userDataBuffersMutex.Lock()
-	userData, _ := gpu.GlobalUserDataSnapshots[bind.UserDataHash]
-	t.userDataBuffersMutex.Unlock()
-
-	// Parse fetch shader layout.
-	var fetchInstructions []*gcnSpec.Instruction
-	fetchShaderAddress := GetFetchShaderPC(bind.VertexShader, userData[:])
-	if fetchShaderAddress != 0 {
-		fetchShader := gpu.GlobalLiverpool.GetShader(gcn.GcnShaderStageVertex, fetchShaderAddress)
-		if fetchShader != nil {
-			fetchInstructions = ParseFetchShaderInstructions(fetchShader)
-		}
-	}
-
-	// Get shader modules.
-	vsSpirv, vsKey := t.GetShaderWithContext(bind.VertexShader, common.SpirvVertexShaderContext{
-		ClipDistEnable:          bind.PaClVsOutCntl.ClipDistEna(),
-		CullDistEnable:          bind.PaClVsOutCntl.CullDistEna(),
-		FetchShaderAddress:      fetchShaderAddress,
-		FetchShaderInstructions: fetchInstructions,
-	})
-	t.activeVertexShader = vsSpirv
-	vsModule, err := t.GetShaderModule(vsKey, vsSpirv)
-	if err != nil {
-		return
-	}
-
-	var psModule vk.ShaderModule
-	if bind.PixelShader != nil {
-		psSpirv, psKey := t.GetShaderWithContext(bind.PixelShader, common.SpirvFragmentShaderContext{
-			PsInControl:       uint32(bind.PsInControl),
-			PsInputAddress:    uint32(bind.PsInputAddress),
-			PsInputControls:   bind.PsInputControls,
-			DepthBeforeShader: bind.DbShaderControl.DepthBeforeShader(),
-			ZOrder:            bind.DbShaderControl.ZOrder(),
-			FrontFaceEnable:   bind.PsInputAddress.FrontFaceEna(),
-		})
-		if bind.CbColorInfo0.FastClear() || bind.CbColorInfo0.Compression() || !bind.DbRenderControl.DepthCompressDisable() {
-			// Vulkan driver manages surface compression implicitly (just here for usage).
-		}
-		t.activeFragmentShader = psSpirv
-		psModule, err = t.GetShaderModule(psKey, psSpirv)
+	// Gather shaders.
+	var vsModule, psModule vk.ShaderModule
+	var fetchShaderAddress uintptr
+	var vertexShaderAddress, pixelShaderAddress uintptr
+	if t.activeVertexShader != nil {
+		vsModule, err = t.GetShaderModule(t.activeVertexShaderKey, t.activeVertexShader)
 		if err != nil {
 			return
 		}
-	} else {
-		t.activeFragmentShader = nil
+		fetchShaderAddress = t.activeVertexShaderKey.FetchShaderAddress
+		vertexShaderAddress = t.activeVertexShader.GcnShader.Address
 	}
-
+	if t.activeFragmentShader != nil {
+		psModule, err = t.GetShaderModule(t.activeFragmentShaderKey, t.activeFragmentShader)
+		if err != nil {
+			return
+		}
+		pixelShaderAddress = t.activeFragmentShader.GcnShader.Address
+	}
 	var tcsModule, tesModule, gsModule vk.ShaderModule
 	if bind.PrimType == 17 { // RECTLIST
 		tcsModule, err = t.GetRectlistTescShader()
@@ -163,9 +128,8 @@ func (t *GpuTranslator) BindPipeline(frame uint64, bind *gpu.LiverpoolBindPipeli
 		if err != nil {
 			return
 		}
-	} else if bind.GeometryShader != nil {
-		gsSpirv, gsKey := t.GetShaderWithContext(bind.GeometryShader, common.SpirvShaderContext(nil))
-		gsModule, err = t.GetShaderModule(gsKey, gsSpirv)
+	} else if t.activeGeometryShader != nil {
+		gsModule, err = t.GetShaderModule(t.activeGeometryShaderKey, t.activeGeometryShader)
 		if err != nil {
 			return
 		}
@@ -196,9 +160,9 @@ func (t *GpuTranslator) BindPipeline(frame uint64, bind *gpu.LiverpoolBindPipeli
 		FragmentModule:    psModule,
 		RenderPass:        fb.RenderPass,
 		GraphicsPipelineKey: vulkan.GraphicsPipelineKey{
-			VertexModuleAddress:   bind.VertexShaderAddress,
-			FetchShaderAddress:    vsKey.FetchShaderAddress,
-			FragmentModuleAddress: bind.PixelShaderAddress,
+			VertexModuleAddress:   vertexShaderAddress,
+			FetchShaderAddress:    fetchShaderAddress,
+			FragmentModuleAddress: pixelShaderAddress,
 			RenderTargetAddress:   rtAddress,
 			DepthTargetAddress:    dbAddress,
 
@@ -280,18 +244,57 @@ func (t *GpuTranslator) BindPipeline(frame uint64, bind *gpu.LiverpoolBindPipeli
 		// Color clear value is ignored since loadOp is LOAD, but must be present.
 	}
 
-	t.StartRenderPass(renderPass, fb.RenderPassNoClear, fb.Framebuffer, pipeline, clearValues,
-		uint32(surface.ImageView.Image.FirstDescriptor.Width),
-		uint32(surface.ImageView.Image.FirstDescriptor.Height))
+	// Begin render pass.
+	vk.CmdBeginRenderPass(t.commandBuffer.CommandBuffer, &vk.RenderPassBeginInfo{
+		SType:       vk.StructureTypeRenderPassBeginInfo,
+		RenderPass:  renderPass,
+		Framebuffer: fb.Framebuffer,
+		RenderArea: vk.Rect2D{Extent: vk.Extent2D{
+			Width:  uint32(surface.ImageView.Image.FirstDescriptor.Width),
+			Height: uint32(surface.ImageView.Image.FirstDescriptor.Height),
+		}},
+		ClearValueCount: uint32(len(clearValues)),
+		PClearValues:    clearValues,
+	}, vk.SubpassContentsInline)
+	vk.CmdBindPipeline(t.commandBuffer.CommandBuffer, vk.PipelineBindPointGraphics, pipeline)
+
+	t.activeFramebuffer = fb.Framebuffer
+	t.activePipeline = pipeline
 
 	if logger.LogRenderer {
 		logger.Printf("[%s] Bound pipeline (vertex=%s, fragment=%s, rtAddress=0x%X, rtPitch=%d, rtSize=%dx%d).\n",
 			color.Blue.Sprintf("Frame %d", frame),
-			color.Yellow.Sprintf("0x%X", bind.VertexShaderAddress),
-			color.Yellow.Sprintf("0x%X", bind.PixelShaderAddress),
+			color.Yellow.Sprintf("0x%X", vertexShaderAddress),
+			color.Yellow.Sprintf("0x%X", pixelShaderAddress),
 			rtAddress, bind.RtPitch, rtWidth, rtHeight,
 		)
 	}
+}
+
+func (t *GpuTranslator) BindComputePipeline(frame uint64, bind *gpu.LiverpoolBindComputePipeline) {
+	// Gather shaders.
+	var csModule vk.ShaderModule
+	var err error
+	if t.activeComputeShader != nil {
+		csModule, err = t.GetShaderModule(t.activeComputeShaderKey, t.activeComputeShader)
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	// Get pipeline.
+	pipeline, err := t.GetComputePipeline(vulkan.ComputePipelineRequest{
+		ComputeModule: csModule,
+		ComputePipelineKey: vulkan.ComputePipelineKey{
+			ComputeModuleAddress: t.activeComputeShader.GcnShader.Address,
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	// Bind pipeline.
+	vk.CmdBindPipeline(t.commandBuffer.CommandBuffer, vk.PipelineBindPointCompute, pipeline)
 }
 
 func (t *GpuTranslator) GetPipeline(request vulkan.GraphicsPipelineRequest) (vk.Pipeline, error) {

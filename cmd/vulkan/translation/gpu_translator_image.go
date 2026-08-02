@@ -39,7 +39,6 @@ func (t *GpuTranslator) GetImage(descriptor spirvStructs.ImageDescriptor, format
 			t.registerImage(newImage)
 
 			if newImage.ShouldUploadToVkImage(t.currentGuestFrame) {
-				t.EndRenderPass()
 				if err = newImage.UploadToVkImage(t.handles, t.commandBuffer, t.GetLinearBuffer, t.currentGuestFrame); err != nil {
 					logger.Printf("failed to upload image: %v\n", err)
 				}
@@ -51,7 +50,6 @@ func (t *GpuTranslator) GetImage(descriptor spirvStructs.ImageDescriptor, format
 			image.IsSurface = true
 		}
 		if image.ShouldUploadToVkImage(t.currentGuestFrame) {
-			t.EndRenderPass()
 			if err := image.UploadToVkImage(t.handles, t.commandBuffer, t.GetLinearBuffer, t.currentGuestFrame); err != nil {
 				logger.Printf("failed to upload image: %v\n", err)
 			}
@@ -70,7 +68,6 @@ func (t *GpuTranslator) GetImage(descriptor spirvStructs.ImageDescriptor, format
 	t.registerImage(image)
 
 	if image.ShouldUploadToVkImage(t.currentGuestFrame) {
-		t.EndRenderPass()
 		if err = image.UploadToVkImage(t.handles, t.commandBuffer, t.GetLinearBuffer, t.currentGuestFrame); err != nil {
 			logger.Printf("failed to upload image: %v\n", err)
 		}
