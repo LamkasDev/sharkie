@@ -36,11 +36,15 @@ func CreateRasterizationState(paSuScModeCntl reg.PaSuScModeCntl, paSuLineCntl re
 		cullMode |= vk.CullModeBackBit
 	}
 	polygonMode := vk.PolygonModeFill
-	switch paSuScModeCntl.PolyMode() {
-	case 1:
-		polygonMode = vk.PolygonModeLine
-	case 2:
-		polygonMode = vk.PolygonModePoint
+	if paSuScModeCntl.PolyMode() == 1 {
+		switch paSuScModeCntl.PolyModeFrontPtype() {
+		case 0:
+			polygonMode = vk.PolygonModePoint
+		case 1:
+			polygonMode = vk.PolygonModeLine
+		case 2:
+			polygonMode = vk.PolygonModeFill
+		}
 	}
 
 	provokingVertex := vk.PipelineRasterizationProvokingVertexStateCreateInfo{
@@ -86,16 +90,21 @@ func CreateRasterizationState(paSuScModeCntl reg.PaSuScModeCntl, paSuLineCntl re
 	return raster, provokingVertex
 }
 
-func CreateMultisampleState(aaConfig reg.PaScAaConfig, dbShaderControl reg.DbShaderControl, aaMask1 reg.PaScAaMaskX0y0X1y0, aaMask2 reg.PaScAaMaskX0y1X1y1) vk.PipelineMultisampleStateCreateInfo {
+func CreateMultisampleState(aaConfig reg.PaScAaConfig, modeCntl0 reg.PaScModeCntl0, dbShaderControl reg.DbShaderControl, aaMask1 reg.PaScAaMaskX0y0X1y0, aaMask2 reg.PaScAaMaskX0y1X1y1) vk.PipelineMultisampleStateCreateInfo {
 	mask := aaMask1.AaMaskX0y0() & aaMask1.AaMaskX1y0() & aaMask2.AaMaskX0y1() & aaMask2.AaMaskX1y1()
 	var pSampleMask []vk.SampleMask
 	if mask != 0xFFFF && mask != 0 {
 		pSampleMask = []vk.SampleMask{vk.SampleMask(mask)}
 	}
 
+	samples := TranslateMsaaSamples(aaConfig.MsaaNumSamples())
+	if !modeCntl0.MsaaEnable() {
+		samples = vk.SampleCount1Bit
+	}
+
 	return vk.PipelineMultisampleStateCreateInfo{
 		SType:                 vk.StructureTypePipelineMultisampleStateCreateInfo,
-		RasterizationSamples:  TranslateMsaaSamples(aaConfig.MsaaNumSamples()),
+		RasterizationSamples:  samples,
 		SampleShadingEnable:   vk.False,
 		MinSampleShading:      1.0,
 		PSampleMask:           pSampleMask,

@@ -95,33 +95,6 @@ func libKernel_scePthreadRwlockUnlock() uintptr {
 	return 0
 }
 
-// 0x0000000000798B20
-// __int64 scePthreadSetaffinity()
-func libKernel_scePthreadSetaffinity(threadPtr uintptr, mask uint64) uintptr {
-	cpuSet := ThreadCpuSet{
-		Low: mask,
-	}
-	err := posix.Pthread_setaffinity_np(threadPtr, ThreadCpuSetSize, &cpuSet)
-	if err != 0 {
-		return err - SonyErrorOffset
-	}
-
-	return 0
-}
-
-// 0x0000000000014560
-// __int64 __fastcall scePthreadGetaffinity(signed __int32 *, _QWORD *)
-func libKernel_scePthreadGetaffinity(threadPtr uintptr, mask *ThreadAffinityMask) uintptr {
-	cpuSet := ThreadCpuSet{}
-	err := posix.Pthread_getaffinity_np(threadPtr, ThreadCpuSetSize, &cpuSet)
-	if err != 0 {
-		return err - SonyErrorOffset
-	}
-	*mask = ThreadAffinityMask(cpuSet.Low)
-
-	return 0
-}
-
 // 0x0000000000013980
 // __int64 __fastcall scePthreadJoin(__int64, __int64)
 func libKernel_scePthreadJoin(threadPtr, retValPtr uintptr) uintptr {
@@ -131,4 +104,10 @@ func libKernel_scePthreadJoin(threadPtr, retValPtr uintptr) uintptr {
 	}
 
 	return 0
+}
+
+// 0x0000000000014250
+// __int64 scePthreadYield()
+func libKernel_scePthreadYield() uintptr {
+	return posix.Pthread_yield()
 }

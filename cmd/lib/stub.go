@@ -33,6 +33,7 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/lib/pad"
 	"github.com/LamkasDev/sharkie/cmd/lib/pngdec"
 	"github.com/LamkasDev/sharkie/cmd/lib/posix"
+	"github.com/LamkasDev/sharkie/cmd/lib/random"
 	"github.com/LamkasDev/sharkie/cmd/lib/remote_play"
 	"github.com/LamkasDev/sharkie/cmd/lib/rtc"
 	"github.com/LamkasDev/sharkie/cmd/lib/rudp"
@@ -81,6 +82,7 @@ func RegisterStubs() {
 	np_web_api.RegisterNpWebApiStubs()
 	pad.RegisterPadStubs()
 	posix.RegisterPosixStubs()
+	random.RegisterRandomStubs()
 	remote_play.RegisterRemotePlayStubs()
 	rtc.RegisterRtcStubs()
 	rudp.RegisterRudpStubs()

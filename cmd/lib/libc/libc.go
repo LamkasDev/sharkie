@@ -38,6 +38,8 @@ func RegisterLibcStubs() {
 	elf.RegisterStub("libc", "fopen", libc_fopen)
 	elf.RegisterStub("libc", "fopen_s", libc_fopen_s)
 	elf.RegisterStub("libc", "fdopen", libc_fdopen)
+	elf.RegisterStub("libc", "freopen", libc_freopen)
+	elf.RegisterStub("libc", "freopen_s", libc_freopen_s)
 	elf.RegisterStub("libc", "fread", libc_fread)
 	elf.RegisterStub("libc", "fgetc", libc_fgetc)
 	elf.RegisterStub("libc", "ungetc", libc_ungetc)
@@ -56,4 +58,6 @@ func RegisterLibcStubs() {
 	elf.RegisterStub("libc", "feof", libc_feof)
 	elf.RegisterStub("libc", "_Lockfilelock", libc__Lockfilelock)
 	elf.RegisterStub("libc", "_Unlockfilelock", libc__Unlockfilelock)
+	elf.RegisterStub("libc", "_Locksyslock", libc__Locksyslock)
+	elf.RegisterStub("libc", "_Unlocksyslock", libc__Unlocksyslock)
 }

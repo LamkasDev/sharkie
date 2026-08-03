@@ -29,7 +29,7 @@ func SceKernelClockGettimezone(timezone *Timezone) uintptr {
 // 0x0000000000014D20
 // __int64 __fastcall sceKernelGettimezone(__int64)
 func libKernel_sceKernelClockGettimezone(timezone *Timezone) uintptr {
-	err := posix.Clock_gettimeofday(nil, timezone)
+	err := posix.Gettimeofday(nil, timezone)
 	if err != 0 {
 		return emu.GetErrno() - SonyErrorOffset
 	}

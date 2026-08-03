@@ -37,7 +37,7 @@ func libKernel_scePthreadAttrSetstacksize(attrHandlePtr *uintptr, stackSize uint
 
 // 0x00000000000143E0
 // __int64 scePthreadAttrSetschedpolicy()
-func libKernel_scePthreadAttrSetschedpolicy(attrHandlePtr *uintptr, schedulingPolicy uintptr) uintptr {
+func libKernel_scePthreadAttrSetschedpolicy(attrHandlePtr *uintptr, schedulingPolicy PthreadSchedulingPolicy) uintptr {
 	err := posix.Pthread_attr_setschedpolicy(attrHandlePtr, schedulingPolicy)
 	if err != 0 {
 		return err - SonyErrorOffset
@@ -48,8 +48,19 @@ func libKernel_scePthreadAttrSetschedpolicy(attrHandlePtr *uintptr, schedulingPo
 
 // 0x00000000000143A0
 // __int64 scePthreadAttrSetinheritsched()
-func libKernel_scePthreadAttrSetinheritsched(attrHandlePtr *uintptr, inheritScheduling uintptr) uintptr {
+func libKernel_scePthreadAttrSetinheritsched(attrHandlePtr *uintptr, inheritScheduling PthreadInheritScheduling) uintptr {
 	err := posix.Pthread_attr_setinheritsched(attrHandlePtr, inheritScheduling)
+	if err != 0 {
+		return err - SonyErrorOffset
+	}
+
+	return 0
+}
+
+// 0x0000000000014340
+// __int64 scePthreadAttrGetschedparam()
+func libKernel_scePthreadAttrGetschedparam(attrHandlePtr *uintptr, schedulingParameterPtr *int32) uintptr {
+	err := posix.Pthread_attr_getschedparam(attrHandlePtr, schedulingParameterPtr)
 	if err != 0 {
 		return err - SonyErrorOffset
 	}

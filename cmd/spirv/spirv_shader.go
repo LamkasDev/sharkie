@@ -260,10 +260,11 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 			interfaceIds = append(interfaceIds, idCullDist)
 		}
 
-		// TODO: this
-		for i := range 16 {
+		// Use VS_EXPORT_COUNT to only emit required output parameters.
+		exportCount := ctxVs.VsExportCount + 1
+		for i := uint32(0); i < exportCount; i++ {
 			idParamOuts[i] = b.EmitVariable(idPtrOutV4, spec.SpvStorageOutput)
-			b.EmitDecorate(idParamOuts[i], spec.SpvDecorationLocation, uint32(i))
+			b.EmitDecorate(idParamOuts[i], spec.SpvDecorationLocation, i)
 			interfaceIds = append(interfaceIds, idParamOuts[i])
 		}
 	case GcnShaderStageFragment:
@@ -381,8 +382,10 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	idVgprArrayVar := b.AllocId()
 	b.EmitName(idSgprArrayVar, "sgprs")
 	b.EmitName(idVgprArrayVar, "vgprs")
-	b.EmitDeferredLocalVariable(typePtrSgprArray, idSgprArrayVar)
-	b.EmitDeferredLocalVariable(typePtrVgprArray, idVgprArrayVar)
+	idNullSgprArray := b.EmitConstantNull(typeSgprArray)
+	idNullVgprArray := b.EmitConstantNull(typeVgprArray)
+	b.EmitDeferredLocalVariableInit(typePtrSgprArray, idSgprArrayVar, idNullSgprArray)
+	b.EmitDeferredLocalVariableInit(typePtrVgprArray, idVgprArrayVar, idNullVgprArray)
 
 	// GCN special registers.
 	var gcnSpecialIds [27]SpirvUsedId
@@ -610,11 +613,12 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	}
 
 	// Emit deferred local variables for used registers.
+	idNullFnUint := b.EmitConstantNull(typeUint)
 	for _, c := range blockContext.GcnSpecialIds {
 		if c.Id == GcnSpecIdReserved || !c.Used {
 			continue // reserved.
 		}
-		b.EmitDeferredLocalVariable(typePtrFnUint, c.Id)
+		b.EmitDeferredLocalVariableInit(typePtrFnUint, c.Id, idNullFnUint)
 		b.EmitName(c.Id, c.Name)
 	}
 

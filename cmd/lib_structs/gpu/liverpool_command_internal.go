@@ -65,6 +65,7 @@ type LiverpoolBindPipelineInternal struct {
 	// Shader format exports.
 	SpiShaderColFormat reg.SpiShaderColFormat
 	SpiShaderZFormat   reg.SpiShaderZFormat
+	SpiVsOutConfig     reg.SpiVsOutConfig
 
 	// Vertex shader out control.
 	PaClVsOutCntl reg.PaClVsOutCntl

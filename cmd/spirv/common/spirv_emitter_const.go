@@ -66,3 +66,10 @@ func (b *SpvBuilder) EmitConstantComposite(resultType SpirvId, constituents ...S
 	b.instr(&b.types, spec.SpvOpConstantComposite, operands...)
 	return id
 }
+
+// EmitConstantNull emits OpConstantNull.
+func (b *SpvBuilder) EmitConstantNull(resultType SpirvId) SpirvId {
+	id := b.AllocId()
+	b.instr(&b.types, spec.SpvOpConstantNull, uint32(resultType), uint32(id))
+	return id
+}

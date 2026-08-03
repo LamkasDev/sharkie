@@ -28,6 +28,7 @@ type SpirvShaderKey struct {
 	FetchShaderAddress uintptr
 	ClipDistEnable     uint8
 	CullDistEnable     uint8
+	VsExportCount      uint32
 
 	DepthBeforeShader bool
 	ZOrder            uint32
@@ -81,6 +82,7 @@ func (t *GpuTranslator) GetShaderWithContext(gcnShader *gcn.GcnShader, context c
 		key.FetchShaderAddress = c.FetchShaderAddress
 		key.ClipDistEnable = c.ClipDistEnable
 		key.CullDistEnable = c.CullDistEnable
+		key.VsExportCount = c.VsExportCount
 	}
 
 	// Get already loaded shader.

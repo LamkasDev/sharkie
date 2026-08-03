@@ -12,6 +12,7 @@ import (
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/module"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/net"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/pad"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/pthread"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/save_data"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/semaphore"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/system_service"
@@ -141,6 +142,10 @@ func CreateDispatcher(goFn any) asm.StubDispatcher {
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn((*uintptr)(unsafe.Pointer(ctx.DI))))
 		}
+	case func(*uintptr, *PthreadSchedulingPolicy) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn((*uintptr)(unsafe.Pointer(ctx.DI)), (*PthreadSchedulingPolicy)(unsafe.Pointer(ctx.SI))))
+		}
 	case func(*uintptr, *Timestamp) uintptr:
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn((*uintptr)(unsafe.Pointer(ctx.DI)), (*Timestamp)(unsafe.Pointer(ctx.SI))))
@@ -148,6 +153,10 @@ func CreateDispatcher(goFn any) asm.StubDispatcher {
 	case func(*uintptr, *int32) uintptr:
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn((*uintptr)(unsafe.Pointer(ctx.DI)), (*int32)(unsafe.Pointer(ctx.SI))))
+		}
+	case func(*uintptr, *uint64) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn((*uintptr)(unsafe.Pointer(ctx.DI)), (*uint64)(unsafe.Pointer(ctx.SI))))
 		}
 	case func(*uintptr, *uintptr) uintptr:
 		return func(ctx *asm.RegContext) uintptr {
@@ -172,6 +181,14 @@ func CreateDispatcher(goFn any) asm.StubDispatcher {
 	case func(*uintptr, Cstring, Cstring) uintptr:
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn((*uintptr)(unsafe.Pointer(ctx.DI)), Cstring(ctx.SI), Cstring(ctx.DX)))
+		}
+	case func(*uintptr, PthreadInheritScheduling) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn((*uintptr)(unsafe.Pointer(ctx.DI)), PthreadInheritScheduling(ctx.SI)))
+		}
+	case func(*uintptr, PthreadSchedulingPolicy) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn((*uintptr)(unsafe.Pointer(ctx.DI)), PthreadSchedulingPolicy(ctx.SI)))
 		}
 	case func(*uintptr, uint64) uintptr:
 		return func(ctx *asm.RegContext) uintptr {
@@ -292,6 +309,10 @@ func CreateDispatcher(goFn any) asm.StubDispatcher {
 	case func(ModuleHandle, Cstring, uintptr) uintptr:
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn(ModuleHandle(ctx.DI), Cstring(ctx.SI), ctx.DX))
+		}
+	case func(PthreadSchedulingPolicy) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(PthreadSchedulingPolicy(ctx.DI)))
 		}
 	case func(SysmoduleId) uintptr:
 		return func(ctx *asm.RegContext) uintptr {

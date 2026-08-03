@@ -23,6 +23,11 @@ func (b *SpvBuilder) EmitDeferredLocalVariable(ptrType, id SpirvId) {
 	b.instr(&b.deferredLocalVars, spec.SpvOpVariable, uint32(ptrType), uint32(id), spec.SpvStorageFunction)
 }
 
+// EmitDeferredLocalVariableInit emits OpVariable with Function storage and an initializer into the localVars section.
+func (b *SpvBuilder) EmitDeferredLocalVariableInit(ptrType, id, init SpirvId) {
+	b.instr(&b.deferredLocalVars, spec.SpvOpVariable, uint32(ptrType), uint32(id), spec.SpvStorageFunction, uint32(init))
+}
+
 // EmitPhi emits OpPhi and returns the result ID.
 func (b *SpvBuilder) EmitPhi(resultType SpirvId, incoming ...SpirvId) SpirvId {
 	id := b.AllocId()

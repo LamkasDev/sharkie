@@ -43,6 +43,8 @@ func RegisterSceLibcInternalStubs() {
 	elf.RegisterStub("libSceLibcInternal", "fopen", libSceLibcInternal_fopen)
 	elf.RegisterStub("libSceLibcInternal", "fopen_s", libSceLibcInternal_fopen_s)
 	elf.RegisterStub("libSceLibcInternal", "fdopen", libSceLibcInternal_fdopen)
+	elf.RegisterStub("libSceLibcInternal", "freopen", libSceLibcInternal_freopen)
+	elf.RegisterStub("libSceLibcInternal", "freopen_s", libSceLibcInternal_freopen_s)
 	elf.RegisterStub("libSceLibcInternal", "fread", libSceLibcInternal_fread)
 	elf.RegisterStub("libSceLibcInternal", "fgetc", libSceLibcInternal_fgetc)
 	elf.RegisterStub("libSceLibcInternal", "ungetc", libSceLibcInternal_ungetc)
@@ -61,6 +63,8 @@ func RegisterSceLibcInternalStubs() {
 	elf.RegisterStub("libSceLibcInternal", "feof", libSceLibcInternal_feof)
 	elf.RegisterStub("libSceLibcInternal", "_Lockfilelock", libSceLibcInternal__Lockfilelock)
 	elf.RegisterStub("libSceLibcInternal", "_Unlockfilelock", libSceLibcInternal__Unlockfilelock)
+	elf.RegisterStub("libSceLibcInternal", "_Locksyslock", libSceLibcInternal__Locksyslock)
+	elf.RegisterStub("libSceLibcInternal", "_Unlocksyslock", libSceLibcInternal__Unlocksyslock)
 
 	// Standard files (should remove once we have proper support).
 	RegisterFileStubs("libSceLibcInternal")

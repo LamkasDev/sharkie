@@ -99,6 +99,7 @@ func RegisterKernelStubs() {
 	elf.RegisterStub("libkernel", "scePthreadAttrSetstacksize", libKernel_scePthreadAttrSetstacksize)
 	elf.RegisterStub("libkernel", "scePthreadAttrSetschedpolicy", libKernel_scePthreadAttrSetschedpolicy)
 	elf.RegisterStub("libkernel", "scePthreadAttrSetinheritsched", libKernel_scePthreadAttrSetinheritsched)
+	elf.RegisterStub("libkernel", "scePthreadAttrGetschedparam", libKernel_scePthreadAttrGetschedparam)
 	elf.RegisterStub("libkernel", "scePthreadAttrSetschedparam", libKernel_scePthreadAttrSetschedparam)
 	elf.RegisterStub("libkernel", "scePthreadAttrSetguardsize", libKernel_scePthreadAttrSetguardsize)
 	elf.RegisterStub("libkernel", "scePthreadAttrSetdetachstate", libKernel_scePthreadAttrSetdetachstate)
@@ -114,11 +115,14 @@ func RegisterKernelStubs() {
 	elf.RegisterStub("libkernel", "scePthreadCreate", libKernel_scePthreadCreate)
 	elf.RegisterStub("libkernel", "scePthreadGetaffinity", libKernel_scePthreadGetaffinity)
 	elf.RegisterStub("libkernel", "scePthreadSetaffinity", libKernel_scePthreadSetaffinity)
+	elf.RegisterStub("libkernel", "scePthreadGetschedparam", libKernel_scePthreadGetschedparam)
+	elf.RegisterStub("libkernel", "scePthreadSetschedparam", libKernel_scePthreadSetschedparam)
 	elf.RegisterStub("libkernel", "scePthreadExit", libKernel_scePthreadExit)
 	elf.RegisterStub("libkernel", "scePthreadRwlockRdlock", libKernel_scePthreadRwlockRdlock)
 	elf.RegisterStub("libkernel", "scePthreadRwlockWrlock", libKernel_scePthreadRwlockWrlock)
 	elf.RegisterStub("libkernel", "scePthreadRwlockUnlock", libKernel_scePthreadRwlockUnlock)
 	elf.RegisterStub("libkernel", "scePthreadJoin", libKernel_scePthreadJoin)
+	elf.RegisterStub("libkernel", "scePthreadYield", libKernel_scePthreadYield)
 
 	// Mutex functions.
 	elf.RegisterStub("libkernel", "scePthreadMutexattrInit", libKernel_scePthreadMutexattrInit)

@@ -52,16 +52,17 @@ func (z *SpirvFragmentShaderContext) Msgsize() (s int) {
 func (z *SpirvVertexShaderContext) MarshalHash() (o []byte, err error) {
 	var b []byte
 	o = hsp.Require(b, z.Msgsize())
-	// map header, size 3
-	o = append(o, 0x83)
+	// map header, size 4
+	o = append(o, 0x84)
 	o = hsp.AppendUint8(o, z.ClipDistEnable)
 	o = hsp.AppendUint8(o, z.CullDistEnable)
 	o = hsp.AppendUint64(o, uint64(z.FetchShaderAddress))
+	o = hsp.AppendUint32(o, z.VsExportCount)
 	return
 }
 
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
 func (z *SpirvVertexShaderContext) Msgsize() (s int) {
-	s = 1 + 15 + hsp.Uint8Size + 15 + hsp.Uint8Size + hsp.Uint64Size
+	s = 1 + 15 + hsp.Uint8Size + 15 + hsp.Uint8Size + hsp.Uint64Size + 14 + hsp.Uint32Size
 	return
 }

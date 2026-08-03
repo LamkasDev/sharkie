@@ -41,6 +41,32 @@ func libScePosix_pthread_attr_init(attrHandlePtr *uintptr) uintptr {
 	return 0
 }
 
+func Pthread_attr_getstacksize(attrHandlePtr *uintptr, stackSize *uint64) uintptr {
+	return libScePosix_pthread_attr_getstacksize(attrHandlePtr, stackSize)
+}
+
+func libScePosix_pthread_attr_getstacksize(attrHandlePtr *uintptr, stackSize *uint64) uintptr {
+	// Resolve the handle.
+	attr, err := ResolveHandle[PthreadAttr](attrHandlePtr)
+	if err != 0 {
+		logger.Printf("%-132s %s failed due to invalid attribute pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("pthread_attr_getstacksize"),
+		)
+		return err
+	}
+
+	// Return stack size.
+	*stackSize = uint64(attr.StackSize)
+
+	logger.Printf("%-132s %s returned stack size of %s.\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("pthread_attr_getstacksize"),
+		color.Yellow.Sprintf("0x%X", attr.StackSize),
+	)
+	return 0
+}
+
 func Pthread_attr_setstacksize(attrHandlePtr *uintptr, stackSize uint64) uintptr {
 	return libScePosix_pthread_attr_setstacksize(attrHandlePtr, stackSize)
 }
@@ -76,11 +102,36 @@ func libScePosix_pthread_attr_setstacksize(attrHandlePtr *uintptr, stackSize uin
 	return 0
 }
 
-func Pthread_attr_setschedpolicy(attrHandlePtr *uintptr, schedulingPolicy uintptr) uintptr {
+func Pthread_attr_getschedpolicy(attrHandlePtr *uintptr, schedulingPolicy *PthreadSchedulingPolicy) uintptr {
+	return libScePosix_pthread_attr_getschedpolicy(attrHandlePtr, schedulingPolicy)
+}
+
+func libScePosix_pthread_attr_getschedpolicy(attrHandlePtr *uintptr, schedulingPolicy *PthreadSchedulingPolicy) uintptr {
+	// Resolve the handle.
+	attr, err := ResolveHandle[PthreadAttr](attrHandlePtr)
+	if err != 0 {
+		logger.Printf("%-132s %s failed due to invalid attribute pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("pthread_attr_getschedpolicy"),
+		)
+		return err
+	}
+
+	// Set scheduling policy.
+	*schedulingPolicy = attr.SchedulingPolicy
+
+	logger.Printf("%-132s %s returned scheduling policy.\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("pthread_attr_getschedpolicy"),
+	)
+	return 0
+}
+
+func Pthread_attr_setschedpolicy(attrHandlePtr *uintptr, schedulingPolicy PthreadSchedulingPolicy) uintptr {
 	return libScePosix_pthread_attr_setschedpolicy(attrHandlePtr, schedulingPolicy)
 }
 
-func libScePosix_pthread_attr_setschedpolicy(attrHandlePtr *uintptr, schedulingPolicy uintptr) uintptr {
+func libScePosix_pthread_attr_setschedpolicy(attrHandlePtr *uintptr, schedulingPolicy PthreadSchedulingPolicy) uintptr {
 	if schedulingPolicy != 1 && schedulingPolicy != 2 && schedulingPolicy != 3 {
 		logger.Printf("%-132s %s failed due to invalid scheduling policy %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -101,7 +152,7 @@ func libScePosix_pthread_attr_setschedpolicy(attrHandlePtr *uintptr, schedulingP
 	}
 
 	// Set scheduling policy.
-	attr.SchedulingPolicy = PthreadSchedulingPolicy(schedulingPolicy)
+	attr.SchedulingPolicy = schedulingPolicy
 
 	logger.Printf("%-132s %s set scheduling policy to %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
@@ -111,11 +162,11 @@ func libScePosix_pthread_attr_setschedpolicy(attrHandlePtr *uintptr, schedulingP
 	return 0
 }
 
-func Pthread_attr_setinheritsched(attrHandlePtr *uintptr, inheritScheduling uintptr) uintptr {
+func Pthread_attr_setinheritsched(attrHandlePtr *uintptr, inheritScheduling PthreadInheritScheduling) uintptr {
 	return libScePosix_pthread_attr_setinheritsched(attrHandlePtr, inheritScheduling)
 }
 
-func libScePosix_pthread_attr_setinheritsched(attrHandlePtr *uintptr, inheritScheduling uintptr) uintptr {
+func libScePosix_pthread_attr_setinheritsched(attrHandlePtr *uintptr, inheritScheduling PthreadInheritScheduling) uintptr {
 	if inheritScheduling != 0 && inheritScheduling != 4 {
 		logger.Printf("%-132s %s failed due to invalid inherit scheduling %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -136,12 +187,45 @@ func libScePosix_pthread_attr_setinheritsched(attrHandlePtr *uintptr, inheritSch
 	}
 
 	// Set inherit scheduling.
-	attr.InheritScheduling = PthreadInheritScheduling(inheritScheduling)
+	attr.InheritScheduling = inheritScheduling
 
 	logger.Printf("%-132s %s set inherit scheduling to %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("pthread_attr_setinheritsched"),
 		color.Blue.Sprint(InheritSchedulingNames[attr.InheritScheduling]),
+	)
+	return 0
+}
+
+func Pthread_attr_getschedparam(attrHandlePtr *uintptr, schedulingParameterPtr *int32) uintptr {
+	return libScePosix_pthread_attr_getschedparam(attrHandlePtr, schedulingParameterPtr)
+}
+
+func libScePosix_pthread_attr_getschedparam(attrHandlePtr *uintptr, schedulingParameterPtr *int32) uintptr {
+	if schedulingParameterPtr == nil {
+		logger.Printf("%-132s %s failed due to invalid scheduling parameter pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("pthread_attr_getschedparam"),
+		)
+		return EINVAL
+	}
+
+	// Resolve the handle.
+	attr, err := ResolveHandle[PthreadAttr](attrHandlePtr)
+	if err != 0 {
+		logger.Printf("%-132s %s failed due to invalid attribute pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("pthread_attr_getschedparam"),
+		)
+		return err
+	}
+
+	// Set scheduling parameter.
+	*schedulingParameterPtr = attr.Priority
+
+	logger.Printf("%-132s %s returned scheduling parameter.\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("pthread_attr_getschedparam"),
 	)
 	return 0
 }

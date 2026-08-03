@@ -180,6 +180,7 @@ func (t *GpuTranslator) BindPipeline(frame uint64, bind *gpu.LiverpoolBindPipeli
 			PaScAaMaskX0y1X1y1:        bind.PaScAaMaskX0y1X1y1,
 			SpiShaderColFormat:        bind.SpiShaderColFormat,
 			SpiShaderZFormat:          bind.SpiShaderZFormat,
+			SpiVsOutConfig:            bind.SpiVsOutConfig,
 			PaClVsOutCntl:             bind.PaClVsOutCntl,
 			CbColorInfo0:              bind.CbColorInfo0,
 			CbTargetMask:              bind.RtTargetMask,

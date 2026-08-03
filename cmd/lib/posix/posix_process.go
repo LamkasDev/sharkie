@@ -25,6 +25,18 @@ func libScePosix_getpid() uintptr {
 	return processId
 }
 
+func Sleep(seconds uint32) uintptr {
+	return libScePosix_sleep(seconds)
+}
+
+func libScePosix_sleep(seconds uint32) uintptr {
+	timestamp := Timestamp{
+		Seconds:     int64(seconds),
+		Nanoseconds: 0,
+	}
+	return libScePosix_nanosleep(&timestamp, nil)
+}
+
 func Usleep(micros uint32) uintptr {
 	return libScePosix_usleep(micros)
 }

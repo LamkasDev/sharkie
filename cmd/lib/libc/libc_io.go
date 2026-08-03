@@ -23,6 +23,18 @@ func libc_fdopen(fd FileDescriptor, modePtr Cstring) uintptr {
 	return libSceLibcInternal_fdopen(fd, modePtr)
 }
 
+// 0x000000000000AAF0
+// __int64 __fastcall freopen(__int64, _BYTE *, _WORD *)
+func libc_freopen() uintptr {
+	return libSceLibcInternal_freopen()
+}
+
+// 0x0000000000001120
+// __int64 __fastcall freopen_s(__int64 *, __int64, _BYTE *, _WORD *)
+func libc_freopen_s() uintptr {
+	return libSceLibcInternal_freopen_s()
+}
+
 // 0x000000000000A9A0
 // unsigned __int64 __fastcall fread(_BYTE *, unsigned __int64, unsigned __int64, __int64)
 func libc_fread(ptr, size, n, filePtr uintptr) uintptr {
@@ -119,4 +131,12 @@ func libc__Lockfilelock(filePtr uintptr) uintptr {
 
 func libc__Unlockfilelock(filePtr uintptr) uintptr {
 	return libSceLibcInternal__Unlockfilelock(filePtr)
+}
+
+func libc__Locksyslock() uintptr {
+	return libSceLibcInternal__Locksyslock()
+}
+
+func libc__Unlocksyslock() uintptr {
+	return libSceLibcInternal__Unlocksyslock()
 }

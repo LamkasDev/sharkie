@@ -39,3 +39,8 @@ func (r SpiShaderColFormat) Col7ExportFormat() uint32 { return Reg(r).Extract(28
 type SpiShaderZFormat uint32
 
 func (r SpiShaderZFormat) ZExportFormat() uint32 { return Reg(r).Extract(0, 0xF) } // TODO: Unused in pipeline
+
+type SpiVsOutConfig Reg
+
+func (r SpiVsOutConfig) VsExportCount() uint32 { return Reg(r).Extract(1, 0x1F) }
+func (r SpiVsOutConfig) VsHalfPack() bool      { return Reg(r).ExtractBool(6) } // TODO: Unused in pipeline

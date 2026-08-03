@@ -10,6 +10,64 @@ import (
 	"github.com/gookit/color"
 )
 
+func Clock_getres(clockId ClockId, timestamp *Timestamp) uintptr {
+	return libScePosix_clock_getres(clockId, timestamp)
+}
+
+func libScePosix_clock_getres(clockId ClockId, timestamp *Timestamp) uintptr {
+	if timestamp == nil {
+		logger.Printf("%-132s %s failed due to invalid time pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("clock_getres"),
+		)
+		emu.SetErrno(EFAULT)
+		return ERR_PTR
+	}
+
+	// Handle network clocks.
+	switch clockId {
+	case ClockIdExtNetwork, ClockIdExtAdNetwork, ClockIdExtRawNetwork, ClockIdExtDebugNetwork:
+		logger.Printf("%-132s %s skipping unsupported clock %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("clock_getres"),
+			color.Green.Sprint(clockId),
+		)
+		clockId = ClockIdMonotonic
+	}
+
+	// Get resolution based on clock type.
+	var sec int64
+	var nsec int64
+	switch clockId {
+	case ClockIdSecond, ClockIdRealtimeFast:
+		sec = 0
+		nsec = 1000000
+	case ClockIdRealtime, ClockIdRealtimePrecise, ClockIdUptime, ClockIdUptimePrecise,
+		ClockIdMonotonic, ClockIdMonotonicPrecise, ClockIdUptimeFast, ClockIdMonotonicFast:
+		sec = 0
+		nsec = 1
+	default:
+		logger.Printf("%-132s %s failed due to invalid clock %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("clock_getres"),
+			color.Green.Sprint(clockId),
+		)
+		emu.SetErrno(EINVAL)
+		return ERR_PTR
+	}
+	timestamp.Seconds = sec
+	timestamp.Nanoseconds = nsec
+
+	if logger.LogMisc {
+		logger.Printf("%-132s %s returned resolution for clock %s\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("clock_getres"),
+			color.Green.Sprint(clockId),
+		)
+	}
+	return 0
+}
+
 func Clock_gettime(clockId ClockId, timestamp *Timestamp) uintptr {
 	return libScePosix_clock_gettime(clockId, timestamp)
 }
@@ -38,11 +96,11 @@ func libScePosix_clock_gettime(clockId ClockId, timestamp *Timestamp) uintptr {
 	return 0
 }
 
-func Clock_gettimeofday(timevalue *Timevalue, timezone *Timezone) uintptr {
-	return libScePosix_clock_gettimeofday(timevalue, timezone)
+func Gettimeofday(timevalue *Timevalue, timezone *Timezone) uintptr {
+	return libScePosix_gettimeofday(timevalue, timezone)
 }
 
-func libScePosix_clock_gettimeofday(timevalue *Timevalue, timezone *Timezone) uintptr {
+func libScePosix_gettimeofday(timevalue *Timevalue, timezone *Timezone) uintptr {
 	now := time.Now()
 	if timevalue != nil {
 		timevalue.Seconds = now.Unix()
@@ -61,7 +119,7 @@ func libScePosix_clock_gettimeofday(timevalue *Timevalue, timezone *Timezone) ui
 	if logger.LogMisc {
 		logger.Printf("%-132s %s returned %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("clock_gettimeofday"),
+			color.Magenta.Sprint("gettimeofday"),
 			color.Yellow.Sprintf("0x%X", now.Unix()),
 		)
 	}

@@ -71,6 +71,7 @@ func (l *Liverpool) recordDraw(stream *LiverpoolCommandStream, isIndexed bool) {
 		bindResources.VertexContext = common.SpirvVertexShaderContext{
 			ClipDistEnable: paClVsOutCntl.ClipDistEna(),
 			CullDistEnable: paClVsOutCntl.CullDistEna(),
+			VsExportCount:  reg.SpiVsOutConfig(l.Registers.Context[GREG_MM_SPI_VS_OUT_CONFIG]).VsExportCount(),
 		}
 	} else {
 		panic("no vertex shader")
@@ -127,6 +128,7 @@ func (l *Liverpool) recordDraw(stream *LiverpoolCommandStream, isIndexed bool) {
 			RtBlendControl:     reg.CbBlendControl(l.Registers.Context[GREG_MM_CB_BLEND0_CONTROL]),
 			SpiShaderColFormat: reg.SpiShaderColFormat(l.Registers.Context[GREG_MM_SPI_SHADER_COL_FORMAT]),
 			SpiShaderZFormat:   reg.SpiShaderZFormat(l.Registers.Context[GREG_MM_SPI_SHADER_Z_FORMAT]),
+			SpiVsOutConfig:     reg.SpiVsOutConfig(l.Registers.Context[GREG_MM_SPI_VS_OUT_CONFIG]),
 			PaClVsOutCntl:      reg.PaClVsOutCntl(l.Registers.Context[GREG_MM_PA_CL_VS_OUT_CNTL]),
 			RtClearWord0:       l.Registers.Context[GREG_MM_CB_COLOR0_CLEAR_WORD0],
 			RtClearWord1:       l.Registers.Context[GREG_MM_CB_COLOR0_CLEAR_WORD1],
@@ -278,7 +280,7 @@ func (l *Liverpool) recordDraw(stream *LiverpoolCommandStream, isIndexed bool) {
 	// Add to command stream.
 	drawHash := draw.Hash()
 	drawIndex, ok := stream.DrawsMap[bindHash]
-	if !ok || true {
+	if !ok {
 		drawIndex = uint32(len(stream.Draws))
 		stream.Draws = append(stream.Draws, draw)
 		stream.DrawsMap[drawHash] = drawIndex
@@ -293,8 +295,8 @@ func (l *Liverpool) recordDraw(stream *LiverpoolCommandStream, isIndexed bool) {
 				color.Green.Sprintf("%d", draw.IndexCount),
 				color.Green.Sprintf("%d", draw.PrimType),
 				color.Yellow.Sprintf("0x%X", bindPipeline.RtBase),
-				color.Yellow.Sprintf("0x%X", bindResources.VertexShader.Address),
-				color.Yellow.Sprintf("0x%X", bindResources.FragmentShader.Address),
+				color.Yellow.Sprintf("0x%X", bindResources.VertexShaderAddress),
+				color.Yellow.Sprintf("0x%X", bindResources.FragmentShaderAddress),
 			)
 		} else {
 			logger.Printf("[%s] draw index auto (index_count=%s, prim=%s, rt=%s, vs=%s, ps=%s).\n",
@@ -302,8 +304,8 @@ func (l *Liverpool) recordDraw(stream *LiverpoolCommandStream, isIndexed bool) {
 				color.Green.Sprintf("%d", draw.IndexCount),
 				color.Green.Sprintf("%d", draw.PrimType),
 				color.Yellow.Sprintf("0x%X", bindPipeline.RtBase),
-				color.Yellow.Sprintf("0x%X", bindResources.VertexShader.Address),
-				color.Yellow.Sprintf("0x%X", bindResources.FragmentShader.Address),
+				color.Yellow.Sprintf("0x%X", bindResources.VertexShaderAddress),
+				color.Yellow.Sprintf("0x%X", bindResources.FragmentShaderAddress),
 			)
 		}
 	}

@@ -15,6 +15,23 @@ func EmitEXP(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext) 
 	typeV4Float := ctx.GetId(BlockContextIdTypeV4Float)
 	typeBool := ctx.GetId(BlockContextIdTypeBool)
 
+	if details.Vm {
+		// Get current EXEC mask.
+		execLo, execHi := ctx.GetOperand64Value(b, gcnSpec.OpExecLo, 0)
+		exec64 := ctx.Pack64(b, execLo, execHi)
+
+		// Get the current thread's bit (bitMask = 1 << SubgroupLocalInvocationId).
+		subgroupId := b.EmitLoad(ctx.GetId(BlockContextIdTypeUint), ctx.GetId(BlockContextIdSubgroupLocalInvocationId))
+		subgroupId64 := b.EmitUConvert(ctx.GetId(BlockContextIdTypeUint64), subgroupId)
+		subgroupMask := b.EmitShiftLeftLogical(ctx.GetId(BlockContextIdTypeUint64), ctx.GetConstId(ConstId64Uint1), subgroupId64)
+
+		// Check if this thread is active (exec64 & bitMask != 0).
+		masked := b.EmitBitwiseAnd(ctx.GetId(BlockContextIdTypeUint64), exec64, subgroupMask)
+		isActive := b.EmitINotEqual(ctx.GetId(BlockContextIdTypeBool), masked, ctx.GetConstId(ConstId64Uint0))
+
+		b.EmitStore(ctx.GetId(BlockContextIdIsValidPixel), isActive)
+	}
+
 	if details.Compr {
 		// Compressed: 16-bit pairs in 2 VGPRs.
 		// EN[0] enables VSRC0 (R,G), EN[2] enables VSRC1 (B,A).

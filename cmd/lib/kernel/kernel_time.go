@@ -34,7 +34,7 @@ func libKernel_sceKernelGetProcessTime() uintptr {
 // 0x0000000000014CE0
 // __int64 __fastcall sceKernelGettimeofday(__int64)
 func libKernel_sceKernelGettimeofday(timevalue *Timevalue) uintptr {
-	err := posix.Clock_gettimeofday(timevalue, nil)
+	err := posix.Gettimeofday(timevalue, nil)
 	if err != 0 {
 		return emu.GetErrno() - SonyErrorOffset
 	}
@@ -50,7 +50,7 @@ func SceKernelConvertUtcToLocaltime(utcTime int64, localTimePtr *int64, timesec 
 // __int64 __fastcall sceKernelConvertUtcToLocaltime(__int64, _QWORD *, __int64, _DWORD *)
 func libKernel_sceKernelConvertUtcToLocaltime(utcTime int64, localTimePtr *int64, timesec *Timesec, dstSecPtr *uint64) uintptr {
 	var timezone Timezone
-	err := posix.Clock_gettimeofday(nil, &timezone)
+	err := posix.Gettimeofday(nil, &timezone)
 	if err != 0 {
 		return emu.GetErrno() - SonyErrorOffset
 	}

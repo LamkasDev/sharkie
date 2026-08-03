@@ -49,6 +49,7 @@ import (
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/pad"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/net"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/user_service"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/pthread"
 )
 
 func CreateDispatcher(goFn any) asm.StubDispatcher {

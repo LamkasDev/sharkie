@@ -8,7 +8,7 @@ func (r PaSuScModeCntl) CullFront() bool             { return Reg(r).ExtractBool
 func (r PaSuScModeCntl) CullBack() bool              { return Reg(r).ExtractBool(1) }
 func (r PaSuScModeCntl) Face() bool                  { return Reg(r).ExtractBool(2) }
 func (r PaSuScModeCntl) PolyMode() uint32            { return Reg(r).Extract(3, 0x3) }
-func (r PaSuScModeCntl) PolyModeFrontPtype() uint32  { return Reg(r).Extract(5, 0x7) } // TODO: Unused in pipeline
+func (r PaSuScModeCntl) PolyModeFrontPtype() uint32  { return Reg(r).Extract(5, 0x7) }
 func (r PaSuScModeCntl) PolyModeBackPtype() uint32   { return Reg(r).Extract(8, 0x7) } // TODO: Unused in pipeline
 func (r PaSuScModeCntl) PolyOffsetFrontEnable() bool { return Reg(r).ExtractBool(11) }
 func (r PaSuScModeCntl) PolyOffsetBackEnable() bool  { return Reg(r).ExtractBool(12) }
@@ -20,7 +20,7 @@ func (r PaSuScModeCntl) MultiPrimIbEna() bool        { return Reg(r).ExtractBool
 
 type PaScModeCntl0 Reg
 
-func (r PaScModeCntl0) MsaaEnable() bool           { return Reg(r).ExtractBool(0) } // TODO: Unused in pipeline
+func (r PaScModeCntl0) MsaaEnable() bool           { return Reg(r).ExtractBool(0) }
 func (r PaScModeCntl0) VpScissorEnable() bool      { return Reg(r).ExtractBool(1) }
 func (r PaScModeCntl0) LineStippleEnable() bool    { return Reg(r).ExtractBool(2) }
 func (r PaScModeCntl0) SendUnlitStilesToPkr() bool { return Reg(r).ExtractBool(3) } // TODO: Unused in pipeline
@@ -176,3 +176,13 @@ func (r PaSuPolyOffsetBackScale) Scale() uint32 { return Reg(r).Extract(0, 0xFFF
 type PaSuPolyOffsetBackOffset Reg
 
 func (r PaSuPolyOffsetBackOffset) Offset() uint32 { return Reg(r).Extract(0, 0xFFFFFFFF) }
+
+type PaSuVtxCntl Reg
+
+func (r PaSuVtxCntl) PixCenter() uint32 { return Reg(r).Extract(0, 0x1) } // TODO: Unused in pipeline
+func (r PaSuVtxCntl) RoundMode() uint32 { return Reg(r).Extract(1, 0x3) } // TODO: Unused in pipeline
+func (r PaSuVtxCntl) QuantMode() uint32 { return Reg(r).Extract(3, 0x7) } // TODO: Unused in pipeline
+
+type PaScCliprectRule Reg
+
+func (r PaScCliprectRule) ClipRule() uint32 { return Reg(r).Extract(0, 0xFFFF) } // TODO: Unused in pipeline

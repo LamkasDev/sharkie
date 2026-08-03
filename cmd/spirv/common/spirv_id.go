@@ -137,7 +137,7 @@ const (
 	BlockContextIdVertexIndex
 	BlockContextIdInstanceIndex
 	BlockContextIdFragCoord
-
+	BlockContextIdIsValidPixel
 	BlockContextIdWorkgroupId
 	BlockContextIdLocalInvocationId
 )

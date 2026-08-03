@@ -9,18 +9,21 @@ import (
 
 func RegisterPosixStubs() {
 	// Semaphore functions.
-	RegisterPosixStub("sem_post", libScePosix_sem_post)
+	RegisterPosixStub("sem_init", libScePosix_sem_init)
+	RegisterPosixStub("sem_destroy", libScePosix_sem_destroy)
+	RegisterPosixStub("sem_trywait", libScePosix_sem_trywait)
 	RegisterPosixStub("sem_wait", libScePosix_sem_wait)
 	RegisterPosixStub("sem_timedwait", libScePosix_sem_timedwait)
-	RegisterPosixStub("sem_destroy", libScePosix_sem_destroy)
-	RegisterPosixStub("sem_init", libScePosix_sem_init)
+	RegisterPosixStub("sem_post", libScePosix_sem_post)
 
 	// Clock functions.
+	RegisterPosixStub("clock_getres", libScePosix_clock_getres)
 	RegisterPosixStub("clock_gettime", libScePosix_clock_gettime)
-	RegisterPosixStub("clock_gettimeofday", libScePosix_clock_gettimeofday)
+	RegisterPosixStub("gettimeofday", libScePosix_gettimeofday)
 
 	// Process functions.
 	RegisterPosixStub("getpid", libScePosix_getpid)
+	RegisterPosixStub("sleep", libScePosix_sleep)
 	RegisterPosixStub("usleep", libScePosix_usleep)
 	RegisterPosixStub("nanosleep", libScePosix_nanosleep)
 
@@ -32,6 +35,7 @@ func RegisterPosixStubs() {
 	RegisterPosixStub("pthread_detach", libScePosix_pthread_detach)
 	RegisterPosixStub("pthread_join", libScePosix_pthread_join)
 	RegisterPosixStub("pthread_cancel", libScePosix_pthread_cancel)
+	RegisterPosixStub("pthread_yield", libScePosix_pthread_yield)
 	RegisterPosixStub("pthread_exit", libScePosix_pthread_exit)
 	RegisterPosixStub("pthread_getaffinity_np", libScePosix_pthread_getaffinity_np)
 	RegisterPosixStub("pthread_setaffinity_np", libScePosix_pthread_setaffinity_np)
@@ -39,11 +43,19 @@ func RegisterPosixStubs() {
 	RegisterPosixStub("pthread_setschedparam", libScePosix_pthread_setschedparam)
 	RegisterPosixStub("pthread_setcancelstate", libScePosix_pthread_setcancelstate)
 
+	// Scheduling functions.
+	RegisterPosixStub("sched_yield", libScePosix_sched_yield)
+	RegisterPosixStub("sched_get_priority_min", libScePosix_sched_get_priority_min)
+	RegisterPosixStub("sched_get_priority_max", libScePosix_sched_get_priority_max)
+
 	// Thread attribute functions.
 	RegisterPosixStub("pthread_attr_init", libScePosix_pthread_attr_init)
+	RegisterPosixStub("pthread_attr_getstacksize", libScePosix_pthread_attr_getstacksize)
 	RegisterPosixStub("pthread_attr_setstacksize", libScePosix_pthread_attr_setstacksize)
+	RegisterPosixStub("pthread_attr_getschedpolicy", libScePosix_pthread_attr_getschedpolicy)
 	RegisterPosixStub("pthread_attr_setschedpolicy", libScePosix_pthread_attr_setschedpolicy)
 	RegisterPosixStub("pthread_attr_setinheritsched", libScePosix_pthread_attr_setinheritsched)
+	RegisterPosixStub("pthread_attr_getschedparam", libScePosix_pthread_attr_getschedparam)
 	RegisterPosixStub("pthread_attr_setschedparam", libScePosix_pthread_attr_setschedparam)
 	RegisterPosixStub("pthread_attr_setguardsize", libScePosix_pthread_attr_setguardsize)
 	RegisterPosixStub("pthread_attr_setdetachstate", libScePosix_pthread_attr_setdetachstate)

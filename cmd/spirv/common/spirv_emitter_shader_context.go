@@ -12,6 +12,7 @@ type SpirvShaderContext interface{}
 type SpirvVertexShaderContext struct {
 	ClipDistEnable          uint8
 	CullDistEnable          uint8
+	VsExportCount           uint32
 	FetchShaderAddress      uintptr
 	FetchShaderInstructions []*gcnSpec.Instruction `hsp:"-"`
 }

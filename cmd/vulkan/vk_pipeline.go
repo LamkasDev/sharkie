@@ -42,6 +42,7 @@ type GraphicsPipelineKey struct {
 	PaScAaMaskX0y1X1y1        reg.PaScAaMaskX0y1X1y1
 	SpiShaderColFormat        reg.SpiShaderColFormat
 	SpiShaderZFormat          reg.SpiShaderZFormat
+	SpiVsOutConfig            reg.SpiVsOutConfig
 	PaClVsOutCntl             reg.PaClVsOutCntl
 	CbColorInfo0              reg.CbColorInfo
 	CbTargetMask              reg.CbTargetMask
@@ -169,7 +170,7 @@ func CreateGraphicsPipeline(handles *VulkanHandles, request GraphicsPipelineRequ
 	}
 
 	// Setup anti-aliasing.
-	multisample := gcn.CreateMultisampleState(request.PaScAaConfig, request.DbShaderControl, request.PaScAaMaskX0y0X1y0, request.PaScAaMaskX0y1X1y1)
+	multisample := gcn.CreateMultisampleState(request.PaScAaConfig, request.PaScModeCntl0, request.DbShaderControl, request.PaScAaMaskX0y0X1y0, request.PaScAaMaskX0y1X1y1)
 
 	blendAttachments := gcn.CreateBlendAttachments(request.BlendAttachment, request.CbTargetMask, request.CbShaderMask, request.SpiShaderColFormat, request.CbColorControl)
 

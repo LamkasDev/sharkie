@@ -123,6 +123,11 @@ func (b *SpvBuilder) EmitReturn() {
 	b.instr(&b.code, spec.SpvOpReturn)
 }
 
+// EmitKill emits OpKill.
+func (b *SpvBuilder) EmitKill() {
+	b.instr(&b.code, spec.SpvOpKill)
+}
+
 // EmitAccessChain emits OpAccessChain and returns the result pointer ID.
 func (b *SpvBuilder) EmitAccessChain(resultType, base SpirvId, indices ...SpirvId) SpirvId {
 	id := b.AllocId()
