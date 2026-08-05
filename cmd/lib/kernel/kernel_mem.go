@@ -41,6 +41,17 @@ func libKernel_sceKernelMunmap(addr uintptr, length uint64) uintptr {
 	return 0
 }
 
+// 0x0000000000014950
+// __int64 __fastcall sceKernelMprotect()
+func libKernel_sceKernelMprotect(addr uintptr, length uint64, prot int32) uintptr {
+	err := posix.Mprotect(addr, length, prot)
+	if err == ERR_PTR {
+		return emu.GetErrno() - SonyErrorOffset
+	}
+
+	return 0
+}
+
 // 0x0000000000018290
 // __int64 __fastcall sceKernelSetVirtualRangeName()
 func libKernel_sceKernelSetVirtualRangeName(addr uintptr, length uint64, namePtr Cstring) uintptr {

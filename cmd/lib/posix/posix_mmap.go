@@ -4,12 +4,19 @@ import (
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
-	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/fs"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/posix"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
 )
+
+func Getpagesize() uintptr {
+	return libScePosix_getpagesize()
+}
+
+func libScePosix_getpagesize() uintptr {
+	return uintptr(MemoryPageSize)
+}
 
 func Mmap(addr uintptr, length uint64, prot, flags int32, fd FileDescriptor, offset uintptr) uintptr {
 	return libScePosix_mmap(addr, length, prot, flags, fd, offset)
@@ -41,34 +48,30 @@ func libScePosix_mmap(addr uintptr, length uint64, prot, flags int32, fd FileDes
 	// Check adress alignment, round down hint to page boundary.
 	isFixed := (flags & MAP_FIXED) != 0
 	isAnonymous := (flags & MAP_ANON) != 0
-	if addr != 0 {
-		if addr%uintptr(MemoryPageSize) != 0 {
-			if isFixed {
-				logger.Printf("%-132s %s failed due to invalid MAP_FIXED address alignment %s.\n",
-					emu.GlobalModuleManager.GetCallSiteText(),
-					color.Magenta.Sprint("mmap"),
-					color.Yellow.Sprintf("0x%X", addr),
-				)
-				logger.Printf(emu.SprintStackTrace())
-				emu.SetErrno(EINVAL)
-				return ERR_PTR
-			}
-			addr = addr & ^(uintptr(MemoryPageSize) - 1)
-		}
+	if isFixed && addr != 0 && addr%uintptr(MemoryPageSize) != 0 {
+		logger.Printf("%-132s %s failed due to invalid MAP_FIXED address alignment %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("mmap"),
+			color.Yellow.Sprintf("0x%X", addr),
+		)
+		logger.Printf(emu.SprintStackTrace())
+		emu.SetErrno(EINVAL)
+		return ERR_PTR
 	}
+	alignedAddr := addr & ^(uintptr(MemoryPageSize) - 1)
+	alignedSize := (length + MemoryPageSize - 1) & ^(MemoryPageSize - 1)
 
-	// Round up allocation length, enforce file descriptor minimum length.
-	allocatedLength := uint64((length + uint64(MemoryPageSize) - 1) & ^(uint64(MemoryPageSize) - 1))
+	// Enforce file descriptor minimum length.
 	hasFile := !isAnonymous && fd != ERR_PTRI && uint32(fd) != ERR_HANDLE
 	if hasFile {
-		if allocatedLength < MinFileMmapSize {
+		if alignedSize < MinFileMmapSize {
 			logger.Printf("%-132s %s expanding allocation size from %s to %s bytes.\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("mmap"),
-				color.Yellow.Sprintf("0x%X", allocatedLength),
+				color.Yellow.Sprintf("0x%X", alignedSize),
 				color.Yellow.Sprintf("0x%X", MinFileMmapSize),
 			)
-			allocatedLength = MinFileMmapSize
+			alignedSize = MinFileMmapSize
 		}
 	}
 
@@ -79,19 +82,19 @@ func libScePosix_mmap(addr uintptr, length uint64, prot, flags int32, fd FileDes
 	}
 
 	// Allocate memory and check error.
-	allocatedAddr, err := AllocKernelMemory(addr, allocatedLength, tempProt, flags)
+	allocatedAddr, err := AllocKernelMemory(alignedAddr, alignedSize, tempProt, flags, uintptr(MemoryPageSize))
 	if allocatedAddr == 0 {
 		// If we're not required to return a fixed address, try again without the hint.
-		if !isFixed && addr != 0 {
-			allocatedAddr, err = AllocKernelMemory(0, allocatedLength, tempProt, flags)
+		if !isFixed && alignedAddr != 0 {
+			allocatedAddr, err = AllocKernelMemory(0, alignedSize, tempProt, flags, uintptr(MemoryPageSize))
 		}
 	}
 	if allocatedAddr == 0 {
 		logger.Printf("%-132s %s failed allocating memory (addr=%s, length=%s, prot=%s, flags=%s, fd=%s, offset=%s, err=%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("mmap"),
-			color.Yellow.Sprintf("0x%X", addr),
-			color.Yellow.Sprintf("0x%X", length),
+			color.Yellow.Sprintf("0x%X", alignedAddr),
+			color.Yellow.Sprintf("0x%X", alignedSize),
 			color.Blue.Sprint(MemoryProtName(prot)),
 			color.Yellow.Sprintf("0x%X", flags),
 			color.Yellow.Sprintf("0x%X", fd),
@@ -101,11 +104,11 @@ func libScePosix_mmap(addr uintptr, length uint64, prot, flags int32, fd FileDes
 		emu.SetErrno(ENOMEM)
 		return ERR_PTR
 	}
-	if !isFixed && addr != 0 && allocatedAddr != addr {
+	if !isFixed && alignedAddr != 0 && allocatedAddr != alignedAddr {
 		logger.Printf("%-132s %s ignored allocation address hint (wanted=%s, got=%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("mmap"),
-			color.Yellow.Sprintf("0x%X", addr),
+			color.Yellow.Sprintf("0x%X", alignedAddr),
 			color.Yellow.Sprintf("0x%X", allocatedAddr),
 		)
 	}
@@ -136,7 +139,7 @@ func libScePosix_mmap(addr uintptr, length uint64, prot, flags int32, fd FileDes
 			return ERR_PTR
 		}
 		if int(offset) < len(fileData) {
-			end := int(offset) + int(length)
+			end := int(offset) + int(alignedSize)
 			if end > len(fileData) {
 				end = len(fileData)
 			}
@@ -148,7 +151,7 @@ func libScePosix_mmap(addr uintptr, length uint64, prot, flags int32, fd FileDes
 
 		// Protect the memory block again to its requested state.
 		if tempProt != prot {
-			if _, err = ProtectKernelMemory(allocatedAddr, allocatedLength, prot); err != nil {
+			if _, err = ProtectKernelMemory(allocatedAddr, alignedSize, prot); err != nil {
 				logger.Printf("%-132s %s failed due to memory protection error (%s).\n",
 					emu.GlobalModuleManager.GetCallSiteText(),
 					color.Magenta.Sprint("mmap"),
@@ -160,12 +163,12 @@ func libScePosix_mmap(addr uintptr, length uint64, prot, flags int32, fd FileDes
 		}
 	}
 
-	HookMap(allocatedAddr, allocatedLength, prot)
+	HookMap(allocatedAddr, alignedSize, prot)
 
 	logger.Printf("%-132s %s allocated %s bytes at %s (addr=%s, length=%s, prot=%s, flags=%s, fd=%s, offset=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("mmap"),
-		color.Yellow.Sprintf("0x%X", allocatedLength),
+		color.Yellow.Sprintf("0x%X", alignedSize),
 		color.Yellow.Sprintf("0x%X", allocatedAddr),
 		color.Yellow.Sprintf("0x%X", addr),
 		color.Yellow.Sprintf("0x%X", length),
@@ -175,70 +178,4 @@ func libScePosix_mmap(addr uintptr, length uint64, prot, flags int32, fd FileDes
 		color.Yellow.Sprintf("0x%X", offset),
 	)
 	return allocatedAddr
-}
-
-func Munmap(addr uintptr, length uint64) uintptr {
-	return libScePosix_munmap(addr, length)
-}
-
-func libScePosix_munmap(addr uintptr, length uint64) uintptr {
-	if addr == 0 {
-		logger.Printf("%-132s %s failed due to invalid pointer %s.\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("munmap"),
-			color.Yellow.Sprintf("0x%X", addr),
-		)
-		emu.SetErrno(EINVAL)
-		return ERR_PTR
-	}
-
-	HookUnmap(addr, uintptr(length))
-
-	_, err := FreeKernelMemory(addr, length)
-	if err != nil {
-		logger.Printf("%-132s %s failed to unmap %s (length=%s, err=%s)\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("munmap"),
-			color.Yellow.Sprintf("0x%X", addr),
-			color.Yellow.Sprintf("0x%X", length),
-			err.Error(),
-		)
-		emu.SetErrno(EFAULT)
-		return ERR_PTR
-	}
-
-	logger.Printf("%-132s %s unmapped %s bytes at %s.\n",
-		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprint("munmap"),
-		color.Yellow.Sprintf("0x%X", length),
-		color.Yellow.Sprintf("0x%X", addr),
-	)
-	return 0
-}
-
-func Mname(addr uintptr, length uint64, namePtr Cstring) uintptr {
-	return libScePosix_mname(addr, length, namePtr)
-}
-
-func libScePosix_mname(addr uintptr, length uint64, namePtr Cstring) uintptr {
-	// Perform initial pointer checks.
-	if addr == 0 {
-		emu.SetErrno(EINVAL)
-		return ERR_PTR
-	}
-
-	name := "unnamed"
-	if namePtr != nil {
-		name = GoString(namePtr)
-	}
-
-	// TODO: actually name the regions.
-	logger.Printf("%-132s %s marked %s bytes at %s as %s.\n",
-		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprint("mname"),
-		color.Yellow.Sprintf("0x%X", length),
-		color.Yellow.Sprintf("0x%X", addr),
-		color.Blue.Sprintf(name),
-	)
-	return 0
 }

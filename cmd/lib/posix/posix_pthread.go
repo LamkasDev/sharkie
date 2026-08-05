@@ -2,14 +2,15 @@ package posix
 
 import (
 	"context"
+	"math"
 	"runtime"
 	"runtime/pprof"
+	"sync/atomic"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/posix"
-	. "github.com/LamkasDev/sharkie/cmd/lib_structs/pthread"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
 )
@@ -84,11 +85,11 @@ func Pthread_self() uintptr {
 func libScePosix_pthread_self() uintptr {
 	thread := emu.GetCurrentThread()
 	threadPtr := (uintptr)(unsafe.Pointer(thread.Tcb.Thread))
-	logger.Printf("%-132s %s returned thread %s.\n",
+	/* logger.Printf("%-132s %s returned thread %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("pthread_self"),
 		color.Yellow.Sprintf("0x%X", threadPtr),
-	)
+	) */
 	return threadPtr
 }
 
@@ -221,6 +222,65 @@ func libScePosix_pthread_cancel(threadPtr uintptr) uintptr {
 		color.Magenta.Sprint("pthread_cancel"),
 		color.Blue.Sprint(thread.Name),
 	)
+	return 0
+}
+
+func Pthread_once(onceControl *PthreadOnce, initRoutine uintptr) uintptr {
+	return libScePosix_pthread_once(onceControl, initRoutine)
+}
+
+func libScePosix_pthread_once(onceControl *PthreadOnce, initRoutine uintptr) uintptr {
+	if onceControl == nil || initRoutine == 0 {
+		logger.Printf("%-132s %s failed due to invalid control or init routine.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("pthread_once"),
+		)
+		return EINVAL
+	}
+
+	thread := emu.GetCurrentThread()
+	statePtr := &onceControl.State
+	umtxAddress := uintptr(unsafe.Pointer(statePtr))
+
+	for {
+		state := PthreadOnceState(atomic.LoadUint32(statePtr))
+		if state == PthreadOnceStateDone {
+			return 0
+		}
+
+		if state == PthreadOnceStateNeverDone {
+			if atomic.CompareAndSwapUint32(statePtr, uint32(state), uint32(PthreadOnceStateInProgress)) {
+				break
+			}
+		} else if state == PthreadOnceStateInProgress {
+			if atomic.CompareAndSwapUint32(statePtr, uint32(state), uint32(PthreadOnceStateWait)) {
+				// Suspend thread using futex wait.
+				libScePosix_sys_umtx_op(umtxAddress, UMTX_OP_WAIT_UINT_PRIVATE, uintptr(PthreadOnceStateWait), 0, 0)
+			}
+		} else if state == PthreadOnceStateWait {
+			// Already in wait state, suspend thread using futex wait.
+			libScePosix_sys_umtx_op(umtxAddress, UMTX_OP_WAIT_UINT_PRIVATE, uintptr(state), 0, 0)
+		} else {
+			return EINVAL
+		}
+	}
+
+	// TODO: finish cleanup routines.
+
+	// Execute the guest init function.
+	thread.CallAndWaitFromStub(initRoutine, 0)
+
+	// Try a clean transition from InProgress to Done.
+	if atomic.CompareAndSwapUint32(statePtr, uint32(PthreadOnceStateInProgress), uint32(PthreadOnceStateDone)) {
+		return 0
+	}
+
+	// If we couldn't cleanly swap, it means another thread set it to Wait; force state to Done.
+	atomic.StoreUint32(statePtr, uint32(PthreadOnceStateDone))
+
+	// Broadcast to all waiting threads.
+	libScePosix_sys_umtx_op(umtxAddress, UMTX_OP_WAKE_PRIVATE, math.MaxInt32, 0, 0)
+
 	return 0
 }
 

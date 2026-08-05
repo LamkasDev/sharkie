@@ -9,6 +9,7 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/asm"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/kernel"
 	"github.com/LamkasDev/sharkie/cmd/logger"
+	"github.com/LamkasDev/sharkie/cmd/patcher"
 	"github.com/LamkasDev/sharkie/cmd/sys_struct"
 	"github.com/gookit/color"
 )
@@ -31,6 +32,12 @@ func ExceptionHandlerGo() uintptr {
 
 	switch code {
 	case sys_struct.EXCEPTION_ACCESS_VIOLATION:
+		if patcher.GlobalPatcherRuntime.IsTcbAccess(uint64(ctx.Rip)) {
+			if patcher.EmulateTcbAccess(ctx, uint64(ctx.Rip)) {
+				return sys_struct.EXCEPTION_CONTINUE_EXECUTION
+			}
+		}
+
 		result := fmt.Sprintf(
 			"[%s] Trapped %s at %s (%s)...\nAttempted to access address: %s\n",
 			color.Green.Sprint(thread.Name),

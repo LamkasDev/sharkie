@@ -1,9 +1,6 @@
 package kernel
 
 import (
-	"encoding/binary"
-	"unsafe"
-
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	"github.com/LamkasDev/sharkie/cmd/lib/posix"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
@@ -35,7 +32,7 @@ func libKernel_sceKernelCreateEqueue(handlePtr *uintptr, namePtr Cstring) uintpt
 
 // 0x000000000001ACF0
 // __int64 __fastcall sceKernelWaitEqueue(unsigned int, __int64, unsigned int, int *, unsigned int *)
-func libKernel_sceKernelWaitEqueue(handle, eventPtr, num, resultPtr uintptr, timeout *Timeout) uintptr {
+func libKernel_sceKernelWaitEqueue(handle, eventPtr, num uintptr, resultPtr *int32, timeout *Timeout) uintptr {
 	equeue := GetEqueue(handle)
 	if equeue == nil {
 		logger.Printf("%-132s %s failed due to unknown equeue %s.\n",
@@ -56,39 +53,12 @@ func libKernel_sceKernelWaitEqueue(handle, eventPtr, num, resultPtr uintptr, tim
 	}
 
 	count := posix.ProcessKeventWait(equeue, eventPtr, num, timestamp)
-	if resultPtr != 0 {
-		resultSlice := unsafe.Slice((*byte)(unsafe.Pointer(resultPtr)), 4)
-		binary.LittleEndian.PutUint32(resultSlice, uint32(count))
+	if resultPtr != nil {
+		*resultPtr = int32(count)
 	}
 	if count == 0 {
 		return SCE_KERNEL_ERROR_TIMEDOUT
 	}
 
-	return 0
-}
-
-// 0x000000000001B470
-// __int64 __fastcall sceKernelAddUserEvent(__m128 _XMM0)
-func libKernel_sceKernelAddUserEvent(handle, eventId uintptr) uintptr {
-	equeue := GetEqueue(handle)
-	if equeue == nil {
-		logger.Printf("%-132s %s failed due to unknown equeue %s.\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("sceKernelAddUserEvent"),
-			color.Yellow.Sprintf("0x%X", handle),
-		)
-		emu.SetErrno(EFAULT)
-		return ERR_PTR
-	}
-	equeue.Lock.Lock()
-	defer equeue.Lock.Unlock()
-	equeue.UserEvents[eventId] = true
-
-	logger.Printf("%-132s %s registered user event %s on %s.\n",
-		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprint("sceKernelAddUserEvent"),
-		color.Yellow.Sprintf("0x%X", eventId),
-		color.Blue.Sprint(equeue.Name),
-	)
 	return 0
 }

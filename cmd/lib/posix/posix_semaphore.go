@@ -13,6 +13,10 @@ import (
 	"github.com/gookit/color"
 )
 
+func Sem_init(semaphore *PSemaphore, pShared, value uintptr) uintptr {
+	return libScePosix_sem_init(semaphore, pShared, value)
+}
+
 func libScePosix_sem_init(semaphore *PSemaphore, pShared, value uintptr) uintptr {
 	if semaphore == nil {
 		logger.Printf("%-132s %s failed due to invalid sem pointer.\n",
@@ -40,6 +44,10 @@ func libScePosix_sem_init(semaphore *PSemaphore, pShared, value uintptr) uintptr
 		color.Yellow.Sprintf("0x%X", value),
 	)
 	return 0
+}
+
+func Sem_destroy(semaphore *PSemaphore) uintptr {
+	return libScePosix_sem_destroy(semaphore)
 }
 
 func libScePosix_sem_destroy(semaphore *PSemaphore) uintptr {
@@ -93,6 +101,10 @@ func libScePosix_sem_destroy(semaphore *PSemaphore) uintptr {
 	return 0
 }
 
+func Sem_trywait(semaphore *PSemaphore) uintptr {
+	return libScePosix_sem_trywait(semaphore)
+}
+
 func libScePosix_sem_trywait(semaphore *PSemaphore) uintptr {
 	if semaphore == nil {
 		logger.Printf("%-132s %s failed due to invalid sem pointer.\n",
@@ -139,8 +151,16 @@ func libScePosix_sem_trywait(semaphore *PSemaphore) uintptr {
 	}
 }
 
+func Sem_wait(semaphore *PSemaphore) uintptr {
+	return libScePosix_sem_wait(semaphore)
+}
+
 func libScePosix_sem_wait(semaphore *PSemaphore) uintptr {
 	return libScePosix_sem_timedwait(semaphore, nil)
+}
+
+func Sem_timedwait(semaphore *PSemaphore, timestamp *Timestamp) uintptr {
+	return libScePosix_sem_timedwait(semaphore, timestamp)
 }
 
 func libScePosix_sem_timedwait(semaphore *PSemaphore, timestamp *Timestamp) uintptr {
@@ -267,6 +287,125 @@ func libScePosix_sem_timedwait(semaphore *PSemaphore, timestamp *Timestamp) uint
 		}
 		atomic.AddInt32(&hostSemaphore.Waiters, -1)
 	}
+}
+
+func Sem_reltimedwait_np(semaphore *PSemaphore, micros uint32) uintptr {
+	return libScePosix_sem_reltimedwait_np(semaphore, micros)
+}
+
+func libScePosix_sem_reltimedwait_np(semaphore *PSemaphore, micros uint32) uintptr {
+	if semaphore == nil {
+		logger.Printf("%-132s %s failed due to invalid sem pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sem_reltimedwait_np"),
+		)
+		emu.SetErrno(EINVAL)
+		return ERR_PTR
+	}
+
+	if semaphore.Magic != PSemaphoreMagic {
+		logger.Printf("%-132s %s failed due to invalid sem magic.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sem_reltimedwait_np"),
+		)
+		emu.SetErrno(EINVAL)
+		return ERR_PTR
+	}
+
+	// Try decrement semaphore without host sync primitives.
+	for {
+		value := atomic.LoadInt32(&semaphore.Value)
+		if value <= 0 {
+			break
+		}
+		if atomic.CompareAndSwapInt32(&semaphore.Value, value, value-1) {
+			if logger.LogSyncing {
+				logger.Printf("%-132s %s waited on semaphore %s.\n",
+					emu.GlobalModuleManager.GetCallSiteText(),
+					color.Magenta.Sprint("sem_reltimedwait_np"),
+					color.Yellow.Sprintf("0x%X", uintptr(unsafe.Pointer(semaphore))),
+				)
+			}
+			return 0
+		}
+	}
+
+	// Calculate timeout.
+	timeout := time.Duration(micros) * time.Microsecond
+
+	// Lock semaphore.
+	start := time.Now()
+	hostSemaphore := GetPSemaphore(uintptr(unsafe.Pointer(semaphore)))
+
+	for {
+		// Check value again (holding lock this time).
+		hostSemaphore.Mutex.Lock()
+		if semaphore.Value > 0 {
+			semaphore.Value--
+			if logger.LogSyncing {
+				logger.Printf("%-132s %s waited on semaphore %s.\n",
+					emu.GlobalModuleManager.GetCallSiteText(),
+					color.Magenta.Sprint("sem_reltimedwait_np"),
+					color.Yellow.Sprintf("0x%X", uintptr(unsafe.Pointer(semaphore))),
+				)
+			}
+			hostSemaphore.Mutex.Unlock()
+			return 0
+		}
+		w := hostSemaphore.WaitChanNoLock()
+		atomic.AddInt32(&hostSemaphore.Waiters, 1)
+		hostSemaphore.Mutex.Unlock()
+
+		var remaining time.Duration
+		if timeout != -1 {
+			remaining = timeout - time.Since(start)
+			if remaining <= 0 {
+				if logger.LogSyncingFail {
+					logger.Printf("%-132s %s timed out on semaphore %s.\n",
+						emu.GlobalModuleManager.GetCallSiteText(),
+						color.Magenta.Sprint("sem_reltimedwait_np"),
+						color.Yellow.Sprintf("0x%X", uintptr(unsafe.Pointer(semaphore))),
+					)
+				}
+				emu.SetErrno(ETIMEDOUT)
+				atomic.AddInt32(&hostSemaphore.Waiters, -1)
+				return ERR_PTR
+			}
+		}
+
+		// Wait.
+		if logger.LogSyncing {
+			logger.Printf("%-132s %s waiting on semaphore %s for %s microseconds.\n",
+				emu.GlobalModuleManager.GetCallSiteText(),
+				color.Magenta.Sprint("sem_reltimedwait_np"),
+				color.Yellow.Sprintf("0x%X", uintptr(unsafe.Pointer(semaphore))),
+				color.Green.Sprintf("%d", timeout.Microseconds()),
+			)
+		}
+		if timeout == -1 {
+			<-w
+		} else {
+			select {
+			case <-w:
+			case <-time.After(remaining):
+				if logger.LogSyncingFail {
+					logger.Printf("%-132s %s timed out on semaphore %s.\n",
+						emu.GlobalModuleManager.GetCallSiteText(),
+						color.Magenta.Sprint("sem_reltimedwait_np"),
+						color.Yellow.Sprintf("0x%X", uintptr(unsafe.Pointer(semaphore))),
+					)
+				}
+				emu.SetErrno(ETIMEDOUT)
+				atomic.AddInt32(&hostSemaphore.Waiters, -1)
+				return ERR_PTR
+			}
+		}
+		atomic.AddInt32(&hostSemaphore.Waiters, -1)
+	}
+}
+
+func Sem_post(semaphore *PSemaphore) uintptr {
+	return libScePosix_sem_post(semaphore)
 }
 
 func libScePosix_sem_post(semaphore *PSemaphore) uintptr {

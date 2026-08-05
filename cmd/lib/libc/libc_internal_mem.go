@@ -140,11 +140,68 @@ func libSceLibcInternal_realloc(ptr, newSize uintptr) uintptr {
 // 0x0000000000028DB0
 // __int64 memalign()
 func libSceLibcInternal_memalign(alignment, size uintptr) uintptr {
+	// Perform initial pointer checks.
+	if alignment != 0 && (alignment&(alignment-1)) != 0 {
+		logger.Printf("%-132s %s failed due to invalid alignment %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("memalign"),
+			color.Yellow.Sprintf("0x%X", alignment),
+		)
+		emu.SetErrno(EINVAL)
+		return ERR_PTR
+	}
+
 	address := GlobalGoAllocator.MallocAligned(size, alignment)
 	if address == 0 {
 		logger.Printf("%-132s %s failed due to allocation error.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("memalign"),
+		)
+		emu.SetErrno(ENOMEM)
+		return 0
+	}
+
+	if logger.LogAlloc {
+		logger.Printf("%-132s %s allocated %s bytes at %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("memalign"),
+			color.Yellow.Sprintf("0x%X", size),
+			color.Yellow.Sprintf("0x%X", address),
+		)
+	}
+	return address
+}
+
+// 0x0000000000028DA0
+// __int64 aligned_alloc()
+func libSceLibcInternal_aligned_alloc(alignment, size uintptr) uintptr {
+	// Perform initial pointer checks.
+	if alignment != 0 {
+		if (alignment & (alignment - 1)) != 0 {
+			logger.Printf("%-132s %s failed due to invalid alignment %s.\n",
+				emu.GlobalModuleManager.GetCallSiteText(),
+				color.Magenta.Sprint("aligned_alloc"),
+				color.Yellow.Sprintf("0x%X", alignment),
+			)
+			emu.SetErrno(EINVAL)
+			return ERR_PTR
+		}
+		if size%alignment != 0 {
+			logger.Printf("%-132s %s failed due to invalid size %s.\n",
+				emu.GlobalModuleManager.GetCallSiteText(),
+				color.Magenta.Sprint("aligned_alloc"),
+				color.Yellow.Sprintf("0x%X", size),
+			)
+			emu.SetErrno(EINVAL)
+			return ERR_PTR
+		}
+	}
+
+	address := GlobalGoAllocator.MallocAligned(size, alignment)
+	if address == 0 {
+		logger.Printf("%-132s %s failed due to allocation error.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("aligned_alloc"),
 		)
 		emu.SetErrno(ENOMEM)
 		return 0

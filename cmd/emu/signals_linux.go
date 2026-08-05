@@ -9,6 +9,7 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/asm"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/kernel"
 	"github.com/LamkasDev/sharkie/cmd/logger"
+	"github.com/LamkasDev/sharkie/cmd/patcher"
 	"github.com/LamkasDev/sharkie/cmd/sys_struct"
 	"github.com/gookit/color"
 )
@@ -89,6 +90,12 @@ func ExceptionHandlerGo() uintptr {
 
 	switch code {
 	case sys_struct.SIGNAL_SIGSEGV, sys_struct.SIGNAL_SIGBUS:
+		if patcher.GlobalPatcherRuntime.IsTcbAccess(uint64(rip)) {
+			if patcher.EmulateTcbAccess(signalContext, uint64(rip)) {
+				return sys_struct.EXCEPTION_CONTINUE_EXECUTION
+			}
+		}
+
 		result := fmt.Sprintf(
 			"[%s] Trapped %s at %s (%s)...\nAttempted to access address: %s\n",
 			color.Green.Sprint(thread.Name),
@@ -142,7 +149,6 @@ func SprintException(ctx *sys_struct.SIGNAL_CONTEXT) (result string) {
 
 // SetupSignalHandler registers the assembly trampoline for specified signals.
 func SetupSignalHandler() {
-	return
 	if C.setup_signal_stack() != 0 {
 		panic("failed to setup signal stack")
 	}

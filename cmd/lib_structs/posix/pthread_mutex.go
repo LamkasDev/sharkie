@@ -1,4 +1,4 @@
-package pthread
+package posix
 
 import (
 	"unsafe"
@@ -7,7 +7,6 @@ import (
 )
 
 type PthreadMutexType uint32
-type PthreadMutexProtocol uint32
 
 const (
 	PthreadMutexTypeErrorCheck = PthreadMutexType(1)
@@ -22,14 +21,21 @@ var MutexTypeNames = map[PthreadMutexType]string{
 	PthreadMutexTypeRecursive:  "Recursive",
 	PthreadMutexTypeNormal:     "Normal",
 	PthreadMutexTypeAdaptiveNp: "AdaptiveNp",
-	PthreadMutexTypeMask:       "Mask",
 }
+
+type PthreadMutexProtocol uint32
 
 const (
 	PthreadMutexProtocolNone    = PthreadMutexProtocol(0)
 	PthreadMutexProtocolInherit = PthreadMutexProtocol(1)
 	PthreadMutexProtocolProtect = PthreadMutexProtocol(2)
 )
+
+var MutexProtocolNames = map[PthreadMutexProtocol]string{
+	PthreadMutexProtocolNone:    "None",
+	PthreadMutexProtocolInherit: "Inherit",
+	PthreadMutexProtocolProtect: "Protect",
+}
 
 const (
 	ThrMutexInitializer         = 0
@@ -38,16 +44,12 @@ const (
 )
 
 type PthreadMutex struct {
-	Lock       uintptr // TODO: TimedMutex
 	Flags      uint32
-	_          uint32  // Padding.
-	Owner      uintptr // TODO: *Pthread
+	Owner      uintptr
 	Count      int32
 	SpinLoops  int32
 	YieldLoops int32
 	Protocol   PthreadMutexProtocol
-	_          [20]byte // More padding yay!
-	NamedObjId uint32
 	Name       string
 }
 

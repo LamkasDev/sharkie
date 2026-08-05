@@ -4,6 +4,7 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	"github.com/LamkasDev/sharkie/cmd/lib/posix"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/posix"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
 )
@@ -99,6 +100,17 @@ func libKernel_scePthreadRwlockUnlock() uintptr {
 // __int64 __fastcall scePthreadJoin(__int64, __int64)
 func libKernel_scePthreadJoin(threadPtr, retValPtr uintptr) uintptr {
 	err := posix.Pthread_join(threadPtr, retValPtr)
+	if err != 0 {
+		return err - SonyErrorOffset
+	}
+
+	return 0
+}
+
+// 0x0000000000013CF0
+// __int64 __fastcall scePthreadOnce(volatile signed __int32 *, void (*)(void), double)
+func libKernel_scePthreadOnce(onceControl *PthreadOnce, initRoutine uintptr) uintptr {
+	err := posix.Pthread_once(onceControl, initRoutine)
 	if err != 0 {
 		return err - SonyErrorOffset
 	}

@@ -12,8 +12,20 @@ const (
 )
 
 const (
-	VideoOutInternalEventIdFlip   = 0x6
-	VideoOutInternalEventIdVblank = 0x7
+	VideoOutInternalEventIdFlip           = 0x6
+	VideoOutInternalEventIdVblank         = 0x7
+	VideoOutInternalEventIdSetMode        = 0x51
+	VideoOutInternalEventIdPosition       = 0x58
+	VideoOutInternalEventIdPreVblankStart = 0x59
+	VideoOutInternalEventIdSysVblank      = 0x63
+)
+
+const (
+	VideoOutEventIdFlip           = 0
+	VideoOutEventIdVblank         = 1
+	VideoOutEventIdPreVblankStart = 2
+	VideoOutEventIdSetMode        = 8
+	VideoOutEventIdPosition       = 12
 )
 
 type VideoOutHandle struct {

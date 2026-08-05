@@ -1,6 +1,11 @@
 package save_data
 
-import "math"
+import (
+	"bytes"
+	"math"
+
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/psf"
+)
 
 const (
 	SaveDataBlockSize = uint64(32768)
@@ -44,4 +49,23 @@ type SaveDataParam struct {
 	_         uint32
 	MTime     int64
 	Reserved  [32]byte
+}
+
+func (param *SaveDataParam) SaveToParamSfo(paramSfo *psf.Psf) {
+	titleIdx := bytes.IndexByte(param.Title[:], 0)
+	if titleIdx == -1 {
+		titleIdx = len(param.Title)
+	}
+	paramSfo.MapStrings[SaveParamMainTitle] = string(param.Title[:titleIdx])
+	subTitleIdx := bytes.IndexByte(param.Subtitle[:], 0)
+	if subTitleIdx == -1 {
+		subTitleIdx = len(param.Subtitle)
+	}
+	paramSfo.MapStrings[SaveParamSubtitle] = string(param.Subtitle[:subTitleIdx])
+	detailIdx := bytes.IndexByte(param.Detail[:], 0)
+	if detailIdx == -1 {
+		detailIdx = len(param.Detail)
+	}
+	paramSfo.MapStrings[SaveParamDetail] = string(param.Detail[:detailIdx])
+	paramSfo.MapIntegers[SaveParamSaveDataListParam] = int32(param.UserParam)
 }

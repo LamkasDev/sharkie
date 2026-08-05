@@ -3,10 +3,11 @@ package elf
 
 import (
 	"encoding/binary"
+	"os"
 	"unsafe"
 
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/posix"
 	"github.com/LamkasDev/sharkie/cmd/logger"
-	"github.com/LamkasDev/sharkie/cmd/sys_struct"
 	"github.com/gookit/color"
 )
 
@@ -40,6 +41,7 @@ type Elf struct {
 	Memory       []byte
 
 	MemSize                   uint64              // Bytes of memory allocated for the ELF
+	TrampolineAllocOffset     uint64              // Offset to the start of the trampoline allocation area
 	DynLibDataOffset          uint64              // Offset to dynamic library data
 	LoadSections              []*ElfLoadSection   // List of loadable sections
 	ExceptionFrameSection     *ElfLoadSection     // Section containing exception handling frames
@@ -122,7 +124,7 @@ func NewElf(data []byte) *Elf {
 	e.SymbolTable = e.NewSymbolTable(data)
 
 	// Allocate memory and load sections.
-	e.BaseAddress, _ = sys_struct.AllocExecutableMemory(e.MemSize)
+	e.BaseAddress, _ = posix.AllocKernelMemory(0, e.MemSize, posix.PROT_READ|posix.PROT_WRITE|posix.PROT_EXEC, 0, uintptr(os.Getpagesize()))
 	e.Memory = unsafe.Slice((*byte)(unsafe.Pointer(e.BaseAddress)), e.MemSize)
 	logger.Printf(
 		"PT_LOAD data loaded into memory at %s (%s bytes).\n",

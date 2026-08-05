@@ -21,7 +21,7 @@ func RegisterSceLibcInternalStubs() {
 	elf.RegisterStub("libSceLibcInternal", "free", libSceLibcInternal_free)
 	elf.RegisterStub("libSceLibcInternal", "realloc", libSceLibcInternal_realloc)
 	elf.RegisterStub("libSceLibcInternal", "memalign", libSceLibcInternal_memalign)
-	elf.RegisterStub("libSceLibcInternal", "aligned_alloc", libSceLibcInternal_stub)
+	elf.RegisterStub("libSceLibcInternal", "aligned_alloc", libSceLibcInternal_aligned_alloc)
 	elf.RegisterStub("libSceLibcInternal", "reallocalign", libSceLibcInternal_stub)
 	elf.RegisterStub("libSceLibcInternal", "sceLibcMspaceMalloc", libSceLibcInternal_sceLibcMspaceMalloc)
 	elf.RegisterStub("libSceLibcInternal", "sceLibcMspaceCalloc", libSceLibcInternal_sceLibcMspaceCalloc)

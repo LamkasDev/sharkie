@@ -25,8 +25,8 @@ func (z LiverpoolBindComputePipelineInternal) Msgsize() (s int) {
 func (z *LiverpoolBindPipelineInternal) MarshalHash() (o []byte, err error) {
 	var b []byte
 	o = hsp.Require(b, z.Msgsize())
-	// map header, size 44
-	o = append(o, 0xde, 0x0, 0x2c)
+	// map header, size 45
+	o = append(o, 0xde, 0x0, 0x2d)
 	o = hsp.AppendUint64(o, uint64(z.CbColorInfo0))
 	o = hsp.AppendUint64(o, uint64(z.CbShaderMask))
 	o = hsp.AppendUint32(o, z.DbDepthClearValue)
@@ -72,6 +72,7 @@ func (z *LiverpoolBindPipelineInternal) MarshalHash() (o []byte, err error) {
 	o = hsp.AppendUint64(o, uint64(z.RtView))
 	o = hsp.AppendUint64(o, uint64(z.SpiShaderColFormat))
 	o = hsp.AppendUint64(o, uint64(z.SpiShaderZFormat))
+	o = hsp.AppendUint64(o, uint64(z.SpiVsOutConfig))
 	o = hsp.AppendUint32(o, z.UserDataHash)
 	o = hsp.AppendUint64(o, uint64(z.VgtMultiPrimIbResetEn))
 	return
@@ -79,7 +80,7 @@ func (z *LiverpoolBindPipelineInternal) MarshalHash() (o []byte, err error) {
 
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
 func (z *LiverpoolBindPipelineInternal) Msgsize() (s int) {
-	s = 3 + hsp.Uint64Size + hsp.Uint64Size + 18 + hsp.Uint32Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + 20 + hsp.Uint32Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + 22 + hsp.Uint32Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + 9 + hsp.Uint32Size + hsp.Uint64Size + hsp.Uint64Size + 16 + hsp.ArrayHeaderSize + (int(32) * (hsp.Uint32Size)) + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + 13 + hsp.Uint32Size + 13 + hsp.Uint32Size + hsp.Uint64Size + hsp.Uint64Size + 8 + hsp.Uint32Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + 13 + hsp.Uint32Size + hsp.Uint64Size
+	s = 3 + hsp.Uint64Size + hsp.Uint64Size + 18 + hsp.Uint32Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + 20 + hsp.Uint32Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + 22 + hsp.Uint32Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + 9 + hsp.Uint32Size + hsp.Uint64Size + hsp.Uint64Size + 16 + hsp.ArrayHeaderSize + (int(32) * (hsp.Uint32Size)) + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + 13 + hsp.Uint32Size + 13 + hsp.Uint32Size + hsp.Uint64Size + hsp.Uint64Size + 8 + hsp.Uint32Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + 13 + hsp.Uint32Size + hsp.Uint64Size
 	return
 }
 
@@ -268,18 +269,19 @@ func (z *LiverpoolWaitRegMemoryInternal) Msgsize() (s int) {
 func (z *LiverpoolWriteDataInternal) MarshalHash() (o []byte, err error) {
 	var b []byte
 	o = hsp.Require(b, z.Msgsize())
-	// map header, size 2
-	o = append(o, 0x82)
+	// map header, size 3
+	o = append(o, 0x83)
 	o = hsp.AppendUint64(o, uint64(z.Address))
 	o = hsp.AppendArrayHeader(o, uint32(len(z.Data)))
 	for za0001 := range z.Data {
 		o = hsp.AppendUint32(o, z.Data[za0001])
 	}
+	o = hsp.AppendBool(o, z.Eop)
 	return
 }
 
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
 func (z *LiverpoolWriteDataInternal) Msgsize() (s int) {
-	s = 1 + hsp.Uint64Size + 5 + hsp.ArrayHeaderSize + (len(z.Data) * (hsp.Uint32Size))
+	s = 1 + hsp.Uint64Size + 5 + hsp.ArrayHeaderSize + (len(z.Data) * (hsp.Uint32Size)) + 4 + hsp.BoolSize
 	return
 }

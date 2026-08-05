@@ -1,17 +1,19 @@
-package lib_structs
+package posix
 
 import (
 	"encoding/binary"
+	"os"
 	"unsafe"
-
-	. "github.com/LamkasDev/sharkie/cmd/lib_structs/posix"
 )
 
-const StackAlignment = 8
+const (
+	StackDefaultSize = 2 * 1024 * 1024 // 2MB
+	StackMinimumSize = 0x4000          // 16KB
+	StackMaximumSize = 8 * 1024 * 1024 // 8MB
 
-const StackDefaultSize = 2 * 1024 * 1024 // 2MB
-const StackMinimumSize = 0x4000
-const StackArgumentsSize = 256
+	StackArgumentAlignment = 8
+	StackArgumentsSize     = 256
+)
 
 type Stack struct {
 	Address                 uintptr
@@ -24,7 +26,7 @@ type Stack struct {
 
 // NewStack creates a new stack with the defined size.
 func NewStack(stackSize uint64) *Stack {
-	stackPtr, err := AllocKernelMemory(0, stackSize, PROT_READ|PROT_WRITE|PROT_EXEC, MAP_ANON|MAP_PRIVATE)
+	stackPtr, err := AllocKernelMemory(0, stackSize, PROT_READ|PROT_WRITE|PROT_EXEC, MAP_ANON|MAP_PRIVATE, uintptr(os.Getpagesize()))
 	if stackPtr == 0 {
 		panic(err)
 	}
@@ -71,7 +73,7 @@ func (s *Stack) PushString(v string) uintptr {
 	addr := s.ArgumentsCurrentPointer
 	vLength := uintptr(len(v))
 	copy(unsafe.Slice((*byte)(unsafe.Pointer(s.ArgumentsCurrentPointer)), vLength), v)
-	padding := (StackAlignment - (vLength % StackAlignment)) % StackAlignment
+	padding := (StackArgumentAlignment - (vLength % StackArgumentAlignment)) % StackArgumentAlignment
 	s.ArgumentsCurrentPointer += vLength + padding
 	return addr
 }

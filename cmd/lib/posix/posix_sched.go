@@ -4,7 +4,6 @@ import (
 	"runtime"
 
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/posix"
-	. "github.com/LamkasDev/sharkie/cmd/lib_structs/pthread"
 )
 
 func libScePosix_sched_yield() uintptr {

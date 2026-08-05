@@ -57,13 +57,13 @@ func (fsys *FS) resolveDir(path string) (*Node, error) {
 			continue
 		}
 		curr.mu.Lock()
-		child, ok := curr.children[part]
+		child, actualPart := findVirtualChild(curr, part)
+		ok := child != nil
 		if !ok && curr.hostPath != "" {
-			targetHostPath := filepath.Join(curr.hostPath, part)
-			info, err := os.Stat(targetHostPath)
-			if err == nil {
+			if targetHostPath, info, err := resolveHostPath(curr.hostPath, part); err == nil {
+				actualPart = info.Name()
 				child = &Node{
-					name:     part,
+					name:     actualPart,
 					isDir:    info.IsDir(),
 					mode:     info.Mode(),
 					modTime:  info.ModTime(),
@@ -72,7 +72,7 @@ func (fsys *FS) resolveDir(path string) (*Node, error) {
 					size:     info.Size(),
 					children: make(map[string]*Node),
 				}
-				curr.children[part] = child
+				curr.children[actualPart] = child
 				ok = true
 			}
 		}
@@ -114,22 +114,20 @@ func (fsys *FS) GetHostPath(path string) (string, error) {
 
 	dir.mu.RLock()
 	defer dir.mu.RUnlock()
-	node, ok := dir.children[baseName]
-	if !ok {
-		// Try to construct it dynamically if directory has a hostPath.
-		if dir.hostPath != "" {
-			targetHostPath := filepath.Join(dir.hostPath, baseName)
-			if _, err = os.Stat(targetHostPath); err == nil {
-				return targetHostPath, nil
-			}
+	node, _ := findVirtualChild(dir, baseName)
+	if node != nil {
+		if node.hostPath == "" {
+			return "", errors.New("node has no host path")
 		}
-		return "", fs.ErrNotExist
+		return node.hostPath, nil
 	}
-	if node.hostPath == "" {
-		return "", errors.New("node has no host path")
+	if dir.hostPath != "" {
+		if targetHostPath, _, err := resolveHostPath(dir.hostPath, baseName); err == nil {
+			return targetHostPath, nil
+		}
 	}
 
-	return node.hostPath, nil
+	return "", fs.ErrNotExist
 }
 
 // MkdirAll creates a directory and all its parents.
@@ -145,8 +143,8 @@ func (fsys *FS) MkdirAll(path string, perm os.FileMode) error {
 			continue
 		}
 		curr.mu.Lock()
-		child, ok := curr.children[part]
-		if !ok {
+		child, _ := findVirtualChild(curr, part)
+		if child == nil {
 			child = &Node{
 				name:     part,
 				isDir:    true,
@@ -187,15 +185,15 @@ func (fsys *FS) GetOrCreateNode(name string, create bool, excl bool, perm os.Fil
 	dir.mu.Lock()
 	defer dir.mu.Unlock()
 
-	node, exists := dir.children[baseName]
+	node, actualName := findVirtualChild(dir, baseName)
+	exists := node != nil
 	var targetHostPath string
-	if dir.hostPath != "" {
-		targetHostPath = filepath.Join(dir.hostPath, baseName)
-	}
-	if !exists && targetHostPath != "" {
-		if info, err := os.Stat(targetHostPath); err == nil {
+	if !exists && dir.hostPath != "" {
+		if foundHostPath, info, err := resolveHostPath(dir.hostPath, baseName); err == nil {
+			actualName = info.Name()
+			targetHostPath = foundHostPath
 			node = &Node{
-				name:     baseName,
+				name:     actualName,
 				isDir:    info.IsDir(),
 				mode:     info.Mode(),
 				modTime:  info.ModTime(),
@@ -204,8 +202,11 @@ func (fsys *FS) GetOrCreateNode(name string, create bool, excl bool, perm os.Fil
 				size:     info.Size(),
 				children: make(map[string]*Node),
 			}
-			dir.children[baseName] = node
+			dir.children[actualName] = node
 			exists = true
+		} else {
+			targetHostPath = filepath.Join(dir.hostPath, baseName)
+			actualName = baseName
 		}
 	}
 	if !exists {
@@ -215,14 +216,17 @@ func (fsys *FS) GetOrCreateNode(name string, create bool, excl bool, perm os.Fil
 		if dir.ReadOnly {
 			return nil, fs.ErrPermission
 		}
-		if targetHostPath != "" {
+		if actualName == "" {
+			actualName = baseName
+		}
+		if dir.hostPath != "" {
 			f, err := os.OpenFile(targetHostPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, perm)
 			if err != nil {
 				return nil, err
 			}
 			f.Close()
 			node = &Node{
-				name:     baseName,
+				name:     actualName,
 				isDir:    false,
 				mode:     perm,
 				modTime:  time.Now(),
@@ -233,14 +237,14 @@ func (fsys *FS) GetOrCreateNode(name string, create bool, excl bool, perm os.Fil
 			}
 		} else {
 			node = &Node{
-				name:    baseName,
+				name:    actualName,
 				isDir:   false,
 				mode:    perm,
 				modTime: time.Now(),
 				data:    make([]byte, 0),
 			}
 		}
-		dir.children[baseName] = node
+		dir.children[actualName] = node
 	} else if create && excl {
 		return nil, fs.ErrExist
 	}
@@ -275,8 +279,8 @@ func (fsys *FS) Remove(name string) error {
 	}
 	dir.mu.Lock()
 	defer dir.mu.Unlock()
-	node, exists := dir.children[baseName]
-	if !exists {
+	node, actualName := findVirtualChild(dir, baseName)
+	if node == nil {
 		return fs.ErrNotExist
 	}
 
@@ -287,7 +291,7 @@ func (fsys *FS) Remove(name string) error {
 	// TODO: remove if mounted.
 
 	// Remove from the parent's map.
-	delete(dir.children, baseName)
+	delete(dir.children, actualName)
 	dir.modTime = time.Now()
 
 	return nil

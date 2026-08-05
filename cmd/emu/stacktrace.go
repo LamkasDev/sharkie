@@ -67,7 +67,7 @@ func SprintStackTraceFromSP(stackPtr uintptr) (result string) {
 	if stackPtr <= 0x1000 {
 		return result
 	}
-	for i := 0; i < 80; i++ {
+	for i := 0; i < 40; i++ {
 		address := *(*uint64)(unsafe.Pointer(stackPtr))
 		result += SprintAddress(uintptr(address))
 

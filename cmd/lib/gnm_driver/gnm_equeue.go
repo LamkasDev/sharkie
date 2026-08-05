@@ -10,7 +10,7 @@ import (
 
 // 0x0000000000002280
 // __int64 __fastcall sceGnmAddEqEvent(__int64, int, __int64)
-func libSceGnmDriver_sceGnmAddEqEvent(equeueHandle, id, userData uintptr) uintptr {
+func libSceGnmDriver_sceGnmAddEqEvent(equeueHandle uintptr, id InterruptId, userData uintptr) uintptr {
 	equeue := GetEqueue(equeueHandle)
 	if equeue == nil {
 		logger.Printf("%-132s %s failed due to invalid equeue.\n",
@@ -20,10 +20,10 @@ func libSceGnmDriver_sceGnmAddEqEvent(equeueHandle, id, userData uintptr) uintpt
 		return 0x80020009
 	}
 
-	GlobalInterruptHandler.Register(InterruptGraphicsFlip, func(irqType InterruptType) {
+	GlobalInterruptHandler.Register(id, func(irq InterruptId) {
 		event := KernelEvent{
 			Id:          uint64(id),
-			Filter:      EVFILT_GRAPHICS_CORE,
+			Filter:      KernelEventFilterGraphicsCore,
 			Flags:       EV_ADD,
 			FilterFlags: 0,
 			FilterData:  uint64(id),
@@ -37,9 +37,10 @@ func libSceGnmDriver_sceGnmAddEqEvent(equeueHandle, id, userData uintptr) uintpt
 		}
 	})
 
-	logger.Printf("%-132s %s added flip event to %s.\n",
+	logger.Printf("%-132s %s added flip interrupt event %s to %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sceGnmAddEqEvent"),
+		color.Yellow.Sprintf("0x%X", id),
 		color.Blue.Sprint(equeue.Name),
 	)
 	return 0

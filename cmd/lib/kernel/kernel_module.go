@@ -52,3 +52,9 @@ func libKernel_sceKernelGetCompiledSdkVersion(versionPtr uintptr) uintptr {
 	}
 	return 0
 }
+
+// 0x0000000000022280
+// __int64 __fastcall sceKernelSetCallRecord(int)
+func libKernel_sceKernelSetCallRecord() uintptr {
+	return 0
+}

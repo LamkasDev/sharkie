@@ -14,6 +14,7 @@ func RegisterPosixStubs() {
 	RegisterPosixStub("sem_trywait", libScePosix_sem_trywait)
 	RegisterPosixStub("sem_wait", libScePosix_sem_wait)
 	RegisterPosixStub("sem_timedwait", libScePosix_sem_timedwait)
+	RegisterPosixStub("sem_reltimedwait_np", libScePosix_sem_reltimedwait_np)
 	RegisterPosixStub("sem_post", libScePosix_sem_post)
 
 	// Clock functions.
@@ -35,6 +36,7 @@ func RegisterPosixStubs() {
 	RegisterPosixStub("pthread_detach", libScePosix_pthread_detach)
 	RegisterPosixStub("pthread_join", libScePosix_pthread_join)
 	RegisterPosixStub("pthread_cancel", libScePosix_pthread_cancel)
+	RegisterPosixStub("pthread_once", libScePosix_pthread_once)
 	RegisterPosixStub("pthread_yield", libScePosix_pthread_yield)
 	RegisterPosixStub("pthread_exit", libScePosix_pthread_exit)
 	RegisterPosixStub("pthread_getaffinity_np", libScePosix_pthread_getaffinity_np)
@@ -81,6 +83,7 @@ func RegisterPosixStubs() {
 	// Mutex attribute functions.
 	RegisterPosixStub("pthread_mutexattr_init", libScePosix_pthread_mutexattr_init)
 	RegisterPosixStub("pthread_mutexattr_settype", libScePosix_pthread_mutexattr_settype)
+	RegisterPosixStub("pthread_mutexattr_setprotocol", libScePosix_pthread_mutexattr_setprotocol)
 	RegisterPosixStub("pthread_mutexattr_destroy", libScePosix_pthread_mutexattr_destroy)
 
 	// Cond functions.
@@ -91,6 +94,10 @@ func RegisterPosixStubs() {
 	RegisterPosixStub("pthread_cond_wait", libScePosix_pthread_cond_wait)
 	RegisterPosixStub("pthread_cond_timedwait", libScePosix_pthread_cond_timedwait)
 	RegisterPosixStub("pthread_cond_reltimedwait_np", libScePosix_pthread_cond_reltimedwait_np)
+
+	// Cond attribute functions.
+	RegisterPosixStub("pthread_condattr_init", libScePosix_pthread_condattr_init)
+	RegisterPosixStub("pthread_condattr_destroy", libScePosix_pthread_condattr_destroy)
 
 	// IO functions.
 	RegisterPosixStub("open", libScePosix_open)
@@ -118,10 +125,12 @@ func RegisterPosixStubs() {
 	RegisterPosixStub("shm_open", libScePosix_shm_open)
 
 	// Memory functions.
+	RegisterPosixStub("getpagesize", libScePosix_getpagesize)
 	RegisterPosixStub("mmap", libScePosix_mmap)
 	RegisterPosixStub("mmap_0", libScePosix_mmap)
 	RegisterPosixStub("munmap", libScePosix_munmap)
 	RegisterPosixStub("mname", libScePosix_mname)
+	RegisterPosixStub("mprotect", libScePosix_mprotect)
 
 	// Network functions.
 	RegisterPosixStub("socketpair", libScePosix_socketpair)

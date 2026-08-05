@@ -57,18 +57,18 @@ func (p *Patcher) Patch(e *elf.Elf) error {
 		patchDir = filepath.Join(config.GetGameCacheDir(), "patches")
 	}
 	patchPath := filepath.Join(patchDir, fmt.Sprintf("%s.patch", e.Name))
-
+	failedPatchPath := filepath.Join(patchDir, fmt.Sprintf("%s.failed_patch", e.Name))
 	if !p.ForceGenerate {
 		if _, err := os.Stat(patchPath); err == nil {
-			return p.PatchFast(e, patchPath)
+			return p.PatchFast(e, patchPath, failedPatchPath)
 		}
 	}
 
-	return p.PatchSlow(e, patchPath)
+	return p.PatchSlow(e, patchPath, failedPatchPath)
 }
 
 // PatchFast loads instruction offsets from a file and patches them.
-func (p *Patcher) PatchFast(e *elf.Elf, patchPath string) error {
+func (p *Patcher) PatchFast(e *elf.Elf, patchPath string, failedPatchPath string) error {
 	logger.Printf(
 		"Loading patches for %s from %s...\n",
 		color.Blue.Sprint(e.Name),
@@ -94,12 +94,36 @@ func (p *Patcher) PatchFast(e *elf.Elf, patchPath string) error {
 			continue
 		}
 
-		patched, err := p.ProcessSingleInstruction(e, offset)
+		action, err := p.ProcessSingleInstruction(e, offset)
 		if err != nil {
 			return err
 		}
-		if patched {
+		if action == TcbAccessDirect || action == TcbAccessTrampoline {
 			patchCount++
+		}
+	}
+
+	// Load failed patches.
+	if _, err = os.Stat(failedPatchPath); err == nil {
+		logger.Printf(
+			"Loading failed patches for %s from %s...\n",
+			color.Blue.Sprint(e.Name),
+			color.Blue.Sprint(failedPatchPath),
+		)
+		failedFile, err := os.Open(failedPatchPath)
+		if err == nil {
+			defer failedFile.Close()
+			failedScanner := bufio.NewScanner(failedFile)
+			for failedScanner.Scan() {
+				offsetStr := failedScanner.Text()
+				if offsetStr == "" {
+					continue
+				}
+				offset, err := strconv.ParseUint(offsetStr, 10, 64)
+				if err == nil {
+					GlobalPatcherRuntime.FailedPatchAddresses[uint64(e.BaseAddress)+offset] = true
+				}
+			}
 		}
 	}
 
@@ -121,13 +145,14 @@ func (p *Patcher) PatchFast(e *elf.Elf, patchPath string) error {
 }
 
 // PatchSlow scans the entire binary, applies patches and saves the offsets to a file.
-func (p *Patcher) PatchSlow(e *elf.Elf, patchPath string) error {
+func (p *Patcher) PatchSlow(e *elf.Elf, patchPath string, failedPatchPath string) error {
 	logger.Printf(
 		"Scanning %s for patches...\n",
 		color.Blue.Sprint(e.Name),
 	)
 
 	var patchOffsets []uint64
+	var failedPatchOffsets []uint64
 	for _, s := range e.LoadSections {
 		if (s.PFlags & elf.PF_X) == 0 {
 			continue
@@ -155,12 +180,14 @@ func (p *Patcher) PatchSlow(e *elf.Elf, patchPath string) error {
 				if instruction.Mnemonic != "mov" {
 					continue
 				}
-				patched, err := p.ProcessSingleInstruction(e, uint64(instruction.Address))
+				action, err := p.ProcessSingleInstruction(e, uint64(instruction.Address))
 				if err != nil {
 					return err
 				}
-				if patched {
+				if action == TcbAccessDirect || action == TcbAccessTrampoline {
 					patchOffsets = append(patchOffsets, uint64(instruction.Address))
+				} else if action == TcbAccessEmulate {
+					failedPatchOffsets = append(failedPatchOffsets, uint64(instruction.Address))
 				}
 			}
 		}
@@ -198,16 +225,33 @@ func (p *Patcher) PatchSlow(e *elf.Elf, patchPath string) error {
 		color.Green.Sprintf("%d", len(patchOffsets)),
 		color.Blue.Sprint(patchPath),
 	)
+
+	// Save failed patches.
+	if len(failedPatchOffsets) > 0 {
+		failedFile, err := os.Create(failedPatchPath)
+		if err == nil {
+			defer failedFile.Close()
+			for _, offset := range failedPatchOffsets {
+				failedFile.WriteString(fmt.Sprintf("%d\n", offset))
+			}
+			logger.Printf(
+				"Saved %s failed patches to %s.\n",
+				color.Green.Sprintf("%d", len(failedPatchOffsets)),
+				color.Blue.Sprint(failedPatchPath),
+			)
+		}
+	}
+
 	return nil
 }
 
 // ProcessSingleInstruction disassembles and attempts to patch a specific instruction.
-func (p *Patcher) ProcessSingleInstruction(e *elf.Elf, offset uint64) (bool, error) {
+func (p *Patcher) ProcessSingleInstruction(e *elf.Elf, offset uint64) (int, error) {
 	// Disassemble with details.
 	instructionData := e.Memory[offset:]
 	detailedInstructions, err := p.DetailedDisassembler.Disasm(instructionData, offset, 1)
 	if err != nil || len(detailedInstructions) == 0 {
-		return false, err
+		return TcbAccessNoPatch, err
 	}
 
 	// Try applying patches.
@@ -215,11 +259,15 @@ func (p *Patcher) ProcessSingleInstruction(e *elf.Elf, offset uint64) (bool, err
 	switch p.FilterTcbAccess(instruction) {
 	case TcbAccessDirect:
 		instructionData = e.Memory[int(instruction.Address) : int(instruction.Address)+len(instruction.Bytes)]
-		return p.PatchTcbAccess(instruction, instructionData), nil
+		p.PatchTcbAccess(instruction, instructionData)
+		return TcbAccessDirect, nil
 	case TcbAccessTrampoline:
 		p.NeededTcbAccessTrampolines = append(p.NeededTcbAccessTrampolines, instruction)
-		return true, nil
+		return TcbAccessTrampoline, nil
+	case TcbAccessEmulate:
+		GlobalPatcherRuntime.FailedPatchAddresses[uint64(e.BaseAddress)+offset] = true
+		return TcbAccessEmulate, nil
 	}
 
-	return false, nil
+	return TcbAccessNoPatch, nil
 }

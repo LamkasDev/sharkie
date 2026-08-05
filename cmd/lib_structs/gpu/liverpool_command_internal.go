@@ -223,4 +223,5 @@ func (command *LiverpoolWaitRegMemoryInternal) Satisfied() bool {
 type LiverpoolWriteDataInternal struct {
 	Address uintptr
 	Data    []uint32
+	Eop     bool
 }

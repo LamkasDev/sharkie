@@ -6,7 +6,7 @@ import (
 
 	"github.com/LamkasDev/sharkie/cmd/lib/posix"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
-	. "github.com/LamkasDev/sharkie/cmd/lib_structs/pthread"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/posix"
 )
 
 // 0x00000000000137A0

@@ -4,10 +4,8 @@ import (
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
-	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/libc"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/posix"
-	. "github.com/LamkasDev/sharkie/cmd/lib_structs/pthread"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
 )
@@ -72,7 +70,7 @@ func Pthread_attr_setstacksize(attrHandlePtr *uintptr, stackSize uint64) uintptr
 }
 
 func libScePosix_pthread_attr_setstacksize(attrHandlePtr *uintptr, stackSize uint64) uintptr {
-	if stackSize < StackMinimumSize {
+	if stackSize < StackMinimumSize || stackSize > StackMaximumSize {
 		logger.Printf("%-132s %s failed due to invalid stack size %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("pthread_attr_setstacksize"),

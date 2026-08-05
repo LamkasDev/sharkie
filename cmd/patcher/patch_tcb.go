@@ -2,13 +2,14 @@ package patcher
 
 import (
 	"encoding/binary"
+	"os"
 	"runtime"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/asm"
 	"github.com/LamkasDev/sharkie/cmd/elf"
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/posix"
 	"github.com/LamkasDev/sharkie/cmd/logger"
-	"github.com/LamkasDev/sharkie/cmd/sys_struct"
 	"github.com/bpfsnoop/gapstone"
 	"github.com/gookit/color"
 )
@@ -16,6 +17,7 @@ import (
 const TcbAccessNoPatch = 0
 const TcbAccessDirect = 1
 const TcbAccessTrampoline = 2
+const TcbAccessEmulate = 3
 
 // FilterTcbAccess checks if instruction is TCB access and optionally adds it to trampoline list.
 func (p *Patcher) FilterTcbAccess(instruction gapstone.Instruction) int {
@@ -30,18 +32,19 @@ func (p *Patcher) FilterTcbAccess(instruction gapstone.Instruction) int {
 	}
 	if len(instruction.Bytes) < 5 {
 		logger.Printf(
-			"Failed to patch %s-byte TCB access.\n",
+			"Failed to patch %s-byte TCB access at 0x%X, flagging for emulation...\n",
 			color.Red.Sprintf("%d", len(instruction.Bytes)),
+			instruction.Address,
 		)
-		return TcbAccessNoPatch
+		return TcbAccessEmulate
 	}
 
 	// Only patch if displacement is 0, otherwise use a trampoline.
 	if op.Mem.Disp != 0 {
 		if op.Mem.Disp != 0x10 {
 			logger.Print(color.Gray.Sprintf(
-				"Unknown displacement 0x%X for TCB access at 0x%X, skipping...\n",
-				op.Mem.Disp,
+				"Unknown displacement %s for TCB access at 0x%X, skipping...\n",
+				color.Red.Sprintf("%d", op.Mem.Disp),
 				instruction.Address,
 			))
 			return TcbAccessNoPatch
@@ -109,7 +112,7 @@ func (p *Patcher) CreateTcbAccessTrampoline(e *elf.Elf, instruction gapstone.Ins
 	trampolineAsm.mov_r64_from_mem(dstReg, scratchReg, int32(displacement))
 	trampolineCode := trampolineAsm.bytes()
 	trampolineSize := uint64(len(trampolineCode) + 5) // 5 bytes for jmp rel32
-	trampolineAddr, _ := sys_struct.AllocExecutableMemory(trampolineSize)
+	trampolineAddr, _ := posix.AllocKernelMemory(0, trampolineSize, posix.PROT_READ|posix.PROT_WRITE|posix.PROT_EXEC, 0, uintptr(os.Getpagesize()))
 
 	jumpBackAsm := newAsmHelper()
 	jumpBackSourceAddr := uint64(trampolineAddr) + uint64(len(trampolineCode))

@@ -134,9 +134,8 @@ func (m *MemoryManager) UpdateTraps(address, size uintptr, protState int) {
 	}
 
 	// Update system page protection
-	pageMask := uintptr(posix.SystemPageSize - 1)
-	alignedAddress := address &^ pageMask
-	alignedSize := (size + (address - alignedAddress) + pageMask) &^ pageMask
+	alignedAddress := address & ^(uintptr(posix.SystemPageSize) - 1)
+	alignedSize := (size + posix.SystemPageSize - 1) & ^(posix.SystemPageSize - 1)
 
 	var sysProt int
 	switch protState {

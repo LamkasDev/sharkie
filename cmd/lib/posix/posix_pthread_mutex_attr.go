@@ -6,7 +6,6 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/libc"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/posix"
-	. "github.com/LamkasDev/sharkie/cmd/lib_structs/pthread"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
 )
@@ -38,12 +37,12 @@ func libScePosix_pthread_mutexattr_init(attrHandlePtr *uintptr) uintptr {
 	return 0
 }
 
-func Pthread_mutexattr_settype(attrHandlePtr *uintptr, attrType uintptr) uintptr {
+func Pthread_mutexattr_settype(attrHandlePtr *uintptr, attrType PthreadMutexType) uintptr {
 	return libScePosix_pthread_mutexattr_settype(attrHandlePtr, attrType)
 }
 
-func libScePosix_pthread_mutexattr_settype(attrHandlePtr *uintptr, attrType uintptr) uintptr {
-	if attrType < 1 || attrType > 4 {
+func libScePosix_pthread_mutexattr_settype(attrHandlePtr *uintptr, attrType PthreadMutexType) uintptr {
+	if attrType < PthreadMutexTypeErrorCheck || attrType > PthreadMutexTypeAdaptiveNp {
 		return EINVAL
 	}
 
@@ -59,12 +58,43 @@ func libScePosix_pthread_mutexattr_settype(attrHandlePtr *uintptr, attrType uint
 	}
 
 	// Set type.
-	attr.Type = PthreadMutexType(attrType)
+	attr.Type = attrType
 
 	logger.Printf("%-132s %s set type to %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("pthread_mutexattr_settype"),
 		color.Blue.Sprint(MutexTypeNames[attr.Type]),
+	)
+	return 0
+}
+
+func Pthread_mutexattr_setprotocol(attrHandlePtr *uintptr, attrProtocol PthreadMutexProtocol) uintptr {
+	return libScePosix_pthread_mutexattr_setprotocol(attrHandlePtr, attrProtocol)
+}
+
+func libScePosix_pthread_mutexattr_setprotocol(attrHandlePtr *uintptr, attrProtocol PthreadMutexProtocol) uintptr {
+	if attrProtocol < PthreadMutexProtocolNone || attrProtocol > PthreadMutexProtocolProtect {
+		return EINVAL
+	}
+
+	// Resolve the handle.
+	attr, err := ResolveHandle[PthreadMutexAttr](attrHandlePtr)
+	if err != 0 {
+		logger.Printf("%-132s %s failed due to invalid attribute pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("pthread_mutexattr_setprotocol"),
+		)
+		emu.SetErrno(err)
+		return ERR_PTR
+	}
+
+	// Set protocol.
+	attr.Protocol = attrProtocol
+
+	logger.Printf("%-132s %s set protocol to %s.\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("pthread_mutexattr_setprotocol"),
+		color.Blue.Sprint(MutexProtocolNames[attr.Protocol]),
 	)
 	return 0
 }

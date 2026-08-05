@@ -387,6 +387,14 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	b.EmitDeferredLocalVariableInit(typePtrSgprArray, idSgprArrayVar, idNullSgprArray)
 	b.EmitDeferredLocalVariableInit(typePtrVgprArray, idVgprArrayVar, idNullVgprArray)
 
+	// Emit variable tracking which pixels are valid.
+	var idIsValidPixel SpirvId
+	if shader.Stage == GcnShaderStageFragment {
+		idIsValidPixel = b.AllocId()
+		typePtrFnBool := b.EmitTypePointer(spec.SpvStorageFunction, typeBool)
+		b.EmitDeferredLocalVariable(typePtrFnBool, idIsValidPixel)
+	}
+
 	// GCN special registers.
 	var gcnSpecialIds [27]SpirvUsedId
 	gcnSpecialIds[GcnSpecIdFlatScrLo] = SpirvUsedId{Id: b.AllocId(), Name: "flat_scr_lo"}
@@ -526,6 +534,7 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 
 		BlockContextIdWorkgroupId:       {Id: idWorkgroupId, Name: "workgroup_id_t"},
 		BlockContextIdLocalInvocationId: {Id: idLocalInvocationId, Name: "local_invocation_id"},
+		BlockContextIdIsValidPixel:      {Id: idIsValidPixel, Name: "is_valid_pixel"},
 	}
 	for i, id := range idColorOuts {
 		ids[BlockContextIdColorOut0+SpirvId(i)] = SpirvUsedId{Id: id, Name: fmt.Sprintf("color_out_%d", i)}

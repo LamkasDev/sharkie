@@ -3,7 +3,7 @@ package tcb
 import (
 	"unsafe"
 
-	"github.com/LamkasDev/sharkie/cmd/lib_structs/pthread"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/posix"
 )
 
 const TcbAlignment = 64
@@ -22,7 +22,7 @@ const DtvEntrySize = unsafe.Sizeof(DtvEntry{})
 type Tcb struct {
 	Self   *Tcb
 	Dtv    *DtvEntry
-	Thread *pthread.Pthread
+	Thread *Pthread
 	Fiber  uintptr
 }
 

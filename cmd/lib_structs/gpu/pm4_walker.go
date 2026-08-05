@@ -320,6 +320,9 @@ func (l *Liverpool) handleEventWriteEopEos(stream *LiverpoolCommandStream, kind 
 			Data:    data,
 		},
 	}
+	if kind == "eop" {
+		writeData.Eop = true
+	}
 
 	// Add to command stream.
 	writeDataHash := writeData.Hash()

@@ -47,3 +47,9 @@ func libc_realloc(ptr, newSize uintptr) uintptr {
 func libc_memalign(alignment, size uintptr) uintptr {
 	return libSceLibcInternal_memalign(alignment, size)
 }
+
+// 0x0000000000027990
+// __int64 __fastcall aligned_alloc(_QWORD, _QWORD)
+func libc_aligned_alloc(alignment, size uintptr) uintptr {
+	return libSceLibcInternal_aligned_alloc(alignment, size)
+}

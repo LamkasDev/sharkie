@@ -5,8 +5,6 @@ package posix
 import (
 	"fmt"
 	"syscall"
-
-	"github.com/LamkasDev/sharkie/cmd/sys_struct"
 )
 
 // MemoryProtToLinuxProt converts memory protection flags to Linux mmap/mprotect flags.
@@ -25,44 +23,32 @@ func MemoryProtToLinuxProt(prot int32) uintptr {
 	return linuxProt
 }
 
-// MemoryProtToLinuxProt converts memory flags to Linux mmap/mprotect flags.
+// MemoryFlagsToLinuxFlags converts memory flags to Linux mmap/mprotect flags.
 func MemoryFlagsToLinuxFlags(flags int32, addr uintptr) uintptr {
-	flags = flags&int32(syscall.MAP_SHARED|syscall.MAP_PRIVATE|syscall.MAP_FIXED) | syscall.MAP_ANONYMOUS
-	if addr != 0 {
-		flags |= syscall.MAP_FIXED
-	}
-	if flags&(syscall.MAP_SHARED|syscall.MAP_PRIVATE) == 0 {
-		flags |= syscall.MAP_PRIVATE
+	linuxFlags := flags&int32(syscall.MAP_SHARED|syscall.MAP_PRIVATE|syscall.MAP_FIXED) | syscall.MAP_ANONYMOUS
+	if linuxFlags&(syscall.MAP_SHARED|syscall.MAP_PRIVATE) == 0 {
+		linuxFlags |= syscall.MAP_PRIVATE
 	}
 
-	return uintptr(flags)
+	return uintptr(linuxFlags)
 }
 
-func AllocKernelMemory(addr uintptr, length uint64, prot, flags int32) (uintptr, error) {
-	addr = sys_struct.GetNextAlignedAddress(addr, length)
-	linuxProt := MemoryProtToLinuxProt(prot)
-	linuxFlags := MemoryFlagsToLinuxFlags(flags, addr)
-	for {
-		allocatedAddr, _, err := syscall.Syscall6(
-			syscall.SYS_MMAP,
-			addr,
-			uintptr(length),
-			linuxProt,
-			linuxFlags,
-			ERR_PTR,
-			0,
-		)
-		if err == 0 {
-			if allocatedAddr < 0xFFFFFFFFFF {
-				return allocatedAddr, nil
-			}
-			syscall.Syscall6(syscall.SYS_MUNMAP, allocatedAddr, uintptr(length), 0, 0, 0, 0)
-		} else if err != syscall.EEXIST {
-			return 0, err
-		}
-		addr = sys_struct.GetNextAlignedAddress(0, length)
-		linuxFlags |= 0x100000
+func AllocKernelMemory(addr uintptr, length uint64, prot, flags int32, alignment uintptr) (uintptr, error) {
+	addr = GetNextAlignedAddress(addr, length, alignment)
+	allocatedAddr, _, err := syscall.Syscall6(
+		syscall.SYS_MMAP,
+		addr,
+		uintptr(length),
+		MemoryProtToLinuxProt(prot),
+		MemoryFlagsToLinuxFlags(flags, addr),
+		ERR_PTR,
+		0,
+	)
+	if err != 0 {
+		return 0, err
 	}
+
+	return allocatedAddr, nil
 }
 
 func FreeKernelMemory(addr uintptr, length uint64) (uintptr, error) {

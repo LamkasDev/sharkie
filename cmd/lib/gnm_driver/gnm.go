@@ -14,10 +14,14 @@ func RegisterGnmDriverStubs() {
 	elf.RegisterStub("libSceGnmDriver", "sceGnmRequestFlipAndSubmitDoneForWorkload", libSceGnmDriver_sceGnmRequestFlipAndSubmitDoneForWorkload)
 
 	// More commands.
+	elf.RegisterStub("libSceGnmDriver", "sceGnmAreSubmitsAllowed", libSceGnmDriver_sceGnmAreSubmitsAllowed)
 	elf.RegisterStub("libSceGnmDriver", "sceGnmSubmitDone", libSceGnmDriver_sceGnmSubmitDone)
 	elf.RegisterStub("libSceGnmDriver", "sceGnmDingDong", libSceGnmDriver_sceGnmDingDong)
 	elf.RegisterStub("libSceGnmDriver", "sceGnmDingDongForWorkload", libSceGnmDriver_sceGnmDingDongForWorkload)
 
 	// Equeue commands.
 	elf.RegisterStub("libSceGnmDriver", "sceGnmAddEqEvent", libSceGnmDriver_sceGnmAddEqEvent)
+
+	// Setup commands.
+	elf.RegisterStub("libSceGnmDriver", "sceGnmGetGpuCoreClockFrequency", libSceGnmDriver_sceGnmGetGpuCoreClockFrequency)
 }

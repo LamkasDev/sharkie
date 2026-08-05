@@ -34,7 +34,7 @@ type ModuleManager struct {
 func NewModuleManager() *ModuleManager {
 	mm := &ModuleManager{
 		LinkPaths:   []string{},
-		Modules:     make([]*elf.Elf, 1),
+		Modules:     []*elf.Elf{},
 		ModulesMap:  map[string]*elf.Elf{},
 		ModulesLock: sync.RWMutex{},
 	}

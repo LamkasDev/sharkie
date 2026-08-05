@@ -32,6 +32,15 @@ func libKernel_sceKernelMapNamedFlexibleMemory(addrPtr uintptr, length uint64, p
 // 0x0000000000017330
 // __int64 __fastcall sceKernelMapFlexibleMemory(__int64 *, unsigned __int64, unsigned int, unsigned int)
 func libKernel_sceKernelMapFlexibleMemory(addrPtr uintptr, length uint64, prot, flags int32) uintptr {
+	if length == 0 || (length%MemoryPageSize) != 0 {
+		logger.Printf("%-132s %s failed due to invalid size %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceKernelMapFlexibleMemory"),
+			color.Yellow.Sprintf("0x%X", length),
+		)
+		emu.SetErrno(EINVAL)
+		return ERR_PTR
+	}
 	if addrPtr == 0 {
 		logger.Printf("%-132s %s failed due to address pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -48,19 +57,29 @@ func libKernel_sceKernelMapFlexibleMemory(addrPtr uintptr, length uint64, prot, 
 		return emu.GetErrno() - SonyErrorOffset
 	}
 
+	HookMap(allocatedAddr, length, prot)
 	WriteAddress(addrPtr, allocatedAddr)
+
 	logger.Printf("%-132s %s stored pointer at %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sceKernelMapFlexibleMemory"),
 		color.Yellow.Sprintf("0x%X", addrPtr),
 	)
-
 	return 0
 }
 
 // 0x0000000000018400
 // __int64 __fastcall sceKernelMapNamedSystemFlexibleMemory(__int64 *, unsigned __int64, unsigned int, unsigned int, __int64)
 func libKernel_sceKernelMapNamedSystemFlexibleMemory(addrPtr uintptr, length uint64, prot, flags int32, namePtr Cstring) uintptr {
+	if length == 0 || (length%MemoryPageSize) != 0 {
+		logger.Printf("%-132s %s failed due to invalid size %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceKernelMapFlexibleMemory"),
+			color.Yellow.Sprintf("0x%X", length),
+		)
+		emu.SetErrno(EINVAL)
+		return ERR_PTR
+	}
 	if addrPtr == 0 {
 		logger.Printf("%-132s %s failed due to address pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -76,16 +95,17 @@ func libKernel_sceKernelMapNamedSystemFlexibleMemory(addrPtr uintptr, length uin
 	if allocatedAddr == ERR_PTR {
 		return emu.GetErrno() - SonyErrorOffset
 	}
-
-	WriteAddress(addrPtr, allocatedAddr)
 	if posix.Mname(allocatedAddr, length, namePtr) == ERR_PTR {
 		return emu.GetErrno() - SonyErrorOffset
 	}
+
+	HookMap(allocatedAddr, length, prot)
+	WriteAddress(addrPtr, allocatedAddr)
+
 	logger.Printf("%-132s %s stored pointer at %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sceKernelMapNamedSystemFlexibleMemory"),
 		color.Yellow.Sprintf("0x%X", addrPtr),
 	)
-
 	return 0
 }

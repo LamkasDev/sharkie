@@ -4,14 +4,14 @@ package elf
 
 import (
 	"encoding/binary"
+	"os"
 	"reflect"
-	"slices"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/asm"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/libc"
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/posix"
 	"github.com/LamkasDev/sharkie/cmd/logger"
-	"github.com/LamkasDev/sharkie/cmd/sys_struct"
 	"github.com/gookit/color"
 )
 
@@ -91,7 +91,7 @@ func RegisterVariableStub(libraryName, symbolName string, size uintptr) *asm.Stu
 func CreateTrampoline(goFuncAddr uintptr) uintptr {
 	// Allocate executable memory for the trampoline.
 	trampolineSize := uint64(22) // MOV to RAX (10), MOV to R11 (10), JMP RAX (2)
-	trampolineAddr, _ := sys_struct.AllocExecutableMemory(trampolineSize)
+	trampolineAddr, _ := posix.AllocKernelMemory(0, trampolineSize, posix.PROT_READ|posix.PROT_WRITE|posix.PROT_EXEC, 0, uintptr(os.Getpagesize()))
 
 	// MOV stubAsm, RAX
 	trampoline := []byte{0x48, 0xB8}
@@ -111,16 +111,4 @@ func CreateTrampoline(goFuncAddr uintptr) uintptr {
 	)
 
 	return trampolineAddr
-}
-
-// NativeFunctionNames lists names of functions that should not be stubbed.
-var NativeFunctionNames = []string{
-	"pthread_once",
-	"scePthreadOnce",
-	"sceKernelSetCallRecord",
-}
-
-// CanStubFunctionName checks if a given function name is eligible for stubbing.
-func CanStubFunctionName(funcName string) bool {
-	return !slices.Contains(NativeFunctionNames, funcName)
 }

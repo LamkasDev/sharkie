@@ -3,6 +3,7 @@ package save_data
 import (
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/app_content"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/user"
 )
 
 type SaveDataBlocks uint64
@@ -33,7 +34,7 @@ type SaveDataFingerprint struct {
 type SaveDataMountPoint [16]byte
 
 type SaveDataMount struct {
-	UserId      int32
+	UserId      UserId
 	_           uint32
 	TitleId     Cstring
 	DirName     Cstring
@@ -44,7 +45,7 @@ type SaveDataMount struct {
 }
 
 type SaveDataMount2 struct {
-	UserId    int32
+	UserId    UserId
 	_         uint32
 	DirName   Cstring
 	Blocks    SaveDataBlocks
@@ -92,7 +93,7 @@ type SaveDataIcon struct {
 }
 
 type SaveDataDelete struct {
-	UserId   int32
+	UserId   UserId
 	_        uint32
 	TitleId  Cstring
 	DirName  Cstring

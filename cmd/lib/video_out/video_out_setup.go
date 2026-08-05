@@ -55,7 +55,7 @@ func displayVblankTicker(handle *VideoOutHandle) {
 			if equeue := GetEqueue(listener.EqueueHandle); equeue != nil {
 				kevent := KernelEvent{
 					Id:         VideoOutInternalEventIdVblank,
-					Filter:     EVFILT_VIDEO_OUT,
+					Filter:     KernelEventFilterVideoOut,
 					FilterData: vblankData,
 					UserData:   listener.UserData,
 				}
@@ -112,7 +112,7 @@ func displayVblankTicker(handle *VideoOutHandle) {
 			if equeue := GetEqueue(listener.EqueueHandle); equeue != nil {
 				kevent := KernelEvent{
 					Id:         VideoOutInternalEventIdFlip,
-					Filter:     EVFILT_VIDEO_OUT,
+					Filter:     KernelEventFilterVideoOut,
 					FilterData: flipData,
 					UserData:   listener.UserData,
 				}

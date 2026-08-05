@@ -79,21 +79,8 @@ func (m *MemoryManager) VirtualQuery(addr uintptr, flags int32, info *posix.Virt
 	m.Lock.Lock()
 	defer m.Lock.Unlock()
 
-	for i := 0; i < len(m.VMAs); i++ {
-		vma := m.VMAs[i]
+	for _, vma := range m.VMAs {
 		if addr >= vma.Start && addr < vma.End {
-			if !vma.Mapped {
-				if flags == 1 {
-					for j := i + 1; j < len(m.VMAs); j++ {
-						if m.VMAs[j].Mapped {
-							vma = m.VMAs[j]
-							goto found
-						}
-					}
-				}
-				return 0x8002000D // ORBIS_KERNEL_ERROR_EACCES
-			}
-		found:
 			info.Start = uint64(vma.Start)
 			info.End = uint64(vma.End)
 			info.Offset = vma.Offset
@@ -152,7 +139,18 @@ func (m *MemoryManager) updateDirectVMA(start, end uintptr, update func(*VMA)) {
 	for i := 1; i < len(m.DirectVMAs); i++ {
 		last := &merged[len(merged)-1]
 		v := m.DirectVMAs[i]
-		if last.End == v.Start && last.Prot == v.Prot && last.Mapped == v.Mapped && last.Name == v.Name && last.MemoryType == v.MemoryType {
+		canMerge := last.End == v.Start &&
+			last.Prot == v.Prot &&
+			last.Mapped == v.Mapped &&
+			last.Name == v.Name &&
+			last.MemoryType == v.MemoryType &&
+			last.IsDirect == v.IsDirect
+		if canMerge && last.IsDirect {
+			if last.Offset+uint64(last.End-last.Start) != v.Offset {
+				canMerge = false
+			}
+		}
+		if canMerge {
 			last.End = v.End
 		} else {
 			merged = append(merged, v)

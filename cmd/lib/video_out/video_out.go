@@ -20,6 +20,7 @@ func RegisterVideoOutStubs() {
 	// Flip functions.
 	elf.RegisterStub("libSceVideoOut", "sceVideoOutAddFlipEvent", libSceVideoOut_sceVideoOutAddFlipEvent)
 	elf.RegisterStub("libSceVideoOut", "sceVideoOutSetFlipRate", libSceVideoOut_sceVideoOutSetFlipRate)
+	elf.RegisterStub("libSceVideoOut", "sceVideoOutSubmitFlip", libSceVideoOut_sceVideoOutSubmitFlip)
 	elf.RegisterStub("libSceVideoOut", "sceVideoOutSubmitEopFlip", libSceVideoOut_sceVideoOutSubmitEopFlip)
 	elf.RegisterStub("libSceVideoOut", "sceVideoOutGetFlipStatus", libSceVideoOut_sceVideoOutGetFlipStatus)
 	elf.RegisterStub("libSceVideoOut", "sceVideoOutIsFlipPending", libSceVideoOut_sceVideoOutIsFlipPending)
@@ -27,6 +28,11 @@ func RegisterVideoOutStubs() {
 	// V-blank functions.
 	elf.RegisterStub("libSceVideoOut", "sceVideoOutAddVblankEvent", libSceVideoOut_sceVideoOutAddVblankEvent)
 	elf.RegisterStub("libSceVideoOut", "sceVideoOutGetVblankStatus", libSceVideoOut_sceVideoOutGetVblankStatus)
+
+	// Event functions.
+	elf.RegisterStub("libSceVideoOut", "sceVideoOutGetEventId", libSceVideoOut_sceVideoOutGetEventId)
+	elf.RegisterStub("libSceVideoOut", "sceVideoOutGetEventData", libSceVideoOut_sceVideoOutGetEventData)
+	elf.RegisterStub("libSceVideoOut", "sceVideoOutGetEventCount", libSceVideoOut_sceVideoOutGetEventCount)
 
 	// Buffer functions.
 	elf.RegisterStub("libSceVideoOut", "sceVideoOutRegisterBuffers", libSceVideoOut_sceVideoOutRegisterBuffers)

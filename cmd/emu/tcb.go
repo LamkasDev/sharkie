@@ -6,7 +6,7 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/elf"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/libc"
-	. "github.com/LamkasDev/sharkie/cmd/lib_structs/pthread"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/posix"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/tcb"
 	"github.com/LamkasDev/sharkie/cmd/linker"
 	"github.com/LamkasDev/sharkie/cmd/logger"

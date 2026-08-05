@@ -45,7 +45,7 @@ func libScePosix_kevent(equeueHandle, changelistPtr, nchanges, eventlistPtr, nev
 func ProcessKeventChange(equeue *Equeue, event KernelEvent) {
 	if (event.Flags&EV_ADD) != 0 || (event.Flags&EV_ENABLE) != 0 {
 		switch event.Filter {
-		case EVFILT_VIDEO_OUT:
+		case KernelEventFilterVideoOut:
 			logger.Printf("%-132s %s ignoring video out event registration for now.\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("processKeventChange"),

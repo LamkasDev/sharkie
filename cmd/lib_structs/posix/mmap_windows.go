@@ -32,7 +32,7 @@ func MemoryProtToWindowsProt(prot int32) uintptr {
 
 func AllocKernelMemory(addr uintptr, length uint64, prot, flags int32) (uintptr, error) {
 	allocationType := uintptr(windows.MEM_RESERVE | windows.MEM_COMMIT)
-	addr = sys_struct.GetNextAlignedAddress(addr, length)
+	addr = GetNextAlignedAddress(addr, length)
 	allocatedAddr, _, err := sys_struct.VirtualAlloc.Call(
 		addr,
 		uintptr(length),

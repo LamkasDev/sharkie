@@ -65,7 +65,7 @@ func libKernel_sys_sceKernelMapDirectMemory(addrPtr uintptr, length uint64, prot
 			return ERR_PTR
 		}
 	}
-	if length == 0 || (length%uint64(MemoryPageSize)) != 0 {
+	if length == 0 || (length%MemoryPageSize) != 0 {
 		logger.Printf("%-132s %s failed due to invalid size %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceKernelMapDirectMemory"),

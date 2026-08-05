@@ -1,4 +1,4 @@
-package pthread
+package posix
 
 import (
 	"unsafe"
@@ -6,13 +6,9 @@ import (
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
 )
 
-type PthreadSchedulingPolicy uint32
-type PthreadInheritScheduling uint32
-type PthreadDetachState uint32
-type PthreadScope uint32
-type PthreadAttrFlags uint32
-
 const PthreadMagic = uint32(0xD09BA115)
+
+type PthreadSchedulingPolicy uint32
 
 const (
 	PthreadSchedulingPolicyFifo       = PthreadSchedulingPolicy(1)
@@ -26,6 +22,8 @@ var SchedulingPolicyNames = map[PthreadSchedulingPolicy]string{
 	PthreadSchedulingPolicyRoundRobin: "RoundRobin",
 }
 
+type PthreadInheritScheduling uint32
+
 const (
 	PthreadInheritSchedulingExplicit = PthreadInheritScheduling(0)
 	PthreadInheritSchedulingInherit  = PthreadInheritScheduling(4)
@@ -35,6 +33,8 @@ var InheritSchedulingNames = map[PthreadInheritScheduling]string{
 	PthreadInheritSchedulingInherit:  "Inherit",
 	PthreadInheritSchedulingExplicit: "Explicit",
 }
+
+type PthreadDetachState uint32
 
 const (
 	PthreadDetachStateJoinable = PthreadDetachState(0)
@@ -46,6 +46,8 @@ var DetachStateNames = map[PthreadDetachState]string{
 	PthreadDetachStateDetached: "Detached",
 }
 
+type PthreadScope uint32
+
 const (
 	PthreadScopeProcess = PthreadScope(0)
 	PthreadScopeSystem  = PthreadScope(2)
@@ -56,13 +58,20 @@ var ScopeNames = map[PthreadScope]string{
 	PthreadScopeSystem:  "System",
 }
 
+type PthreadOnceState uint32
+
 const (
-	PthreadAttrFlagsDetached     = PthreadAttrFlags(1)
-	PthreadAttrFlagsScopeSystem  = PthreadAttrFlags(2)
-	PthreadAttrFlagsInheritSched = PthreadAttrFlags(4)
-	PthreadAttrFlagsNoFloat      = PthreadAttrFlags(8)
-	PthreadAttrFlagsStackUser    = PthreadAttrFlags(0x100)
+	PthreadOnceStateNeverDone  = PthreadOnceState(0)
+	PthreadOnceStateDone       = PthreadOnceState(1)
+	PthreadOnceStateInProgress = PthreadOnceState(2)
+	PthreadOnceStateWait       = PthreadOnceState(3)
 )
+
+type PthreadOnce struct {
+	State uint32
+}
+
+const PthreadOnceSize = unsafe.Sizeof(PthreadOnce{})
 
 type Pthread struct {
 	Self         uintptr
@@ -94,19 +103,3 @@ type PthreadCleanupEntry struct {
 }
 
 const PthreadCleanupEntrySize = unsafe.Sizeof(PthreadCleanupEntry{})
-
-type PthreadAttr struct {
-	SchedulingPolicy  PthreadSchedulingPolicy
-	InheritScheduling PthreadInheritScheduling
-	Priority          int32
-	Suspend           int32
-	Flags             PthreadAttrFlags
-	_                 [4]byte // Padding yippee!
-	StackAddress      uintptr
-	StackSize         uint64
-	GuardSize         uint64
-	CpuSetSize        uint64
-	CpuSet            uintptr
-}
-
-const PthreadAttrSize = unsafe.Sizeof(PthreadAttr{})

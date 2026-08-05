@@ -2,7 +2,9 @@ package video_out
 
 import (
 	"github.com/LamkasDev/sharkie/cmd/emu"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/dce"
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/irq"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/video"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
@@ -19,16 +21,25 @@ func libSceVideoOut_sceVideoOutAddFlipEvent(equeueHandle, rawHandle, userData ui
 		)
 		return SCE_VIDEO_OUT_ERROR_INVALID_HANDLE
 	}
+	equeue := GetEqueue(equeueHandle)
+	if equeue == nil {
+		logger.Printf("%-132s %s failed due to invalid equeue.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceVideoOutAddFlipEvent"),
+		)
+		return SCE_VIDEO_OUT_ERROR_INVALID_EVENT_QUEUE
+	}
 
 	handle.FlipEvents = append(handle.FlipEvents, VideoOutEvent{
 		EqueueHandle: equeueHandle,
 		UserData:     userData,
 	})
 
-	logger.Printf("%-132s %s added flip event to %s.\n",
+	logger.Printf("%-132s %s added flip event from %s to %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sceVideoOutAddFlipEvent"),
 		color.Yellow.Sprintf("0x%X", handle.Id),
+		color.Blue.Sprint(equeue.Name),
 	)
 	return 0
 }
@@ -56,6 +67,59 @@ func libSceVideoOut_sceVideoOutSetFlipRate(rawHandle, flipRate uintptr) uintptr 
 	return 0
 }
 
+func SceVideoOutSubmitFlip(rawHandle, bufferIndex, flipMode, flipArg uintptr) uintptr {
+	return libSceVideoOut_sceVideoOutSubmitFlip(rawHandle, bufferIndex, flipMode, flipArg)
+}
+
+// 0x000000000000B8A0
+// __int64 __fastcall sceVideoOutSubmitFlip(int, unsigned int, unsigned int, __int64)
+func libSceVideoOut_sceVideoOutSubmitFlip(rawHandle, bufferIndex, flipMode, flipArg uintptr) uintptr {
+	if int32(bufferIndex) < -1 || bufferIndex >= VideoOutMaxBuffers {
+		logger.Printf("%-132s %s failed due to invalid buffer index.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceVideoOutSubmitFlip"),
+		)
+		return SCE_VIDEO_OUT_ERROR_INVALID_INDEX
+	}
+	handle, ok := GlobalDisplayCoreEngine.Handles[uint32(rawHandle)]
+	if !ok {
+		logger.Printf("%-132s %s failed due to invalid handle.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceVideoOutSubmitFlip"),
+		)
+		return SCE_VIDEO_OUT_ERROR_INVALID_HANDLE
+	}
+	buffer := &handle.Buffers[bufferIndex]
+	if !buffer.Registered {
+		logger.Printf("%-132s %s failed due to %s's buffer slot %s not being registered.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceVideoOutSubmitFlip"),
+			color.Yellow.Sprintf("0x%X", handle.Id),
+			color.Yellow.Sprintf("0x%X", bufferIndex),
+		)
+		return SCE_VIDEO_OUT_ERROR_INVALID_INDEX
+	}
+
+	// Ask GPU to present new buffer.
+	handle.SubmitFlip(&VideoOutFlip{
+		BufferIndex: int32(bufferIndex),
+		FlipArg:     int64(flipArg),
+		GpuAddress:  buffer.GpuAddress,
+	})
+
+	if logger.LogGraphics {
+		logger.Printf("%-132s %s submitted %s's flip (bufferIndex=%s, flipMode=%s, flipArg=%s).\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceVideoOutSubmitFlip"),
+			color.Yellow.Sprintf("0x%X", handle.Id),
+			color.Yellow.Sprintf("0x%X", bufferIndex),
+			color.Yellow.Sprintf("0x%X", flipMode),
+			color.Yellow.Sprintf("0x%X", flipArg),
+		)
+	}
+	return 0
+}
+
 func SceVideoOutSubmitEopFlip(rawHandle, bufferIndex, flipMode, flipArg, eopSignalCtx uintptr) uintptr {
 	return libSceVideoOut_sceVideoOutSubmitEopFlip(rawHandle, bufferIndex, flipMode, flipArg, eopSignalCtx)
 }
@@ -63,12 +127,12 @@ func SceVideoOutSubmitEopFlip(rawHandle, bufferIndex, flipMode, flipArg, eopSign
 // 0x000000000000B950
 // __int64 __fastcall sceVideoOutSubmitEopFlip(int a1, unsigned int a2, unsigned int a3, __int64 a4, __int64 a5)
 func libSceVideoOut_sceVideoOutSubmitEopFlip(rawHandle, bufferIndex, flipMode, flipArg, eopSignalCtx uintptr) uintptr {
-	if int(bufferIndex) >= VideoOutMaxBuffers || bufferIndex == 0xFFFFFFFF {
+	if int32(bufferIndex) < -1 || bufferIndex >= VideoOutMaxBuffers {
 		logger.Printf("%-132s %s failed due to invalid buffer index.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceVideoOutSubmitEopFlip"),
 		)
-		return SCE_VIDEO_OUT_ERROR_INVALID_VALUE
+		return SCE_VIDEO_OUT_ERROR_INVALID_INDEX
 	}
 	handle, ok := GlobalDisplayCoreEngine.Handles[uint32(rawHandle)]
 	if !ok {
@@ -86,14 +150,16 @@ func libSceVideoOut_sceVideoOutSubmitEopFlip(rawHandle, bufferIndex, flipMode, f
 			color.Yellow.Sprintf("0x%X", handle.Id),
 			color.Yellow.Sprintf("0x%X", bufferIndex),
 		)
-		return SCE_VIDEO_OUT_ERROR_INVALID_VALUE
+		return SCE_VIDEO_OUT_ERROR_INVALID_INDEX
 	}
 
 	// Ask GPU to present new buffer.
-	handle.SubmitFlip(&VideoOutFlip{
-		BufferIndex: int32(bufferIndex),
-		FlipArg:     int64(flipArg),
-		GpuAddress:  buffer.GpuAddress,
+	irq.GlobalInterruptHandler.RegisterOnce(irq.InterruptIdGraphicsFlip, func(id irq.InterruptId) {
+		handle.SubmitFlip(&VideoOutFlip{
+			BufferIndex: int32(bufferIndex),
+			FlipArg:     int64(flipArg),
+			GpuAddress:  buffer.GpuAddress,
+		})
 	})
 
 	if logger.LogGraphics {
@@ -130,6 +196,13 @@ func libSceVideoOut_sceVideoOutGetFlipStatus(rawHandle uintptr, flipStatus *Vide
 	}
 	*flipStatus = handle.FlipStatus
 
+	if logger.LogGraphics {
+		logger.Printf("%-132s %s returned %s's flip status.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceVideoOutGetFlipStatus"),
+			color.Yellow.Sprintf("0x%X", handle.Id),
+		)
+	}
 	return 0
 }
 

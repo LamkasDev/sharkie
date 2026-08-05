@@ -478,7 +478,7 @@ func (t *GpuTranslator) Translate(frame uint64, stream *gpu.LiverpoolCommandStre
 		case gpu.LiverpoolCommandTypeWaitRegMemory:
 			t.WaitRegMemory(&stream.WaitRegMems[command.Index])
 		case gpu.LiverpoolCommandTypeFlip:
-			irq.GlobalInterruptHandler.Signal(irq.InterruptGraphicsFlip)
+			irq.GlobalInterruptHandler.Signal(irq.InterruptIdGraphicsFlip)
 		}
 		stream.CommandIndex++
 	}
@@ -539,6 +539,9 @@ func (t *GpuTranslator) FlushCommandBuffers() bool {
 					color.Green.Sprintf("%+v", write.Data),
 					color.Yellow.Sprintf("0x%X", write.Address),
 				)
+			}
+			if write.Eop {
+				irq.GlobalInterruptHandler.Signal(irq.InterruptIdGraphicsEop)
 			}
 		}
 		fence, err := t.handles.FencePool.Get(t.handles, t.currentGuestFrame)

@@ -9,6 +9,7 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/config"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/fs"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/psf"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/user"
 	"go101.org/nstd"
 )
 
@@ -24,7 +25,7 @@ const (
 )
 
 type SaveInstance struct {
-	UserId     int32
+	UserId     UserId
 	GameSerial string
 	DirName    string
 	MaxBlocks  uint64
@@ -33,7 +34,7 @@ type SaveInstance struct {
 	MountPoint string
 }
 
-func NewSaveInstance(userId int32, gameSerial, dirName string, maxBlocks uint64) *SaveInstance {
+func NewSaveInstance(userId UserId, gameSerial, dirName string, maxBlocks uint64) *SaveInstance {
 	maxBlocks = nstd.Clamp(maxBlocks, SaveDataBlocksMin, SaveDataBlocksMax)
 	return &SaveInstance{
 		UserId:     userId,
@@ -87,6 +88,22 @@ func (instance *SaveInstance) Mount(mountSlot int, copyIcon bool) (error, bool) 
 	return nil, created
 }
 
+func (instance *SaveInstance) Unmount() error {
+	if !instance.Mounted() {
+		return fmt.Errorf("not mounted")
+	}
+
+	// Unmount save.
+	if err := instance.SaveParamSfo(); err != nil {
+		return fmt.Errorf("failed to save param.sfo: %w", err)
+	}
+	if err := GlobalFilesystem.Unmount(instance.MountPoint); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (instance *SaveInstance) CreateOnHost(copyIcon bool) (*Psf, error) {
 	psf, err := NewDefaultParamSfo(instance.DirName, instance.GameSerial)
 	if err != nil {
@@ -115,6 +132,17 @@ func (instance *SaveInstance) CreateOnHost(copyIcon bool) (*Psf, error) {
 	}
 
 	return psf, nil
+}
+
+func (instance *SaveInstance) SaveParamSfo() error {
+	if instance.ParamSfo == nil {
+		return nil
+	}
+	data, err := instance.ParamSfo.Encode()
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(config.GetGameSaveDir(instance.DirName), "sce_sys", "param.sfo"), data, 0755)
 }
 
 func NewDefaultParamSfo(dirName, gameSerial string) (*Psf, error) {
@@ -154,15 +182,4 @@ func GetMaxBlocksFromSfo(psf *Psf) uint64 {
 	}
 
 	return binary.LittleEndian.Uint64(value)
-}
-
-func (instance *SaveInstance) SaveParamSfo() error {
-	if instance.ParamSfo == nil {
-		return nil
-	}
-	data, err := instance.ParamSfo.Encode()
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(filepath.Join(config.GetGameSaveDir(instance.DirName), "sce_sys", "param.sfo"), data, 0755)
 }

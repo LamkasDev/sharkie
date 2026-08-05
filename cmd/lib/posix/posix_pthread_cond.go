@@ -9,7 +9,6 @@ import (
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/cond"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/libc"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/posix"
-	. "github.com/LamkasDev/sharkie/cmd/lib_structs/pthread"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/time"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
@@ -23,7 +22,7 @@ func InitStaticCond(condHandlePtr *uintptr) uintptr {
 
 	// Initialize to defaults.
 	cond := (*PthreadCond)(unsafe.Pointer(condAddr))
-	cond.KernelId = 0
+	cond.ClockId = ClockIdRealtime
 	cond.Flags = 0
 
 	// Copy the pointer back to condHandlePtr.
@@ -49,8 +48,14 @@ func libScePosix_pthread_cond_init(condHandlePtr, attrHandlePtr *uintptr) uintpt
 
 	// Initialize to defaults.
 	cond := (*PthreadCond)(unsafe.Pointer(condAddr))
-	cond.KernelId = 0
+	cond.ClockId = ClockIdRealtime
 	cond.Flags = 0
+
+	// Apply attributes.
+	attr, err := ResolveHandle[PthreadCondAttr](attrHandlePtr)
+	if err == 0 {
+		cond.ClockId = attr.ClockId
+	}
 
 	// Copy the pointer back to condHandlePtr.
 	*condHandlePtr = condAddr

@@ -20,17 +20,6 @@ func emitBlock(b *SpvBuilder, block *GcnShaderCfgBlock, ctx *SpirvBlockContext) 
 		typeUint := ctx.GetId(BlockContextIdTypeUint)
 		idC0 := ctx.GetConstId(ConstIdUint0)
 
-		// Emit variable tracking which pixels are valid.
-		if ctx.Stage == GcnShaderStageFragment {
-			typeBool := ctx.GetId(BlockContextIdTypeBool)
-			typePtrFnBool := b.EmitTypePointer(spec.SpvStorageFunction, typeBool)
-			ctx.Ids[BlockContextIdIsValidPixel] = SpirvUsedId{
-				Id:   b.AllocId(),
-				Name: "is_valid_pixel",
-			}
-			b.EmitLocalVariable(typePtrFnBool, ctx.Ids[BlockContextIdIsValidPixel].Id)
-		}
-
 		// Load user data buffer address from the push constant.
 		b.EmitString("load user data buffer address")
 		idPtrPsbUint := ctx.GetId(BlockContextIdPtrPsbUint)

@@ -8,6 +8,7 @@ import (
 	glfwvulkanbackend "github.com/LamkasDev/cimgui-go-vulkan/backend/glfwvulkan-backend"
 	"github.com/LamkasDev/cimgui-go-vulkan/imgui"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/gpu"
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/irq"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/video"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/LamkasDev/sharkie/cmd/vulkan"
@@ -137,6 +138,7 @@ func (r *Renderer) ConsumeRingWork(done chan struct{}) {
 		r.Handles.FlushDeferredDestruction()
 
 		// Signal that we're done.
+		irq.GlobalInterruptHandler.Signal(irq.InterruptIdGpuIdle)
 		r.GpuTranslator.SignalFence()
 	}
 }

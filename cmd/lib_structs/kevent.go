@@ -12,9 +12,21 @@ const (
 )
 
 const (
-	EVFILT_VIDEO_OUT     = -13
-	EVFILT_GRAPHICS_CORE = -11
-	EVFILT_USER          = 0
+	KernelEventFilterNone         = 0
+	KernelEventFilterRead         = -1
+	KernelEventFilterWrite        = -2
+	KernelEventFilterAio          = -3
+	KernelEventFilterVnode        = -4
+	KernelEventFilterProc         = -5
+	KernelEventFilterSignal       = -6
+	KernelEventFilterTimer        = -7
+	KernelEventFilterFs           = -9
+	KernelEventFilterLio          = -10
+	KernelEventFilterUser         = -11
+	KernelEventFilterPolling      = -12
+	KernelEventFilterVideoOut     = -13
+	KernelEventFilterGraphicsCore = -14
+	KernelEventFilterHrTimer      = -15
 )
 
 type KernelEvent struct {

@@ -6,7 +6,6 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/libc"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/posix"
-	. "github.com/LamkasDev/sharkie/cmd/lib_structs/pthread"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
 )
@@ -19,7 +18,6 @@ func InitStaticMutex(mutexHandlePtr *uintptr, initType uintptr) uintptr {
 
 	// Initialize to defaults.
 	mutex := (*PthreadMutex)(unsafe.Pointer(mutexAddr))
-	mutex.Lock = 0
 	if initType == ThrAdaptiveMutexInitializer {
 		mutex.Flags = uint32(PthreadMutexTypeAdaptiveNp)
 		mutex.SpinLoops = 2000
@@ -55,7 +53,6 @@ func libScePosix_pthread_mutex_init(mutexHandlePtr, attrHandlePtr *uintptr) uint
 
 	// Initialize to defaults.
 	mutex := (*PthreadMutex)(unsafe.Pointer(mutexAddr))
-	mutex.Lock = 0
 	mutex.Flags = uint32(PthreadMutexTypeErrorCheck)
 	mutex.Owner = 0
 	mutex.Count = 0

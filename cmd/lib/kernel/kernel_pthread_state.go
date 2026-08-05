@@ -34,8 +34,8 @@ func libKernel_scePthreadSetaffinity(threadPtr uintptr, mask uint64) uintptr {
 
 // 0x0000000000014210
 // __int64 scePthreadGetschedparam()
-func libKernel_scePthreadGetschedparam(attrHandlePtr *uintptr, schedulingParameterPtr *int32) uintptr {
-	err := posix.Pthread_attr_getschedparam(attrHandlePtr, schedulingParameterPtr)
+func libKernel_scePthreadGetschedparam() uintptr {
+	err := posix.Pthread_getschedparam()
 	if err != 0 {
 		return err - SonyErrorOffset
 	}
@@ -45,8 +45,8 @@ func libKernel_scePthreadGetschedparam(attrHandlePtr *uintptr, schedulingParamet
 
 // 0x0000000000014420
 // __int64 scePthreadSetschedparam()
-func libKernel_scePthreadSetschedparam(attrHandlePtr *uintptr, schedulingParameterPtr *int32) uintptr {
-	err := posix.Pthread_attr_setschedparam(attrHandlePtr, schedulingParameterPtr)
+func libKernel_scePthreadSetschedparam() uintptr {
+	err := posix.Pthread_setschedparam()
 	if err != 0 {
 		return err - SonyErrorOffset
 	}
