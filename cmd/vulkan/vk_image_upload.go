@@ -194,10 +194,9 @@ func (image *VulkanImage) UploadToVkImage(handles *VulkanHandles, commandBuffer 
 	extentWidth := width
 	extentHeight := height
 	if !isLinearTileMode(image.FirstDescriptor.TilingIndex) {
-		mipLevel := int(image.FirstDescriptor.BaseLevel)
-		layout := image.Layouts[mipLevel]
-		extentWidth = uint32(layout.Width)
-		extentHeight = uint32(layout.Height)
+		mipLevel := uint(image.FirstDescriptor.BaseLevel)
+		extentWidth = max(uint32(image.FirstDescriptor.Width)>>mipLevel, 1)
+		extentHeight = max(uint32(image.FirstDescriptor.Height)>>mipLevel, 1)
 	}
 	vk.CmdCopyBufferToImage(commandBuffer.CommandBuffer, srcBuffer, image.Image, vk.ImageLayoutGeneral, 1, []vk.BufferImageCopy{{
 		BufferOffset:      srcOffset,

@@ -83,7 +83,11 @@ type VulkanImageRequest struct {
 
 func CreateImage(handles *VulkanHandles, request VulkanImageRequest, commandBuffer *VulkanCommandBuffer, frame uint64) (*VulkanImage, error) {
 	// Figure out image flags.
-	imageUsage := vk.ImageUsageFlags(vk.ImageUsageSampledBit | vk.ImageUsageStorageBit | vk.ImageUsageTransferSrcBit | vk.ImageUsageTransferDstBit)
+	imageUsage := vk.ImageUsageFlags(vk.ImageUsageSampledBit | vk.ImageUsageTransferSrcBit | vk.ImageUsageTransferDstBit)
+	isBlock := request.Descriptor.DataFormat >= 35 && request.Descriptor.DataFormat <= 41
+	if !isBlock {
+		imageUsage |= vk.ImageUsageFlags(vk.ImageUsageStorageBit)
+	}
 	aspectMask := vk.ImageAspectFlags(vk.ImageAspectColorBit)
 	dstLayout := vk.ImageLayoutGeneral
 	dstAccess := vk.AccessFlags(vk.AccessShaderReadBit | vk.AccessShaderWriteBit)
@@ -118,22 +122,55 @@ func CreateImage(handles *VulkanHandles, request VulkanImageRequest, commandBuff
 	}
 	defer pinner.Unpin()
 
-	// Create VkImage.
-	if !IsDepthFormat(request.Format) {
+	imageType := vk.ImageType2d
+	extentDepth := uint32(1)
+	arrayLayers := uint32(1)
+	switch request.Descriptor.Type {
+	case 8: // Color1D
+		imageType = vk.ImageType1d
+	case 10: // Color3D
+		imageType = vk.ImageType3d
+		extentDepth = uint32(request.Descriptor.Depth)
+	case 11: // Cube
+		imageType = vk.ImageType2d
+		arrayLayers = 6
+	case 12: // Color1DArray
+		imageType = vk.ImageType1d
+		arrayLayers = uint32(request.Descriptor.LastArray-request.Descriptor.BaseArray) + 1
+	case 13, 15: // Color2DArray, Color2DMsaaArray
+		imageType = vk.ImageType2d
+		arrayLayers = uint32(request.Descriptor.LastArray-request.Descriptor.BaseArray) + 1
+	}
+
+	// Filter unsupported usage bits based on format properties.
+	var formatProps vk.FormatProperties
+	vk.GetPhysicalDeviceFormatProperties(handles.PhysicalDevice, request.Format, &formatProps)
+	formatProps.Deref()
+	if !IsDepthFormat(request.Format) && !isBlock {
 		imageUsage |= vk.ImageUsageFlags(vk.ImageUsageColorAttachmentBit)
 	}
+	if (formatProps.OptimalTilingFeatures & vk.FormatFeatureFlags(vk.FormatFeatureStorageImageBit)) == 0 {
+		imageUsage &^= vk.ImageUsageFlags(vk.ImageUsageStorageBit)
+	}
+	if (formatProps.OptimalTilingFeatures & vk.FormatFeatureFlags(vk.FormatFeatureColorAttachmentBit)) == 0 {
+		imageUsage &^= vk.ImageUsageFlags(vk.ImageUsageColorAttachmentBit)
+	}
+	if (formatProps.OptimalTilingFeatures & vk.FormatFeatureFlags(vk.FormatFeatureDepthStencilAttachmentBit)) == 0 {
+		imageUsage &^= vk.ImageUsageFlags(vk.ImageUsageDepthStencilAttachmentBit)
+	}
+
 	result := vk.CreateImage(handles.Device, &vk.ImageCreateInfo{
 		SType:     vk.StructureTypeImageCreateInfo,
 		Flags:     vk.ImageCreateFlags(vk.ImageCreateMutableFormatBit),
-		ImageType: vk.ImageType2d,
+		ImageType: imageType,
 		Format:    request.Format,
 		Extent: vk.Extent3D{
 			Width:  uint32(request.Descriptor.Width),
 			Height: uint32(request.Descriptor.Height),
-			Depth:  uint32(request.Descriptor.Depth),
+			Depth:  extentDepth,
 		},
 		MipLevels:     uint32(len(image.Layouts)),
-		ArrayLayers:   1,
+		ArrayLayers:   arrayLayers,
 		Samples:       vk.SampleCount1Bit,
 		Tiling:        vk.ImageTilingOptimal,
 		Usage:         imageUsage,

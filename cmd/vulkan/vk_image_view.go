@@ -23,10 +23,16 @@ func CreateImageView(handles *VulkanHandles, request VulkanImageViewRequest) (*V
 	if err != nil {
 		return nil, err
 	}
-	storageImageView, err := CreateVkImageView(handles, request, true)
-	if err != nil {
-		vk.DestroyImageView(handles.Device, imageView, nil)
-		return nil, err
+	var storageImageView vk.ImageView
+	isBlock := request.Descriptor.DataFormat >= 35 && request.Descriptor.DataFormat <= 41
+	if !isBlock {
+		storageImageView, err = CreateVkImageView(handles, request, true)
+		if err != nil {
+			vk.DestroyImageView(handles.Device, imageView, nil)
+			return nil, err
+		}
+	} else {
+		storageImageView = vk.NullImageView
 	}
 
 	return &VulkanImageView{
@@ -53,11 +59,25 @@ func CreateVkImageView(handles *VulkanHandles, request VulkanImageViewRequest, s
 		}
 	}
 
+	viewType := vk.ImageViewType2d
+	switch request.Descriptor.Type {
+	case 8: // Color1D
+		viewType = vk.ImageViewType1d
+	case 10: // Color3D
+		viewType = vk.ImageViewType3d
+	case 11: // Cube
+		viewType = vk.ImageViewTypeCube
+	case 12: // Color1DArray
+		viewType = vk.ImageViewType1dArray
+	case 13, 15: // Color2DArray, Color2DMsaaArray
+		viewType = vk.ImageViewType2dArray
+	}
+
 	var view vk.ImageView
 	result := vk.CreateImageView(handles.Device, &vk.ImageViewCreateInfo{
 		SType:      vk.StructureTypeImageViewCreateInfo,
 		Image:      request.Image.Image,
-		ViewType:   vk.ImageViewType2d,
+		ViewType:   viewType,
 		Format:     request.Image.ImageFormat,
 		Components: components,
 		SubresourceRange: vk.ImageSubresourceRange{

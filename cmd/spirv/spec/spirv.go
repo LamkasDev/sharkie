@@ -247,6 +247,7 @@ const (
 	SpvOpNot                    = uint32(200)
 	SpvOpBitFieldSExtract       = uint32(202)
 	SpvOpBitFieldUExtract       = uint32(203)
+	SpvOpBitCount               = uint32(205)
 	SpvOpControlBarrier         = uint32(224)
 	SpvOpMemoryBarrier          = uint32(225)
 	SpvOpAtomicLoad             = uint32(227)

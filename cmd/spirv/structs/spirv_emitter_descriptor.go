@@ -11,5 +11,6 @@ const (
 	StaticBindingSampledBuffers     = 2
 	StaticBindingAddressTranslation = 3
 
-	MaxStaticBindings = 32
+	VertexBindingOffset = 64
+	MaxStaticBindings   = 128
 )

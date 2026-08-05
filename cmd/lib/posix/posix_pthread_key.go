@@ -68,9 +68,9 @@ func Pthread_getspecific(key uint32) uintptr {
 
 func libScePosix_pthread_getspecific(key uint32) uintptr {
 	thread := emu.GetCurrentThread()
-	thread.Lock.Lock()
+	thread.Lock.RLock()
 	value, ok := thread.KeyValues[key]
-	thread.Lock.Unlock()
+	thread.Lock.RUnlock()
 	if !ok {
 		return 0
 	}

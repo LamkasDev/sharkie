@@ -167,6 +167,10 @@ func CreateDispatcher(goFn any) asm.StubDispatcher {
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn((*uint32)(unsafe.Pointer(ctx.DI))))
 		}
+	case func(*uint64) uint64:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn((*uint64)(unsafe.Pointer(ctx.DI))))
+		}
 	case func(*uintptr) uintptr:
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn((*uintptr)(unsafe.Pointer(ctx.DI))))
@@ -595,6 +599,10 @@ func CreateDispatcher(goFn any) asm.StubDispatcher {
 	case func(uintptr, uintptr, uint32, uint32, uint32, int64) uintptr:
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn(ctx.DI, ctx.SI, uint32(ctx.DX), uint32(ctx.CX), uint32(ctx.R8), int64(ctx.R9)))
+		}
+	case func(uintptr, uintptr, uint64, *uintptr, *uint64) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(ctx.DI, ctx.SI, uint64(ctx.DX), (*uintptr)(unsafe.Pointer(ctx.CX)), (*uint64)(unsafe.Pointer(ctx.R8))))
 		}
 	case func(uintptr, uintptr, uint64, uint64, int32, uintptr) uintptr:
 		return func(ctx *asm.RegContext) uintptr {

@@ -23,9 +23,9 @@ var (
 	HookProtect        func(addr uintptr, length uintptr, prot int32)
 	HookAllocateDirect func(offset uintptr, length uint64, memType int32)
 
-	HookAllocateDirectVulkan func(offset uintptr, length uint64, memType int32)
-	HookFreeDirectVulkan     func(offset uintptr, length uint64)
-	HookAllocateLibcVulkan   func(size int, hint uintptr) []byte
+	HookAllocateMemoryVulkan func(offset uintptr, length uint64)
+	HookFreeMemoryVulkan     func(offset uintptr)
+	HookMapMemoryVulkan      func(addr uintptr, length uint64, offset uintptr)
 )
 
 const (
@@ -102,6 +102,9 @@ func NewAllocator(base uintptr, size uint64) *Allocator {
 func (allocator *Allocator) GetNextAlignedAddress(alignment, length uint64) uintptr {
 	allocator.Lock.Lock()
 	defer allocator.Lock.Unlock()
+	if alignment == 0 {
+		alignment = MemoryPageSize
+	}
 
 	alignedLength := (length + (alignment - 1)) &^ (alignment - 1)
 	addr := (allocator.Current + uintptr(alignment-1)) &^ uintptr(alignment-1)

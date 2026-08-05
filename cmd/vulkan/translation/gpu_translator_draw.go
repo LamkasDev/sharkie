@@ -41,11 +41,19 @@ func (t *GpuTranslator) Draw(frame uint64, draw *gpu.LiverpoolDraw) {
 			AspectMask: aspectMask,
 			ClearValue: clearValue,
 		}}
+		var clearWidth, clearHeight uint32
+		if t.activeSurface != nil {
+			clearWidth = uint32(t.activeSurface.ImageView.Image.FirstDescriptor.Width)
+			clearHeight = uint32(t.activeSurface.ImageView.Image.FirstDescriptor.Height)
+		} else if t.activeDepthSurface != nil {
+			clearWidth = uint32(t.activeDepthSurface.ImageView.Image.FirstDescriptor.Width)
+			clearHeight = uint32(t.activeDepthSurface.ImageView.Image.FirstDescriptor.Height)
+		}
 		clearRects := []vk.ClearRect{{
 			Rect: vk.Rect2D{
 				Extent: vk.Extent2D{
-					Width:  uint32(t.activeSurface.ImageView.Image.FirstDescriptor.Width),
-					Height: uint32(t.activeSurface.ImageView.Image.FirstDescriptor.Height),
+					Width:  clearWidth,
+					Height: clearHeight,
 				},
 			},
 			BaseArrayLayer: 0,
@@ -120,6 +128,12 @@ func (t *GpuTranslator) Draw(frame uint64, draw *gpu.LiverpoolDraw) {
 	}
 
 	// Mark surface as modified.
-	t.activeSurface.ContentValid = true
-	t.activeSurface.ImageView.Image.MarkGpuModified(t.currentGuestFrame)
+	if t.activeSurface != nil {
+		t.activeSurface.ContentValid = true
+		t.activeSurface.ImageView.Image.MarkGpuModified(t.currentGuestFrame)
+	}
+	if t.activeDepthSurface != nil {
+		t.activeDepthSurface.ContentValid = true
+		t.activeDepthSurface.ImageView.Image.MarkGpuModified(t.currentGuestFrame)
+	}
 }

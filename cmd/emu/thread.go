@@ -37,7 +37,7 @@ type Thread struct {
 	Stack     *Stack
 	Tcb       *Tcb
 	KeyValues map[uint32]uintptr
-	Lock      sync.Mutex
+	Lock      sync.RWMutex
 
 	IsMain   bool
 	Exited   bool
@@ -55,7 +55,7 @@ func NewThread(name string, stackSize uint64) *Thread {
 		Id:        NextThreadId,
 		Stack:     NewStack(stackSize),
 		KeyValues: map[uint32]uintptr{},
-		Lock:      sync.Mutex{},
+		Lock:      sync.RWMutex{},
 	}
 	if thread.Id == MainThreadId {
 		thread.IsMain = true

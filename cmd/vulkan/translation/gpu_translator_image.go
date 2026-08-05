@@ -82,6 +82,9 @@ func (t *GpuTranslator) EvictResourcesAtAddress(address uintptr) {
 		if t.activeSurface != nil && t.activeSurface.Address == address {
 			t.activeSurface = nil
 		}
+		if t.activeDepthSurface != nil && t.activeDepthSurface.Address == address {
+			t.activeDepthSurface = nil
+		}
 		t.handles.DeferDestroySurface(surface)
 	}
 	t.surfacesMutex.Unlock()

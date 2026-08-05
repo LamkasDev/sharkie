@@ -212,3 +212,72 @@ func (m *MemoryManager) DirectMemoryQuery(addr uintptr, flags int32, info *posix
 	}
 	return 0x8002000D
 }
+
+func (m *MemoryManager) AvailableFlexibleMemorySize() uint64 {
+	return 512 * 1024 * 1024 // 512MB
+}
+
+func (m *MemoryManager) AvailableDirectMemorySize(searchStart, searchEnd uintptr, alignment uint64, physAddressOut *uintptr, sizeOut *uint64) uintptr {
+	m.Lock.Lock()
+	defer m.Lock.Unlock()
+
+	maxSize := uint64(0)
+	physAddress := uintptr(0)
+	for _, vma := range m.DirectVMAs {
+		if vma.Mapped {
+			continue
+		}
+		vmaStart := vma.Start
+		vmaEnd := vma.End
+		if vmaStart >= vmaEnd {
+			continue
+		}
+		vmaSize := vmaEnd - vmaStart
+
+		alignedBase := vmaStart
+		if alignment > 0 {
+			alignedBase = (vmaStart + uintptr(alignment-1)) &^ uintptr(alignment-1)
+		}
+		if alignedBase >= vmaEnd {
+			continue
+		}
+
+		alignmentSize := alignedBase - vmaStart
+		remainingSize := uint64(0)
+		if vmaSize >= alignmentSize {
+			remainingSize = uint64(vmaSize - alignmentSize)
+		}
+		if vmaStart < searchStart {
+			trim := uint64(searchStart - vmaStart)
+			if remainingSize > trim {
+				remainingSize -= trim
+			} else {
+				remainingSize = 0
+			}
+			alignedBase = searchStart
+			if alignment > 0 {
+				alignedBase = (searchStart + uintptr(alignment-1)) &^ uintptr(alignment-1)
+			}
+		}
+		if vmaEnd > searchEnd {
+			trim := uint64(vmaEnd - searchEnd)
+			if remainingSize > trim {
+				remainingSize -= trim
+			} else {
+				remainingSize = 0
+			}
+		}
+
+		if remainingSize > maxSize {
+			physAddress = alignedBase
+			maxSize = remainingSize
+		}
+	}
+	if maxSize == 0 {
+		return 0x8002000C
+	}
+	*physAddressOut = physAddress
+	*sizeOut = maxSize
+
+	return 0
+}

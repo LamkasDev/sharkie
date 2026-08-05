@@ -30,7 +30,7 @@ func InitStaticCond(condHandlePtr *uintptr) uintptr {
 
 	logger.Printf("%-132s %s created cond at %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprint("libKernel_initStaticCond"),
+		color.Magenta.Sprint("InitStaticCond"),
 		color.Yellow.Sprintf("0x%X", condAddr),
 	)
 	return 0

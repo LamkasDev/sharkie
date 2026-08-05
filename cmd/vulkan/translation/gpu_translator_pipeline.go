@@ -17,26 +17,39 @@ import (
 
 func (t *GpuTranslator) BindPipeline(frame uint64, bind *gpu.LiverpoolBindPipeline) {
 	rtAddress := bind.RtBase.Address()
-	if rtAddress == 0 {
+	dbAddress := bind.DbZWriteBase.Address()
+	if rtAddress == 0 && dbAddress == 0 {
 		return
 	}
+	dbWidth := (bind.DbDepthSize.PitchTileMax() + 1) * 8
+	dbHeight := (bind.DbDepthSize.HeightTileMax() + 1) * 8
 
-	rtWidth := vkGcn.ColorBufferPitch(reg.CbColorPitch(bind.RtPitch))
-	rtHeight := vkGcn.ColorBufferHeight(reg.CbColorPitch(bind.RtPitch), bind.RtSlice)
+	// Handle color surface.
+	var rtWidth, rtHeight uint32
+	var colorSurface *vulkan.VulkanSurface
+	rtFormat := vkGcn.TranslateColorFormat(bind.CbColorInfo0.Format(), bind.CbColorInfo0.NumberType(), bind.CbColorInfo0.CompSwap())
+	if rtAddress != 0 && rtFormat != vk.FormatUndefined {
+		rtWidth = vkGcn.ColorBufferPitch(reg.CbColorPitch(bind.RtPitch))
+		rtHeight = vkGcn.ColorBufferHeight(reg.CbColorPitch(bind.RtPitch), bind.RtSlice)
 
-	// Get or create surface.
-	surface, err := t.GetSurface(spirvStructs.ImageDescriptor{
-		BaseAddress: rtAddress,
-		Width:       uint16(rtWidth), Height: uint16(rtHeight),
-		DataFormat: 10, NumFormat: 0,
-		DstSelX: 4, DstSelY: 5, DstSelZ: 6, DstSelW: 7,
-		Depth: 1, Pitch: uint16(rtWidth),
-		TilingIndex: uint8(bind.RtAttrib.TileModeIndex()),
-	}, vkGcn.TranslateColorFormat(bind.CbColorInfo0.Format(), bind.CbColorInfo0.NumberType(), bind.CbColorInfo0.CompSwap()))
-	if err != nil {
-		return
+		var err error
+		colorSurface, err = t.GetSurface(spirvStructs.ImageDescriptor{
+			BaseAddress: rtAddress,
+			Width:       uint16(rtWidth), Height: uint16(rtHeight),
+			DataFormat: 10, NumFormat: 0,
+			DstSelX: 4, DstSelY: 5, DstSelZ: 6, DstSelW: 7,
+			Depth: 1, Pitch: uint16(rtWidth),
+			TilingIndex: uint8(bind.RtAttrib.TileModeIndex()),
+		}, rtFormat)
+		if err != nil {
+			return
+		}
+	} else {
+		// Fallback for depth-only rendering.
+		rtWidth = dbWidth
+		rtHeight = dbHeight
 	}
-	t.activeSurface = surface
+	t.activeSurface = colorSurface
 
 	// The game keeps one depth buffer (DB_Z_WRITE_BASE) while ping-ponging CB_COLOR0.
 	// Stale depth from a previous color target corrupts compositing on the next one.
@@ -52,7 +65,6 @@ func (t *GpuTranslator) BindPipeline(frame uint64, bind *gpu.LiverpoolBindPipeli
 
 	// Handle depth surface.
 	var depthSurface *vulkan.VulkanSurface
-	dbAddress := bind.DbZWriteBase.Address()
 	depthFormat := vkGcn.TranslateGcnDepthFormat(bind.DbZInfo.Format(), t.handles.FormatProperties)
 	depthTestEnable := bind.DbDepthControl.ZEnable()
 	depthWriteEnable := bind.DbDepthControl.ZWriteEnable()
@@ -64,13 +76,14 @@ func (t *GpuTranslator) BindPipeline(frame uint64, bind *gpu.LiverpoolBindPipeli
 		depthWriteEnable = false
 	}
 	if dbAddress != 0 && depthFormat != vk.FormatUndefined && (depthTestEnable || depthWriteEnable) {
+		var err error
 		depthSurface, err = t.GetSurface(spirvStructs.ImageDescriptor{
 			BaseAddress: dbAddress,
-			Width:       uint16(surface.ImageView.Image.FirstDescriptor.Width),
-			Height:      uint16(surface.ImageView.Image.FirstDescriptor.Height),
+			Width:       uint16(dbWidth),
+			Height:      uint16(dbHeight),
 			DataFormat:  10, NumFormat: 0,
 			DstSelX: 4, DstSelY: 5, DstSelZ: 6, DstSelW: 7,
-			Depth: 1, Pitch: surface.ImageView.Image.FirstDescriptor.Width,
+			Depth: 1, Pitch: uint16(dbWidth),
 		}, depthFormat)
 		if err != nil {
 			return
@@ -78,17 +91,25 @@ func (t *GpuTranslator) BindPipeline(frame uint64, bind *gpu.LiverpoolBindPipeli
 	} else {
 		dbAddress = 0
 	}
+	t.activeDepthSurface = depthSurface
 
 	// Get or create framebuffer.
+	format := vk.FormatUndefined
+	if colorSurface != nil {
+		format = colorSurface.ImageView.Image.ImageFormat
+	}
 	fbRequest := vulkan.FramebufferRequest{
-		ImageView: surface.ImageView,
+		ImageView: nil,
 		FramebufferKey: vulkan.FramebufferKey{
 			GpuAddress:      rtAddress,
 			DepthGpuAddress: dbAddress,
-			Format:          surface.ImageView.Image.ImageFormat,
+			Format:          format,
 			Width:           rtWidth,
 			Height:          rtHeight,
 		},
+	}
+	if colorSurface != nil {
+		fbRequest.ImageView = colorSurface.ImageView
 	}
 	if depthSurface != nil {
 		fbRequest.DepthFormat = depthSurface.ImageView.Image.ImageFormat
@@ -152,52 +173,53 @@ func (t *GpuTranslator) BindPipeline(frame uint64, bind *gpu.LiverpoolBindPipeli
 	}
 
 	// Get pipeline.
+	key := vulkan.GraphicsPipelineKey{
+		VertexModuleAddress:   vertexShaderAddress,
+		FetchShaderAddress:    fetchShaderAddress,
+		FragmentModuleAddress: pixelShaderAddress,
+		RenderTargetAddress:   rtAddress,
+		DepthTargetAddress:    dbAddress,
+
+		Width:    rtWidth,
+		Height:   rtHeight,
+		PrimType: bind.PrimType,
+
+		PaSuScModeCntl:            bind.PaSuScModeCntl,
+		PaScModeCntl0:             bind.PaScModeCntl0,
+		DbShaderControl:           bind.DbShaderControl,
+		PaScAaConfig:              bind.PaScAaConfig,
+		VgtMultiPrimIbResetEn:     bind.VgtMultiPrimIbResetEn,
+		PaSuLineCntl:              bind.PaSuLineCntl,
+		PaScAaMaskX0y0X1y0:        bind.PaScAaMaskX0y0X1y0,
+		PaScAaMaskX0y1X1y1:        bind.PaScAaMaskX0y1X1y1,
+		SpiShaderColFormat:        bind.SpiShaderColFormat,
+		SpiShaderZFormat:          bind.SpiShaderZFormat,
+		SpiVsOutConfig:            bind.SpiVsOutConfig,
+		PaClVsOutCntl:             bind.PaClVsOutCntl,
+		CbColorInfo0:              bind.CbColorInfo0,
+		CbTargetMask:              bind.RtTargetMask,
+		CbShaderMask:              bind.CbShaderMask,
+		CbColorControl:            bind.RtColorControl,
+		PaSuPolyOffsetClamp:       bind.PaSuPolyOffsetClamp,
+		PaSuPolyOffsetFrontScale:  bind.PaSuPolyOffsetFrontScale,
+		PaSuPolyOffsetFrontOffset: bind.PaSuPolyOffsetFrontOffset,
+		PaSuPolyOffsetBackScale:   bind.PaSuPolyOffsetBackScale,
+		PaSuPolyOffsetBackOffset:  bind.PaSuPolyOffsetBackOffset,
+		DbRenderControl:           bind.DbRenderControl,
+
+		BlendAttachment:   vkGcn.TranslateBlendControl(bind.RtBlendControl, reg.CbTargetMask(colorWriteMask), bind.CbColorInfo0.BlendBypass()),
+		DepthStencilState: vkGcn.TranslateDepthControl(bind.DbDepthControl, bind.DbStencilControl, bind.DbStencilRefMask, bind.DbStencilRefMaskBf),
+		LogicOpEnable:     logicOpEnable,
+		LogicOp:           logicOp,
+	}
 	pipeline, err := t.GetPipeline(vulkan.GraphicsPipelineRequest{
-		VertexModule:      vsModule,
-		TessControlModule: tcsModule,
-		TessEvalModule:    tesModule,
-		GeometryModule:    gsModule,
-		FragmentModule:    psModule,
-		RenderPass:        fb.RenderPass,
-		GraphicsPipelineKey: vulkan.GraphicsPipelineKey{
-			VertexModuleAddress:   vertexShaderAddress,
-			FetchShaderAddress:    fetchShaderAddress,
-			FragmentModuleAddress: pixelShaderAddress,
-			RenderTargetAddress:   rtAddress,
-			DepthTargetAddress:    dbAddress,
-
-			Width:    uint32(surface.ImageView.Image.FirstDescriptor.Width),
-			Height:   uint32(surface.ImageView.Image.FirstDescriptor.Height),
-			PrimType: bind.PrimType,
-
-			PaSuScModeCntl:            bind.PaSuScModeCntl,
-			PaScModeCntl0:             bind.PaScModeCntl0,
-			DbShaderControl:           bind.DbShaderControl,
-			PaScAaConfig:              bind.PaScAaConfig,
-			VgtMultiPrimIbResetEn:     bind.VgtMultiPrimIbResetEn,
-			PaSuLineCntl:              bind.PaSuLineCntl,
-			PaScAaMaskX0y0X1y0:        bind.PaScAaMaskX0y0X1y0,
-			PaScAaMaskX0y1X1y1:        bind.PaScAaMaskX0y1X1y1,
-			SpiShaderColFormat:        bind.SpiShaderColFormat,
-			SpiShaderZFormat:          bind.SpiShaderZFormat,
-			SpiVsOutConfig:            bind.SpiVsOutConfig,
-			PaClVsOutCntl:             bind.PaClVsOutCntl,
-			CbColorInfo0:              bind.CbColorInfo0,
-			CbTargetMask:              bind.RtTargetMask,
-			CbShaderMask:              bind.CbShaderMask,
-			CbColorControl:            bind.RtColorControl,
-			PaSuPolyOffsetClamp:       bind.PaSuPolyOffsetClamp,
-			PaSuPolyOffsetFrontScale:  bind.PaSuPolyOffsetFrontScale,
-			PaSuPolyOffsetFrontOffset: bind.PaSuPolyOffsetFrontOffset,
-			PaSuPolyOffsetBackScale:   bind.PaSuPolyOffsetBackScale,
-			PaSuPolyOffsetBackOffset:  bind.PaSuPolyOffsetBackOffset,
-			DbRenderControl:           bind.DbRenderControl,
-
-			BlendAttachment:   vkGcn.TranslateBlendControl(bind.RtBlendControl, reg.CbTargetMask(colorWriteMask), bind.CbColorInfo0.BlendBypass()),
-			DepthStencilState: vkGcn.TranslateDepthControl(bind.DbDepthControl, bind.DbStencilControl, bind.DbStencilRefMask, bind.DbStencilRefMaskBf),
-			LogicOpEnable:     logicOpEnable,
-			LogicOp:           logicOp,
-		},
+		VertexModule:        vsModule,
+		TessControlModule:   tcsModule,
+		TessEvalModule:      tesModule,
+		GeometryModule:      gsModule,
+		FragmentModule:      psModule,
+		RenderPass:          fb.RenderPass,
+		GraphicsPipelineKey: key,
 	})
 	if err != nil {
 		return
@@ -205,10 +227,12 @@ func (t *GpuTranslator) BindPipeline(frame uint64, bind *gpu.LiverpoolBindPipeli
 
 	// Select render pass and clear on first use in frame or if explicitly requested.
 	var clearValues []vk.ClearValue
-	clearColor := vk.ClearValue{}
-	clearColorFloat := vkGcn.TranslateClearColor(bind.RtClearWord0, bind.RtClearWord1, bind.CbColorInfo0.Format(), bind.CbColorInfo0.NumberType(), bind.CbColorInfo0.CompSwap())
-	clearColor.SetColor(clearColorFloat)
-	clearValues = append(clearValues, clearColor)
+	if colorSurface != nil {
+		clearColor := vk.ClearValue{}
+		clearColorFloat := vkGcn.TranslateClearColor(bind.RtClearWord0, bind.RtClearWord1, bind.CbColorInfo0.Format(), bind.CbColorInfo0.NumberType(), bind.CbColorInfo0.CompSwap())
+		clearColor.SetColor(clearColorFloat)
+		clearValues = append(clearValues, clearColor)
+	}
 	if depthSurface != nil {
 		clearDepth := vk.ClearValue{}
 		clearDepth.SetDepthStencil(math.Float32frombits(bind.DbDepthClearValue), bind.DbStencilClearValue)
@@ -217,11 +241,11 @@ func (t *GpuTranslator) BindPipeline(frame uint64, bind *gpu.LiverpoolBindPipeli
 
 	// Clear on first use within this guest frame.
 	renderPass := fb.RenderPassNoClear
-	clearColorNeeded := surface.FrameUsed < frame
+	clearColorNeeded := colorSurface != nil && colorSurface.FrameUsed < frame
 	clearDepthNeeded := depthSurface != nil && depthSurface.FrameUsed < frame
 	if clearColorNeeded && clearDepthNeeded {
 		renderPass = fb.RenderPass
-		surface.FrameUsed = frame
+		colorSurface.FrameUsed = frame
 		depthSurface.FrameUsed = frame
 	} else if clearColorNeeded && !clearDepthNeeded {
 		if depthSurface != nil {
@@ -229,12 +253,18 @@ func (t *GpuTranslator) BindPipeline(frame uint64, bind *gpu.LiverpoolBindPipeli
 		} else {
 			renderPass = fb.RenderPass
 		}
-		surface.FrameUsed = frame
+		colorSurface.FrameUsed = frame
 	} else if !clearColorNeeded && clearDepthNeeded {
-		renderPass = fb.RenderPassLoadColorClearDepth
+		if colorSurface != nil {
+			renderPass = fb.RenderPassLoadColorClearDepth
+		} else {
+			renderPass = fb.RenderPass
+		}
 		depthSurface.FrameUsed = frame
 	}
-	surface.ImageView.Image.BarrierColorAttachment(t.commandBuffer)
+	if colorSurface != nil {
+		colorSurface.ImageView.Image.BarrierColorAttachment(t.commandBuffer)
+	}
 
 	if renderPass == fb.RenderPassNoClear {
 		clearValues = nil
@@ -251,8 +281,8 @@ func (t *GpuTranslator) BindPipeline(frame uint64, bind *gpu.LiverpoolBindPipeli
 		RenderPass:  renderPass,
 		Framebuffer: fb.Framebuffer,
 		RenderArea: vk.Rect2D{Extent: vk.Extent2D{
-			Width:  uint32(surface.ImageView.Image.FirstDescriptor.Width),
-			Height: uint32(surface.ImageView.Image.FirstDescriptor.Height),
+			Width:  rtWidth,
+			Height: rtHeight,
 		}},
 		ClearValueCount: uint32(len(clearValues)),
 		PClearValues:    clearValues,

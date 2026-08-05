@@ -222,7 +222,7 @@ func TranslateColorFormat(format uint32, numberType uint32, compSwap uint32) vk.
 	case 22: // COLOR_X24_8_32_FLOAT
 		return vk.FormatD32SfloatS8Uint
 	}
-	return vk.FormatR8g8b8a8Unorm
+	return vk.FormatUndefined
 }
 
 func TranslateClearColor(word0 uint32, word1 uint32, format uint32, numberType uint32, compSwap uint32) []float32 {

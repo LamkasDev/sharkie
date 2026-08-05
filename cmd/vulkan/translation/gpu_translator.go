@@ -90,6 +90,7 @@ type GpuTranslator struct {
 	// Active state for chronological stream processing.
 	lastColorRtAddress              uintptr
 	activeSurface                   *vulkan.VulkanSurface
+	activeDepthSurface              *vulkan.VulkanSurface
 	activeFramebuffer               vk.Framebuffer
 	activePipeline                  vk.Pipeline
 	activeFragmentShader            *spirv.SpirvShader
@@ -172,7 +173,7 @@ func NewGpuTranslator(handles *vulkan.VulkanHandles, bknd backend.Backend[glfwvu
 	t.userDataBufferAddress = t.GetBufferAddress(userDataBuffer)
 
 	// Allocate SSBO for address translation.
-	addressTranslationBuffer, addressTranslationBufferMem, err := vulkan.AllocateBuffer(t.handles, vk.DeviceSize(256*32),
+	addressTranslationBuffer, addressTranslationBufferMem, err := vulkan.AllocateBuffer(t.handles, vk.DeviceSize(spirvStructs.AddressTranslationCount*32),
 		vk.BufferUsageFlags(vk.BufferUsageStorageBufferBit),
 		vk.MemoryPropertyFlags(vk.MemoryPropertyHostVisibleBit|vk.MemoryPropertyHostCoherentBit))
 	if err != nil {
@@ -182,15 +183,15 @@ func NewGpuTranslator(handles *vulkan.VulkanHandles, bknd backend.Backend[glfwvu
 	t.addressTranslationBufferMem = addressTranslationBufferMem
 
 	var addressTranslationData unsafe.Pointer
-	result := vk.MapMemory(handles.Device, addressTranslationBufferMem, 0, vk.DeviceSize(256*32), 0, &addressTranslationData)
+	result := vk.MapMemory(handles.Device, addressTranslationBufferMem, 0, vk.DeviceSize(spirvStructs.AddressTranslationCount*32), 0, &addressTranslationData)
 	if err := vulkan.NewError(result); err != nil {
 		return nil, fmt.Errorf("GpuTranslator: map address translation buffer: %w", err)
 	}
-	t.addressTranslationMap = unsafe.Slice((*AddressTranslationEntry)(addressTranslationData), 256)
+	t.addressTranslationMap = unsafe.Slice((*AddressTranslationEntry)(addressTranslationData), spirvStructs.AddressTranslationCount)
 	t.addressTranslationMap[0].GuestBase = ^uint64(0)
 
 	// Setup hooks for dynamically allocating direct memory.
-	HookAllocateDirectVulkan = func(offset uintptr, length uint64, memType int32) {
+	HookAllocateMemoryVulkan = func(offset uintptr, length uint64) {
 		t.directAllocationsMutex.Lock()
 		defer t.directAllocationsMutex.Unlock()
 
@@ -199,18 +200,6 @@ func NewGpuTranslator(handles *vulkan.VulkanHandles, bknd backend.Backend[glfwvu
 			vk.MemoryPropertyFlags(vk.MemoryPropertyHostVisibleBit|vk.MemoryPropertyHostCoherentBit|vk.MemoryPropertyHostCachedBit))
 		if err != nil {
 			panic(fmt.Errorf("GpuTranslator: allocate external buffer: %w", err))
-		}
-
-		if runtime.GOOS == "windows" {
-			err = MapVulkanMemory(offset, length, vulkan.GetMemoryWin32Handle(t.handles.Instance, t.handles.Device, mem), 0)
-			if err != nil {
-				panic(fmt.Errorf("GpuTranslator: map external buffer: %w", err))
-			}
-		} else {
-			err = MapVulkanMemory(offset, length, uintptr(vulkan.GetMemoryFd(t.handles.Instance, t.handles.Device, mem)), 0)
-			if err != nil {
-				panic(fmt.Errorf("GpuTranslator: map external buffer: %w", err))
-			}
 		}
 
 		t.directAllocations[offset] = DirectAllocation{
@@ -222,7 +211,31 @@ func NewGpuTranslator(handles *vulkan.VulkanHandles, bknd backend.Backend[glfwvu
 		t.updateAddressTranslationSSBO()
 	}
 
-	HookFreeDirectVulkan = func(offset uintptr, length uint64) {
+	HookMapMemoryVulkan = func(addr uintptr, length uint64, offset uintptr) {
+		t.directAllocationsMutex.Lock()
+		defer t.directAllocationsMutex.Unlock()
+
+		if alloc, ok := t.directAllocations[offset]; ok {
+			var err error
+			if runtime.GOOS == "windows" {
+				err = MapVulkanMemory(addr, length, vulkan.GetMemoryWin32Handle(t.handles.Instance, t.handles.Device, alloc.Memory), 0)
+			} else {
+				err = MapVulkanMemory(addr, length, uintptr(vulkan.GetMemoryFd(t.handles.Instance, t.handles.Device, alloc.Memory)), 0)
+			}
+			if err != nil {
+				panic(fmt.Errorf("GpuTranslator: map external buffer: %w", err))
+			}
+			if addr != offset {
+				t.directAllocations[addr] = alloc
+				delete(t.directAllocations, offset)
+			}
+		} else {
+			fmt.Printf("GpuTranslator: HookMapMemoryVulkan failed to find direct allocation for offset 0x%X\n", offset)
+		}
+		t.updateAddressTranslationSSBO()
+	}
+
+	HookFreeMemoryVulkan = func(offset uintptr) {
 		t.directAllocationsMutex.Lock()
 		defer t.directAllocationsMutex.Unlock()
 
@@ -232,40 +245,6 @@ func NewGpuTranslator(handles *vulkan.VulkanHandles, bknd backend.Backend[glfwvu
 			delete(t.directAllocations, offset)
 			t.updateAddressTranslationSSBO()
 		}
-	}
-
-	HookAllocateLibcVulkan = func(size int, hint uintptr) []byte {
-		t.directAllocationsMutex.Lock()
-		defer t.directAllocationsMutex.Unlock()
-
-		buffer, mem, err := vulkan.AllocateExternalBuffer(t.handles, vk.DeviceSize(size),
-			vk.BufferUsageFlags(vk.BufferUsageShaderDeviceAddressBit|vk.BufferUsageStorageBufferBit|vk.BufferUsageVertexBufferBit|vk.BufferUsageIndexBufferBit|vk.BufferUsageTransferSrcBit|vk.BufferUsageTransferDstBit),
-			vk.MemoryPropertyFlags(vk.MemoryPropertyHostVisibleBit|vk.MemoryPropertyHostCoherentBit|vk.MemoryPropertyHostCachedBit))
-		if err != nil {
-			panic(fmt.Errorf("GpuTranslator: allocate libc buffer: %w", err))
-		}
-
-		if runtime.GOOS == "windows" {
-			err = MapVulkanMemory(hint, uint64(size), vulkan.GetMemoryWin32Handle(t.handles.Instance, t.handles.Device, mem), 0)
-			if err != nil {
-				panic(fmt.Errorf("GpuTranslator: map libc buffer: %w", err))
-			}
-		} else {
-			err = MapVulkanMemory(hint, uint64(size), uintptr(vulkan.GetMemoryFd(t.handles.Instance, t.handles.Device, mem)), 0)
-			if err != nil {
-				panic(fmt.Errorf("GpuTranslator: map libc buffer: %w", err))
-			}
-		}
-
-		t.directAllocations[hint] = DirectAllocation{
-			Buffer:        buffer,
-			Memory:        mem,
-			DeviceAddress: t.GetBufferAddress(buffer),
-			Length:        uint64(size),
-		}
-		t.updateAddressTranslationSSBO()
-
-		return unsafe.Slice((*byte)(unsafe.Pointer(hint)), size)
 	}
 
 	var staticDescriptorSetLayout vk.DescriptorSetLayout
@@ -420,6 +399,7 @@ func (t *GpuTranslator) Destroy() {
 func (t *GpuTranslator) ResetFrameState(frame uint64) {
 	t.currentGuestFrame = frame
 	t.activeSurface = nil
+	t.activeDepthSurface = nil
 	t.lastColorRtAddress = 0
 	t.activeFramebuffer = vk.NullFramebuffer
 	t.activePipeline = vk.NullPipeline

@@ -3,6 +3,7 @@ package spirv
 import (
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/gcn"
 	. "github.com/LamkasDev/sharkie/cmd/spirv/common"
+	spirvStructs "github.com/LamkasDev/sharkie/cmd/spirv/structs"
 )
 
 func BuildStaticLayout(resources []SpirvShaderResource, shader *gcn.GcnShader) []ShaderResourceBinding {
@@ -11,8 +12,8 @@ func BuildStaticLayout(resources []SpirvShaderResource, shader *gcn.GcnShader) [
 
 	// Offset bindings for vertex shaders so they don't overlap with fragment shaders.
 	if shader.Stage == gcn.GcnShaderStageVertex {
-		sampledIndex = 16
-		storageIndex = 16
+		sampledIndex = spirvStructs.VertexBindingOffset
+		storageIndex = spirvStructs.VertexBindingOffset
 	}
 
 	for _, resource := range resources {

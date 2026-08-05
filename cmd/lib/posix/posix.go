@@ -99,6 +99,12 @@ func RegisterPosixStubs() {
 	RegisterPosixStub("pthread_condattr_init", libScePosix_pthread_condattr_init)
 	RegisterPosixStub("pthread_condattr_destroy", libScePosix_pthread_condattr_destroy)
 
+	// Rwlock functions.
+	RegisterPosixStub("pthread_rwlock_init", libScePosix_pthread_rwlock_init)
+	RegisterPosixStub("pthread_rwlock_rdlock", libScePosix_pthread_rwlock_rdlock)
+	RegisterPosixStub("pthread_rwlock_wrlock", libScePosix_pthread_rwlock_wrlock)
+	RegisterPosixStub("pthread_rwlock_unlock", libScePosix_pthread_rwlock_unlock)
+
 	// IO functions.
 	RegisterPosixStub("open", libScePosix_open)
 	RegisterPosixStub("_open", libScePosix_open)

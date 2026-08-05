@@ -139,12 +139,6 @@ func computeMipLayouts(descriptor spirvStructs.ImageDescriptor, numLevels uint8)
 		if int(texH) < texHeight {
 			texHeight = int(texH)
 		}
-
-		if isBlock {
-			// for texture height limitation
-			texHeight = max(texHeight*4, 32)
-		}
-
 		layouts[mip] = MipLayout{
 			Offset: guestSize,
 			Size:   size,

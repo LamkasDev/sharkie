@@ -163,6 +163,13 @@ func (b *SpvBuilder) EmitShiftRightArithmetic(resultType, base, shift SpirvId) S
 	return id
 }
 
+// EmitBitCount emits OpBitCount and returns the result ID.
+func (b *SpvBuilder) EmitBitCount(resultType, base SpirvId) SpirvId {
+	id := b.AllocId()
+	b.instr(&b.code, spec.SpvOpBitCount, uint32(resultType), uint32(id), uint32(base))
+	return id
+}
+
 // EmitINotEqual emits OpINotEqual and returns the result ID.
 func (b *SpvBuilder) EmitINotEqual(resultType, op1, op2 SpirvId) SpirvId {
 	id := b.AllocId()

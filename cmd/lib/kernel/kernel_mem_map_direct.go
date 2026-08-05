@@ -17,8 +17,8 @@ import (
 func libKernel_sceKernelMapDirectMemory(addrPtr uintptr, length uint64, prot, flags int32, offset, alignment uintptr) uintptr {
 	// TODO: pthread_once
 	err := libKernel_sys_sceKernelMapDirectMemory(addrPtr, length, prot, flags, offset, alignment)
-	if err == ERR_PTR {
-		return emu.GetErrno() - SonyErrorOffset
+	if err != 0 {
+		return err
 	}
 
 	return 0
@@ -30,8 +30,8 @@ func libKernel_sceKernelMapDirectMemory(addrPtr uintptr, length uint64, prot, fl
 func libKernel_sceKernelMapNamedDirectMemory(addrPtr uintptr, length uint64, prot, flags int32, offset, alignment uintptr, namePtr Cstring) uintptr {
 	// TODO: pthread_once
 	err := libKernel_sys_sceKernelMapDirectMemory(addrPtr, length, prot, flags, offset, alignment)
-	if err == ERR_PTR {
-		return emu.GetErrno() - SonyErrorOffset
+	if err != 0 {
+		return err
 	}
 	addrSlice := unsafe.Slice((*byte)(unsafe.Pointer(addrPtr)), 8)
 	addr := uintptr(binary.LittleEndian.Uint64(addrSlice))
@@ -52,8 +52,7 @@ func libKernel_sys_sceKernelMapDirectMemory(addrPtr uintptr, length uint64, prot
 				color.Magenta.Sprint("sceKernelMapDirectMemory"),
 				color.Yellow.Sprintf("0x%X", alignment),
 			)
-			emu.SetErrno(EINVAL)
-			return ERR_PTR
+			return SCE_KERNEL_ERROR_EINVAL
 		}
 		if (offset & (alignment - 1)) != 0 {
 			logger.Printf("%-132s %s failed due to invalid offset %s.\n",
@@ -61,8 +60,7 @@ func libKernel_sys_sceKernelMapDirectMemory(addrPtr uintptr, length uint64, prot
 				color.Magenta.Sprint("sceKernelMapDirectMemory"),
 				color.Yellow.Sprintf("0x%X", offset),
 			)
-			emu.SetErrno(EINVAL)
-			return ERR_PTR
+			return SCE_KERNEL_ERROR_EINVAL
 		}
 	}
 	if length == 0 || (length%MemoryPageSize) != 0 {
@@ -71,45 +69,45 @@ func libKernel_sys_sceKernelMapDirectMemory(addrPtr uintptr, length uint64, prot
 			color.Magenta.Sprint("sceKernelMapDirectMemory"),
 			color.Yellow.Sprintf("0x%X", length),
 		)
-		emu.SetErrno(EINVAL)
-		return ERR_PTR
+		return SCE_KERNEL_ERROR_EINVAL
 	}
 	if addrPtr == 0 {
 		logger.Printf("%-132s %s failed due to invalid pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceKernelMapDirectMemory"),
 		)
-		emu.SetErrno(EINVAL)
-		return ERR_PTR
+		return SCE_KERNEL_ERROR_EINVAL
 	}
 
-	if _, err := ProtectKernelMemory(offset, length, prot); err != nil {
-		logger.Printf("%-132s %s failed due to memory protection error (%s, addrPtr=%s, length=%s, prot=%s, flags=%s, offset=%s, alignment=%s).\n",
+	// Get virtual address.
+	addrPtrSlice := unsafe.Slice((*byte)(unsafe.Pointer(addrPtr)), 8)
+	allocatedAddr := uintptr(binary.LittleEndian.Uint64(addrPtrSlice))
+	if allocatedAddr == 0 {
+		allocatedAddr = GlobalAllocator.GetNextAlignedAddress(uint64(alignment), length)
+	}
+
+	// Map memory.
+	HookMapDirect(allocatedAddr, length, uint64(offset), 0, prot)
+	HookMapMemoryVulkan(allocatedAddr, length, offset)
+	if _, err := ProtectKernelMemory(allocatedAddr, length, prot); err != nil {
+		logger.Printf("%-132s %s failed due to memory protection error (%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceKernelMapDirectMemory"),
 			err.Error(),
-			color.Yellow.Sprintf("0x%X", addrPtr),
-			color.Yellow.Sprintf("0x%X", length),
-			color.Blue.Sprint(MemoryProtName(prot)),
-			color.Yellow.Sprintf("0x%X", flags),
-			color.Yellow.Sprintf("0x%X", offset),
-			color.Yellow.Sprintf("0x%X", alignment),
 		)
-		emu.SetErrno(EFAULT)
-		return ERR_PTR
+		return SCE_KERNEL_ERROR_EFAULT
 	}
 
-	HookMapDirect(offset, length, uint64(offset), 0, prot)
+	// Write back address.
+	WriteAddress(addrPtr, allocatedAddr)
 
-	// Write back offset.
-	WriteAddress(addrPtr, offset)
-
-	logger.Printf("%-132s %s mapped %s bytes at %s (addrPtr=%s, prot=%s, flags=%s, alignment=%s).\n",
+	logger.Printf("%-132s %s mapped %s bytes at %s (addrPtr=%s, offset=%s, prot=%s, flags=%s, alignment=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sceKernelMapDirectMemory"),
 		color.Yellow.Sprintf("0x%X", length),
-		color.Yellow.Sprintf("0x%X", offset),
+		color.Yellow.Sprintf("0x%X", allocatedAddr),
 		color.Yellow.Sprintf("0x%X", addrPtr),
+		color.Yellow.Sprintf("0x%X", offset),
 		color.Blue.Sprint(MemoryProtName(prot)),
 		color.Yellow.Sprintf("0x%X", flags),
 		color.Yellow.Sprintf("0x%X", alignment),

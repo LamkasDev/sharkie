@@ -2,6 +2,7 @@ package spec
 
 // GLSL.std.450 extended instructions
 const (
+	SpvGlslOpRoundEven      = uint32(2)
 	SpvGlslOpFAbs           = uint32(4)
 	SpvGlslOpFloor          = uint32(8)
 	SpvGlslOpFract          = uint32(10)

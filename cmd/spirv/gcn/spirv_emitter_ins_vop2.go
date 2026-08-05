@@ -120,6 +120,20 @@ func EmitVOP2(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 		shift := b.EmitBitwiseAnd(ctx.GetId(BlockContextIdTypeUint), val0, ctx.GetConstId(ConstIdUint31))
 		resU := b.EmitShiftRightLogical(ctx.GetId(BlockContextIdTypeUint), val1, shift)
 		StoreRegisterPointerMaskedModified(b, ctx, details.Clamp, details.OMod, details.Vdst+gcnSpec.OpVgpr0, resU, false)
+	case gcnSpec.Vop2OpAshrrevI32:
+		val0 := GetOperandUintValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
+		val1 := GetOperandIntValueModified(b, ctx, details.Abs, details.Neg, details.Src1, 0, 1)
+		shift := b.EmitBitwiseAnd(ctx.GetId(BlockContextIdTypeUint), val0, ctx.GetConstId(ConstIdUint31))
+		resI := b.EmitShiftRightArithmetic(ctx.GetId(BlockContextIdTypeInt), val1, shift)
+		StoreRegisterPointerMaskedModified(b, ctx, details.Clamp, details.OMod, details.Vdst+gcnSpec.OpVgpr0, resI, false)
+	case gcnSpec.Vop2OpBcntU32B32:
+		typeUint := ctx.GetId(BlockContextIdTypeUint)
+
+		val0 := GetOperandUintValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
+		val1 := GetOperandUintValueModified(b, ctx, details.Abs, details.Neg, details.Src1, 0, 1)
+		cnt := b.EmitBitCount(typeUint, val0)
+		resU := b.EmitIAdd(typeUint, cnt, val1)
+		StoreRegisterPointerMaskedModified(b, ctx, details.Clamp, details.OMod, details.Vdst+gcnSpec.OpVgpr0, resU, false)
 	case gcnSpec.Vop2OpMinU32:
 		val0 := GetOperandUintValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
 		val1 := GetOperandUintValueModified(b, ctx, details.Abs, details.Neg, details.Src1, 0, 1)

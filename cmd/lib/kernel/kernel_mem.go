@@ -35,9 +35,9 @@ func libKernel_sceKernelMunmap(addr uintptr, length uint64) uintptr {
 	if err == ERR_PTR {
 		return emu.GetErrno() - SonyErrorOffset
 	}
-
-	HookFreeDirectVulkan(addr, length)
-
+	if HookFreeMemoryVulkan != nil {
+		HookFreeMemoryVulkan(addr)
+	}
 	return 0
 }
 
@@ -75,6 +75,52 @@ func libKernel_sceKernelGetDirectMemorySize() uint64 {
 		color.Yellow.Sprintf("0x%X", size),
 	)
 	return size
+}
+
+// 0x0000000000018FA0
+// __int64 __fastcall sceKernelAvailableDirectMemorySize(__int64, double, __int64, __int64, _QWORD *, _QWORD *)
+func libKernel_sceKernelAvailableDirectMemorySize(searchStart, searchEnd uintptr, alignment uint64, physAddressPtr *uintptr, sizePtr *uint64) uintptr {
+	var physAddress uintptr
+	var size uint64
+	err := structs.GlobalMemoryManager.AvailableDirectMemorySize(searchStart, searchEnd, alignment, &physAddress, &size)
+	if err != 0 {
+		logger.Printf("%-132s %s failed due to available error (%s)\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceKernelAvailableDirectMemorySize"),
+			color.Yellow.Sprintf("0x%X", err),
+		)
+		return err
+	}
+	if physAddressPtr != nil {
+		*physAddressPtr = physAddress
+	}
+	if sizePtr != nil {
+		*sizePtr = size
+	}
+
+	logger.Printf("%-132s %s returned %s (physAddr=%s).\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("sceKernelAvailableDirectMemorySize"),
+		color.Yellow.Sprintf("0x%X", size),
+		color.Yellow.Sprintf("0x%X", physAddress),
+	)
+	return 0
+}
+
+// 0x0000000000019070
+// __int64 __fastcall sceKernelAvailableFlexibleMemorySize(unsigned __int64 *)
+func libKernel_sceKernelAvailableFlexibleMemorySize(sizePtr *uint64) uint64 {
+	size := structs.GlobalMemoryManager.AvailableFlexibleMemorySize()
+	if sizePtr != nil {
+		*sizePtr = size
+	}
+
+	logger.Printf("%-132s %s returned %s.\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("sceKernelAvailableFlexibleMemorySize"),
+		color.Yellow.Sprintf("0x%X", size),
+	)
+	return 0
 }
 
 // 0x00000000000181B0

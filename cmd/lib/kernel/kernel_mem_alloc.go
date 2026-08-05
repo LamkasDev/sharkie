@@ -30,9 +30,6 @@ func libKernel_sys_sceKernelAllocateDirectMemory(searchStart, searchEnd uintptr,
 		emu.SetErrno(EFAULT)
 		return ERR_PTR
 	}
-	if alignment == 0 {
-		alignment = MemoryPageSize
-	}
 
 	// Get the allocator.
 	var allocator *Allocator
@@ -52,7 +49,9 @@ func libKernel_sys_sceKernelAllocateDirectMemory(searchStart, searchEnd uintptr,
 	WriteAddress(destPtr, allocatedAddr)
 
 	HookAllocateDirect(allocatedAddr, length, memType)
-	HookAllocateDirectVulkan(allocatedAddr, length, memType)
+	if HookAllocateMemoryVulkan != nil {
+		HookAllocateMemoryVulkan(allocatedAddr, length)
+	}
 
 	logger.Printf("%-132s %s allocated %s bytes at %s (searchStart=%s, searchEnd=%s, alignment=%s, memType=%s, destPtr=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),

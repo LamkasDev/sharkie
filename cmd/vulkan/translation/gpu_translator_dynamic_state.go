@@ -68,7 +68,11 @@ func (t *GpuTranslator) setViewport(dynamicState *gpu.LiverpoolSetDynamicState) 
 
 	// Apply fallback if zero sized.
 	if vpWidth == 0 || vpHeight == 0 {
-		vpWidth, vpHeight = float32(t.activeSurface.ImageView.Image.FirstDescriptor.Width), float32(t.activeSurface.ImageView.Image.FirstDescriptor.Height)
+		if t.activeSurface != nil {
+			vpWidth, vpHeight = float32(t.activeSurface.ImageView.Image.FirstDescriptor.Width), float32(t.activeSurface.ImageView.Image.FirstDescriptor.Height)
+		} else if t.activeDepthSurface != nil {
+			vpWidth, vpHeight = float32(t.activeDepthSurface.ImageView.Image.FirstDescriptor.Width), float32(t.activeDepthSurface.ImageView.Image.FirstDescriptor.Height)
+		}
 		vpX, vpY = 0, 0
 		if dynamicState.PaSuScModeCntl.WindowOffsetEnable() {
 			vpX, vpY = float32(windowOffsetX), float32(windowOffsetY)
@@ -150,8 +154,13 @@ func (t *GpuTranslator) setScissor(dynamicState *gpu.LiverpoolSetDynamicState) {
 	width := uint32(max(0, finalScissor.X2-finalScissor.X1))
 	height := uint32(max(0, finalScissor.Y2-finalScissor.Y1))
 	if width == 0 || height == 0 {
-		width = uint32(t.activeSurface.ImageView.Image.FirstDescriptor.Width)
-		height = uint32(t.activeSurface.ImageView.Image.FirstDescriptor.Height)
+		if t.activeSurface != nil {
+			width = uint32(t.activeSurface.ImageView.Image.FirstDescriptor.Width)
+			height = uint32(t.activeSurface.ImageView.Image.FirstDescriptor.Height)
+		} else if t.activeDepthSurface != nil {
+			width = uint32(t.activeDepthSurface.ImageView.Image.FirstDescriptor.Width)
+			height = uint32(t.activeDepthSurface.ImageView.Image.FirstDescriptor.Height)
+		}
 		finalScissor.X1 = 0
 		finalScissor.Y1 = 0
 	}

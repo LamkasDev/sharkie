@@ -63,39 +63,6 @@ func libKernel_scePthreadExit(retValue uintptr) uintptr {
 	return 0
 }
 
-// 0x0000000000013DD0
-// __int64 scePthreadRwlockRdlock()
-func libKernel_scePthreadRwlockRdlock() uintptr {
-	err := posix.Pthread_rwlock_rdlock()
-	if err != 0 {
-		return err - SonyErrorOffset
-	}
-
-	return 0
-}
-
-// 0x0000000000013E90
-// __int64 scePthreadRwlockWrlock()
-func libKernel_scePthreadRwlockWrlock() uintptr {
-	err := posix.Pthread_rwlock_wrlock()
-	if err != 0 {
-		return err - SonyErrorOffset
-	}
-
-	return 0
-}
-
-// 0x0000000000013E70
-// __int64 scePthreadRwlockUnlock()
-func libKernel_scePthreadRwlockUnlock() uintptr {
-	err := posix.Pthread_rwlock_unlock()
-	if err != 0 {
-		return err - SonyErrorOffset
-	}
-
-	return 0
-}
-
 // 0x0000000000013980
 // __int64 __fastcall scePthreadJoin(__int64, __int64)
 func libKernel_scePthreadJoin(threadPtr, retValPtr uintptr) uintptr {

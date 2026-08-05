@@ -60,6 +60,8 @@ func RegisterKernelStubs() {
 	elf.RegisterStub("libkernel", "sceKernelMapDirectMemory", libKernel_sceKernelMapDirectMemory)
 	elf.RegisterStub("libkernel", "sceKernelMapNamedDirectMemory", libKernel_sceKernelMapNamedDirectMemory)
 	elf.RegisterStub("libkernel", "sceKernelGetDirectMemorySize", libKernel_sceKernelGetDirectMemorySize)
+	elf.RegisterStub("libkernel", "sceKernelAvailableDirectMemorySize", libKernel_sceKernelAvailableDirectMemorySize)
+	elf.RegisterStub("libkernel", "sceKernelAvailableFlexibleMemorySize", libKernel_sceKernelAvailableFlexibleMemorySize)
 	elf.RegisterStub("libkernel", "sceKernelMprotect", libKernel_sceKernelMprotect)
 	elf.RegisterStub("libkernel", "sceKernelMapFlexibleMemory", libKernel_sceKernelMapFlexibleMemory)
 	elf.RegisterStub("libkernel", "sceKernelMapNamedFlexibleMemory", libKernel_sceKernelMapNamedFlexibleMemory)
@@ -103,9 +105,6 @@ func RegisterKernelStubs() {
 	elf.RegisterStub("libkernel", "scePthreadGetschedparam", libKernel_scePthreadGetschedparam)
 	elf.RegisterStub("libkernel", "scePthreadSetschedparam", libKernel_scePthreadSetschedparam)
 	elf.RegisterStub("libkernel", "scePthreadExit", libKernel_scePthreadExit)
-	elf.RegisterStub("libkernel", "scePthreadRwlockRdlock", libKernel_scePthreadRwlockRdlock)
-	elf.RegisterStub("libkernel", "scePthreadRwlockWrlock", libKernel_scePthreadRwlockWrlock)
-	elf.RegisterStub("libkernel", "scePthreadRwlockUnlock", libKernel_scePthreadRwlockUnlock)
 	elf.RegisterStub("libkernel", "scePthreadJoin", libKernel_scePthreadJoin)
 	elf.RegisterStub("libkernel", "scePthreadOnce", libKernel_scePthreadOnce)
 	elf.RegisterStub("libkernel", "scePthreadYield", libKernel_scePthreadYield)
@@ -160,6 +159,12 @@ func RegisterKernelStubs() {
 	// Cond attritube functions.
 	elf.RegisterStub("libkernel", "scePthreadCondattrInit", libKernel_scePthreadCondattrInit)
 	elf.RegisterStub("libkernel", "scePthreadCondattrDestroy", libKernel_scePthreadCondattrDestroy)
+
+	// Rwlock functions.
+	elf.RegisterStub("libkernel", "scePthreadRwlockInit", libKernel_scePthreadRwlockInit)
+	elf.RegisterStub("libkernel", "scePthreadRwlockRdlock", libKernel_scePthreadRwlockRdlock)
+	elf.RegisterStub("libkernel", "scePthreadRwlockWrlock", libKernel_scePthreadRwlockWrlock)
+	elf.RegisterStub("libkernel", "scePthreadRwlockUnlock", libKernel_scePthreadRwlockUnlock)
 
 	// Key functions.
 	elf.RegisterStub("libkernel", "scePthreadKeyCreate", libKernel_scePthreadKeyCreate)

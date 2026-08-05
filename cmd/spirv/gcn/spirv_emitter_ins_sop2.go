@@ -63,6 +63,17 @@ func EmitSOP2(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 
 		// SCC = 1 if result is non-zero.
 		emitSccUpdateNonZero64(b, ctx, resLo, resHi)
+	case gcnSpec.Sop2OpOrB64:
+		val0Lo, val0Hi := ctx.GetOperand64Value(b, details.Src0, instr.Literal)
+		val1Lo, val1Hi := ctx.GetOperand64Value(b, details.Src1, instr.Literal)
+
+		resLo := b.EmitBitwiseOr(typeUint, val0Lo, val1Lo)
+		resHi := b.EmitBitwiseOr(typeUint, val0Hi, val1Hi)
+		ctx.StoreRegisterPointer(b, details.Dst, resLo)
+		ctx.StoreRegisterPointer(b, details.Dst+1, resHi)
+
+		// SCC = 1 if result is non-zero.
+		emitSccUpdateNonZero64(b, ctx, resLo, resHi)
 	/* case gcnSpec.Sop2OpXorB64:
 	val0Lo, val0Hi := ctx.GetOperand64Value(b, details.Src0, instr.Literal)
 	val1Lo, val1Hi := ctx.GetOperand64Value(b, details.Src1, instr.Literal)
@@ -142,6 +153,15 @@ func EmitSOP2(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 		// Store 1 into SCC if overflowed, else 0.
 		sccVal := b.EmitSelect(typeUint, isOverflow, b.EmitConstantUint(typeUint, 1), idC0)
 		ctx.StoreRegisterPointer(b, gcnSpec.OpScc, sccVal)
+	case gcnSpec.Sop2OpLshrB32:
+		val0 := ctx.GetOperandUintValue(b, details.Src0, instr.Literal)
+		val1 := ctx.GetOperandUintValue(b, details.Src1, instr.Literal)
+		shift := b.EmitBitwiseAnd(typeUint, val1, ctx.GetConstId(ConstIdUint31))
+		res := b.EmitShiftRightLogical(typeUint, val0, shift)
+		ctx.StoreRegisterPointer(b, details.Dst, res)
+
+		// SCC = 1 if result is non-zero.
+		emitSccUpdateNonZero(b, ctx, res)
 	default:
 		panic(fmt.Sprintf("unknown sop2 op %s", gcnSpec.Mnemotics[gcnSpec.EncSOP2][details.Op]))
 	}

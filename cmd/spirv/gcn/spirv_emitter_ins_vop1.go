@@ -39,6 +39,10 @@ func EmitVOP1(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 		resF := b.EmitExtInst(ctx.GetId(BlockContextIdTypeFloat), ctx.GetId(BlockContextIdGlsl), spec.SpvGlslOpInverseSqrt, val)
 		resF = b.EmitExtInst(ctx.GetId(BlockContextIdTypeFloat), ctx.GetId(BlockContextIdGlsl), spec.SpvGlslOpFClamp, resF, ctx.GetConstId(ConstIdFloatMin), ctx.GetConstId(ConstIdFloatMax))
 		StoreRegisterPointerMaskedModified(b, ctx, details.Clamp, details.OMod, details.Vdst+gcnSpec.OpVgpr0, resF, true)
+	case gcnSpec.Vop1OpRsqF32:
+		val := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
+		resF := b.EmitExtInst(ctx.GetId(BlockContextIdTypeFloat), ctx.GetId(BlockContextIdGlsl), spec.SpvGlslOpInverseSqrt, val)
+		StoreRegisterPointerMaskedModified(b, ctx, details.Clamp, details.OMod, details.Vdst+gcnSpec.OpVgpr0, resF, true)
 	case gcnSpec.Vop1OpCvtI32F32:
 		typeUint := ctx.GetId(BlockContextIdTypeUint)
 		typeInt := ctx.GetId(BlockContextIdTypeInt)
@@ -64,9 +68,21 @@ func EmitVOP1(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 		res := b.EmitSelect(typeUint, isLower, b.EmitConstantUint(typeUint, 0x80000000), baseUint) // -max_int
 		res = b.EmitSelect(typeUint, isUpper, b.EmitConstantUint(typeUint, 0x7FFFFFFF), res)       // max_int
 		res = b.EmitSelect(typeUint, isNan, ctx.GetConstId(ConstIdUint0), res)                     // NaN -> 0
-
-		// Store back as uint.
 		StoreRegisterPointerMaskedModified(b, ctx, details.Clamp, details.OMod, details.Vdst+gcnSpec.OpVgpr0, res, false)
+	case gcnSpec.Vop1OpCvtF16F32:
+		typeVec2 := ctx.GetId(BlockContextIdTypeV2Float)
+
+		valF := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
+		vec2 := b.EmitCompositeConstruct(typeVec2, valF, ctx.GetConstId(ConstIdFloat0))
+		resU := b.EmitExtInst(ctx.GetId(BlockContextIdTypeUint), ctx.GetId(BlockContextIdGlsl), spec.SpvGlslOpPackHalf2x16, vec2)
+		StoreRegisterPointerMaskedModified(b, ctx, details.Clamp, details.OMod, details.Vdst+gcnSpec.OpVgpr0, resU, false)
+	case gcnSpec.Vop1OpCvtF32F16:
+		typeVec2 := ctx.GetId(BlockContextIdTypeV2Float)
+
+		valUint := ctx.GetOperandUintValue(b, details.Src0, instr.Literal)
+		vec2 := b.EmitExtInst(typeVec2, ctx.GetId(BlockContextIdGlsl), spec.SpvGlslOpUnpackHalf2x16, valUint)
+		resF := b.EmitCompositeExtract(ctx.GetId(BlockContextIdTypeFloat), vec2, 0)
+		StoreRegisterPointerMaskedModified(b, ctx, details.Clamp, details.OMod, details.Vdst+gcnSpec.OpVgpr0, resF, true)
 	case gcnSpec.Vop1OpCvtOffF32I4:
 		typeUint := ctx.GetId(BlockContextIdTypeUint)
 		typeInt := ctx.GetId(BlockContextIdTypeInt)
@@ -116,6 +132,10 @@ func EmitVOP1(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 	case gcnSpec.Vop1OpFloorF32:
 		valF := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
 		resF := b.EmitExtInst(ctx.GetId(BlockContextIdTypeFloat), ctx.GetId(BlockContextIdGlsl), spec.SpvGlslOpFloor, valF)
+		StoreRegisterPointerMaskedModified(b, ctx, details.Clamp, details.OMod, details.Vdst+gcnSpec.OpVgpr0, resF, true)
+	case gcnSpec.Vop1OpRndneF32:
+		valF := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
+		resF := b.EmitExtInst(ctx.GetId(BlockContextIdTypeFloat), ctx.GetId(BlockContextIdGlsl), spec.SpvGlslOpRoundEven, valF)
 		StoreRegisterPointerMaskedModified(b, ctx, details.Clamp, details.OMod, details.Vdst+gcnSpec.OpVgpr0, resF, true)
 	case gcnSpec.Vop1OpLogF32:
 		val := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)

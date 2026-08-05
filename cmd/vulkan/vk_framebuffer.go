@@ -35,26 +35,31 @@ func CreateFramebuffer(handles *VulkanHandles, request FramebufferRequest) (*Vul
 	fb := &VulkanFramebuffer{}
 
 	// Attachments.
-	attachments := []vk.AttachmentDescription{{
-		Format:         request.Format,
-		Samples:        vk.SampleCount1Bit,
-		LoadOp:         vk.AttachmentLoadOpClear,
-		StoreOp:        vk.AttachmentStoreOpStore,
-		StencilLoadOp:  vk.AttachmentLoadOpDontCare,
-		StencilStoreOp: vk.AttachmentStoreOpDontCare,
-		InitialLayout:  vk.ImageLayoutUndefined,
-		FinalLayout:    vk.ImageLayoutGeneral,
-	}}
-	attachmentsNoClear := []vk.AttachmentDescription{{
-		Format:         request.Format,
-		Samples:        vk.SampleCount1Bit,
-		LoadOp:         vk.AttachmentLoadOpLoad,
-		StoreOp:        vk.AttachmentStoreOpStore,
-		StencilLoadOp:  vk.AttachmentLoadOpDontCare,
-		StencilStoreOp: vk.AttachmentStoreOpDontCare,
-		InitialLayout:  vk.ImageLayoutGeneral,
-		FinalLayout:    vk.ImageLayoutGeneral,
-	}}
+	var attachments []vk.AttachmentDescription
+	var attachmentsNoClear []vk.AttachmentDescription
+	hasColor := request.Format != vk.FormatUndefined
+	if hasColor {
+		attachments = append(attachments, vk.AttachmentDescription{
+			Format:         request.Format,
+			Samples:        vk.SampleCount1Bit,
+			LoadOp:         vk.AttachmentLoadOpClear,
+			StoreOp:        vk.AttachmentStoreOpStore,
+			StencilLoadOp:  vk.AttachmentLoadOpDontCare,
+			StencilStoreOp: vk.AttachmentStoreOpDontCare,
+			InitialLayout:  vk.ImageLayoutUndefined,
+			FinalLayout:    vk.ImageLayoutGeneral,
+		})
+		attachmentsNoClear = append(attachmentsNoClear, vk.AttachmentDescription{
+			Format:         request.Format,
+			Samples:        vk.SampleCount1Bit,
+			LoadOp:         vk.AttachmentLoadOpLoad,
+			StoreOp:        vk.AttachmentStoreOpStore,
+			StencilLoadOp:  vk.AttachmentLoadOpDontCare,
+			StencilStoreOp: vk.AttachmentStoreOpDontCare,
+			InitialLayout:  vk.ImageLayoutGeneral,
+			FinalLayout:    vk.ImageLayoutGeneral,
+		})
+	}
 
 	var depthAttachmentRef *vk.AttachmentReference
 	if request.DepthFormat != vk.FormatUndefined {
@@ -87,14 +92,16 @@ func CreateFramebuffer(handles *VulkanHandles, request FramebufferRequest) (*Vul
 	}
 
 	colorAttachments := make([]vk.AttachmentReference, 8)
-	colorAttachments[0] = vk.AttachmentReference{
-		Attachment: 0,
-		Layout:     vk.ImageLayoutColorAttachmentOptimal,
-	}
-	for i := 1; i < 8; i++ {
+	for i := 0; i < 8; i++ {
 		colorAttachments[i] = vk.AttachmentReference{
 			Attachment: vk.AttachmentUnused,
 			Layout:     vk.ImageLayoutUndefined,
+		}
+	}
+	if hasColor {
+		colorAttachments[0] = vk.AttachmentReference{
+			Attachment: 0,
+			Layout:     vk.ImageLayoutColorAttachmentOptimal,
 		}
 	}
 
@@ -136,7 +143,7 @@ func CreateFramebuffer(handles *VulkanHandles, request FramebufferRequest) (*Vul
 	}
 	fb.RenderPassNoClear = renderPassNoClear
 
-	if request.DepthFormat != vk.FormatUndefined {
+	if request.DepthFormat != vk.FormatUndefined && hasColor {
 		attachmentsLoadColorClearDepth := []vk.AttachmentDescription{
 			attachmentsNoClear[0],
 			attachments[1],
@@ -183,7 +190,10 @@ func CreateFramebuffer(handles *VulkanHandles, request FramebufferRequest) (*Vul
 	}
 
 	// Create framebuffer.
-	views := []vk.ImageView{request.ImageView.ImageView}
+	var views []vk.ImageView
+	if hasColor {
+		views = append(views, request.ImageView.ImageView)
+	}
 	if request.DepthImageView != nil {
 		views = append(views, request.DepthImageView.ImageView)
 	}

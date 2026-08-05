@@ -198,7 +198,7 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	b.EmitMemberDecorate(typeStructAddressTranslationEntry, 2, spec.SpvDecorationOffset, 16)
 	b.EmitMemberDecorate(typeStructAddressTranslationEntry, 3, spec.SpvDecorationOffset, 24)
 
-	idAddressTranslationCount := b.EmitConstantUint(typeUint, 256)
+	idAddressTranslationCount := b.EmitConstantUint(typeUint, AddressTranslationCount)
 	typeAddressTranslationArray := b.EmitTypeArray(typeStructAddressTranslationEntry, idAddressTranslationCount)
 	b.EmitDecorate(typeAddressTranslationArray, spec.SpvDecorationArrayStride, 32)
 
