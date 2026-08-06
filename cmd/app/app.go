@@ -218,6 +218,7 @@ func (app *Application) VulkanDeviceExtensions() []string {
 		"VK_EXT_shader_subgroup_ballot",
 		"VK_EXT_subgroup_size_control",
 		"VK_EXT_provoking_vertex",
+		"VK_KHR_dynamic_rendering",
 	}
 	if runtime.GOOS == "linux" {
 		extensions = append(extensions, "VK_KHR_external_memory_fd")
@@ -231,8 +232,13 @@ func (app *Application) VulkanDeviceExtensions() []string {
 }
 
 func (app *Application) VulkanDeviceCreateNext() unsafe.Pointer {
+	vulkanDynamicRenderingFeatures := &vk.PhysicalDeviceDynamicRenderingFeatures{
+		SType:            vk.StructureTypePhysicalDeviceDynamicRenderingFeatures,
+		DynamicRendering: vk.True,
+	}
 	vulkan12Features := &vk.PhysicalDeviceVulkan12Features{
 		SType:                           vk.StructureTypePhysicalDeviceVulkan12Features,
+		PNext:                           unsafe.Pointer(vulkanDynamicRenderingFeatures),
 		RuntimeDescriptorArray:          vk.True,
 		DescriptorBindingPartiallyBound: vk.True,
 		DescriptorBindingSampledImageUpdateAfterBind:       vk.True,

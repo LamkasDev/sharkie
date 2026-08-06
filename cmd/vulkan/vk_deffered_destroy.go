@@ -86,9 +86,6 @@ func (vkh *VulkanHandles) FlushDeferredDestruction() {
 	for _, function := range batch.functions {
 		function()
 	}
-	for _, fb := range batch.framebuffers {
-		fb.Destroy(device)
-	}
 	for _, view := range batch.imageViews {
 		view.Destroy(device)
 	}

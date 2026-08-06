@@ -32,6 +32,7 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	b.EmitCapability(spec.SpvCapInt16)
 	b.EmitCapability(spec.SpvCapInt64)
 	b.EmitCapability(spec.SpvCapSampled1D)
+	b.EmitCapability(spec.SpvCapImage1D)
 	b.EmitCapability(spec.SpvCapSampledBuffer)
 	b.EmitCapability(spec.SpvCapImageQuery)
 	if shader.Stage == GcnShaderStageFragment {
@@ -56,6 +57,7 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	// Common types.
 	typeVoid := b.EmitTypeVoid()
 	typeBool := b.EmitTypeBool()
+	typeV4Bool := b.EmitTypeVector(typeBool, 4)
 	typeInt := b.EmitTypeInt(32, true)
 	typeInt64 := b.EmitTypeInt(64, true)
 	typeUint := b.EmitTypeInt(32, false)
@@ -65,6 +67,7 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	idFnType := b.EmitTypeFunction(typeVoid)
 
 	typeV2Int := b.EmitTypeVector(typeInt, 2)
+	typeV3Int := b.EmitTypeVector(typeInt, 3)
 	typeV4Int := b.EmitTypeVector(typeInt, 4)
 	typeV2Uint := b.EmitTypeVector(typeUint, 2)
 	typeV3Uint := b.EmitTypeVector(typeUint, 3)
@@ -73,7 +76,15 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 
 	typeFloat := b.EmitTypeFloat(32)
 	typeV2Float := b.EmitTypeVector(typeFloat, 2)
+	typeV3Float := b.EmitTypeVector(typeFloat, 3)
 	typeV4Float := b.EmitTypeVector(typeFloat, 4)
+
+	typeImage1d := b.EmitTypeImage(typeFloat, 0, 0, 0, 0, 1, 0)
+	typeSampledImage1d := b.EmitTypeSampledImage(typeImage1d)
+	typePtrUniformSampledImage1d := b.EmitTypePointer(spec.SpvStorageUniformConstant, typeSampledImage1d)
+
+	typeStorageImage1d := b.EmitTypeImage(typeFloat, 0, 0, 0, 0, 2, 0)
+	typePtrUniformStorageImage1d := b.EmitTypePointer(spec.SpvStorageUniformConstant, typeStorageImage1d)
 
 	typeImage2d := b.EmitTypeImage(typeFloat, 1, 0, 0, 0, 1, 0)
 	typeSampledImage2d := b.EmitTypeSampledImage(typeImage2d)
@@ -81,6 +92,20 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 
 	typeStorageImage2d := b.EmitTypeImage(typeFloat, 1, 0, 0, 0, 2, 0)
 	typePtrUniformStorageImage2d := b.EmitTypePointer(spec.SpvStorageUniformConstant, typeStorageImage2d)
+
+	typeImage3d := b.EmitTypeImage(typeFloat, 2, 0, 0, 0, 1, 0)
+	typeSampledImage3d := b.EmitTypeSampledImage(typeImage3d)
+	typePtrUniformSampledImage3d := b.EmitTypePointer(spec.SpvStorageUniformConstant, typeSampledImage3d)
+
+	typeStorageImage3d := b.EmitTypeImage(typeFloat, 2, 0, 0, 0, 2, 0)
+	typePtrUniformStorageImage3d := b.EmitTypePointer(spec.SpvStorageUniformConstant, typeStorageImage3d)
+
+	typeImage2dArray := b.EmitTypeImage(typeFloat, 1, 0, 1, 0, 1, 0)
+	typeSampledImage2dArray := b.EmitTypeSampledImage(typeImage2dArray)
+	typePtrUniformSampledImage2dArray := b.EmitTypePointer(spec.SpvStorageUniformConstant, typeSampledImage2dArray)
+
+	typeStorageImage2dArray := b.EmitTypeImage(typeFloat, 1, 0, 1, 0, 2, 0)
+	typePtrUniformStorageImage2dArray := b.EmitTypePointer(spec.SpvStorageUniformConstant, typeStorageImage2dArray)
 
 	// Built-ins.
 	idTrue := b.EmitConstantTrue(typeBool)
@@ -168,30 +193,79 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	b.EmitDecorate(pcVar, spec.SpvDecorationAliasedPointer)
 
 	idStaticCount := b.EmitConstantUint(typeUint, MaxStaticBindings)
-	typeStaticSampledArray := b.EmitTypeArray(typeSampledImage2d, idStaticCount)
-	typePtrUniformStaticSampledArray := b.EmitTypePointer(spec.SpvStorageUniformConstant, typeStaticSampledArray)
-	typeStaticTexturesVar := b.EmitVariable(typePtrUniformStaticSampledArray, spec.SpvStorageUniformConstant)
-	b.EmitName(typeStaticTexturesVar, "static_textures")
-	b.EmitDecorate(typeStaticTexturesVar, spec.SpvDecorationDescriptorSet, DescriptorSetSlotStatic)
-	b.EmitDecorate(typeStaticTexturesVar, spec.SpvDecorationBinding, StaticBindingSampledImages)
 
-	typeStaticStorageArray := b.EmitTypeArray(typeStorageImage2d, idStaticCount)
-	typePtrUniformStaticStorageArray := b.EmitTypePointer(spec.SpvStorageUniformConstant, typeStaticStorageArray)
-	typeStaticStorageTexturesVar := b.EmitVariable(typePtrUniformStaticStorageArray, spec.SpvStorageUniformConstant)
-	b.EmitName(typeStaticStorageTexturesVar, "static_storage_textures")
-	b.EmitDecorate(typeStaticStorageTexturesVar, spec.SpvDecorationDescriptorSet, DescriptorSetSlotStatic)
-	b.EmitDecorate(typeStaticStorageTexturesVar, spec.SpvDecorationBinding, StaticBindingStorageImages)
-
+	// Buffers.
 	typeImageBuffer := b.EmitTypeImage(typeUint, 5, 0, 0, 0, 1, 0) // DimBuffer=5, Depth=0, Arrayed=0, MS=0, Sampled=1, FormatUnknown=0
 	typeSampledImageBuffer := b.EmitTypeSampledImage(typeImageBuffer)
 	typePtrUniformSampledImageBuffer := b.EmitTypePointer(spec.SpvStorageUniformConstant, typeSampledImageBuffer)
 	typeStaticSampledBufferArray := b.EmitTypeArray(typeSampledImageBuffer, idStaticCount)
 	typePtrUniformStaticSampledBufferArray := b.EmitTypePointer(spec.SpvStorageUniformConstant, typeStaticSampledBufferArray)
-	typeStaticSampledBuffersVar := b.EmitVariable(typePtrUniformStaticSampledBufferArray, spec.SpvStorageUniformConstant)
-	b.EmitName(typeStaticSampledBuffersVar, "static_sampled_buffers")
-	b.EmitDecorate(typeStaticSampledBuffersVar, spec.SpvDecorationDescriptorSet, DescriptorSetSlotStatic)
-	b.EmitDecorate(typeStaticSampledBuffersVar, spec.SpvDecorationBinding, StaticBindingSampledBuffers)
+	idStaticSampledBuffers := b.EmitVariable(typePtrUniformStaticSampledBufferArray, spec.SpvStorageUniformConstant)
+	b.EmitName(idStaticSampledBuffers, "static_sampled_buffers")
+	b.EmitDecorate(idStaticSampledBuffers, spec.SpvDecorationDescriptorSet, DescriptorSetSlotStatic)
+	b.EmitDecorate(idStaticSampledBuffers, spec.SpvDecorationBinding, StaticBindingSampledBuffers)
 
+	// 1D images.
+	typeStaticSampledArray1d := b.EmitTypeArray(typeSampledImage1d, idStaticCount)
+	typePtrUniformStaticSampledArray1d := b.EmitTypePointer(spec.SpvStorageUniformConstant, typeStaticSampledArray1d)
+	idStaticTextures1d := b.EmitVariable(typePtrUniformStaticSampledArray1d, spec.SpvStorageUniformConstant)
+	b.EmitName(idStaticTextures1d, "static_textures_1d")
+	b.EmitDecorate(idStaticTextures1d, spec.SpvDecorationDescriptorSet, DescriptorSetSlotStatic)
+	b.EmitDecorate(idStaticTextures1d, spec.SpvDecorationBinding, StaticBindingSampledImages1D)
+
+	typeStaticStorageArray1d := b.EmitTypeArray(typeStorageImage1d, idStaticCount)
+	typePtrUniformStaticStorageArray1d := b.EmitTypePointer(spec.SpvStorageUniformConstant, typeStaticStorageArray1d)
+	idStaticStorageTextures1d := b.EmitVariable(typePtrUniformStaticStorageArray1d, spec.SpvStorageUniformConstant)
+	b.EmitName(idStaticStorageTextures1d, "static_storage_textures_1d")
+	b.EmitDecorate(idStaticStorageTextures1d, spec.SpvDecorationDescriptorSet, DescriptorSetSlotStatic)
+	b.EmitDecorate(idStaticStorageTextures1d, spec.SpvDecorationBinding, StaticBindingStorageImages1D)
+
+	// 2D images.
+	typeStaticSampledArray2d := b.EmitTypeArray(typeSampledImage2d, idStaticCount)
+	typePtrUniformStaticSampledArray2d := b.EmitTypePointer(spec.SpvStorageUniformConstant, typeStaticSampledArray2d)
+	idStaticTextures2d := b.EmitVariable(typePtrUniformStaticSampledArray2d, spec.SpvStorageUniformConstant)
+	b.EmitName(idStaticTextures2d, "static_textures_2d")
+	b.EmitDecorate(idStaticTextures2d, spec.SpvDecorationDescriptorSet, DescriptorSetSlotStatic)
+	b.EmitDecorate(idStaticTextures2d, spec.SpvDecorationBinding, StaticBindingSampledImages2D)
+
+	typeStaticStorageArray := b.EmitTypeArray(typeStorageImage2d, idStaticCount)
+	typePtrUniformStaticStorageArray := b.EmitTypePointer(spec.SpvStorageUniformConstant, typeStaticStorageArray)
+	idStaticStorageTextures2d := b.EmitVariable(typePtrUniformStaticStorageArray, spec.SpvStorageUniformConstant)
+	b.EmitName(idStaticStorageTextures2d, "static_storage_textures_2d")
+	b.EmitDecorate(idStaticStorageTextures2d, spec.SpvDecorationDescriptorSet, DescriptorSetSlotStatic)
+	b.EmitDecorate(idStaticStorageTextures2d, spec.SpvDecorationBinding, StaticBindingStorageImages2D)
+
+	// 3D images.
+	typeStaticSampledArray3d := b.EmitTypeArray(typeSampledImage3d, idStaticCount)
+	typePtrUniformStaticSampledArray3d := b.EmitTypePointer(spec.SpvStorageUniformConstant, typeStaticSampledArray3d)
+	idStaticTextures3d := b.EmitVariable(typePtrUniformStaticSampledArray3d, spec.SpvStorageUniformConstant)
+	b.EmitName(idStaticTextures3d, "static_textures_3d")
+	b.EmitDecorate(idStaticTextures3d, spec.SpvDecorationDescriptorSet, DescriptorSetSlotStatic)
+	b.EmitDecorate(idStaticTextures3d, spec.SpvDecorationBinding, StaticBindingSampledImages3D)
+
+	typeStaticStorageArray3d := b.EmitTypeArray(typeStorageImage3d, idStaticCount)
+	typePtrUniformStaticStorageArray3d := b.EmitTypePointer(spec.SpvStorageUniformConstant, typeStaticStorageArray3d)
+	idStaticStorageTextures3d := b.EmitVariable(typePtrUniformStaticStorageArray3d, spec.SpvStorageUniformConstant)
+	b.EmitName(idStaticStorageTextures3d, "static_storage_textures_3d")
+	b.EmitDecorate(idStaticStorageTextures3d, spec.SpvDecorationDescriptorSet, DescriptorSetSlotStatic)
+	b.EmitDecorate(idStaticStorageTextures3d, spec.SpvDecorationBinding, StaticBindingStorageImages3D)
+
+	// 2D arrays.
+	typeStaticSampledArray2dArray := b.EmitTypeArray(typeSampledImage2dArray, idStaticCount)
+	typePtrUniformStaticSampledArray2dArray := b.EmitTypePointer(spec.SpvStorageUniformConstant, typeStaticSampledArray2dArray)
+	idStaticTextures2dArray := b.EmitVariable(typePtrUniformStaticSampledArray2dArray, spec.SpvStorageUniformConstant)
+	b.EmitName(idStaticTextures2dArray, "static_textures_2d_array")
+	b.EmitDecorate(idStaticTextures2dArray, spec.SpvDecorationDescriptorSet, DescriptorSetSlotStatic)
+	b.EmitDecorate(idStaticTextures2dArray, spec.SpvDecorationBinding, StaticBindingSampledImages2DArray)
+
+	typeStaticStorageArray2dArray := b.EmitTypeArray(typeStorageImage2dArray, idStaticCount)
+	typePtrUniformStaticStorageArray2dArray := b.EmitTypePointer(spec.SpvStorageUniformConstant, typeStaticStorageArray2dArray)
+	idStaticStorageTextures2dArray := b.EmitVariable(typePtrUniformStaticStorageArray2dArray, spec.SpvStorageUniformConstant)
+	b.EmitName(idStaticStorageTextures2dArray, "static_storage_textures_2d_array")
+	b.EmitDecorate(idStaticStorageTextures2dArray, spec.SpvDecorationDescriptorSet, DescriptorSetSlotStatic)
+	b.EmitDecorate(idStaticStorageTextures2dArray, spec.SpvDecorationBinding, StaticBindingStorageImages2DArray)
+
+	// Address translation.
 	typeStructAddressTranslationEntry := b.EmitTypeStruct(typeUint64, typeUint64, typeUint64, typeUint64)
 	b.EmitMemberDecorate(typeStructAddressTranslationEntry, 0, spec.SpvDecorationOffset, 0)
 	b.EmitMemberDecorate(typeStructAddressTranslationEntry, 1, spec.SpvDecorationOffset, 8)
@@ -479,62 +553,105 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 
 	// Prepare internal IDs.
 	ids := map[SpirvId]SpirvUsedId{
-		BlockContextIdFalse:       {Id: idFalse, Name: "false"},
-		BlockContextIdTrue:        {Id: idTrue, Name: "true"},
-		BlockContextIdTypeBool:    {Id: typeBool, Name: "bool_t"},
-		BlockContextIdTypeFloat:   {Id: typeFloat, Name: "float_t"},
-		BlockContextIdTypeInt:     {Id: typeInt, Name: "int_t"},
-		BlockContextIdTypeUint:    {Id: typeUint, Name: "uint_t"},
-		BlockContextIdTypeUint8:   {Id: typeUint8, Name: "uint8_t"},
-		BlockContextIdTypeUint16:  {Id: typeUint16, Name: "uint16_t"},
-		BlockContextIdTypeUint64:  {Id: typeUint64, Name: "uint64_t"},
-		BlockContextIdTypeInt64:   {Id: typeInt64, Name: "int64_t"},
-		BlockContextIdTypeVoid:    {Id: typeVoid, Name: "void_t"},
-		BlockContextIdDebugPrintf: {Id: typeDebugPrintf, Name: "debug_printf_t"},
-		BlockContextIdTypeV2Float: {Id: typeV2Float, Name: "v2float_t"},
-		BlockContextIdTypeV2Int:   {Id: typeV2Int, Name: "v2int_t"},
-		BlockContextIdTypeV4Int:   {Id: typeV4Int, Name: "v4int_t"},
+		// Constants.
+		BlockContextIdFalse:           {Id: idFalse, Name: "false"},
+		BlockContextIdTrue:            {Id: idTrue, Name: "true"},
+		BlockContextIdTypeZeroVec4:    {Id: typeZeroVec4, Name: "zero_vec4_t"},
+		BlockContextIdTypeGlsl:        {Id: typeGLSL, Name: "glsl_t"},
+		BlockContextIdTypeDebugPrintf: {Id: typeDebugPrintf, Name: "debug_printf_t"},
 
-		BlockContextIdTypeV4Float:                  {Id: typeV4Float, Name: "v4float_t"},
-		BlockContextIdTypeV2Uint:                   {Id: typeV2Uint, Name: "v2uint_t"},
-		BlockContextIdTypeV3Uint:                   {Id: typeV3Uint, Name: "v3uint_t"},
-		BlockContextIdTypeV4Uint:                   {Id: typeV4Uint, Name: "v4uint_t"},
-		BlockContextIdTypeStructUintUint:           {Id: typeStructUintUint, Name: "struct_uint_uint_t"},
-		BlockContextIdTypeSampledImage:             {Id: typeSampledImage2d, Name: "sampled_image_2d_t"},
-		BlockContextIdTypeImage:                    {Id: typeImage2d, Name: "image_2d_t"},
-		BlockContextIdPtrUniformSampledImage:       {Id: typePtrUniformSampledImage2d, Name: "ptr_uniform_sampled_image_2d_t"},
-		BlockContextIdTypeStorageImage:             {Id: typeStorageImage2d, Name: "storage_image_2d_t"},
-		BlockContextIdPtrUniformStorageImage:       {Id: typePtrUniformStorageImage2d, Name: "ptr_uniform_storage_image_2d_t"},
-		BlockContextIdPtrPcPsbUint:                 {Id: typePtrPcPsbUint, Name: "ptr_pc_psb_uint_t"},
-		BlockContextIdPtrPcUint:                    {Id: typePtrPcUint, Name: "ptr_pc_uint_t"},
-		BlockContextIdPtrPcUint64:                  {Id: typePtrPcUint64, Name: "ptr_pc_uint64_t"},
-		BlockContextIdPtrPcFloat:                   {Id: typePtrPcFloat, Name: "ptr_pc_float_t"},
-		BlockContextIdPtrPsbUint:                   {Id: typePtrPsbUint, Name: "ptr_pc_psb_uint_t"},
-		BlockContextIdPtrPsbUint8:                  {Id: typePtrPsbUint8, Name: "ptr_pc_psb_uint8_t"},
-		BlockContextIdPtrPsbUint16:                 {Id: typePtrPsbUint16, Name: "ptr_pc_psb_uint16_t"},
-		BlockContextIdPtrPsbV2Uint:                 {Id: typePtrPsbV2Uint, Name: "ptr_pc_psb_v2_uint_t"},
-		BlockContextIdPtrPsbV3Uint:                 {Id: typePtrPsbV3Uint, Name: "ptr_pc_psb_v3_uint_t"},
-		BlockContextIdPtrPsbV4Uint:                 {Id: typePtrPsbV4Uint, Name: "ptr_pc_psb_v4_uint_t"},
-		BlockContextIdPtrFnUint:                    {Id: typePtrFnUint, Name: "ptr_fn_uint_t"},
-		BlockContextIdPosOut:                       {Id: typePosOut, Name: "pos_out_t"},
-		BlockContextIdFragDepthOut:                 {Id: typeFragDepthOut, Name: "frag_depth_out_t"},
-		BlockContextIdZeroVec4:                     {Id: typeZeroVec4, Name: "zero_vec4_t"},
-		BlockContextIdStaticTextures:               {Id: typeStaticTexturesVar, Name: "static_textures_var_t"},
-		BlockContextIdStaticStorageTextures:        {Id: typeStaticStorageTexturesVar, Name: "static_storage_textures_var_t"},
-		BlockContextIdStaticSampledBuffers:         {Id: typeStaticSampledBuffersVar, Name: "static_sampled_buffers_var_t"},
-		BlockContextIdAddressTranslationBuffer:     {Id: typeAddressTranslationBufferVar, Name: "address_translation_buffer_var_t"},
+		// Scalar types.
+		BlockContextIdTypeVoid:   {Id: typeVoid, Name: "void_t"},
+		BlockContextIdTypeBool:   {Id: typeBool, Name: "bool_t"},
+		BlockContextIdTypeV4Bool: {Id: typeV4Bool, Name: "v4bool_t"},
+		BlockContextIdTypeFloat:  {Id: typeFloat, Name: "float_t"},
+		BlockContextIdTypeInt:    {Id: typeInt, Name: "int_t"},
+		BlockContextIdTypeUint:   {Id: typeUint, Name: "uint_t"},
+		BlockContextIdTypeUint8:  {Id: typeUint8, Name: "uint8_t"},
+		BlockContextIdTypeUint16: {Id: typeUint16, Name: "uint16_t"},
+		BlockContextIdTypeUint64: {Id: typeUint64, Name: "uint64_t"},
+		BlockContextIdTypeInt64:  {Id: typeInt64, Name: "int64_t"},
+
+		// Vector & composite types.
+		BlockContextIdTypeV2Float:        {Id: typeV2Float, Name: "v2float_t"},
+		BlockContextIdTypeV3Float:        {Id: typeV3Float, Name: "v3float_t"},
+		BlockContextIdTypeV4Float:        {Id: typeV4Float, Name: "v4float_t"},
+		BlockContextIdTypeV2Int:          {Id: typeV2Int, Name: "v2int_t"},
+		BlockContextIdTypeV3Int:          {Id: typeV3Int, Name: "v3int_t"},
+		BlockContextIdTypeV4Int:          {Id: typeV4Int, Name: "v4int_t"},
+		BlockContextIdTypeV2Uint:         {Id: typeV2Uint, Name: "v2uint_t"},
+		BlockContextIdTypeV3Uint:         {Id: typeV3Uint, Name: "v3uint_t"},
+		BlockContextIdTypeV4Uint:         {Id: typeV4Uint, Name: "v4uint_t"},
+		BlockContextIdTypeStructUintUint: {Id: typeStructUintUint, Name: "struct_uint_uint_t"},
+
+		// Buffers.
 		BlockContextIdTypeImageBuffer:              {Id: typeImageBuffer, Name: "image_buffer_t"},
 		BlockContextIdTypeSampledImageBuffer:       {Id: typeSampledImageBuffer, Name: "sampled_image_buffer_t"},
 		BlockContextIdPtrUniformSampledImageBuffer: {Id: typePtrUniformSampledImageBuffer, Name: "ptr_uniform_sampled_image_buffer_t"},
-		BlockContextIdPcVar:                        {Id: pcVar, Name: "pc_var_t"},
-		BlockContextIdGlsl:                         {Id: typeGLSL, Name: "glsl_t"},
-		BlockContextIdSubgroupLocalInvocationId:    {Id: typeSubgroupLocalInvocationId, Name: "subgroup_local_invocation_id_t"},
-		BlockContextIdVertexIndex:                  {Id: typeVertexIndex, Name: "vertex_index_t"},
-		BlockContextIdInstanceIndex:                {Id: typeInstanceIndex, Name: "instance_index_t"},
+		BlockContextIdStaticSampledBuffers:         {Id: idStaticSampledBuffers, Name: "static_sampled_buffers"},
 
-		BlockContextIdWorkgroupId:       {Id: idWorkgroupId, Name: "workgroup_id_t"},
-		BlockContextIdLocalInvocationId: {Id: idLocalInvocationId, Name: "local_invocation_id"},
-		BlockContextIdIsValidPixel:      {Id: idIsValidPixel, Name: "is_valid_pixel"},
+		// 1D images.
+		BlockContextIdTypeImage1d:              {Id: typeImage1d, Name: "image_1d_t"},
+		BlockContextIdTypeSampledImage1d:       {Id: typeSampledImage1d, Name: "sampled_image_1d_t"},
+		BlockContextIdPtrUniformSampledImage1d: {Id: typePtrUniformSampledImage1d, Name: "ptr_uniform_sampled_image_1d_t"},
+		BlockContextIdStaticTextures1d:         {Id: idStaticTextures1d, Name: "static_textures_1d"},
+		BlockContextIdTypeStorageImage1d:       {Id: typeStorageImage1d, Name: "storage_image_1d_t"},
+		BlockContextIdPtrUniformStorageImage1d: {Id: typePtrUniformStorageImage1d, Name: "ptr_uniform_storage_image_1d_t"},
+		BlockContextIdStaticStorageTextures1d:  {Id: idStaticStorageTextures1d, Name: "static_storage_textures_1d"},
+
+		// 2D images.
+		BlockContextIdTypeImage2d:              {Id: typeImage2d, Name: "image_2d_t"},
+		BlockContextIdTypeSampledImage2d:       {Id: typeSampledImage2d, Name: "sampled_image_2d_t"},
+		BlockContextIdPtrUniformSampledImage2d: {Id: typePtrUniformSampledImage2d, Name: "ptr_uniform_sampled_image_2d_t"},
+		BlockContextIdStaticTextures2d:         {Id: idStaticTextures2d, Name: "static_textures_2d"},
+		BlockContextIdTypeStorageImage2d:       {Id: typeStorageImage2d, Name: "storage_image_2d_t"},
+		BlockContextIdPtrUniformStorageImage2d: {Id: typePtrUniformStorageImage2d, Name: "ptr_uniform_storage_image_2d_t"},
+		BlockContextIdStaticStorageTextures2d:  {Id: idStaticStorageTextures2d, Name: "static_storage_textures_2d"},
+
+		// 3D images.
+		BlockContextIdTypeImage3d:              {Id: typeImage3d, Name: "image_3d_t"},
+		BlockContextIdTypeSampledImage3d:       {Id: typeSampledImage3d, Name: "sampled_image_3d_t"},
+		BlockContextIdPtrUniformSampledImage3d: {Id: typePtrUniformSampledImage3d, Name: "ptr_uniform_sampled_image_3d_t"},
+		BlockContextIdStaticTextures3d:         {Id: idStaticTextures3d, Name: "static_textures_3d"},
+		BlockContextIdTypeStorageImage3d:       {Id: typeStorageImage3d, Name: "storage_image_3d_t"},
+		BlockContextIdPtrUniformStorageImage3d: {Id: typePtrUniformStorageImage3d, Name: "ptr_uniform_storage_image_3d_t"},
+		BlockContextIdStaticStorageTextures3d:  {Id: idStaticStorageTextures3d, Name: "static_storage_textures_3d"},
+
+		// 2D arrays.
+		BlockContextIdTypeImage2dArray:              {Id: typeImage2dArray, Name: "image_2d_array_t"},
+		BlockContextIdTypeSampledImage2dArray:       {Id: typeSampledImage2dArray, Name: "sampled_image_2d_array_t"},
+		BlockContextIdPtrUniformSampledImage2dArray: {Id: typePtrUniformSampledImage2dArray, Name: "ptr_uniform_sampled_image_2d_array_t"},
+		BlockContextIdStaticTextures2dArray:         {Id: idStaticTextures2dArray, Name: "static_textures_2d_array"},
+		BlockContextIdTypeStorageImage2dArray:       {Id: typeStorageImage2dArray, Name: "storage_image_2d_array_t"},
+		BlockContextIdPtrUniformStorageImage2dArray: {Id: typePtrUniformStorageImage2dArray, Name: "ptr_uniform_storage_image_2d_array_t"},
+		BlockContextIdStaticStorageTextures2dArray:  {Id: idStaticStorageTextures2dArray, Name: "static_storage_textures_2d_array"},
+
+		// Pointers.
+		BlockContextIdPtrPcPsbUint: {Id: typePtrPcPsbUint, Name: "ptr_pc_psb_uint_t"},
+		BlockContextIdPtrPcUint64:  {Id: typePtrPcUint64, Name: "ptr_pc_uint64_t"},
+		BlockContextIdPtrPcUint:    {Id: typePtrPcUint, Name: "ptr_pc_uint_t"},
+		BlockContextIdPtrPcFloat:   {Id: typePtrPcFloat, Name: "ptr_pc_float_t"},
+		BlockContextIdPtrPsbUint:   {Id: typePtrPsbUint, Name: "ptr_psb_uint_t"},
+		BlockContextIdPtrPsbUint8:  {Id: typePtrPsbUint8, Name: "ptr_psb_uint8_t"},
+		BlockContextIdPtrPsbUint16: {Id: typePtrPsbUint16, Name: "ptr_psb_uint16_t"},
+		BlockContextIdPtrPsbV2Uint: {Id: typePtrPsbV2Uint, Name: "ptr_psb_v2_uint_t"},
+		BlockContextIdPtrPsbV3Uint: {Id: typePtrPsbV3Uint, Name: "ptr_psb_v3_uint_t"},
+		BlockContextIdPtrPsbV4Uint: {Id: typePtrPsbV4Uint, Name: "ptr_psb_v4_uint_t"},
+		BlockContextIdPtrFnUint:    {Id: typePtrFnUint, Name: "ptr_fn_uint_t"},
+
+		// System variables & built-ins.
+		BlockContextIdPcVar:                     {Id: pcVar, Name: "pc_var"},
+		BlockContextIdAddressTranslationBuffer:  {Id: typeAddressTranslationBufferVar, Name: "address_translation_buffer_var_t"},
+		BlockContextIdSubgroupLocalInvocationId: {Id: typeSubgroupLocalInvocationId, Name: "subgroup_local_invocation_id_t"},
+		BlockContextIdVertexIndex:               {Id: typeVertexIndex, Name: "vertex_index_t"},
+		BlockContextIdInstanceIndex:             {Id: typeInstanceIndex, Name: "instance_index_t"},
+		BlockContextIdWorkgroupId:               {Id: idWorkgroupId, Name: "workgroup_id"},
+		BlockContextIdLocalInvocationId:         {Id: idLocalInvocationId, Name: "local_invocation_id"},
+		BlockContextIdIsValidPixel:              {Id: idIsValidPixel, Name: "is_valid_pixel"},
+
+		// Pipeline outputs.
+		BlockContextIdPosOut:       {Id: typePosOut, Name: "pos_out_t"},
+		BlockContextIdFragDepthOut: {Id: typeFragDepthOut, Name: "frag_depth_out_t"},
 	}
 	for i, id := range idColorOuts {
 		ids[BlockContextIdColorOut0+SpirvId(i)] = SpirvUsedId{Id: id, Name: fmt.Sprintf("color_out_%d", i)}

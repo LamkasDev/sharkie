@@ -14,7 +14,8 @@ type GraphicsPipelineRequest struct {
 	TessEvalModule    vk.ShaderModule
 	GeometryModule    vk.ShaderModule
 	FragmentModule    vk.ShaderModule
-	RenderPass        vk.RenderPass
+	ColorFormat       vk.Format
+	DepthFormat       vk.Format
 
 	GraphicsPipelineKey
 }
@@ -72,7 +73,7 @@ type ComputePipelineKey struct {
 	ComputeModuleAddress uintptr
 }
 
-func CreateGraphicsPipeline(handles *VulkanHandles, request GraphicsPipelineRequest, renderPass vk.RenderPass, layout vk.PipelineLayout, cache vk.PipelineCache) (vk.Pipeline, error) {
+func CreateGraphicsPipeline(handles *VulkanHandles, request GraphicsPipelineRequest, layout vk.PipelineLayout, cache vk.PipelineCache) (vk.Pipeline, error) {
 	// Setup stages.
 	subgroupSizeVs := &VkPipelineShaderStageRequiredSubgroupSizeCreateInfoEXT{
 		SType:                StructureTypePipelineShaderStageRequiredSubgroupSizeCreateInfoExt,
@@ -183,9 +184,31 @@ func CreateGraphicsPipeline(handles *VulkanHandles, request GraphicsPipelineRequ
 		PAttachments:    blendAttachments,
 	}
 
+	// Setup dynamic rendering info.
+	colorFormats := make([]vk.Format, 8)
+	for i := 0; i < 8; i++ {
+		colorFormats[i] = vk.FormatUndefined
+	}
+	if request.ColorFormat != vk.FormatUndefined {
+		colorFormats[0] = request.ColorFormat
+	}
+	renderingInfo := &vk.PipelineRenderingCreateInfo{
+		SType:                   vk.StructureTypePipelineRenderingCreateInfo,
+		ColorAttachmentCount:    8,
+		PColorAttachmentFormats: colorFormats,
+	}
+	if request.DepthFormat != vk.FormatUndefined {
+		renderingInfo.DepthAttachmentFormat = request.DepthFormat
+		renderingInfo.StencilAttachmentFormat = request.DepthFormat
+	}
+
+	cRenderingInfo, freeRenderingInfo := CreatePipelineRenderingCreateInfoC(renderingInfo)
+	defer freeRenderingInfo()
+
 	// Create pipeline.
 	pipelineInfo := vk.GraphicsPipelineCreateInfo{
 		SType:               vk.StructureTypeGraphicsPipelineCreateInfo,
+		PNext:               cRenderingInfo,
 		StageCount:          uint32(len(stages)),
 		PStages:             stages,
 		PVertexInputState:   &vertexInput,
@@ -197,7 +220,7 @@ func CreateGraphicsPipeline(handles *VulkanHandles, request GraphicsPipelineRequ
 		PColorBlendState:    &blend,
 		PDynamicState:       &dynamicState,
 		Layout:              layout,
-		RenderPass:          renderPass,
+		RenderPass:          vk.NullRenderPass,
 	}
 	if tessellationState != nil {
 		pipelineInfo.PTessellationState = tessellationState

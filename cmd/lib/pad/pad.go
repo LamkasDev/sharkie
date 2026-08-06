@@ -13,6 +13,7 @@ func RegisterPadStubs() {
 	elf.RegisterStub("libScePad", "scePadOpen", libScePad_scePadOpen)
 	elf.RegisterStub("libScePad", "scePadGetControllerInformation", libScePad_scePadGetControllerInformation)
 	elf.RegisterStub("libScePad", "scePadRead", libScePad_scePadRead)
+	elf.RegisterStub("libScePad", "scePadReadState", libScePad_scePadReadState)
 	elf.RegisterStub("libScePad", "scePadClose", libScePad_stub)
 	elf.RegisterStub("libScePad", "scePadResetLightBar", libScePad_stub)
 	elf.RegisterStub("libScePad", "scePadSetLightBar", libScePad_stub)

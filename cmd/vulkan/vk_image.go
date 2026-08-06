@@ -5,6 +5,7 @@ import (
 	"sync"
 	"unsafe"
 
+	gcn2 "github.com/LamkasDev/sharkie/cmd/lib_structs/gcn"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	spirvStructs "github.com/LamkasDev/sharkie/cmd/spirv/structs"
 	"github.com/LamkasDev/sharkie/cmd/structs"
@@ -84,7 +85,7 @@ type VulkanImageRequest struct {
 func CreateImage(handles *VulkanHandles, request VulkanImageRequest, commandBuffer *VulkanCommandBuffer, frame uint64) (*VulkanImage, error) {
 	// Figure out image flags.
 	imageUsage := vk.ImageUsageFlags(vk.ImageUsageSampledBit | vk.ImageUsageTransferSrcBit | vk.ImageUsageTransferDstBit)
-	isBlock := request.Descriptor.DataFormat >= 35 && request.Descriptor.DataFormat <= 41
+	isBlock := request.Descriptor.DataFormat >= gcn2.GcnDataFormatBC1 && request.Descriptor.DataFormat <= gcn2.GcnDataFormatBC7
 	if !isBlock {
 		imageUsage |= vk.ImageUsageFlags(vk.ImageUsageStorageBit)
 	}
@@ -130,16 +131,18 @@ func CreateImage(handles *VulkanHandles, request VulkanImageRequest, commandBuff
 		imageType = vk.ImageType1d
 	case 10: // Color3D
 		imageType = vk.ImageType3d
-		extentDepth = uint32(request.Descriptor.Depth)
+		extentDepth = uint32(request.Descriptor.Depth) + 1
 	case 11: // Cube
 		imageType = vk.ImageType2d
-		arrayLayers = 6
+		arrayLayers = (uint32(request.Descriptor.Depth) + 1) * 6
 	case 12: // Color1DArray
 		imageType = vk.ImageType1d
-		arrayLayers = uint32(request.Descriptor.LastArray-request.Descriptor.BaseArray) + 1
-	case 13, 15: // Color2DArray, Color2DMsaaArray
+		arrayLayers = uint32(request.Descriptor.Depth) + 1
+	case 13, 14, 15: // Color2DArray, Color2DMsaa, Color2DMsaaArray
 		imageType = vk.ImageType2d
-		arrayLayers = uint32(request.Descriptor.LastArray-request.Descriptor.BaseArray) + 1
+		if request.Descriptor.Type != 14 {
+			arrayLayers = uint32(request.Descriptor.Depth) + 1
+		}
 	}
 
 	// Filter unsupported usage bits based on format properties.
@@ -159,9 +162,14 @@ func CreateImage(handles *VulkanHandles, request VulkanImageRequest, commandBuff
 		imageUsage &^= vk.ImageUsageFlags(vk.ImageUsageDepthStencilAttachmentBit)
 	}
 
+	createFlags := vk.ImageCreateFlags(vk.ImageCreateMutableFormatBit)
+	if request.Descriptor.Type == 11 {
+		createFlags |= vk.ImageCreateFlags(vk.ImageCreateCubeCompatibleBit)
+	}
+
 	result := vk.CreateImage(handles.Device, &vk.ImageCreateInfo{
 		SType:     vk.StructureTypeImageCreateInfo,
-		Flags:     vk.ImageCreateFlags(vk.ImageCreateMutableFormatBit),
+		Flags:     createFlags,
 		ImageType: imageType,
 		Format:    request.Format,
 		Extent: vk.Extent3D{
@@ -390,8 +398,8 @@ func (image *VulkanImage) NeedsRecreate(descriptor spirvStructs.ImageDescriptor,
 	stored := image.FirstDescriptor
 	requestedBpp := gcn.GetBytesPerPixel(descriptor.DataFormat)
 	storedBpp := gcn.GetBytesPerPixel(stored.DataFormat)
-	requestedIsBlock := descriptor.DataFormat >= 35 && descriptor.DataFormat <= 41
-	storedIsBlock := stored.DataFormat >= 35 && stored.DataFormat <= 41
+	requestedIsBlock := descriptor.DataFormat >= gcn2.GcnDataFormatBC1 && descriptor.DataFormat <= gcn2.GcnDataFormatBC7
+	storedIsBlock := stored.DataFormat >= gcn2.GcnDataFormatBC1 && stored.DataFormat <= gcn2.GcnDataFormatBC7
 	if descriptor.TilingIndex != stored.TilingIndex || requestedBpp != storedBpp || requestedIsBlock != storedIsBlock {
 		return true
 	}
@@ -404,4 +412,76 @@ func (image *VulkanImage) NeedsRecreate(descriptor spirvStructs.ImageDescriptor,
 	}
 
 	return false
+}
+
+func (image *VulkanImage) GetStagingBufferSize() vk.DeviceSize {
+	dims := image.GetTiledDimensions(int(image.FirstDescriptor.BaseLevel))
+	return vk.DeviceSize(dims.Width * dims.Height * dims.Bpp)
+}
+
+type ImageDimensions struct {
+	Width     uint32
+	Height    uint32
+	Pitch     uint32
+	RowPitch  uint32
+	CopyBytes vk.DeviceSize
+	Bpp       uint32
+	IsBlock   bool
+}
+
+func (image *VulkanImage) GetLinearDimensions() ImageDimensions {
+	isBlock := image.FirstDescriptor.DataFormat >= gcn2.GcnDataFormatBC1 && image.FirstDescriptor.DataFormat <= gcn2.GcnDataFormatBC7
+	bpp := uint32(gcn.GetBytesPerPixel(image.FirstDescriptor.DataFormat))
+	width := uint32(image.FirstDescriptor.Width)
+	height := uint32(image.FirstDescriptor.Height)
+	pitch := uint32(image.FirstDescriptor.Pitch)
+
+	var copyBytes vk.DeviceSize
+	var rowPitch uint32
+	if isBlock {
+		copyBytes = vk.DeviceSize(((width + 3) / 4) * ((height + 3) / 4) * bpp)
+		rowPitch = (pitch + 3) / 4
+	} else {
+		copyBytes = vk.DeviceSize(width * height * bpp)
+		rowPitch = pitch
+		if rowPitch == 0 {
+			rowPitch = width
+		}
+	}
+
+	return ImageDimensions{
+		Width:     width,
+		Height:    height,
+		Pitch:     pitch,
+		RowPitch:  rowPitch,
+		CopyBytes: copyBytes,
+		Bpp:       bpp,
+		IsBlock:   isBlock,
+	}
+}
+
+func (image *VulkanImage) GetTiledDimensions(mipLevel int) ImageDimensions {
+	isBlock := image.FirstDescriptor.DataFormat >= gcn2.GcnDataFormatBC1 && image.FirstDescriptor.DataFormat <= gcn2.GcnDataFormatBC7
+	bpp := uint32(gcn.GetBytesPerPixel(image.FirstDescriptor.DataFormat))
+
+	if mipLevel >= len(image.Layouts) {
+		return ImageDimensions{}
+	}
+	layout := image.Layouts[mipLevel]
+	pitch := uint32(layout.Pitch)
+
+	width := pitch
+	height := uint32(layout.Height)
+	if isBlock {
+		width /= 4
+		height /= 4
+	}
+
+	return ImageDimensions{
+		Width:   width,
+		Height:  height,
+		Pitch:   pitch,
+		Bpp:     bpp,
+		IsBlock: isBlock,
+	}
 }

@@ -13,28 +13,27 @@ func CreateStubPipelineLayout(handles *VulkanHandles) (vk.PipelineLayout, vk.Des
 	staticBindingFlags := vk.DescriptorSetLayoutBindingFlagsCreateInfo{
 		SType: vk.StructureTypeDescriptorSetLayoutBindingFlagsCreateInfo,
 		PBindingFlags: []vk.DescriptorBindingFlags{
-			vk.DescriptorBindingFlags(vk.DescriptorBindingUpdateAfterBindBit | vk.DescriptorBindingPartiallyBoundBit),
-			vk.DescriptorBindingFlags(vk.DescriptorBindingUpdateAfterBindBit | vk.DescriptorBindingPartiallyBoundBit),
-			vk.DescriptorBindingFlags(vk.DescriptorBindingUpdateAfterBindBit | vk.DescriptorBindingPartiallyBoundBit),
-			vk.DescriptorBindingFlags(0),
+			vk.DescriptorBindingFlags(0), // AddressTranslation
+			vk.DescriptorBindingFlags(vk.DescriptorBindingUpdateAfterBindBit | vk.DescriptorBindingPartiallyBoundBit), // SampledBuffers
+			vk.DescriptorBindingFlags(vk.DescriptorBindingUpdateAfterBindBit | vk.DescriptorBindingPartiallyBoundBit), // SampledImages1D
+			vk.DescriptorBindingFlags(vk.DescriptorBindingUpdateAfterBindBit | vk.DescriptorBindingPartiallyBoundBit), // SampledImages2D
+			vk.DescriptorBindingFlags(vk.DescriptorBindingUpdateAfterBindBit | vk.DescriptorBindingPartiallyBoundBit), // StorageImages2D
+			vk.DescriptorBindingFlags(vk.DescriptorBindingUpdateAfterBindBit | vk.DescriptorBindingPartiallyBoundBit), // SampledImages3D
+			vk.DescriptorBindingFlags(vk.DescriptorBindingUpdateAfterBindBit | vk.DescriptorBindingPartiallyBoundBit), // SampledImages2DArray
+			vk.DescriptorBindingFlags(vk.DescriptorBindingUpdateAfterBindBit | vk.DescriptorBindingPartiallyBoundBit), // StorageImages1D
+			vk.DescriptorBindingFlags(vk.DescriptorBindingUpdateAfterBindBit | vk.DescriptorBindingPartiallyBoundBit), // StorageImages3D
+			vk.DescriptorBindingFlags(vk.DescriptorBindingUpdateAfterBindBit | vk.DescriptorBindingPartiallyBoundBit), // StorageImages2DArray
 		},
-		BindingCount: 4,
+		BindingCount: 10,
 	}
 	result := vk.CreateDescriptorSetLayout(handles.Device, &vk.DescriptorSetLayoutCreateInfo{
 		SType: vk.StructureTypeDescriptorSetLayoutCreateInfo,
 		PNext: unsafe.Pointer(&staticBindingFlags),
 		PBindings: []vk.DescriptorSetLayoutBinding{
 			{
-				Binding:            spirvStructs.StaticBindingSampledImages,
-				DescriptorType:     vk.DescriptorTypeCombinedImageSampler,
-				DescriptorCount:    spirvStructs.MaxStaticBindings,
-				StageFlags:         vk.ShaderStageFlags(vk.ShaderStageAllGraphics | vk.ShaderStageComputeBit),
-				PImmutableSamplers: nil,
-			},
-			{
-				Binding:            spirvStructs.StaticBindingStorageImages,
-				DescriptorType:     vk.DescriptorTypeStorageImage,
-				DescriptorCount:    spirvStructs.MaxStaticBindings,
+				Binding:            spirvStructs.StaticBindingAddressTranslation,
+				DescriptorType:     vk.DescriptorTypeStorageBuffer,
+				DescriptorCount:    1,
 				StageFlags:         vk.ShaderStageFlags(vk.ShaderStageAllGraphics | vk.ShaderStageComputeBit),
 				PImmutableSamplers: nil,
 			},
@@ -46,14 +45,63 @@ func CreateStubPipelineLayout(handles *VulkanHandles) (vk.PipelineLayout, vk.Des
 				PImmutableSamplers: nil,
 			},
 			{
-				Binding:            spirvStructs.StaticBindingAddressTranslation,
-				DescriptorType:     vk.DescriptorTypeStorageBuffer,
-				DescriptorCount:    1,
+				Binding:            spirvStructs.StaticBindingSampledImages1D,
+				DescriptorType:     vk.DescriptorTypeCombinedImageSampler,
+				DescriptorCount:    spirvStructs.MaxStaticBindings,
+				StageFlags:         vk.ShaderStageFlags(vk.ShaderStageAllGraphics | vk.ShaderStageComputeBit),
+				PImmutableSamplers: nil,
+			},
+			{
+				Binding:            spirvStructs.StaticBindingStorageImages1D,
+				DescriptorType:     vk.DescriptorTypeStorageImage,
+				DescriptorCount:    spirvStructs.MaxStaticBindings,
+				StageFlags:         vk.ShaderStageFlags(vk.ShaderStageAllGraphics | vk.ShaderStageComputeBit),
+				PImmutableSamplers: nil,
+			},
+			{
+				Binding:            spirvStructs.StaticBindingSampledImages2D,
+				DescriptorType:     vk.DescriptorTypeCombinedImageSampler,
+				DescriptorCount:    spirvStructs.MaxStaticBindings,
+				StageFlags:         vk.ShaderStageFlags(vk.ShaderStageAllGraphics | vk.ShaderStageComputeBit),
+				PImmutableSamplers: nil,
+			},
+			{
+				Binding:            spirvStructs.StaticBindingStorageImages2D,
+				DescriptorType:     vk.DescriptorTypeStorageImage,
+				DescriptorCount:    spirvStructs.MaxStaticBindings,
+				StageFlags:         vk.ShaderStageFlags(vk.ShaderStageAllGraphics | vk.ShaderStageComputeBit),
+				PImmutableSamplers: nil,
+			},
+			{
+				Binding:            spirvStructs.StaticBindingSampledImages3D,
+				DescriptorType:     vk.DescriptorTypeCombinedImageSampler,
+				DescriptorCount:    spirvStructs.MaxStaticBindings,
+				StageFlags:         vk.ShaderStageFlags(vk.ShaderStageAllGraphics | vk.ShaderStageComputeBit),
+				PImmutableSamplers: nil,
+			},
+			{
+				Binding:            spirvStructs.StaticBindingStorageImages3D,
+				DescriptorType:     vk.DescriptorTypeStorageImage,
+				DescriptorCount:    spirvStructs.MaxStaticBindings,
+				StageFlags:         vk.ShaderStageFlags(vk.ShaderStageAllGraphics | vk.ShaderStageComputeBit),
+				PImmutableSamplers: nil,
+			},
+			{
+				Binding:            spirvStructs.StaticBindingSampledImages2DArray,
+				DescriptorType:     vk.DescriptorTypeCombinedImageSampler,
+				DescriptorCount:    spirvStructs.MaxStaticBindings,
+				StageFlags:         vk.ShaderStageFlags(vk.ShaderStageAllGraphics | vk.ShaderStageComputeBit),
+				PImmutableSamplers: nil,
+			},
+			{
+				Binding:            spirvStructs.StaticBindingStorageImages2DArray,
+				DescriptorType:     vk.DescriptorTypeStorageImage,
+				DescriptorCount:    spirvStructs.MaxStaticBindings,
 				StageFlags:         vk.ShaderStageFlags(vk.ShaderStageAllGraphics | vk.ShaderStageComputeBit),
 				PImmutableSamplers: nil,
 			},
 		},
-		BindingCount: 4,
+		BindingCount: 10,
 		Flags:        vk.DescriptorSetLayoutCreateFlags(vk.DescriptorSetLayoutCreateUpdateAfterBindPoolBit),
 	}, nil, &staticLayout)
 	if err := NewError(result); err != nil {

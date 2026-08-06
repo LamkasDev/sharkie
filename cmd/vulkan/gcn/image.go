@@ -1,6 +1,7 @@
 package gcn
 
 import (
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/gcn"
 	vk "github.com/goki/vulkan"
 )
 
@@ -82,223 +83,223 @@ func TranslateDstSelToVkSwizzle(sel uint8) vk.ComponentSwizzle {
 // TranslateGcnFormat maps GCN DataFormat and NumFormat to Vulkan VkFormat and byte size.
 func TranslateGcnFormat(dataFormat, numFormat uint8) (vk.Format, uint32) {
 	switch dataFormat {
-	case 1: // 8-bit (1 byte)
+	case gcn.GcnDataFormat8:
 		switch numFormat {
-		case 0, 10:
+		case gcn.GcnNumFormatUnorm, gcn.GcnNumFormatUbnorm:
 			return vk.FormatR8Unorm, 1
-		case 1:
+		case gcn.GcnNumFormatSnorm:
 			return vk.FormatR8Snorm, 1
-		case 2, 13:
+		case gcn.GcnNumFormatUscaled, gcn.GcnNumFormatUbscaled:
 			return vk.FormatR8Uscaled, 1
-		case 3:
+		case gcn.GcnNumFormatSscaled:
 			return vk.FormatR8Sscaled, 1
-		case 4, 12:
+		case gcn.GcnNumFormatUint, gcn.GcnNumFormatUbint:
 			return vk.FormatR8Uint, 1
-		case 5:
+		case gcn.GcnNumFormatSint:
 			return vk.FormatR8Sint, 1
 		}
-	case 2: // 16-bit (2 bytes)
+	case gcn.GcnDataFormat16:
 		switch numFormat {
-		case 0:
+		case gcn.GcnNumFormatUnorm:
 			return vk.FormatR16Unorm, 2
-		case 1:
+		case gcn.GcnNumFormatSnorm:
 			return vk.FormatR16Snorm, 2
-		case 2:
+		case gcn.GcnNumFormatUscaled:
 			return vk.FormatR16Uscaled, 2
-		case 3:
+		case gcn.GcnNumFormatSscaled:
 			return vk.FormatR16Sscaled, 2
-		case 4:
+		case gcn.GcnNumFormatUint:
 			return vk.FormatR16Uint, 2
-		case 5:
+		case gcn.GcnNumFormatSint:
 			return vk.FormatR16Sint, 2
-		case 7:
+		case gcn.GcnNumFormatSfloat:
 			return vk.FormatR16Sfloat, 2
 		}
-	case 3: // 8_8 (2 bytes)
+	case gcn.GcnDataFormat8_8:
 		switch numFormat {
-		case 0, 10:
+		case gcn.GcnNumFormatUnorm, gcn.GcnNumFormatUbnorm:
 			return vk.FormatR8g8Unorm, 2
-		case 1:
+		case gcn.GcnNumFormatSnorm:
 			return vk.FormatR8g8Snorm, 2
-		case 2, 13:
+		case gcn.GcnNumFormatUscaled, gcn.GcnNumFormatUbscaled:
 			return vk.FormatR8g8Uscaled, 2
-		case 3:
+		case gcn.GcnNumFormatSscaled:
 			return vk.FormatR8g8Sscaled, 2
-		case 4, 12:
+		case gcn.GcnNumFormatUint, gcn.GcnNumFormatUbint:
 			return vk.FormatR8g8Uint, 2
-		case 5:
+		case gcn.GcnNumFormatSint:
 			return vk.FormatR8g8Sint, 2
 		}
-	case 4: // 32-bit (4 bytes)
+	case gcn.GcnDataFormat32:
 		switch numFormat {
-		case 4:
+		case gcn.GcnNumFormatUint:
 			return vk.FormatR32Uint, 4
-		case 5:
+		case gcn.GcnNumFormatSint:
 			return vk.FormatR32Sint, 4
-		case 7:
+		case gcn.GcnNumFormatSfloat:
 			return vk.FormatR32Sfloat, 4
 		}
-	case 5: // 16_16 (4 bytes)
+	case gcn.GcnDataFormat16_16:
 		switch numFormat {
-		case 0:
+		case gcn.GcnNumFormatUnorm:
 			return vk.FormatR16g16Unorm, 4
-		case 1:
+		case gcn.GcnNumFormatSnorm:
 			return vk.FormatR16g16Snorm, 4
-		case 2:
+		case gcn.GcnNumFormatUscaled:
 			return vk.FormatR16g16Uscaled, 4
-		case 3:
+		case gcn.GcnNumFormatSscaled:
 			return vk.FormatR16g16Sscaled, 4
-		case 4:
+		case gcn.GcnNumFormatUint:
 			return vk.FormatR16g16Uint, 4
-		case 5:
+		case gcn.GcnNumFormatSint:
 			return vk.FormatR16g16Sint, 4
-		case 7:
+		case gcn.GcnNumFormatSfloat:
 			return vk.FormatR16g16Sfloat, 4
 		}
-	case 6: // 10_11_11 (4 bytes)
-		if numFormat == 7 {
+	case gcn.GcnDataFormat10_11_11:
+		if numFormat == gcn.GcnNumFormatSfloat {
 			return vk.FormatB10g11r11UfloatPack32, 4
 		}
-	case 7: // 11_11_10 (4 bytes)
-		if numFormat == 7 {
+	case gcn.GcnDataFormat11_11_10:
+		if numFormat == gcn.GcnNumFormatSfloat {
 			// TODO: fix this.
 			return vk.FormatB10g11r11UfloatPack32, 4
 		}
-	case 8: // 10_10_10_2 (4 bytes)
+	case gcn.GcnDataFormat10_10_10_2:
 		switch numFormat {
-		case 0:
+		case gcn.GcnNumFormatUnorm:
 			return vk.FormatA2b10g10r10UnormPack32, 4
-		case 4:
+		case gcn.GcnNumFormatUint:
 			return vk.FormatA2b10g10r10UintPack32, 4
 		}
-	case 10: // 8_8_8_8 (4 bytes)
+	case gcn.GcnDataFormat8_8_8_8:
 		switch numFormat {
-		case 0, 10:
+		case gcn.GcnNumFormatUnorm, gcn.GcnNumFormatUbnorm:
 			return vk.FormatR8g8b8a8Unorm, 4
-		case 1:
+		case gcn.GcnNumFormatSnorm:
 			return vk.FormatR8g8b8a8Snorm, 4
-		case 2, 13:
+		case gcn.GcnNumFormatUscaled, gcn.GcnNumFormatUbscaled:
 			return vk.FormatR8g8b8a8Uscaled, 4
-		case 3:
+		case gcn.GcnNumFormatSscaled:
 			return vk.FormatR8g8b8a8Sscaled, 4
-		case 4, 12:
+		case gcn.GcnNumFormatUint, gcn.GcnNumFormatUbint:
 			return vk.FormatR8g8b8a8Uint, 4
-		case 5:
+		case gcn.GcnNumFormatSint:
 			return vk.FormatR8g8b8a8Sint, 4
-		case 9:
+		case gcn.GcnNumFormatSrgb:
 			return vk.FormatR8g8b8a8Srgb, 4
 		}
-	case 11: // 32_32 (8 bytes)
+	case gcn.GcnDataFormat32_32:
 		switch numFormat {
-		case 4:
+		case gcn.GcnNumFormatUint:
 			return vk.FormatR32g32Uint, 8
-		case 5:
+		case gcn.GcnNumFormatSint:
 			return vk.FormatR32g32Sint, 8
-		case 7:
+		case gcn.GcnNumFormatSfloat:
 			return vk.FormatR32g32Sfloat, 8
 		}
-	case 12: // 16_16_16_16 (8 bytes)
+	case gcn.GcnDataFormat16_16_16_16:
 		switch numFormat {
-		case 0:
+		case gcn.GcnNumFormatUnorm:
 			return vk.FormatR16g16b16a16Unorm, 8
-		case 1:
+		case gcn.GcnNumFormatSnorm:
 			return vk.FormatR16g16b16a16Snorm, 8
-		case 2:
+		case gcn.GcnNumFormatUscaled:
 			return vk.FormatR16g16b16a16Uscaled, 8
-		case 3:
+		case gcn.GcnNumFormatSscaled:
 			return vk.FormatR16g16b16a16Sscaled, 8
-		case 4:
+		case gcn.GcnNumFormatUint:
 			return vk.FormatR16g16b16a16Uint, 8
-		case 5:
+		case gcn.GcnNumFormatSint:
 			return vk.FormatR16g16b16a16Sint, 8
-		case 7:
+		case gcn.GcnNumFormatSfloat:
 			return vk.FormatR16g16b16a16Sfloat, 8
 		}
-	case 13: // 32_32_32 (12 bytes)
+	case gcn.GcnDataFormat32_32_32:
 		switch numFormat {
-		case 4:
+		case gcn.GcnNumFormatUint:
 			return vk.FormatR32g32b32Uint, 12
-		case 5:
+		case gcn.GcnNumFormatSint:
 			return vk.FormatR32g32b32Sint, 12
-		case 7:
+		case gcn.GcnNumFormatSfloat:
 			return vk.FormatR32g32b32Sfloat, 12
 		}
-	case 14: // 32_32_32_32 (16 bytes)
+	case gcn.GcnDataFormat32_32_32_32:
 		switch numFormat {
-		case 4:
+		case gcn.GcnNumFormatUint:
 			return vk.FormatR32g32b32a32Uint, 16
-		case 5:
+		case gcn.GcnNumFormatSint:
 			return vk.FormatR32g32b32a32Sint, 16
-		case 7:
+		case gcn.GcnNumFormatSfloat:
 			return vk.FormatR32g32b32a32Sfloat, 16
 		}
-	case 16: // 5_6_5
+	case gcn.GcnDataFormat5_6_5:
 		switch numFormat {
-		case 0, 9:
+		case gcn.GcnNumFormatUnorm, gcn.GcnNumFormatSrgb:
 			return vk.FormatR5g6b5UnormPack16, 2
 		}
-	case 17: // 1_5_5_5
+	case gcn.GcnDataFormat1_5_5_5:
 		switch numFormat {
-		case 0:
+		case gcn.GcnNumFormatUnorm:
 			return vk.FormatA1r5g5b5UnormPack16, 2
 		}
-	case 18: // 5_5_5_1
+	case gcn.GcnDataFormat5_5_5_1:
 		switch numFormat {
-		case 0:
+		case gcn.GcnNumFormatUnorm:
 			return vk.FormatR5g5b5a1UnormPack16, 2
 		}
-	case 19: // 4_4_4_4
+	case gcn.GcnDataFormat4_4_4_4:
 		switch numFormat {
-		case 0:
+		case gcn.GcnNumFormatUnorm:
 			return vk.FormatR4g4b4a4UnormPack16, 2
 		}
-	case 35: // BC1
+	case gcn.GcnDataFormatBC1:
 		switch numFormat {
-		case 0:
+		case gcn.GcnNumFormatUnorm:
 			return vk.FormatBc1RgbaUnormBlock, 8
-		case 9:
+		case gcn.GcnNumFormatSrgb:
 			return vk.FormatBc1RgbaSrgbBlock, 8
 		}
-	case 36: // BC2
+	case gcn.GcnDataFormatBC2:
 		switch numFormat {
-		case 0:
+		case gcn.GcnNumFormatUnorm:
 			return vk.FormatBc2UnormBlock, 16
-		case 9:
+		case gcn.GcnNumFormatSrgb:
 			return vk.FormatBc2SrgbBlock, 16
 		}
-	case 37: // BC3
+	case gcn.GcnDataFormatBC3:
 		switch numFormat {
-		case 0:
+		case gcn.GcnNumFormatUnorm:
 			return vk.FormatBc3UnormBlock, 16
-		case 9:
+		case gcn.GcnNumFormatSrgb:
 			return vk.FormatBc3SrgbBlock, 16
 		}
-	case 38: // BC4
+	case gcn.GcnDataFormatBC4:
 		switch numFormat {
-		case 0:
+		case gcn.GcnNumFormatUnorm:
 			return vk.FormatBc4UnormBlock, 8
-		case 1:
+		case gcn.GcnNumFormatSnorm:
 			return vk.FormatBc4SnormBlock, 8
 		}
-	case 39: // BC5
+	case gcn.GcnDataFormatBC5:
 		switch numFormat {
-		case 0:
+		case gcn.GcnNumFormatUnorm:
 			return vk.FormatBc5UnormBlock, 16
-		case 1:
+		case gcn.GcnNumFormatSnorm:
 			return vk.FormatBc5SnormBlock, 16
 		}
-	case 40: // BC6
+	case gcn.GcnDataFormatBC6:
 		switch numFormat {
 		case 0, 7:
 			return vk.FormatBc6hUfloatBlock, 16
-		case 1:
+		case gcn.GcnNumFormatSnorm:
 			return vk.FormatBc6hSfloatBlock, 16
 		}
-	case 41: // BC7
+	case gcn.GcnDataFormatBC7:
 		switch numFormat {
-		case 0:
+		case gcn.GcnNumFormatUnorm:
 			return vk.FormatBc7UnormBlock, 16
-		case 9:
+		case gcn.GcnNumFormatSrgb:
 			return vk.FormatBc7SrgbBlock, 16
 		}
 	}
@@ -309,15 +310,15 @@ func TranslateGcnFormat(dataFormat, numFormat uint8) (vk.Format, uint32) {
 // GetBytesPerPixel returns the size of a single pixel based on the GCN DataFormat.
 func GetBytesPerPixel(format uint8) uint32 {
 	switch format {
-	case 1: // R8_UNORM
+	case gcn.GcnDataFormat8:
 		return 1
-	case 2, 3, 4, 5, 6, 25: // R16, R8G8, B5G6R5, etc
+	case gcn.GcnDataFormat16, gcn.GcnDataFormat8_8, gcn.GcnDataFormat32, gcn.GcnDataFormat16_16, gcn.GcnDataFormat10_11_11, 25:
 		return 2
-	case 8, 10, 11, 26, 34: // R8G8B8A8, B8G8R8A8, R10G10B10A2, Format5_9_9_9
+	case gcn.GcnDataFormat10_10_10_2, gcn.GcnDataFormat8_8_8_8, gcn.GcnDataFormat32_32, 26, 34:
 		return 4
-	case 12, 13, 14, 35, 38: // R16G16B16A16, R32G32, BC1, BC4
+	case gcn.GcnDataFormat16_16_16_16, gcn.GcnDataFormat32_32_32, gcn.GcnDataFormat32_32_32_32, gcn.GcnDataFormatBC1, gcn.GcnDataFormatBC4:
 		return 8
-	case 15, 36, 37, 39, 40, 41: // R32G32B32A32, BC2, BC3, BC5, BC6, BC7
+	case gcn.GcnDataFormatReserved_15, gcn.GcnDataFormatBC2, gcn.GcnDataFormatBC3, gcn.GcnDataFormatBC5, gcn.GcnDataFormatBC6, gcn.GcnDataFormatBC7:
 		return 16
 	default:
 		return 4 // Fallback

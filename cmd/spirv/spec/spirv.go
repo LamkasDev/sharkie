@@ -17,6 +17,7 @@ const (
 	SpvCapInt16                               = uint32(22)
 	SpvCapInt8                                = uint32(39)
 	SpvCapSampled1D                           = uint32(43)
+	SpvCapImage1D                             = uint32(44)
 	SpvCapSampledBuffer                       = uint32(46)
 	SpvCapImageQuery                          = uint32(50)
 	SpvCapInterpolationFunction               = uint32(52)

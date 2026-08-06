@@ -407,6 +407,10 @@ func CreateDispatcher(goFn any) asm.StubDispatcher {
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn(uint32(ctx.DI), (*PadControllerInformation)(unsafe.Pointer(ctx.SI))))
 		}
+	case func(uint32, *PadData) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(uint32(ctx.DI), (*PadData)(unsafe.Pointer(ctx.SI))))
+		}
 	case func(uint32, *PadData, uintptr) uintptr:
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn(uint32(ctx.DI), (*PadData)(unsafe.Pointer(ctx.SI)), ctx.DX))

@@ -37,13 +37,13 @@ func EmitEXP(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext) 
 		// EN[0] enables VSRC0 (R,G), EN[2] enables VSRC1 (B,A).
 		if details.En&0b0001 != 0 {
 			val0 := ctx.GetOperandValue(b, details.VSrcs[0]+gcnSpec.OpVgpr0, 0)
-			v01 := b.EmitExtInst(ctx.GetId(BlockContextIdTypeV2Float), ctx.GetId(BlockContextIdGlsl), spec.SpvGlslOpUnpackHalf2x16, val0)
+			v01 := b.EmitExtInst(ctx.GetId(BlockContextIdTypeV2Float), ctx.GetId(BlockContextIdTypeGlsl), spec.SpvGlslOpUnpackHalf2x16, val0)
 			comps[0] = b.EmitCompositeExtract(typeFloat, v01, 0)
 			comps[1] = b.EmitCompositeExtract(typeFloat, v01, 1)
 		}
 		if details.En&0b0100 != 0 {
 			val1 := ctx.GetOperandValue(b, details.VSrcs[1]+gcnSpec.OpVgpr0, 0)
-			v23 := b.EmitExtInst(ctx.GetId(BlockContextIdTypeV2Float), ctx.GetId(BlockContextIdGlsl), spec.SpvGlslOpUnpackHalf2x16, val1)
+			v23 := b.EmitExtInst(ctx.GetId(BlockContextIdTypeV2Float), ctx.GetId(BlockContextIdTypeGlsl), spec.SpvGlslOpUnpackHalf2x16, val1)
 			comps[2] = b.EmitCompositeExtract(typeFloat, v23, 0)
 			comps[3] = b.EmitCompositeExtract(typeFloat, v23, 1)
 		}

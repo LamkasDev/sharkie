@@ -67,11 +67,11 @@ func (r CbColorAttrib) ForceDstAlpha1() bool       { return Reg(r).ExtractBool(1
 
 type CbShaderMask Reg
 
-func (r CbShaderMask) Output0Enable() uint32 { return Reg(r).Extract(0, 0xF) }
-func (r CbShaderMask) Output1Enable() uint32 { return Reg(r).Extract(4, 0xF) }
-func (r CbShaderMask) Output2Enable() uint32 { return Reg(r).Extract(8, 0xF) }
-func (r CbShaderMask) Output3Enable() uint32 { return Reg(r).Extract(12, 0xF) }
-func (r CbShaderMask) Output4Enable() uint32 { return Reg(r).Extract(16, 0xF) }
-func (r CbShaderMask) Output5Enable() uint32 { return Reg(r).Extract(20, 0xF) }
-func (r CbShaderMask) Output6Enable() uint32 { return Reg(r).Extract(24, 0xF) }
-func (r CbShaderMask) Output7Enable() uint32 { return Reg(r).Extract(28, 0xF) }
+func (r CbShaderMask) Output0Enable() uint32 { return Reg(r).Extract(0, 0xF) }  // TODO: Unused in pipeline
+func (r CbShaderMask) Output1Enable() uint32 { return Reg(r).Extract(4, 0xF) }  // TODO: Unused in pipeline
+func (r CbShaderMask) Output2Enable() uint32 { return Reg(r).Extract(8, 0xF) }  // TODO: Unused in pipeline
+func (r CbShaderMask) Output3Enable() uint32 { return Reg(r).Extract(12, 0xF) } // TODO: Unused in pipeline
+func (r CbShaderMask) Output4Enable() uint32 { return Reg(r).Extract(16, 0xF) } // TODO: Unused in pipeline
+func (r CbShaderMask) Output5Enable() uint32 { return Reg(r).Extract(20, 0xF) } // TODO: Unused in pipeline
+func (r CbShaderMask) Output6Enable() uint32 { return Reg(r).Extract(24, 0xF) } // TODO: Unused in pipeline
+func (r CbShaderMask) Output7Enable() uint32 { return Reg(r).Extract(28, 0xF) } // TODO: Unused in pipeline

@@ -164,7 +164,7 @@ func EmitFormatUnpackHelper(b *SpvBuilder, ctx *SpirvBlockContext, absoluteAddre
 
 		// If it's a 32-bit float, raw0 is already a 32-bit float. We only unpack 16-bit.
 		unpackHalf := func(raw SpirvId) SpirvId {
-			vec2 := b.EmitExtInst(typeVec2, ctx.GetId(BlockContextIdGlsl), spec.SpvGlslOpUnpackHalf2x16, raw)
+			vec2 := b.EmitExtInst(typeVec2, ctx.GetId(BlockContextIdTypeGlsl), spec.SpvGlslOpUnpackHalf2x16, raw)
 			return b.EmitCompositeExtract(typeFloat, vec2, 0)
 		}
 		comp0Float16 := unpackHalf(raw0)

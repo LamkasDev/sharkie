@@ -11,9 +11,17 @@ type SpirvUsedId struct {
 }
 
 const (
+	// Constants.
 	BlockContextIdFalse SpirvId = iota
 	BlockContextIdTrue
+	BlockContextIdTypeZeroVec4
+	BlockContextIdTypeGlsl
+	BlockContextIdTypeDebugPrintf
+
+	// Scalar types.
+	BlockContextIdTypeVoid
 	BlockContextIdTypeBool
+	BlockContextIdTypeV4Bool
 	BlockContextIdTypeFloat
 	BlockContextIdTypeInt
 	BlockContextIdTypeUint
@@ -21,26 +29,62 @@ const (
 	BlockContextIdTypeUint16
 	BlockContextIdTypeUint64
 	BlockContextIdTypeInt64
-	BlockContextIdTypeVoid
-	BlockContextIdDebugPrintf
+
+	// Vector & composite types.
 	BlockContextIdTypeV2Float
+	BlockContextIdTypeV3Float
 	BlockContextIdTypeV4Float
 	BlockContextIdTypeV2Int
+	BlockContextIdTypeV3Int
 	BlockContextIdTypeV4Int
 	BlockContextIdTypeV2Uint
 	BlockContextIdTypeV3Uint
 	BlockContextIdTypeV4Uint
 	BlockContextIdTypeStructUintUint
-	BlockContextIdTypeSampledImage
-	BlockContextIdTypeImage
-	BlockContextIdPtrUniformSampledImage
-	BlockContextIdTypeStorageImage
-	BlockContextIdPtrUniformStorageImage
+
+	// Buffers.
 	BlockContextIdTypeImageBuffer
 	BlockContextIdTypeSampledImageBuffer
 	BlockContextIdPtrUniformSampledImageBuffer
 	BlockContextIdStaticSampledBuffers
-	BlockContextIdAddressTranslationBuffer
+
+	// 1D images.
+	BlockContextIdTypeImage1d
+	BlockContextIdTypeSampledImage1d
+	BlockContextIdPtrUniformSampledImage1d
+	BlockContextIdStaticTextures1d
+	BlockContextIdTypeStorageImage1d
+	BlockContextIdPtrUniformStorageImage1d
+	BlockContextIdStaticStorageTextures1d
+
+	// 2D images.
+	BlockContextIdTypeImage2d
+	BlockContextIdTypeSampledImage2d
+	BlockContextIdPtrUniformSampledImage2d
+	BlockContextIdStaticTextures2d
+	BlockContextIdTypeStorageImage2d
+	BlockContextIdPtrUniformStorageImage2d
+	BlockContextIdStaticStorageTextures2d
+
+	// 3D images.
+	BlockContextIdTypeImage3d
+	BlockContextIdTypeSampledImage3d
+	BlockContextIdPtrUniformSampledImage3d
+	BlockContextIdStaticTextures3d
+	BlockContextIdTypeStorageImage3d
+	BlockContextIdPtrUniformStorageImage3d
+	BlockContextIdStaticStorageTextures3d
+
+	// 2D arrays.
+	BlockContextIdTypeImage2dArray
+	BlockContextIdTypeSampledImage2dArray
+	BlockContextIdPtrUniformSampledImage2dArray
+	BlockContextIdStaticTextures2dArray
+	BlockContextIdTypeStorageImage2dArray
+	BlockContextIdPtrUniformStorageImage2dArray
+	BlockContextIdStaticStorageTextures2dArray
+
+	// Pointers.
 	BlockContextIdPtrPcPsbUint
 	BlockContextIdPtrPcUint64
 	BlockContextIdPtrPcUint
@@ -51,8 +95,20 @@ const (
 	BlockContextIdPtrPsbV2Uint
 	BlockContextIdPtrPsbV3Uint
 	BlockContextIdPtrPsbV4Uint
-	BlockContextIdPtrStorageUint
 	BlockContextIdPtrFnUint
+
+	// System variables & built-ins.
+	BlockContextIdPcVar
+	BlockContextIdAddressTranslationBuffer
+	BlockContextIdSubgroupLocalInvocationId
+	BlockContextIdVertexIndex
+	BlockContextIdInstanceIndex
+	BlockContextIdFragCoord
+	BlockContextIdIsValidPixel
+	BlockContextIdWorkgroupId
+	BlockContextIdLocalInvocationId
+
+	// Pipeline outputs.
 	BlockContextIdPosOut
 	BlockContextIdFragDepthOut
 	BlockContextIdColorOut0
@@ -63,38 +119,8 @@ const (
 	BlockContextIdColorOut5
 	BlockContextIdColorOut6
 	BlockContextIdColorOut7
-	BlockContextIdParamOut0
-	BlockContextIdParamOut1
-	BlockContextIdParamOut2
-	BlockContextIdParamOut3
-	BlockContextIdParamOut4
-	BlockContextIdParamOut5
-	BlockContextIdParamOut6
-	BlockContextIdParamOut7
-	BlockContextIdParamOut8
-	BlockContextIdParamOut9
-	BlockContextIdParamOut10
-	BlockContextIdParamOut11
-	BlockContextIdParamOut12
-	BlockContextIdParamOut13
-	BlockContextIdParamOut14
-	BlockContextIdParamOut15
-	BlockContextIdParamOut16
-	BlockContextIdParamOut17
-	BlockContextIdParamOut18
-	BlockContextIdParamOut19
-	BlockContextIdParamOut20
-	BlockContextIdParamOut21
-	BlockContextIdParamOut22
-	BlockContextIdParamOut23
-	BlockContextIdParamOut24
-	BlockContextIdParamOut25
-	BlockContextIdParamOut26
-	BlockContextIdParamOut27
-	BlockContextIdParamOut28
-	BlockContextIdParamOut29
-	BlockContextIdParamOut30
-	BlockContextIdParamOut31
+
+	// Parameter inputs.
 	BlockContextIdParamIn0
 	BlockContextIdParamIn1
 	BlockContextIdParamIn2
@@ -127,19 +153,40 @@ const (
 	BlockContextIdParamIn29
 	BlockContextIdParamIn30
 	BlockContextIdParamIn31
-	BlockContextIdZeroVec4
 
-	BlockContextIdStaticTextures
-	BlockContextIdStaticStorageTextures
-	BlockContextIdPcVar
-	BlockContextIdGlsl
-	BlockContextIdSubgroupLocalInvocationId
-	BlockContextIdVertexIndex
-	BlockContextIdInstanceIndex
-	BlockContextIdFragCoord
-	BlockContextIdIsValidPixel
-	BlockContextIdWorkgroupId
-	BlockContextIdLocalInvocationId
+	// Parameter outputs.
+	BlockContextIdParamOut0
+	BlockContextIdParamOut1
+	BlockContextIdParamOut2
+	BlockContextIdParamOut3
+	BlockContextIdParamOut4
+	BlockContextIdParamOut5
+	BlockContextIdParamOut6
+	BlockContextIdParamOut7
+	BlockContextIdParamOut8
+	BlockContextIdParamOut9
+	BlockContextIdParamOut10
+	BlockContextIdParamOut11
+	BlockContextIdParamOut12
+	BlockContextIdParamOut13
+	BlockContextIdParamOut14
+	BlockContextIdParamOut15
+	BlockContextIdParamOut16
+	BlockContextIdParamOut17
+	BlockContextIdParamOut18
+	BlockContextIdParamOut19
+	BlockContextIdParamOut20
+	BlockContextIdParamOut21
+	BlockContextIdParamOut22
+	BlockContextIdParamOut23
+	BlockContextIdParamOut24
+	BlockContextIdParamOut25
+	BlockContextIdParamOut26
+	BlockContextIdParamOut27
+	BlockContextIdParamOut28
+	BlockContextIdParamOut29
+	BlockContextIdParamOut30
+	BlockContextIdParamOut31
 )
 
 const (

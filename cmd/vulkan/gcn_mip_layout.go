@@ -1,6 +1,7 @@
 package vulkan
 
 import (
+	gcn2 "github.com/LamkasDev/sharkie/cmd/lib_structs/gcn"
 	spirvStructs "github.com/LamkasDev/sharkie/cmd/spirv/structs"
 	"github.com/LamkasDev/sharkie/cmd/vulkan/gcn"
 )
@@ -99,7 +100,7 @@ func computeMipLayouts(descriptor spirvStructs.ImageDescriptor, numLevels uint8)
 
 	bpp := uint32(gcn.GetBytesPerPixel(descriptor.DataFormat) * 8)
 	linear := isLinearTileMode(descriptor.TilingIndex)
-	isBlock := descriptor.DataFormat >= 35 && descriptor.DataFormat <= 41
+	isBlock := descriptor.DataFormat >= gcn2.GcnDataFormatBC1 && descriptor.DataFormat <= gcn2.GcnDataFormatBC7
 
 	layouts := make([]MipLayout, numLevels)
 	guestSize := 0

@@ -91,7 +91,7 @@ type GpuTranslator struct {
 	lastColorRtAddress              uintptr
 	activeSurface                   *vulkan.VulkanSurface
 	activeDepthSurface              *vulkan.VulkanSurface
-	activeFramebuffer               vk.Framebuffer
+	insideRenderPass                bool
 	activePipeline                  vk.Pipeline
 	activeFragmentShader            *spirv.SpirvShader
 	activeGeometryShader            *spirv.SpirvShader
@@ -255,7 +255,7 @@ func NewGpuTranslator(handles *vulkan.VulkanHandles, bknd backend.Backend[glfwvu
 	t.staticDescriptorPool, err = vulkan.CreateDescriptorPool2(t.handles, staticDescriptorSetLayout, []vk.DescriptorPoolSize{
 		{
 			Type:            vk.DescriptorTypeCombinedImageSampler,
-			DescriptorCount: 8192,
+			DescriptorCount: 32768,
 		},
 		{
 			Type:            vk.DescriptorTypeStorageImage,
@@ -277,21 +277,57 @@ func NewGpuTranslator(handles *vulkan.VulkanHandles, bknd backend.Backend[glfwvu
 	t.staticDescriptorPool.SetCopyTemplate([]vk.CopyDescriptorSet{
 		{
 			SType:           vk.StructureTypeCopyDescriptorSet,
-			SrcBinding:      spirvStructs.StaticBindingSampledImages,
-			DstBinding:      spirvStructs.StaticBindingSampledImages,
-			DescriptorCount: spirvStructs.MaxStaticBindings,
-		},
-		{
-			SType:           vk.StructureTypeCopyDescriptorSet,
-			SrcBinding:      spirvStructs.StaticBindingStorageImages,
-			DstBinding:      spirvStructs.StaticBindingStorageImages,
-			DescriptorCount: spirvStructs.MaxStaticBindings,
-		},
-		{
-			SType:           vk.StructureTypeCopyDescriptorSet,
 			SrcBinding:      spirvStructs.StaticBindingAddressTranslation,
 			DstBinding:      spirvStructs.StaticBindingAddressTranslation,
 			DescriptorCount: 1,
+		},
+		{
+			SType:           vk.StructureTypeCopyDescriptorSet,
+			SrcBinding:      spirvStructs.StaticBindingSampledImages1D,
+			DstBinding:      spirvStructs.StaticBindingSampledImages1D,
+			DescriptorCount: spirvStructs.MaxStaticBindings,
+		},
+		{
+			SType:           vk.StructureTypeCopyDescriptorSet,
+			SrcBinding:      spirvStructs.StaticBindingStorageImages1D,
+			DstBinding:      spirvStructs.StaticBindingStorageImages1D,
+			DescriptorCount: spirvStructs.MaxStaticBindings,
+		},
+		{
+			SType:           vk.StructureTypeCopyDescriptorSet,
+			SrcBinding:      spirvStructs.StaticBindingSampledImages2D,
+			DstBinding:      spirvStructs.StaticBindingSampledImages2D,
+			DescriptorCount: spirvStructs.MaxStaticBindings,
+		},
+		{
+			SType:           vk.StructureTypeCopyDescriptorSet,
+			SrcBinding:      spirvStructs.StaticBindingStorageImages2D,
+			DstBinding:      spirvStructs.StaticBindingStorageImages2D,
+			DescriptorCount: spirvStructs.MaxStaticBindings,
+		},
+		{
+			SType:           vk.StructureTypeCopyDescriptorSet,
+			SrcBinding:      spirvStructs.StaticBindingSampledImages3D,
+			DstBinding:      spirvStructs.StaticBindingSampledImages3D,
+			DescriptorCount: spirvStructs.MaxStaticBindings,
+		},
+		{
+			SType:           vk.StructureTypeCopyDescriptorSet,
+			SrcBinding:      spirvStructs.StaticBindingStorageImages3D,
+			DstBinding:      spirvStructs.StaticBindingStorageImages3D,
+			DescriptorCount: spirvStructs.MaxStaticBindings,
+		},
+		{
+			SType:           vk.StructureTypeCopyDescriptorSet,
+			SrcBinding:      spirvStructs.StaticBindingSampledImages2DArray,
+			DstBinding:      spirvStructs.StaticBindingSampledImages2DArray,
+			DescriptorCount: spirvStructs.MaxStaticBindings,
+		},
+		{
+			SType:           vk.StructureTypeCopyDescriptorSet,
+			SrcBinding:      spirvStructs.StaticBindingStorageImages2DArray,
+			DstBinding:      spirvStructs.StaticBindingStorageImages2DArray,
+			DescriptorCount: spirvStructs.MaxStaticBindings,
 		},
 	})
 	t.activePipeline = vk.NullPipeline
@@ -347,11 +383,6 @@ func (t *GpuTranslator) Destroy() {
 		s.Destroy(t.handles.Device)
 	}
 	t.surfacesMutex.Unlock()
-	t.framebuffersMutex.Lock()
-	for _, fb := range t.framebuffers {
-		fb.Destroy(t.handles.Device)
-	}
-	t.framebuffersMutex.Unlock()
 	t.pipelinesMutex.Lock()
 	for _, p := range t.pipelines {
 		vk.DestroyPipeline(t.handles.Device, p, nil)
@@ -401,7 +432,7 @@ func (t *GpuTranslator) ResetFrameState(frame uint64) {
 	t.activeSurface = nil
 	t.activeDepthSurface = nil
 	t.lastColorRtAddress = 0
-	t.activeFramebuffer = vk.NullFramebuffer
+	t.insideRenderPass = false
 	t.activePipeline = vk.NullPipeline
 	t.activeVteControl = 0
 	t.activeClipControl = 0
@@ -466,7 +497,7 @@ func (t *GpuTranslator) Translate(frame uint64, stream *gpu.LiverpoolCommandStre
 
 func (t *GpuTranslator) BeforeTranslate() {
 	if t.currentGuestFrame == 0 {
-		t.createDummyTexture()
+		t.createDummyTextures()
 	}
 	t.staticDescriptorPool.Reset(t.currentGuestFrame)
 	vulkan.ResetDetilePipelines(t.currentGuestFrame)
@@ -485,9 +516,9 @@ func (t *GpuTranslator) StartCommandBuffer() {
 }
 
 func (t *GpuTranslator) EndRenderPass() {
-	if t.activeFramebuffer != vk.NullFramebuffer {
-		vk.CmdEndRenderPass(t.commandBuffer.CommandBuffer)
-		t.activeFramebuffer = vk.NullFramebuffer
+	if t.insideRenderPass {
+		vulkan.CmdEndRendering(t.handles.Instance, t.commandBuffer.CommandBuffer)
+		t.insideRenderPass = false
 		t.activePipeline = vk.NullPipeline
 	}
 }

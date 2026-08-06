@@ -2,9 +2,6 @@ package structs
 
 import "github.com/cespare/xxhash"
 
-type ImageNoSamplerKey [8]uint32
-type ImageSamplerKey [12]uint32
-
 func NewImageDescriptor(dwords []uint32) ImageDescriptor {
 	baseAddress := ((uintptr(dwords[0]) | (uintptr(dwords[1]&0xFF) << 32)) << 8) & 0xFFFFFFFFFF
 	return ImageDescriptor{

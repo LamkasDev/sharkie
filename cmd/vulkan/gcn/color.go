@@ -1,6 +1,7 @@
 package gcn
 
 import (
+	"fmt"
 	"math"
 
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/gcn/reg"
@@ -87,6 +88,12 @@ func ColorBufferHeight(pitch reg.CbColorPitch, sliceReg uint32) uint32 {
 }
 
 func TranslateColorFormat(format uint32, numberType uint32, compSwap uint32) vk.Format {
+	if compSwap != 0 {
+		if !(format == 10 && compSwap == 1) && !(format == 8 && compSwap == 1) {
+			panic(fmt.Sprintf("unhandled compSwap %d for format %d", compSwap, format))
+		}
+	}
+
 	switch format {
 	case 1: // COLOR_8
 		switch numberType {
@@ -149,6 +156,31 @@ func TranslateColorFormat(format uint32, numberType uint32, compSwap uint32) vk.
 		case 7:
 			return vk.FormatR16g16Sfloat
 		}
+	case 8: // COLOR_10_10_10_2
+		if compSwap == 1 { // SWAP_ALT (BGRA)
+			switch numberType {
+			case 0:
+				return vk.FormatA2r10g10b10UnormPack32
+			case 1:
+				return vk.FormatA2r10g10b10SnormPack32
+			case 4:
+				return vk.FormatA2r10g10b10UintPack32
+			case 5:
+				return vk.FormatA2r10g10b10SintPack32
+			}
+		}
+		switch numberType {
+		case 0:
+			return vk.FormatA2b10g10r10UnormPack32
+		case 1:
+			return vk.FormatA2b10g10r10SnormPack32
+		case 4:
+			return vk.FormatA2b10g10r10UintPack32
+		case 5:
+			return vk.FormatA2b10g10r10SintPack32
+		}
+	case 9: // COLOR_2_10_10_10
+		panic("unhandled format COLOR_2_10_10_10")
 	case 10: // COLOR_8_8_8_8
 		if compSwap == 1 { // SWAP_ALT (BGRA)
 			switch numberType {
@@ -222,6 +254,7 @@ func TranslateColorFormat(format uint32, numberType uint32, compSwap uint32) vk.
 	case 22: // COLOR_X24_8_32_FLOAT
 		return vk.FormatD32SfloatS8Uint
 	}
+
 	return vk.FormatUndefined
 }
 

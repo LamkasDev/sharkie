@@ -102,7 +102,7 @@ func EmitFormatPackHelper(b *SpvBuilder, ctx *SpirvBlockContext, absoluteAddress
 	// If it's a 32-bit float, raw0 is already a 32-bit float. We only pack 16-bit.
 	packHalf := func(floatA, floatB SpirvId) SpirvId {
 		vec2 := b.EmitCompositeConstruct(typeVec2, floatA, floatB)
-		return b.EmitExtInst(typeUint, ctx.GetId(BlockContextIdGlsl), spec.SpvGlslOpPackHalf2x16, vec2)
+		return b.EmitExtInst(typeUint, ctx.GetId(BlockContextIdTypeGlsl), spec.SpvGlslOpPackHalf2x16, vec2)
 	}
 	comp0Float16 := packHalf(f0, ctx.GetConstId(ConstIdFloat0))
 	comp1Float16 := packHalf(f1, ctx.GetConstId(ConstIdFloat0))

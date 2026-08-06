@@ -21,13 +21,14 @@ type VulkanHandles struct {
 	FormatProperties         map[vk.Format]vk.FormatProperties
 	SubgroupSizeProperties   VkPhysicalDeviceSubgroupSizeControlPropertiesEXT
 
-	UploadPool vk.CommandPool
-	FencePool  *VulkanFencePool2
+	UploadPoolMutex sync.Mutex
+	UploadPool      vk.CommandPool
+
+	FencePool         *VulkanFencePool2
+	StagingBufferPool VulkanStagingBufferPool
 
 	GraphicsQueue *VulkanQueue
 	DownloadQueue *VulkanQueue
-
-	UploadPoolMutex sync.Mutex
 
 	DeferredDestroyMutex sync.Mutex
 	DeferredDestroy      deferredDestroyQueue
@@ -90,6 +91,7 @@ func NewVulkanHandles(context *VulkanContext) *VulkanHandles {
 }
 
 func (vkh *VulkanHandles) Destroy() {
+	vkh.StagingBufferPool.Destroy(vkh.Device)
 	vkh.Context.Destroy()
 }
 

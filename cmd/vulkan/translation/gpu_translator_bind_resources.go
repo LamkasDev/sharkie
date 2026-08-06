@@ -159,10 +159,10 @@ func (t *GpuTranslator) GetBindDescriptorSet(shaders []*spirv.SpirvShader, userD
 		switch binding.Access {
 		case spirvCommon.BindingAccessSampledRead:
 			view.Image.BarrierSampledRead(t.commandBuffer)
-			t.updateStaticDescriptorBinding(activeStaticSet, binding.BindingIndex, view.ImageView, vk.NullImageView, sampler, vk.NullBufferView)
+			t.updateStaticDescriptorBinding(activeStaticSet, binding.BindingIndex, view, nil, sampler, vk.NullBufferView)
 		case spirvCommon.BindingAccessStorageWrite:
 			view.Image.BarrierComputeStorageWrite(t.commandBuffer)
-			t.updateStaticDescriptorBinding(activeStaticSet, binding.BindingIndex, vk.NullImageView, view.StorageImageView, sampler, vk.NullBufferView)
+			t.updateStaticDescriptorBinding(activeStaticSet, binding.BindingIndex, nil, view, sampler, vk.NullBufferView)
 		}
 		boundText += fmt.Sprintf(" %s %d (0x%X/%dx%d)", binding.Access, binding.BindingIndex, access.Descriptor.BaseAddress, access.Descriptor.Width, access.Descriptor.Height)
 	}
@@ -205,32 +205,61 @@ func (t *GpuTranslator) GetBindDescriptorSet(shaders []*spirv.SpirvShader, userD
 	return storeTargets, storeBufferTargets, activeStaticSet, nil
 }
 
-func (t *GpuTranslator) updateStaticDescriptorBinding(set vk.DescriptorSet, index uint32, sampledView, storageView vk.ImageView, sampler vk.Sampler, bufferView vk.BufferView) {
-	if sampledView != vk.NullImageView {
+func (t *GpuTranslator) updateStaticDescriptorBinding(set vk.DescriptorSet, index uint32, sampledView *vulkan.VulkanImageView, storageView *vulkan.VulkanImageView, sampler vk.Sampler, bufferView vk.BufferView) {
+	if sampledView != nil && sampledView.ImageView != vk.NullImageView {
+		dstBinding := uint32(spirvStructs.StaticBindingSampledImages2D)
+		if sampledView.Image != nil {
+			switch sampledView.Image.FirstDescriptor.Type {
+			case gcn.GcnImageTypeColor1D:
+				dstBinding = spirvStructs.StaticBindingSampledImages1D
+			case gcn.GcnImageTypeColor3D:
+				dstBinding = spirvStructs.StaticBindingSampledImages3D
+			case gcn.GcnImageTypeCubeOrArray, gcn.GcnImageTypeColor1DArray, gcn.GcnImageTypeColor2DArray, gcn.GcnImageTypeColor2DMsaa, gcn.GcnImageTypeColor2DMsaaArray:
+				// Cube and Arrays use 2DArray view type.
+				if sampledView.Image.FirstDescriptor.Type != 14 {
+					dstBinding = spirvStructs.StaticBindingSampledImages2DArray
+				}
+			}
+		}
+
 		vk.UpdateDescriptorSets(t.handles.Device, 1, []vk.WriteDescriptorSet{{
 			SType:           vk.StructureTypeWriteDescriptorSet,
 			DstSet:          set,
-			DstBinding:      spirvStructs.StaticBindingSampledImages,
+			DstBinding:      dstBinding,
 			DstArrayElement: index,
 			DescriptorCount: 1,
 			DescriptorType:  vk.DescriptorTypeCombinedImageSampler,
 			PImageInfo: []vk.DescriptorImageInfo{{
 				Sampler:     sampler,
-				ImageView:   sampledView,
+				ImageView:   sampledView.ImageView,
 				ImageLayout: vk.ImageLayoutGeneral,
 			}},
 		}}, 0, nil)
 	}
-	if storageView != vk.NullImageView {
+	if storageView != nil && storageView.StorageImageView != vk.NullImageView {
+		dstBinding := uint32(spirvStructs.StaticBindingStorageImages2D)
+		if storageView.Image != nil {
+			switch storageView.Image.FirstDescriptor.Type {
+			case gcn.GcnImageTypeColor1D:
+				dstBinding = spirvStructs.StaticBindingStorageImages1D
+			case gcn.GcnImageTypeColor3D:
+				dstBinding = spirvStructs.StaticBindingStorageImages3D
+			case gcn.GcnImageTypeCubeOrArray, gcn.GcnImageTypeColor1DArray, gcn.GcnImageTypeColor2DArray, gcn.GcnImageTypeColor2DMsaa, gcn.GcnImageTypeColor2DMsaaArray:
+				if storageView.Image.FirstDescriptor.Type != 14 {
+					dstBinding = spirvStructs.StaticBindingStorageImages2DArray
+				}
+			}
+		}
+
 		vk.UpdateDescriptorSets(t.handles.Device, 1, []vk.WriteDescriptorSet{{
 			SType:           vk.StructureTypeWriteDescriptorSet,
 			DstSet:          set,
-			DstBinding:      spirvStructs.StaticBindingStorageImages,
+			DstBinding:      dstBinding,
 			DstArrayElement: index,
 			DescriptorCount: 1,
 			DescriptorType:  vk.DescriptorTypeStorageImage,
 			PImageInfo: []vk.DescriptorImageInfo{{
-				ImageView:   storageView,
+				ImageView:   storageView.StorageImageView,
 				ImageLayout: vk.ImageLayoutGeneral,
 			}},
 		}}, 0, nil)

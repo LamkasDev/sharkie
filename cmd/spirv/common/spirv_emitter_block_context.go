@@ -152,7 +152,7 @@ func (ctx *SpirvBlockContext) EmitDebugPrintRegisters(b *SpvBuilder) {
 		args = append(args, ctx.GetGcnVgprId(b, i))
 	}
 
-	b.EmitExtInst(ctx.GetId(BlockContextIdTypeVoid), ctx.GetId(BlockContextIdDebugPrintf), 1, args...)
+	b.EmitExtInst(ctx.GetId(BlockContextIdTypeVoid), ctx.GetId(BlockContextIdTypeDebugPrintf), 1, args...)
 }
 
 // GetRegisterPointer returns the result ID of the pointer to the given register.
@@ -335,7 +335,7 @@ func (ctx *SpirvBlockContext) LoadPsInputParameter(b *SpvBuilder, i uint32) Spir
 		return b.EmitConstantComposite(typeV4Float, idOneF, idOneF, idOneF, idOneF)
 	}
 
-	return ctx.GetId(BlockContextIdZeroVec4)
+	return ctx.GetId(BlockContextIdTypeZeroVec4)
 }
 
 // TranslateAddress translates a PS4 address into a memory buffer address.
@@ -457,5 +457,5 @@ func (ctx *SpirvBlockContext) EmitDebugPrintf(b *SpvBuilder, format string, args
 	ins := make([]SpirvId, 0, len(args)+1)
 	ins = append(ins, b.EmitString(format))
 	ins = append(ins, args...)
-	b.EmitExtInst(ctx.GetId(BlockContextIdTypeVoid), ctx.GetId(BlockContextIdDebugPrintf), 1, ins...)
+	b.EmitExtInst(ctx.GetId(BlockContextIdTypeVoid), ctx.GetId(BlockContextIdTypeDebugPrintf), 1, ins...)
 }

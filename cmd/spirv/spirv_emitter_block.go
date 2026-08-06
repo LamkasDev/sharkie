@@ -181,7 +181,7 @@ func emitBlock(b *SpvBuilder, block *GcnShaderCfgBlock, ctx *SpirvBlockContext) 
 			poz := b.EmitCompositeExtract(typeFloat, paramOut, 2)
 			pow := b.EmitCompositeExtract(typeFloat, paramOut, 3)
 
-			b.EmitExtInst(ctx.GetId(BlockContextIdTypeVoid), ctx.GetId(BlockContextIdDebugPrintf), 1,
+			b.EmitExtInst(ctx.GetId(BlockContextIdTypeVoid), ctx.GetId(BlockContextIdTypeDebugPrintf), 1,
 				formatId, vertexIndexId, px, py, pz, pw, pox, poy, poz, pow)
 		case GcnShaderStageFragment:
 			if true {
@@ -197,7 +197,7 @@ func emitBlock(b *SpvBuilder, block *GcnShaderCfgBlock, ctx *SpirvBlockContext) 
 			cz := b.EmitCompositeExtract(typeFloat, colorId, 2)
 			cw := b.EmitCompositeExtract(typeFloat, colorId, 3)
 
-			b.EmitExtInst(ctx.GetId(BlockContextIdTypeVoid), ctx.GetId(BlockContextIdDebugPrintf), 1,
+			b.EmitExtInst(ctx.GetId(BlockContextIdTypeVoid), ctx.GetId(BlockContextIdTypeDebugPrintf), 1,
 				formatId, cx, cy, cz, cw)
 		}
 		// ctx.EmitDebugPrintRegisters(b)

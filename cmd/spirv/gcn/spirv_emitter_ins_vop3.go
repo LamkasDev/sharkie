@@ -59,34 +59,34 @@ func EmitVOP3(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 		val1 := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src1, instr.Literal, 1)
 		val2 := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src2, instr.Literal, 2)
 
-		resF := b.EmitExtInst(ctx.GetId(BlockContextIdTypeFloat), ctx.GetId(BlockContextIdGlsl), spec.SpvGlslOpFma, val0, val1, val2)
+		resF := b.EmitExtInst(ctx.GetId(BlockContextIdTypeFloat), ctx.GetId(BlockContextIdTypeGlsl), spec.SpvGlslOpFma, val0, val1, val2)
 		StoreRegisterPointerMaskedModified(b, ctx, details.Clamp, details.OMod, details.Vdst+gcnSpec.OpVgpr0, resF, true)
 	case details.Op == gcnSpec.Vop3OpMin3F32:
 		// TODO: add SPV_AMD_shader_trinary_minmax optimized version.
 		typeFloat := ctx.GetId(BlockContextIdTypeFloat)
-		idGlsl := ctx.GetId(BlockContextIdGlsl)
+		typeGlsl := ctx.GetId(BlockContextIdTypeGlsl)
 
 		val0 := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
 		val1 := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src1, instr.Literal, 1)
 		val2 := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src2, instr.Literal, 2)
 
 		// D.f = min(S0.f, min(S1.f, S2.f))
-		min01 := b.EmitExtInst(typeFloat, idGlsl, spec.SpvGlslOpFMin, val0, val1)
-		resF := b.EmitExtInst(typeFloat, idGlsl, spec.SpvGlslOpFMin, min01, val2)
+		min01 := b.EmitExtInst(typeFloat, typeGlsl, spec.SpvGlslOpFMin, val0, val1)
+		resF := b.EmitExtInst(typeFloat, typeGlsl, spec.SpvGlslOpFMin, min01, val2)
 
 		StoreRegisterPointerMaskedModified(b, ctx, details.Clamp, details.OMod, details.Vdst+gcnSpec.OpVgpr0, resF, true)
 	case details.Op == gcnSpec.Vop3OpMax3F32:
 		// TODO: add SPV_AMD_shader_trinary_minmax optimized version.
 		typeFloat := ctx.GetId(BlockContextIdTypeFloat)
-		idGlsl := ctx.GetId(BlockContextIdGlsl)
+		typeGlsl := ctx.GetId(BlockContextIdTypeGlsl)
 
 		val0 := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
 		val1 := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src1, instr.Literal, 1)
 		val2 := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src2, instr.Literal, 2)
 
 		// D.f = max(S0.f, max(S1.f, S2.f))
-		max01 := b.EmitExtInst(typeFloat, idGlsl, spec.SpvGlslOpFMax, val0, val1)
-		resF := b.EmitExtInst(typeFloat, idGlsl, spec.SpvGlslOpFMax, max01, val2)
+		max01 := b.EmitExtInst(typeFloat, typeGlsl, spec.SpvGlslOpFMax, val0, val1)
+		resF := b.EmitExtInst(typeFloat, typeGlsl, spec.SpvGlslOpFMax, max01, val2)
 
 		StoreRegisterPointerMaskedModified(b, ctx, details.Clamp, details.OMod, details.Vdst+gcnSpec.OpVgpr0, resF, true)
 	case details.Op == gcnSpec.Vop3OpMulLoI32:
@@ -101,7 +101,7 @@ func EmitVOP3(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 		// TODO: add SPV_AMD_shader_trinary_minmax optimized version.
 		typeFloat := ctx.GetId(BlockContextIdTypeFloat)
 		typeBool := ctx.GetId(BlockContextIdTypeBool)
-		idGlsl := ctx.GetId(BlockContextIdGlsl)
+		typeGlsl := ctx.GetId(BlockContextIdTypeGlsl)
 
 		val0 := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
 		val1 := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src1, instr.Literal, 1)
@@ -114,12 +114,12 @@ func EmitVOP3(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 		anyNan := b.EmitLogicalOr(typeBool, nan0, b.EmitLogicalOr(typeBool, nan1, nan2))
 
 		// MIN3(S0.f, S1.f, S2.f)
-		min01 := b.EmitExtInst(typeFloat, idGlsl, spec.SpvGlslOpFMin, val0, val1)
-		min3 := b.EmitExtInst(typeFloat, idGlsl, spec.SpvGlslOpFMin, min01, val2)
+		min01 := b.EmitExtInst(typeFloat, typeGlsl, spec.SpvGlslOpFMin, val0, val1)
+		min3 := b.EmitExtInst(typeFloat, typeGlsl, spec.SpvGlslOpFMin, min01, val2)
 
 		// MAX3(S0.f, S1.f, S2.f)
-		max01 := b.EmitExtInst(typeFloat, idGlsl, spec.SpvGlslOpFMax, val0, val1)
-		max3 := b.EmitExtInst(typeFloat, idGlsl, spec.SpvGlslOpFMax, max01, val2)
+		max01 := b.EmitExtInst(typeFloat, typeGlsl, spec.SpvGlslOpFMax, val0, val1)
+		max3 := b.EmitExtInst(typeFloat, typeGlsl, spec.SpvGlslOpFMax, max01, val2)
 
 		// MAX3 == S0.f, MAX3 == S1.f
 		isMax0 := b.EmitFOrdEqual(typeBool, max3, val0)
@@ -128,9 +128,9 @@ func EmitVOP3(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 		// D.f = MAX(S1.f, S2.f) if MAX3 == S0
 		// D.f = MAX(S0.f, S2.f) if MAX3 == S1
 		// Else D.f = MAX(S0.f, S1.f)
-		max12 := b.EmitExtInst(typeFloat, idGlsl, spec.SpvGlslOpFMax, val1, val2)
-		max02 := b.EmitExtInst(typeFloat, idGlsl, spec.SpvGlslOpFMax, val0, val2)
-		max01_2 := b.EmitExtInst(typeFloat, idGlsl, spec.SpvGlslOpFMax, val0, val1)
+		max12 := b.EmitExtInst(typeFloat, typeGlsl, spec.SpvGlslOpFMax, val1, val2)
+		max02 := b.EmitExtInst(typeFloat, typeGlsl, spec.SpvGlslOpFMax, val0, val2)
+		max01_2 := b.EmitExtInst(typeFloat, typeGlsl, spec.SpvGlslOpFMax, val0, val1)
 
 		res := b.EmitSelect(typeFloat, isMax0, max12, b.EmitSelect(typeFloat, isMax1, max02, max01_2))
 
@@ -239,7 +239,7 @@ func StoreRegisterPointerMaskedModified(b *SpvBuilder, ctx *SpirvBlockContext, c
 func applyVop3Modifiers(b *SpvBuilder, ctx *SpirvBlockContext, val SpirvId, abs, neg uint8, i int) SpirvId {
 	typeFloat := ctx.GetId(BlockContextIdTypeFloat)
 	if (abs>>i)&1 == 1 {
-		val = b.EmitExtInst(typeFloat, ctx.GetId(BlockContextIdGlsl), spec.SpvGlslOpFAbs, val)
+		val = b.EmitExtInst(typeFloat, ctx.GetId(BlockContextIdTypeGlsl), spec.SpvGlslOpFAbs, val)
 	}
 	if (neg>>i)&1 == 1 {
 		val = b.EmitFNegate(typeFloat, val)
@@ -250,7 +250,7 @@ func applyVop3Modifiers(b *SpvBuilder, ctx *SpirvBlockContext, val SpirvId, abs,
 
 func applyVop3OutputModifiers(b *SpvBuilder, ctx *SpirvBlockContext, val SpirvId, clamp bool, omod uint8) SpirvId {
 	typeFloat := ctx.GetId(BlockContextIdTypeFloat)
-	idGlsl := ctx.GetId(BlockContextIdGlsl)
+	idGlsl := ctx.GetId(BlockContextIdTypeGlsl)
 
 	// Apply omod.
 	switch omod {

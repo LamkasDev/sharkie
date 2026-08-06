@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 
+	gcn2 "github.com/LamkasDev/sharkie/cmd/lib_structs/gcn"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/gcn/reg"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/gpu"
 	"github.com/LamkasDev/sharkie/cmd/logger"
@@ -36,7 +37,7 @@ func (t *GpuTranslator) BindPipeline(frame uint64, bind *gpu.LiverpoolBindPipeli
 		colorSurface, err = t.GetSurface(spirvStructs.ImageDescriptor{
 			BaseAddress: rtAddress,
 			Width:       uint16(rtWidth), Height: uint16(rtHeight),
-			DataFormat: 10, NumFormat: 0,
+			DataFormat: gcn2.GcnDataFormat8_8_8_8, NumFormat: gcn2.GcnNumFormatUnorm,
 			DstSelX: 4, DstSelY: 5, DstSelZ: 6, DstSelW: 7,
 			Depth: 1, Pitch: uint16(rtWidth),
 			TilingIndex: uint8(bind.RtAttrib.TileModeIndex()),
@@ -81,7 +82,7 @@ func (t *GpuTranslator) BindPipeline(frame uint64, bind *gpu.LiverpoolBindPipeli
 			BaseAddress: dbAddress,
 			Width:       uint16(dbWidth),
 			Height:      uint16(dbHeight),
-			DataFormat:  10, NumFormat: 0,
+			DataFormat:  gcn2.GcnDataFormat8_8_8_8, NumFormat: gcn2.GcnNumFormatUnorm,
 			DstSelX: 4, DstSelY: 5, DstSelZ: 6, DstSelW: 7,
 			Depth: 1, Pitch: uint16(dbWidth),
 		}, depthFormat)
@@ -218,78 +219,83 @@ func (t *GpuTranslator) BindPipeline(frame uint64, bind *gpu.LiverpoolBindPipeli
 		TessEvalModule:      tesModule,
 		GeometryModule:      gsModule,
 		FragmentModule:      psModule,
-		RenderPass:          fb.RenderPass,
+		ColorFormat:         fb.ColorFormat,
+		DepthFormat:         fb.DepthFormat,
 		GraphicsPipelineKey: key,
 	})
 	if err != nil {
 		return
 	}
 
-	// Select render pass and clear on first use in frame or if explicitly requested.
-	var clearValues []vk.ClearValue
+	// Prepare rendering info.
+	renderingInfo := &vk.RenderingInfo{
+		SType:      vk.StructureTypeRenderingInfo,
+		RenderArea: vk.Rect2D{Extent: vk.Extent2D{Width: rtWidth, Height: rtHeight}},
+		LayerCount: 1,
+	}
+
+	colorAttachments := make([]vk.RenderingAttachmentInfo, 8)
+	for i := 0; i < 8; i++ {
+		colorAttachments[i] = vk.RenderingAttachmentInfo{
+			SType: vk.StructureTypeRenderingAttachmentInfo,
+		}
+	}
 	if colorSurface != nil {
+		clearColorNeeded := colorSurface.FrameUsed < frame
+		loadOp := vk.AttachmentLoadOpLoad
+		if clearColorNeeded {
+			loadOp = vk.AttachmentLoadOpClear
+			colorSurface.FrameUsed = frame
+		}
+
 		clearColor := vk.ClearValue{}
 		clearColorFloat := vkGcn.TranslateClearColor(bind.RtClearWord0, bind.RtClearWord1, bind.CbColorInfo0.Format(), bind.CbColorInfo0.NumberType(), bind.CbColorInfo0.CompSwap())
 		clearColor.SetColor(clearColorFloat)
-		clearValues = append(clearValues, clearColor)
-	}
-	if depthSurface != nil {
-		clearDepth := vk.ClearValue{}
-		clearDepth.SetDepthStencil(math.Float32frombits(bind.DbDepthClearValue), bind.DbStencilClearValue)
-		clearValues = append(clearValues, clearDepth)
-	}
 
-	// Clear on first use within this guest frame.
-	renderPass := fb.RenderPassNoClear
-	clearColorNeeded := colorSurface != nil && colorSurface.FrameUsed < frame
-	clearDepthNeeded := depthSurface != nil && depthSurface.FrameUsed < frame
-	if clearColorNeeded && clearDepthNeeded {
-		renderPass = fb.RenderPass
-		colorSurface.FrameUsed = frame
-		depthSurface.FrameUsed = frame
-	} else if clearColorNeeded && !clearDepthNeeded {
-		if depthSurface != nil {
-			renderPass = fb.RenderPassClearColorLoadDepth
-		} else {
-			renderPass = fb.RenderPass
+		colorAttachments[0] = vk.RenderingAttachmentInfo{
+			SType:       vk.StructureTypeRenderingAttachmentInfo,
+			ImageView:   fb.ColorView,
+			ImageLayout: vk.ImageLayoutGeneral,
+			LoadOp:      loadOp,
+			StoreOp:     vk.AttachmentStoreOpStore,
+			ClearValue:  clearColor,
 		}
-		colorSurface.FrameUsed = frame
-	} else if !clearColorNeeded && clearDepthNeeded {
-		if colorSurface != nil {
-			renderPass = fb.RenderPassLoadColorClearDepth
-		} else {
-			renderPass = fb.RenderPass
-		}
-		depthSurface.FrameUsed = frame
-	}
-	if colorSurface != nil {
 		colorSurface.ImageView.Image.BarrierColorAttachment(t.commandBuffer)
 	}
 
-	if renderPass == fb.RenderPassNoClear {
-		clearValues = nil
-	} else if renderPass == fb.RenderPassClearColorLoadDepth {
-		clearValues = clearValues[:1]
-	} else if renderPass == fb.RenderPassLoadColorClearDepth {
-		// Needs both elements because depth is index 1.
-		// Color clear value is ignored since loadOp is LOAD, but must be present.
+	renderingInfo.ColorAttachmentCount = 8
+	renderingInfo.PColorAttachments = colorAttachments
+
+	var depthAttachments []vk.RenderingAttachmentInfo
+	if depthSurface != nil {
+		clearDepthNeeded := depthSurface.FrameUsed < frame
+		loadOp := vk.AttachmentLoadOpLoad
+		if clearDepthNeeded {
+			loadOp = vk.AttachmentLoadOpClear
+			depthSurface.FrameUsed = frame
+		}
+
+		clearDepth := vk.ClearValue{}
+		clearDepth.SetDepthStencil(math.Float32frombits(bind.DbDepthClearValue), bind.DbStencilClearValue)
+
+		depthAttachments = append(depthAttachments, vk.RenderingAttachmentInfo{
+			SType:       vk.StructureTypeRenderingAttachmentInfo,
+			ImageView:   fb.DepthView,
+			ImageLayout: vk.ImageLayoutDepthStencilAttachmentOptimal,
+			LoadOp:      loadOp,
+			StoreOp:     vk.AttachmentStoreOpStore,
+			ClearValue:  clearDepth,
+		})
+
+		renderingInfo.PDepthAttachment = depthAttachments
+		renderingInfo.PStencilAttachment = depthAttachments
 	}
 
-	// Begin render pass.
-	vk.CmdBeginRenderPass(t.commandBuffer.CommandBuffer, &vk.RenderPassBeginInfo{
-		SType:       vk.StructureTypeRenderPassBeginInfo,
-		RenderPass:  renderPass,
-		Framebuffer: fb.Framebuffer,
-		RenderArea: vk.Rect2D{Extent: vk.Extent2D{
-			Width:  rtWidth,
-			Height: rtHeight,
-		}},
-		ClearValueCount: uint32(len(clearValues)),
-		PClearValues:    clearValues,
-	}, vk.SubpassContentsInline)
+	// Start rendering and bind pipeline.
+	vulkan.CmdBeginRendering(t.handles.Instance, t.commandBuffer.CommandBuffer, renderingInfo)
 	vk.CmdBindPipeline(t.commandBuffer.CommandBuffer, vk.PipelineBindPointGraphics, pipeline)
 
-	t.activeFramebuffer = fb.Framebuffer
+	t.insideRenderPass = true
 	t.activePipeline = pipeline
 
 	if logger.LogRenderer {
@@ -338,7 +344,7 @@ func (t *GpuTranslator) GetPipeline(request vulkan.GraphicsPipelineRequest) (vk.
 	}
 
 	// Create the pipeline.
-	pipeline, err := vulkan.CreateGraphicsPipeline(t.handles, request, request.RenderPass, t.pipelineLayout, vk.NullPipelineCache)
+	pipeline, err := vulkan.CreateGraphicsPipeline(t.handles, request, t.pipelineLayout, vk.NullPipelineCache)
 	if err != nil {
 		return vk.NullPipeline, fmt.Errorf("createGraphicsPipeline: %w", err)
 	}

@@ -43,7 +43,7 @@ func libScePad_scePadOpen(userId UserId, padType, index, param uintptr) uintptr 
 func libScePad_scePadRead(handleId uint32, data *PadData, count uintptr) uintptr {
 	handle := GlobalPadEngine.Handles[handleId]
 	if handle == nil || data == nil {
-		return 0x802F0001 // SCE_PAD_ERROR_INVALID_HANDLE? some error
+		return 0x802F0001
 	}
 	handle.Device.Read(data)
 
@@ -71,6 +71,31 @@ func libScePad_scePadGetControllerInformation(handleId uint32, info *PadControll
 		return 0x802F0001
 	}
 	handle.Device.GetControllerInformation(info)
+
+	return 0
+}
+
+// 0x00000000000020A0
+// __int64 __fastcall scePadReadState(__int64, __int64)
+func libScePad_scePadReadState(handleId uint32, data *PadData) uintptr {
+	handle := GlobalPadEngine.Handles[handleId]
+	if handle == nil || data == nil {
+		return 0x802F0001
+	}
+	handle.Device.Read(data)
+
+	// Global F11 debug logic.
+	if app.GlobalApplication != nil && app.GlobalApplication.Window != nil {
+		window := app.GlobalApplication.Window
+		isF11Pressed := window.GetKey(glfw.KeyF11) == glfw.Press
+		if isF11Pressed && !wasF11Pressed {
+			logger.Printf("pressed F11 (clearing resources)\n")
+			if app.GlobalApplication.Renderer != nil && app.GlobalApplication.Renderer.GpuTranslator != nil {
+				app.GlobalApplication.Renderer.GpuTranslator.ClearAllResources()
+			}
+		}
+		wasF11Pressed = isF11Pressed
+	}
 
 	return 0
 }

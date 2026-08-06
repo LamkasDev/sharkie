@@ -50,35 +50,35 @@ func CreateBlendAttachments(baseAttachment vk.PipelineColorBlendAttachmentState,
 		case 0:
 			enabled = targetMask.Target0Enable() != 0
 			format = colFormat.Col0ExportFormat()
-			writeMask = shaderMask.Output0Enable()
+			writeMask = targetMask.Target0Enable()
 		case 1:
 			enabled = targetMask.Target1Enable() != 0
 			format = colFormat.Col1ExportFormat()
-			writeMask = shaderMask.Output1Enable()
+			writeMask = targetMask.Target1Enable()
 		case 2:
 			enabled = targetMask.Target2Enable() != 0
 			format = colFormat.Col2ExportFormat()
-			writeMask = shaderMask.Output2Enable()
+			writeMask = targetMask.Target2Enable()
 		case 3:
 			enabled = targetMask.Target3Enable() != 0
 			format = colFormat.Col3ExportFormat()
-			writeMask = shaderMask.Output3Enable()
+			writeMask = targetMask.Target3Enable()
 		case 4:
 			enabled = targetMask.Target4Enable() != 0
 			format = colFormat.Col4ExportFormat()
-			writeMask = shaderMask.Output4Enable()
+			writeMask = targetMask.Target4Enable()
 		case 5:
 			enabled = targetMask.Target5Enable() != 0
 			format = colFormat.Col5ExportFormat()
-			writeMask = shaderMask.Output5Enable()
+			writeMask = targetMask.Target5Enable()
 		case 6:
 			enabled = targetMask.Target6Enable() != 0
 			format = colFormat.Col6ExportFormat()
-			writeMask = shaderMask.Output6Enable()
+			writeMask = targetMask.Target6Enable()
 		case 7:
 			enabled = targetMask.Target7Enable() != 0
 			format = colFormat.Col7ExportFormat()
-			writeMask = shaderMask.Output7Enable()
+			writeMask = targetMask.Target7Enable()
 		}
 
 		if enabled && format != 0 && colorControl.Mode() != 0 /* CB_DISABLE */ {

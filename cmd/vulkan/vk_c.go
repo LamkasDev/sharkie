@@ -3,9 +3,22 @@ package vulkan
 /*
 #include <stdlib.h>
 #include <stdint.h>
+#include <string.h>
 
 typedef void* VkInstance;
 typedef void* VkDevice;
+typedef uint64_t VkDeviceAddress;
+typedef uint32_t VkFormat;
+
+typedef struct {
+    uint32_t sType;
+    const void* pNext;
+    uint32_t viewMask;
+    uint32_t colorAttachmentCount;
+    const VkFormat* pColorAttachmentFormats;
+    VkFormat depthAttachmentFormat;
+    VkFormat stencilAttachmentFormat;
+} VkPipelineRenderingCreateInfo;
 typedef uint64_t VkDeviceAddress;
 
 #define VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT 0x00000001
@@ -47,6 +60,8 @@ typedef int (*vgo_vkGetMemoryFdKHR)(VkDevice device, const VkMemoryGetFdInfoKHR*
 typedef int (*vgo_vkGetMemoryWin32HandleKHR)(VkDevice device, const VkMemoryGetWin32HandleInfoKHR* pGetWin32HandleInfo, void** pHandle);
 typedef void (*vgo_vkGetPhysicalDeviceProperties2KHR)(void* physicalDevice, void* pProperties);
 typedef int (*vgo_vkSetDebugUtilsObjectNameEXT)(VkDevice device, const VkDebugUtilsObjectNameInfoEXT* pNameInfo);
+typedef void (*vgo_vkCmdBeginRendering)(void* commandBuffer, const void* pRenderingInfo);
+typedef void (*vgo_vkCmdEndRendering)(void* commandBuffer);
 
 void callVkSetDeviceMemoryPriorityEXT(void* address, VkInstance instance, VkDevice device, void* memory, float priority) {
 	vgo_vkGetInstanceProcAddr getProc = (vgo_vkGetInstanceProcAddr)address;
@@ -100,6 +115,22 @@ int32_t callVkSetDebugUtilsObjectNameEXT(void* address, VkInstance instance, VkD
     if (!fn) { return -1; }
 
     return fn(device, pNameInfo);
+}
+
+void callVkCmdBeginRendering(void* address, VkInstance instance, void* commandBuffer, const void* pRenderingInfo) {
+    vgo_vkGetInstanceProcAddr getProc = (vgo_vkGetInstanceProcAddr)address;
+    vgo_vkCmdBeginRendering fn = (vgo_vkCmdBeginRendering)getProc(instance, "vkCmdBeginRenderingKHR");
+    if (!fn) fn = (vgo_vkCmdBeginRendering)getProc(instance, "vkCmdBeginRendering");
+    if (!fn) return;
+    fn(commandBuffer, pRenderingInfo);
+}
+
+void callVkCmdEndRendering(void* address, VkInstance instance, void* commandBuffer) {
+    vgo_vkGetInstanceProcAddr getProc = (vgo_vkGetInstanceProcAddr)address;
+    vgo_vkCmdEndRendering fn = (vgo_vkCmdEndRendering)getProc(instance, "vkCmdEndRenderingKHR");
+    if (!fn) fn = (vgo_vkCmdEndRendering)getProc(instance, "vkCmdEndRendering");
+    if (!fn) return;
+    fn(commandBuffer);
 }
 */
 import "C"
@@ -202,4 +233,50 @@ func SetDebugUtilsObjectName(instance vk.Instance, device vk.Device, objectType 
 		(C.VkDevice)(unsafe.Pointer(device)),
 		&info,
 	)
+}
+
+func CmdBeginRendering(instance vk.Instance, commandBuffer vk.CommandBuffer, renderingInfo *vk.RenderingInfo) {
+	cRenderingInfo, _ := renderingInfo.PassRef()
+	C.callVkCmdBeginRendering(
+		unsafe.Pointer(glfw.GetVulkanGetInstanceProcAddress()),
+		(C.VkInstance)(unsafe.Pointer(instance)),
+		unsafe.Pointer(commandBuffer),
+		unsafe.Pointer(cRenderingInfo),
+	)
+}
+
+func CmdEndRendering(instance vk.Instance, commandBuffer vk.CommandBuffer) {
+	C.callVkCmdEndRendering(
+		unsafe.Pointer(glfw.GetVulkanGetInstanceProcAddress()),
+		(C.VkInstance)(unsafe.Pointer(instance)),
+		unsafe.Pointer(commandBuffer),
+	)
+}
+
+func CreatePipelineRenderingCreateInfoC(info *vk.PipelineRenderingCreateInfo) (unsafe.Pointer, func()) {
+	cinfo := (*C.VkPipelineRenderingCreateInfo)(C.malloc(C.sizeof_VkPipelineRenderingCreateInfo))
+	C.memset(unsafe.Pointer(cinfo), 0, C.sizeof_VkPipelineRenderingCreateInfo)
+	cinfo.sType = C.uint32_t(info.SType)
+	cinfo.pNext = nil
+	cinfo.viewMask = C.uint32_t(info.ViewMask)
+	cinfo.colorAttachmentCount = C.uint32_t(info.ColorAttachmentCount)
+
+	var cFormats *C.VkFormat
+	if len(info.PColorAttachmentFormats) > 0 {
+		cFormats = (*C.VkFormat)(C.malloc(C.size_t(4 * len(info.PColorAttachmentFormats))))
+		formatSlice := unsafe.Slice((*vk.Format)(unsafe.Pointer(cFormats)), len(info.PColorAttachmentFormats))
+		for i, v := range info.PColorAttachmentFormats {
+			formatSlice[i] = v
+		}
+	}
+	cinfo.pColorAttachmentFormats = cFormats
+	cinfo.depthAttachmentFormat = C.VkFormat(info.DepthAttachmentFormat)
+	cinfo.stencilAttachmentFormat = C.VkFormat(info.StencilAttachmentFormat)
+
+	return unsafe.Pointer(cinfo), func() {
+		if cFormats != nil {
+			C.free(unsafe.Pointer(cFormats))
+		}
+		C.free(unsafe.Pointer(cinfo))
+	}
 }
