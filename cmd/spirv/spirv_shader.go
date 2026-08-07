@@ -17,13 +17,11 @@ import (
 type SpirvShader struct {
 	GcnShader    *GcnShader
 	Code         []uint32
-	Resources    []SpirvShaderResource
 	StaticLayout []ShaderResourceBinding
 }
 
 func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, error) {
-	resources := AnalyzeResources(shader)
-	staticLayout := BuildStaticLayout(resources, shader)
+	staticLayout := BuildStaticLayout(AnalyzeResources(shader), shader)
 	b := NewSpvBuilder()
 
 	// Capabilities.
@@ -754,7 +752,6 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	return &SpirvShader{
 		GcnShader:    shader,
 		Code:         b.Assemble(),
-		Resources:    resources,
 		StaticLayout: staticLayout,
 	}, nil
 }

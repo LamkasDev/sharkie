@@ -18,4 +18,4 @@ type PushConstants struct {
 
 const PushConstantsSize = uint32(unsafe.Sizeof(PushConstants{}))
 
-const AddressTranslationCount = 1024
+const AddressTranslationCount = 2048

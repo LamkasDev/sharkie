@@ -74,6 +74,19 @@ func EmitSOP2(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 
 		// SCC = 1 if result is non-zero.
 		emitSccUpdateNonZero64(b, ctx, resLo, resHi)
+	case gcnSpec.Sop2OpNorB64:
+		val0Lo, val0Hi := ctx.GetOperand64Value(b, details.Src0, instr.Literal)
+		val1Lo, val1Hi := ctx.GetOperand64Value(b, details.Src1, instr.Literal)
+
+		orLo := b.EmitBitwiseOr(typeUint, val0Lo, val1Lo)
+		orHi := b.EmitBitwiseOr(typeUint, val0Hi, val1Hi)
+		resLo := b.EmitNot(typeUint, orLo)
+		resHi := b.EmitNot(typeUint, orHi)
+		ctx.StoreRegisterPointer(b, details.Dst, resLo)
+		ctx.StoreRegisterPointer(b, details.Dst+1, resHi)
+
+		// SCC = 1 if result is non-zero.
+		emitSccUpdateNonZero64(b, ctx, resLo, resHi)
 	/* case gcnSpec.Sop2OpXorB64:
 	val0Lo, val0Hi := ctx.GetOperand64Value(b, details.Src0, instr.Literal)
 	val1Lo, val1Hi := ctx.GetOperand64Value(b, details.Src1, instr.Literal)
@@ -130,6 +143,19 @@ func EmitSOP2(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 		val1 := ctx.GetOperandIntValue(b, details.Src1, instr.Literal)
 		res := b.EmitIMul(typeUint, val0, val1)
 		ctx.StoreRegisterPointer(b, details.Dst, res)
+	case gcnSpec.Sop2OpAddU32:
+		val0 := ctx.GetOperandUintValue(b, details.Src0, instr.Literal)
+		val1 := ctx.GetOperandUintValue(b, details.Src1, instr.Literal)
+
+		// D.u = S0.u + S1.u
+		res := b.EmitIAdd(typeUint, val0, val1)
+		ctx.StoreRegisterPointer(b, details.Dst, res)
+
+		// SCC = unsigned carry out
+		// carry occurs if res < val0
+		isCarry := b.EmitULessThan(typeBool, res, val0)
+		sccVal := b.EmitSelect(typeUint, isCarry, b.EmitConstantUint(typeUint, 1), idC0)
+		ctx.StoreRegisterPointer(b, gcnSpec.OpScc, sccVal)
 	case gcnSpec.Sop2OpAddI32:
 		val0 := ctx.GetOperandUintValue(b, details.Src0, instr.Literal)
 		val1 := ctx.GetOperandUintValue(b, details.Src1, instr.Literal)

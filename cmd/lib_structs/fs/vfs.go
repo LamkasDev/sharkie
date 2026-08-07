@@ -297,40 +297,41 @@ func (fsys *FS) Remove(name string) error {
 	return nil
 }
 
-// MapHostFile creates a node that points to a file on the host OS.
-func (fsys *FS) MapHostFile(name string, hostPath string, size int64, perm os.FileMode) error {
-	fsys.mu.Lock()
-	defer fsys.mu.Unlock()
+// ReadDir reads the contents of the directory, merging virtual nodes and mapped host files.
+func (node *Node) ReadDir() ([]fs.FileInfo, error) {
+	node.mu.RLock()
+	defer node.mu.RUnlock()
+	if !node.isDir {
+		return nil, errors.New("is not a directory")
+	}
+	entriesMap := make(map[string]fs.FileInfo)
 
-	// Split path into directory and target filename.
-	name = strings.TrimLeft(name, "/")
-	dirPath, baseName := ".", name
-	if idx := strings.LastIndex(name, "/"); idx >= 0 {
-		dirPath = name[:idx]
-		baseName = name[idx+1:]
+	// Fetch from host filesystem if mounted.
+	if node.hostPath != "" {
+		entries, err := os.ReadDir(node.hostPath)
+		if err == nil {
+			for _, e := range entries {
+				if info, err := e.Info(); err == nil {
+					entriesMap[e.Name()] = info
+				}
+			}
+		}
 	}
 
-	// Find the parent directory.
-	dir, err := fsys.resolveDir(dirPath)
-	if err != nil {
-		return err
-	}
-	dir.mu.Lock()
-	defer dir.mu.Unlock()
-	if _, exists := dir.children[baseName]; exists {
-		return fs.ErrExist
+	// Fetch virtual children.
+	for name, child := range node.children {
+		if info, err := child.Stat(); err == nil {
+			entriesMap[name] = info
+		}
 	}
 
-	dir.children[baseName] = &Node{
-		name:     baseName,
-		isDir:    false,
-		mode:     perm,
-		modTime:  time.Now(),
-		hostPath: hostPath,
-		size:     size,
+	// Convert map to a slice.
+	var result []fs.FileInfo
+	for _, info := range entriesMap {
+		result = append(result, info)
 	}
 
-	return nil
+	return result, nil
 }
 
 // Mount maps a host OS folder into the virtual filesystem.

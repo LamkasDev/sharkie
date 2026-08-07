@@ -4,7 +4,7 @@ import (
 	"sync"
 	"unsafe"
 
-	"github.com/LamkasDev/sharkie/cmd/lib_structs/posix"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/posix"
 	"github.com/langhuihui/gomem"
 )
 
@@ -34,18 +34,16 @@ func NewGoAllocator() *GoAllocator {
 	goMmapHint := uintptr(0x200000000)
 	goMmapHintMu := sync.Mutex{}
 	goAllocator.Allocator.CustomAllocator = func(size int, hint uintptr) []byte {
-		if posix.HookAllocateMemoryVulkan != nil {
-			if hint == 0 {
-				goMmapHintMu.Lock()
-				hint = goMmapHint
-				goMmapHint = (goMmapHint + uintptr(size) + 0x1FFFFF) &^ 0x1FFFFF
-				goMmapHintMu.Unlock()
-			}
-			posix.HookAllocateMemoryVulkan(hint, uint64(size))
-			posix.HookMapMemoryVulkan(hint, uint64(size), hint)
-			return unsafe.Slice((*byte)(unsafe.Pointer(hint)), size)
+		if hint == 0 {
+			goMmapHintMu.Lock()
+			hint = goMmapHint
+			goMmapHint = (goMmapHint + uintptr(size) + 0x1FFFFF) &^ 0x1FFFFF
+			goMmapHintMu.Unlock()
 		}
-		return nil
+		HookAllocateMemoryVulkan(hint, uint64(size))
+		HookMapMemoryVulkan(hint, uint64(size), hint)
+
+		return unsafe.Slice((*byte)(unsafe.Pointer(hint)), size)
 	}
 
 	return goAllocator

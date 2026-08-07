@@ -172,3 +172,14 @@ func libKernel_sceKernelCheckReachability(pathPtr Cstring) uintptr {
 
 	return 0
 }
+
+// 0x0000000000016460
+// __int64 sceKernelGetdirentries()
+func libKernel_sceKernelGetdirentries(fd FileDescriptor, bufPtr uintptr, nbytes uint64, basep uintptr) int64 {
+	wroteBytes := posix.Getdirentries(fd, bufPtr, nbytes, basep)
+	if wroteBytes == ERR_PTRI {
+		return int64(emu.GetErrno() - SonyErrorOffset)
+	}
+
+	return wroteBytes
+}

@@ -339,6 +339,10 @@ func CreateDispatcher(goFn any) asm.StubDispatcher {
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn(FileDescriptor(ctx.DI), ctx.SI, uint64(ctx.DX), int64(ctx.CX)))
 		}
+	case func(FileDescriptor, uintptr, uint64, uintptr) int64:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(FileDescriptor(ctx.DI), ctx.SI, uint64(ctx.DX), ctx.CX))
+		}
 	case func(FileDescriptor, uintptr, uintptr, uintptr) uintptr:
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn(FileDescriptor(ctx.DI), ctx.SI, ctx.DX, ctx.CX))

@@ -3,12 +3,13 @@ package translation
 import (
 	"unsafe"
 
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/gcn"
 	gcnSpec "github.com/LamkasDev/sharkie/cmd/lib_structs/gcn/spec"
 	spirvGcn "github.com/LamkasDev/sharkie/cmd/spirv/gcn"
 	"go101.org/nstd"
 )
 
-func applySOP1(instr *gcnSpec.Instruction, registers *gcnSpec.GcnRegisters) {
+func applySOP1(shader *gcn.GcnShader, instr *gcnSpec.Instruction, registers *gcnSpec.GcnRegisters) {
 	details := instr.Details.(*gcnSpec.ScalarDetails)
 	if details.Dst >= uint32(len(registers)) {
 		return
@@ -113,7 +114,7 @@ func readScalarOperand(op uint32, instr *gcnSpec.Instruction, registers *gcnSpec
 	return 0
 }
 
-func applySMRD(instr *gcnSpec.Instruction, registers *gcnSpec.GcnRegisters) {
+func (t *GpuTranslator) applySMRD(instr *gcnSpec.Instruction, registers *gcnSpec.GcnRegisters) {
 	details := instr.Details.(*gcnSpec.SmrdDetails)
 	if details.Dst >= uint32(len(registers)) {
 		return
@@ -139,12 +140,12 @@ func applySMRD(instr *gcnSpec.Instruction, registers *gcnSpec.GcnRegisters) {
 	case details.Op >= gcnSpec.SmrdOpBufferLoadDword && details.Op <= gcnSpec.SmrdOpBufferLoadDwordx16:
 		base := details.Base * 2
 		address = uintptr(registers[base]) | (uintptr(registers[base+1]&0xFFFF) << 32)
-		address &= 0xFFFFFFFFFF
+		address = t.TranslateToHostAddress(address & 0xFFFFFFFFFF)
 		dwords = unsafe.Slice((*uint32)(unsafe.Pointer(address+offset)), count)
 	default:
 		base := details.Base * 2
 		address = uintptr(registers[base]) | (uintptr(registers[base+1]) << 32)
-		address &= 0xFFFFFFFFFF
+		address = t.TranslateToHostAddress(address & 0xFFFFFFFFFF)
 		dwords = unsafe.Slice((*uint32)(unsafe.Pointer(address+offset)), count)
 	}
 

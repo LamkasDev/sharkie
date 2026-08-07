@@ -16,6 +16,7 @@ const (
 	EFAULT       = 14
 	EBUSY        = 16
 	EEXIST       = 17
+	ENOTDIR      = 20
 	EISDIR       = 21
 	EINVAL       = 22
 	ESPIPE       = 29

@@ -11,7 +11,8 @@ import (
 type GcnShaderStage uint8
 
 const (
-	GcnShaderStageVertex GcnShaderStage = iota
+	GcnShaderStageFetch GcnShaderStage = iota
+	GcnShaderStageVertex
 	GcnShaderStageHull
 	GcnShaderStageEvaluation
 	GcnShaderStageGeometry
@@ -29,6 +30,7 @@ var GcnShaderStages = []GcnShaderStage{
 }
 
 var GcnShaderStageNames = map[GcnShaderStage]string{
+	GcnShaderStageFetch:      "FVS",
 	GcnShaderStageVertex:     "VS",
 	GcnShaderStageHull:       "HS",
 	GcnShaderStageEvaluation: "ES",
@@ -63,6 +65,10 @@ func NewGcnShader(stage GcnShaderStage, address uintptr) (*GcnShader, error) {
 			dw = GcnShaderEndProgramStandard
 		}
 		dwords = append(dwords, dw)
+		if stage == GcnShaderStageFetch && dw == GcnShaderSetPcB64 {
+			foundEndProgram = true
+			break
+		}
 		if dw == GcnShaderEndProgramStandard {
 			foundEndProgram = true
 			break
@@ -91,11 +97,6 @@ func NewGcnShader(stage GcnShaderStage, address uintptr) (*GcnShader, error) {
 
 		instructions = append(instructions, instr)
 		i += instr.DwordLen
-
-		// S_ENDPGM (SOPP op=1) terminates the shader.
-		if instr.Encoding == spec.EncSOPP && instr.Details.(*spec.ScalarDetails).Op == 1 {
-			break
-		}
 	}
 
 	// Build a control flow graph.

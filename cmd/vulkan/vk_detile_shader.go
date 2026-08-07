@@ -27,6 +27,18 @@ type DetilePipeline struct {
 	DescriptorPool *VulkanDescriptorPool2
 }
 
+type DetilePushConstants struct {
+	NumLevels uint32
+	Pitch     uint32
+	Height    uint32
+	C0        uint32
+	C1        uint32
+	IsRetile  uint32
+	Sizes     [16]uint32
+}
+
+const DetilePushConstantsSize = unsafe.Sizeof(DetilePushConstants{})
+
 var detilePipelines map[string]*DetilePipeline
 
 func init() {

@@ -19,6 +19,9 @@ const (
 	// S_ENDPGM: raw encoding where bits[9:0] = 0x3FF
 	GcnShaderEndProgramRaw = uint32(0xFF00FFFF)
 
+	// S_SETPC_B64: sdst[22:16]=s0 ssrc0[7:0]=s0
+	GcnShaderSetPcB64 = uint32(0xBE802000)
+
 	// Maximum shader size we'll scan before giving up.
 	GcnShaderMaxDwords = 16 * 1024
 )

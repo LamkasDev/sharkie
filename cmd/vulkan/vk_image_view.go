@@ -45,49 +45,10 @@ func CreateImageView(handles *VulkanHandles, request VulkanImageViewRequest) (*V
 }
 
 func CreateVkImageView(handles *VulkanHandles, request VulkanImageViewRequest, storageLayout bool) (vk.ImageView, error) {
-	components := vk.ComponentMapping{
-		R: gcn.TranslateDstSelToVkSwizzle(request.Descriptor.DstSelX),
-		G: gcn.TranslateDstSelToVkSwizzle(request.Descriptor.DstSelY),
-		B: gcn.TranslateDstSelToVkSwizzle(request.Descriptor.DstSelZ),
-		A: gcn.TranslateDstSelToVkSwizzle(request.Descriptor.DstSelW),
-	}
-
-	switch request.Descriptor.DataFormat {
-	case gcn2.GcnDataFormat5_6_5, gcn2.GcnDataFormat1_5_5_5, gcn2.GcnDataFormat11_11_10:
-		components = vk.ComponentMapping{
-			R: components.B,
-			G: components.G,
-			B: components.R,
-			A: components.A,
-		}
-	case gcn2.GcnDataFormat10_10_10_2:
-		components = vk.ComponentMapping{
-			R: components.A,
-			G: components.B,
-			B: components.G,
-			A: components.R,
-		}
-	case gcn2.GcnDataFormat4_4_4_4:
-		components = vk.ComponentMapping{
-			R: components.G,
-			G: components.B,
-			B: components.A,
-			A: components.R,
-		}
-	case gcn2.GcnDataFormat8, gcn2.GcnDataFormat8_8, gcn2.GcnDataFormat16_16:
-		if components.R == vk.ComponentSwizzleA {
-			components.R = vk.ComponentSwizzleR
-		}
-		if components.G == vk.ComponentSwizzleA {
-			components.G = vk.ComponentSwizzleR
-		}
-		if components.B == vk.ComponentSwizzleA {
-			components.B = vk.ComponentSwizzleR
-		}
-		if components.A == vk.ComponentSwizzleA {
-			components.A = vk.ComponentSwizzleR
-		}
-	}
+	components := gcn.TranslateComponentMapping(
+		request.Descriptor.DataFormat, request.Descriptor.NumFormat,
+		request.Descriptor.DstSelX, request.Descriptor.DstSelY, request.Descriptor.DstSelZ, request.Descriptor.DstSelW,
+	)
 	if storageLayout {
 		components = vk.ComponentMapping{
 			R: vk.ComponentSwizzleIdentity,

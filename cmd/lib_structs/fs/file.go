@@ -6,7 +6,9 @@ import (
 	"io/fs"
 	"os"
 	"sync"
+	"unsafe"
 
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/posix"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/time"
 )
 
@@ -34,6 +36,11 @@ type SharkieFile struct {
 	Offset int64
 	Flags  int
 
+	// Directory properties.
+	DirEntries []fs.FileInfo
+	DirIndex   int
+	DirLoaded  bool
+
 	// Device file properties.
 	Device   PosixFile
 	IsDevice bool
@@ -44,6 +51,9 @@ type SharkieFile struct {
 func (shFile *SharkieFile) Read(data []byte) (int, error) {
 	if shFile.IsDevice {
 		return shFile.Device.Read(data)
+	}
+	if shFile.Node.isDir {
+		return 0, errors.New("is a directory")
 	}
 	shFile.mu.Lock()
 	defer shFile.mu.Unlock()
@@ -62,6 +72,9 @@ func (shFile *SharkieFile) Pread(data []byte, offset int64) (int, error) {
 	if shFile.IsDevice {
 		return 0, errors.New("illegal seek")
 	}
+	if shFile.Node.isDir {
+		return 0, errors.New("is a directory")
+	}
 	shFile.mu.Lock()
 	defer shFile.mu.Unlock()
 
@@ -76,6 +89,9 @@ func (shFile *SharkieFile) Pread(data []byte, offset int64) (int, error) {
 func (shFile *SharkieFile) ReadFull() ([]byte, error) {
 	if shFile.IsDevice {
 		return []byte{}, nil
+	}
+	if shFile.Node.isDir {
+		return []byte{}, errors.New("is a directory")
 	}
 	shFile.mu.Lock()
 	defer shFile.mu.Unlock()
@@ -94,6 +110,9 @@ func (shFile *SharkieFile) ReadFull() ([]byte, error) {
 func (shFile *SharkieFile) Write(data []byte) (int, error) {
 	if shFile.IsDevice {
 		return shFile.Device.Write(data)
+	}
+	if shFile.Node.isDir {
+		return 0, errors.New("is a directory")
 	}
 	shFile.mu.Lock()
 	defer shFile.mu.Unlock()
@@ -117,6 +136,9 @@ func (shFile *SharkieFile) Pwrite(data []byte, offset int64) (int, error) {
 	if shFile.IsDevice {
 		return 0, errors.New("illegal seek")
 	}
+	if shFile.Node.isDir {
+		return 0, errors.New("is a directory")
+	}
 	shFile.mu.Lock()
 	defer shFile.mu.Unlock()
 
@@ -135,6 +157,21 @@ func (shFile *SharkieFile) Seek(offset int64, whence int) (int64, error) {
 	shFile.mu.Lock()
 	defer shFile.mu.Unlock()
 
+	// Directory seek.
+	if shFile.Node.isDir {
+		if whence == io.SeekStart && offset == 0 {
+			shFile.DirIndex = 0
+			shFile.DirLoaded = false
+			shFile.Offset = 0
+			return 0, nil
+		}
+		if whence == io.SeekCurrent && offset == 0 {
+			return shFile.Offset, nil
+		}
+		return 0, errors.New("invalid whence")
+	}
+
+	// File seek.
 	var newOffset int64
 	switch whence {
 	case io.SeekStart:
@@ -160,6 +197,9 @@ func (shFile *SharkieFile) Truncate(length int64) error {
 	if shFile.IsDevice {
 		return shFile.Device.Truncate(length)
 	}
+	if shFile.Node.isDir {
+		return errors.New("is a directory")
+	}
 	shFile.mu.Lock()
 	defer shFile.mu.Unlock()
 
@@ -177,6 +217,14 @@ func (shFile *SharkieFile) Ioctl(request uint64, argPtr uintptr) error {
 	}
 
 	return errors.New("inappropriate ioctl for device")
+}
+
+func (shFile *SharkieFile) Close() error {
+	if shFile.IsDevice {
+		return shFile.Device.Close()
+	}
+
+	return nil
 }
 
 // Stat translates the generic underlying data into the PS4-specific FileStat struct.
@@ -213,10 +261,64 @@ func (shFile *SharkieFile) Stat() (*FileStat, error) {
 	return stat, nil
 }
 
-func (shFile *SharkieFile) Close() error {
+// Getdents reads directory entries into a buffer.
+func (shFile *SharkieFile) Getdents(nbytes uint64) ([]byte, error) {
 	if shFile.IsDevice {
-		return shFile.Device.Close()
+		return nil, errors.New("not a directory")
+	}
+	if !shFile.Node.isDir {
+		return nil, errors.New("not a directory")
+	}
+	shFile.mu.Lock()
+	defer shFile.mu.Unlock()
+
+	// Lazy load directory entries.
+	if !shFile.DirLoaded {
+		entries, err := shFile.Node.ReadDir()
+		if err != nil {
+			return nil, err
+		}
+		selfInfo, _ := shFile.Node.Stat()
+		shFile.DirEntries = append([]fs.FileInfo{
+			&fileInfo{name: ".", mode: fs.ModeDir | 0777, modTime: selfInfo.ModTime()},
+			&fileInfo{name: "..", mode: fs.ModeDir | 0777, modTime: selfInfo.ModTime()},
+		}, entries...)
+		shFile.DirLoaded = true
+	}
+	if shFile.DirIndex >= len(shFile.DirEntries) {
+		return []byte{}, nil
 	}
 
-	return nil
+	// Populate directory entries.
+	var buffer []byte
+	for shFile.DirIndex < len(shFile.DirEntries) {
+		entry := shFile.DirEntries[shFile.DirIndex]
+		nameLength := uint64(len(entry.Name()))
+		if nameLength > 255 {
+			nameLength = 255
+		}
+
+		// Entry aligned to 4-bytes (+1 for NULL terminator).
+		recordLength := ((uint64(DirectoryEntryHeaderSize) + nameLength + 1) + 3) &^ 3
+		if uint64(len(buffer))+recordLength > nbytes {
+			break // Next entry won't fit in the requested chunk.
+		}
+
+		// Construct directory entry.
+		directoryEntry := DirectoryEntry{
+			FileNumber:   HashFilenameToInode(entry.Name()),
+			RecordLength: uint16(recordLength),
+			Type:         uint8(GoToPosixMode(entry.Mode()) >> 12),
+			NameLength:   uint8(nameLength),
+		}
+		copy(directoryEntry.Name[:], entry.Name()[:nameLength])
+
+		// Append to buffer.
+		directoryEntryBytes := unsafe.Slice((*byte)(unsafe.Pointer(&directoryEntry)), recordLength)
+		buffer = append(buffer, directoryEntryBytes...)
+		shFile.DirIndex++
+	}
+	shFile.Offset += int64(len(buffer))
+
+	return buffer, nil
 }

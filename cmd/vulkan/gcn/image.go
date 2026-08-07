@@ -80,7 +80,7 @@ func TranslateDstSelToVkSwizzle(sel uint8) vk.ComponentSwizzle {
 	}
 }
 
-// TranslateGcnFormat maps GCN DataFormat and NumFormat to Vulkan VkFormat and byte size.
+// TranslateGcnFormat maps GCN formats to Vulkan VkFormat and byte size.
 func TranslateGcnFormat(dataFormat, numFormat uint8) (vk.Format, uint32) {
 	switch dataFormat {
 	case gcn.GcnDataFormat8:
@@ -165,12 +165,16 @@ func TranslateGcnFormat(dataFormat, numFormat uint8) (vk.Format, uint32) {
 			// TODO: fix this.
 			return vk.FormatB10g11r11UfloatPack32, 4
 		}
-	case gcn.GcnDataFormat10_10_10_2:
+	case gcn.GcnDataFormat10_10_10_2, gcn.GcnDataFormat2_10_10_10:
 		switch numFormat {
 		case gcn.GcnNumFormatUnorm:
 			return vk.FormatA2b10g10r10UnormPack32, 4
 		case gcn.GcnNumFormatUint:
 			return vk.FormatA2b10g10r10UintPack32, 4
+		case gcn.GcnNumFormatSnorm:
+			return vk.FormatA2b10g10r10SnormPack32, 4
+		case gcn.GcnNumFormatSint:
+			return vk.FormatA2b10g10r10SintPack32, 4
 		}
 	case gcn.GcnDataFormat8_8_8_8:
 		switch numFormat {
@@ -307,20 +311,63 @@ func TranslateGcnFormat(dataFormat, numFormat uint8) (vk.Format, uint32) {
 	return vk.FormatUndefined, 0
 }
 
-// GetBytesPerPixel returns the size of a single pixel based on the GCN DataFormat.
-func GetBytesPerPixel(format uint8) uint32 {
-	switch format {
-	case gcn.GcnDataFormat8:
-		return 1
-	case gcn.GcnDataFormat16, gcn.GcnDataFormat8_8, gcn.GcnDataFormat32, gcn.GcnDataFormat16_16, gcn.GcnDataFormat10_11_11, 25:
-		return 2
-	case gcn.GcnDataFormat10_10_10_2, gcn.GcnDataFormat8_8_8_8, gcn.GcnDataFormat32_32, 26, 34:
-		return 4
-	case gcn.GcnDataFormat16_16_16_16, gcn.GcnDataFormat32_32_32, gcn.GcnDataFormat32_32_32_32, gcn.GcnDataFormatBC1, gcn.GcnDataFormatBC4:
-		return 8
-	case gcn.GcnDataFormatReserved_15, gcn.GcnDataFormatBC2, gcn.GcnDataFormatBC3, gcn.GcnDataFormatBC5, gcn.GcnDataFormatBC6, gcn.GcnDataFormatBC7:
-		return 16
-	default:
-		return 4 // Fallback
+// TranslateComponentMapping maps GCN DataFormat and NumFormat to Vulkan VkFormat and byte size.
+func TranslateComponentMapping(dataFormat, numFormat, dstSelX, dstSelY, dstSelZ, dstSelW uint8) vk.ComponentMapping {
+	components := vk.ComponentMapping{
+		R: TranslateDstSelToVkSwizzle(dstSelX),
+		G: TranslateDstSelToVkSwizzle(dstSelY),
+		B: TranslateDstSelToVkSwizzle(dstSelZ),
+		A: TranslateDstSelToVkSwizzle(dstSelW),
 	}
+
+	// Address LSB/MSB mismatch between Vulkan/GCN formats.
+	switch dataFormat {
+	case gcn.GcnDataFormat5_6_5, gcn.GcnDataFormat1_5_5_5, gcn.GcnDataFormat11_11_10:
+		components = vk.ComponentMapping{
+			R: components.B,
+			G: components.G,
+			B: components.R,
+			A: components.A,
+		}
+	case gcn.GcnDataFormat10_10_10_2:
+		components = vk.ComponentMapping{
+			R: components.A,
+			G: components.B,
+			B: components.G,
+			A: components.R,
+		}
+	case gcn.GcnDataFormat4_4_4_4:
+		components = vk.ComponentMapping{
+			R: components.G,
+			G: components.B,
+			B: components.A,
+			A: components.R,
+		}
+	case gcn.GcnDataFormat8, gcn.GcnDataFormat8_8, gcn.GcnDataFormat16_16:
+		if components.R == vk.ComponentSwizzleA {
+			components.R = vk.ComponentSwizzleR
+		}
+		if components.G == vk.ComponentSwizzleA {
+			components.G = vk.ComponentSwizzleR
+		}
+		if components.B == vk.ComponentSwizzleA {
+			components.B = vk.ComponentSwizzleR
+		}
+		if components.A == vk.ComponentSwizzleA {
+			components.A = vk.ComponentSwizzleR
+		}
+	}
+
+	// Intentional swap because we're creating AMD GCN's 2_10_10_10 through Vulkan's 10_10_10_2.
+	switch dataFormat {
+	case gcn.GcnDataFormat2_10_10_10:
+		components = vk.ComponentMapping{
+			R: components.A,
+			G: components.B,
+			B: components.G,
+			A: components.R,
+		}
+	}
+
+	return components
 }

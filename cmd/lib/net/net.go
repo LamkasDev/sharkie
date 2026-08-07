@@ -21,6 +21,11 @@ func RegisterNetStubs() {
 	elf.RegisterStub("libSceNet", "sceNetSocket", libSceNet_stub)
 	elf.RegisterStub("libSceNet", "sceNetHtons", libSceNet_stub)
 	elf.RegisterStub("libSceNet", "sceNetPoolCreate", libSceNet_stub)
+	elf.RegisterStub("libSceNet", "sceNetRecvfrom", libSceNet_stub2)
+}
+
+func libSceNet_stub2() uintptr {
+	return 0
 }
 
 func libSceNet_stub() uintptr {

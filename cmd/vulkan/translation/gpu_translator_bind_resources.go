@@ -2,7 +2,6 @@ package translation
 
 import (
 	"fmt"
-	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/gcn"
 	gcnSpec "github.com/LamkasDev/sharkie/cmd/lib_structs/gcn/spec"
@@ -29,9 +28,9 @@ func (t *GpuTranslator) BindResources(frame uint64, bind *gpu.LiverpoolBindResou
 	if bind.VertexShader != nil {
 		// Parse fetch shader layout.
 		var fetchInstructions []*gcnSpec.Instruction
-		fetchShaderAddress := GetFetchShaderPC(bind.VertexShader, userData[:])
+		fetchShaderAddress := t.GetFetchShaderPC(bind.VertexShader, userData[:])
 		if fetchShaderAddress != 0 {
-			fetchShader := gpu.GlobalLiverpool.GetShader(gcn.GcnShaderStageVertex, fetchShaderAddress)
+			fetchShader := gpu.GlobalLiverpool.GetShader(gcn.GcnShaderStageFetch, fetchShaderAddress)
 			if fetchShader != nil {
 				fetchInstructions = ParseFetchShaderInstructions(fetchShader)
 			}
@@ -73,7 +72,7 @@ func (t *GpuTranslator) BindResources(frame uint64, bind *gpu.LiverpoolBindResou
 	staticSetToBind := t.staticDescriptorPool.DefaultSet(frame)
 	storeTargets, storeBufferTargets, activeStaticSet, err := t.GetBindDescriptorSet(shaders, userData)
 	if err != nil {
-		return
+		panic(err)
 	}
 	if activeStaticSet != vk.NullDescriptorSet {
 		staticSetToBind = activeStaticSet
@@ -102,8 +101,8 @@ func (t *GpuTranslator) GetBindDescriptorSet(shaders []*spirv.SpirvShader, userD
 	var bufferAccesses []ResolvedBufferAccess
 	var allLayouts []spirvCommon.ShaderResourceBinding
 	for _, shader := range shaders {
-		shaderImageAccesses := ResolveImageResources(shader, userData[:])
-		shaderBufferAccesses := ResolveBufferResources(shader, userData[:])
+		shaderImageAccesses := t.ResolveImageResources(shader, userData[:])
+		shaderBufferAccesses := t.ResolveBufferResources(shader, userData[:])
 		imageAccesses = append(imageAccesses, shaderImageAccesses...)
 		bufferAccesses = append(bufferAccesses, shaderBufferAccesses...)
 		allLayouts = append(allLayouts, shader.StaticLayout...)
@@ -173,13 +172,27 @@ func (t *GpuTranslator) GetBindDescriptorSet(shaders []*spirv.SpirvShader, userD
 
 	accessText := fmt.Sprintf("[Frame %d] Accessed buffers", t.currentGuestFrame)
 	for i, access := range bufferAccesses {
-		data := unsafe.Slice((*uint32)(unsafe.Pointer(access.Descriptor.BaseAddress)), 8)
-		accessText += fmt.Sprintf(" %d (0x%X/%d) + %+v", i, access.Descriptor.BaseAddress, access.Descriptor.NumRecords, data)
+		dataText := ""
+		/* if access.Descriptor.NumRecords > 0 {
+			hostAddress := t.TranslateToHostAddress(uint64(access.Descriptor.BaseAddress))
+			count := access.Descriptor.NumRecords
+			if count > 8 {
+				count = 8
+			}
+			data := unsafe.Slice((*uint32)(unsafe.Pointer(hostAddress)), count)
+			dataText = fmt.Sprintf(" data=%v", data)
+		} */
+		accessText += fmt.Sprintf(" %d (0x%X/%d%s)", i, access.Descriptor.BaseAddress, access.Descriptor.NumRecords, dataText)
 	}
 	accessText += ".\n"
 	if len(bufferAccesses) > 0 && logger.LogRenderer {
 		logger.Print(accessText)
 	}
+
+	/* for _, shader := range shaders {
+		offset := spirvStructs.GcnStageToUserDataOffset[shader.GcnShader.Stage]
+		logger.Printf("Using user data for vv: %+v\n", userData[offset:offset+16])
+	} */
 
 	// Download accessed buffer images.
 	loadBufferTargets, err := t.ResolveBufferTargets(bufferAccesses, spirvCommon.BufferAccessLoad)
@@ -214,11 +227,9 @@ func (t *GpuTranslator) updateStaticDescriptorBinding(set vk.DescriptorSet, inde
 				dstBinding = spirvStructs.StaticBindingSampledImages1D
 			case gcn.GcnImageTypeColor3D:
 				dstBinding = spirvStructs.StaticBindingSampledImages3D
-			case gcn.GcnImageTypeCubeOrArray, gcn.GcnImageTypeColor1DArray, gcn.GcnImageTypeColor2DArray, gcn.GcnImageTypeColor2DMsaa, gcn.GcnImageTypeColor2DMsaaArray:
+			case gcn.GcnImageTypeCubeOrArray, gcn.GcnImageTypeColor1DArray, gcn.GcnImageTypeColor2DArray, gcn.GcnImageTypeColor2DMsaaArray:
 				// Cube and Arrays use 2DArray view type.
-				if sampledView.Image.FirstDescriptor.Type != 14 {
-					dstBinding = spirvStructs.StaticBindingSampledImages2DArray
-				}
+				dstBinding = spirvStructs.StaticBindingSampledImages2DArray
 			}
 		}
 
@@ -244,10 +255,8 @@ func (t *GpuTranslator) updateStaticDescriptorBinding(set vk.DescriptorSet, inde
 				dstBinding = spirvStructs.StaticBindingStorageImages1D
 			case gcn.GcnImageTypeColor3D:
 				dstBinding = spirvStructs.StaticBindingStorageImages3D
-			case gcn.GcnImageTypeCubeOrArray, gcn.GcnImageTypeColor1DArray, gcn.GcnImageTypeColor2DArray, gcn.GcnImageTypeColor2DMsaa, gcn.GcnImageTypeColor2DMsaaArray:
-				if storageView.Image.FirstDescriptor.Type != 14 {
-					dstBinding = spirvStructs.StaticBindingStorageImages2DArray
-				}
+			case gcn.GcnImageTypeCubeOrArray, gcn.GcnImageTypeColor1DArray, gcn.GcnImageTypeColor2DArray, gcn.GcnImageTypeColor2DMsaaArray:
+				dstBinding = spirvStructs.StaticBindingStorageImages2DArray
 			}
 		}
 

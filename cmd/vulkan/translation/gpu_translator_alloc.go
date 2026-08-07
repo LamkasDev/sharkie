@@ -2,6 +2,7 @@ package translation
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/LamkasDev/sharkie/cmd/vulkan"
 	vk "github.com/goki/vulkan"
@@ -38,16 +39,38 @@ func (t *GpuTranslator) GetLinearBuffer(address uintptr) (vk.Buffer, uintptr, er
 	return vk.NullBuffer, 0, fmt.Errorf("address 0x%X not in any known allocator", address)
 }
 
+func (t *GpuTranslator) TranslateToHostAddress(address uintptr) uintptr {
+	t.directAllocationsMutex.Lock()
+	defer t.directAllocationsMutex.Unlock()
+	for base, alloc := range t.directAllocations {
+		if address >= base && address < base+uintptr(alloc.Length) {
+			return address
+		}
+	}
+
+	return 0
+}
+
 func (t *GpuTranslator) updateAddressTranslationSSBO() {
 	if t.addressTranslationMap == nil {
 		return
 	}
-	i := 0
-	for offset, alloc := range t.directAllocations {
-		t.addressTranslationMap[i].GuestBase = uint64(offset)
-		t.addressTranslationMap[i].GuestEnd = uint64(offset) + alloc.Length
-		t.addressTranslationMap[i].DeviceAddress = alloc.DeviceAddress
-		i++
+	offsets := make([]uintptr, 0, len(t.directAllocations))
+	for offset := range t.directAllocations {
+		offsets = append(offsets, offset)
 	}
-	t.addressTranslationMap[i].GuestBase = ^uint64(0)
+	sort.Slice(offsets, func(i, j int) bool {
+		return offsets[i] < offsets[j]
+	})
+
+	for i, offset := range offsets {
+		alloc := t.directAllocations[offset]
+		t.addressTranslationMap[i].DeviceAddress = alloc.DeviceAddress
+		t.addressTranslationMap[i].GuestEnd = uint64(offset) + alloc.Length
+		t.addressTranslationMap[i].GuestBase = uint64(offset)
+		if offset == 0 || alloc.DeviceAddress == 0 {
+			panic("nope")
+		}
+	}
+	t.addressTranslationMap[len(offsets)].GuestBase = ^uint64(0)
 }

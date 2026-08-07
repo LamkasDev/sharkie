@@ -1,7 +1,8 @@
-package fs
+package posix
 
 import (
 	"io/fs"
+	"unsafe"
 
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/time"
 )
@@ -35,6 +36,34 @@ type FileStat struct {
 	GenerationNumber      uint32    // st_gen
 	ImplementationDetails int32     // st_lspare
 	CreateTime            Timestamp // st_birthtim
+}
+
+const FileStatSize = unsafe.Sizeof(FileStat{})
+
+type DirectoryEntry struct {
+	FileNumber   uint32    // d_fileno
+	RecordLength uint16    // d_reclen
+	Type         uint8     // d_type
+	NameLength   uint8     // d_namlen
+	Name         [256]byte // d_name
+}
+
+// fileno(4) + reclen(2) + type(1) + namlen(1) = 8 bytes.
+const DirectoryEntryHeaderSize = uintptr(8)
+const DirectoryEntrySize = unsafe.Sizeof(DirectoryEntry{})
+
+// HashFilenameToInode creates a stable, non-zero 32-bit ID using FNV-1a.
+func HashFilenameToInode(name string) uint32 {
+	var hash uint32 = 2166136261
+	for i := 0; i < len(name); i++ {
+		hash ^= uint32(name[i])
+		hash *= 16777619
+	}
+	if hash == 0 {
+		return 1
+	}
+
+	return hash
 }
 
 // GoToPosixMode translates a Go fs.FileMode to a POSIX st_mode.

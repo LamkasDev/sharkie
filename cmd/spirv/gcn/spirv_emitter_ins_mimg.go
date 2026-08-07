@@ -33,7 +33,7 @@ func EmitMIMG(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 
 	bindingIndex := ctx.StaticBindingIndexConst(b, instr.DwordOffset)
 	switch details.Op {
-	case gcnSpec.MimgOpSample, gcnSpec.MimgOpSampleLz:
+	case gcnSpec.MimgOpSample, gcnSpec.MimgOpSampleLz, gcnSpec.MimgOpSampleB:
 		idStaticTextures1D := ctx.GetId(BlockContextIdStaticTextures1d)
 		idStaticTextures2D := ctx.GetId(BlockContextIdStaticTextures2d)
 		idStaticTextures3D := ctx.GetId(BlockContextIdStaticTextures3d)
@@ -58,10 +58,19 @@ func EmitMIMG(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 		ptr2DArray := b.EmitAccessChain(typePtrUniformSampledImage2DArray, idStaticTextures2DArray, bindingIndex)
 		sampledImage2DArray := b.EmitLoad(typeSampledImage2DArray, ptr2DArray)
 
+		// Determine if this is a biased sample and extract the bias.
+		isBias := details.Op == gcnSpec.MimgOpSampleB
+		coordOffset := uint32(0)
+		var bias SpirvId
+		if isBias {
+			bias = b.EmitBitcast(typeFloat, ctx.LoadRegisterPointer(b, gcnSpec.OpVgpr0+details.Vaddr))
+			coordOffset++
+		}
+
 		// Coordinates from VGPRs.
-		coordX := b.EmitBitcast(typeFloat, ctx.LoadRegisterPointer(b, gcnSpec.OpVgpr0+details.Vaddr))
-		coordY := b.EmitBitcast(typeFloat, ctx.LoadRegisterPointer(b, gcnSpec.OpVgpr0+details.Vaddr+1))
-		coordZ := b.EmitBitcast(typeFloat, ctx.LoadRegisterPointer(b, gcnSpec.OpVgpr0+details.Vaddr+2))
+		coordX := b.EmitBitcast(typeFloat, ctx.LoadRegisterPointer(b, gcnSpec.OpVgpr0+details.Vaddr+coordOffset))
+		coordY := b.EmitBitcast(typeFloat, ctx.LoadRegisterPointer(b, gcnSpec.OpVgpr0+details.Vaddr+coordOffset+1))
+		coordZ := b.EmitBitcast(typeFloat, ctx.LoadRegisterPointer(b, gcnSpec.OpVgpr0+details.Vaddr+coordOffset+2))
 
 		coord1D := coordX
 		coord2D := b.EmitCompositeConstruct(typeV2Float, coordX, coordY)
@@ -73,6 +82,16 @@ func EmitMIMG(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 			sampledImage1D, sampledImage2D, sampledImage3D, sampledImage2DArray,
 			coord1D, coord2D, coord3D, coord2DArray,
 			func(imageId, coord SpirvId, resType int) SpirvId {
+				if isBias {
+					if ctx.Stage == gcn.GcnShaderStageFragment {
+						return b.EmitImageSampleImplicitLodOperands(typeV4Float, imageId, coord, spec.SpvImageOperandsBiasMask, bias)
+					}
+
+					// Non-fragment stages do not support ImplicitLod in SPIR-V.
+					// Treat the bias as an absolute LOD value.
+					return b.EmitImageSampleExplicitLod(typeV4Float, imageId, coord, bias)
+				}
+
 				lod := ctx.GetConstId(ConstIdFloat0)
 				switch {
 				case details.Op == gcnSpec.MimgOpSampleLz:

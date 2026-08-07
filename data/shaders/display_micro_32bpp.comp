@@ -22,7 +22,6 @@ layout(push_constant) uniform image_info {
     uint c0;
     uint c1;
     uint is_retile;
-    uint sizes[16];
 } info;
 
 const uint lut_32bpp[16] = {

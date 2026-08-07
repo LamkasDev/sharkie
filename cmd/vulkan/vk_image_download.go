@@ -150,18 +150,19 @@ func (image *VulkanImage) DownloadFromVkImage(handles *VulkanHandles, commandBuf
 		// Push retile options.
 		c0 := width / 8
 		c1 := c0 * ((height + 7) / 8)
-		pushConstants := make([]uint32, 6)
-		pushConstants[0] = 0 // num_levels
-		pushConstants[1] = width
-		pushConstants[2] = height
-		pushConstants[3] = c0
-		pushConstants[4] = c1
-		pushConstants[5] = 1 // is_retile = true
+		pushConstants := DetilePushConstants{
+			NumLevels: 0,
+			Pitch:     width,
+			Height:    height,
+			C0:        c0,
+			C1:        c1,
+			IsRetile:  1,
+		}
 		vk.CmdPushConstants(
 			commandBuffer.CommandBuffer, pipeline.PipelineLayout,
 			vk.ShaderStageFlags(vk.ShaderStageComputeBit),
-			0, uint32(len(pushConstants)*4),
-			unsafe.Pointer(&pushConstants[0]),
+			0, uint32(DetilePushConstantsSize),
+			unsafe.Pointer(&pushConstants),
 		)
 
 		// Dispatch retile shader.

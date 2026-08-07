@@ -145,8 +145,9 @@ const (
 
 // SPIR-V image operand masks.
 const (
-	SpvImageOperandsNone    = uint32(0)
-	SpvImageOperandsLodMask = uint32(2)
+	SpvImageOperandsNone     = uint32(0)
+	SpvImageOperandsBiasMask = uint32(1)
+	SpvImageOperandsLodMask  = uint32(2)
 )
 
 // SPIR-V Opcodes.

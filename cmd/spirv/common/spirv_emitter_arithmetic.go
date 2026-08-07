@@ -226,17 +226,39 @@ func (b *SpvBuilder) EmitSampledImage(resultType, image, sampler SpirvId) SpirvI
 	return id
 }
 
-// EmitImageSampleImplicitLod emits OpImageSampleImplicitLod and returns the result ID.
+// EmitImageSampleImplicitLod emits OpImageSampleImplicitLod without any optional image operands.
 func (b *SpvBuilder) EmitImageSampleImplicitLod(resultType, sampledImage, coordinate SpirvId) SpirvId {
 	id := b.AllocId()
 	b.instr(&b.code, spec.SpvOpImageSampleImplicitLod, uint32(resultType), uint32(id), uint32(sampledImage), uint32(coordinate))
 	return id
 }
 
-// EmitImageSampleExplicitLod emits OpImageSampleExplicitLod and returns the result ID.
-func (b *SpvBuilder) EmitImageSampleExplicitLod(resultType, sampledImage, coordinate SpirvId, lod SpirvId) SpirvId {
+// EmitImageSampleImplicitLodOperands emits OpImageSampleImplicitLod with a specific image operand mask and variadic arguments.
+func (b *SpvBuilder) EmitImageSampleImplicitLodOperands(resultType, sampledImage, coordinate SpirvId, imageOperandsMask uint32, operands ...SpirvId) SpirvId {
+	id := b.AllocId()
+	args := []uint32{uint32(resultType), uint32(id), uint32(sampledImage), uint32(coordinate), imageOperandsMask}
+	for _, op := range operands {
+		args = append(args, uint32(op))
+	}
+	b.instr(&b.code, spec.SpvOpImageSampleImplicitLod, args...)
+	return id
+}
+
+// EmitImageSampleExplicitLod emits OpImageSampleExplicitLod with the standard LOD mask and operand.
+func (b *SpvBuilder) EmitImageSampleExplicitLod(resultType, sampledImage, coordinate, lod SpirvId) SpirvId {
 	id := b.AllocId()
 	b.instr(&b.code, spec.SpvOpImageSampleExplicitLod, uint32(resultType), uint32(id), uint32(sampledImage), uint32(coordinate), uint32(spec.SpvImageOperandsLodMask), uint32(lod))
+	return id
+}
+
+// EmitImageSampleExplicitLodOperands emits OpImageSampleExplicitLod with a custom image operand mask and variadic arguments.
+func (b *SpvBuilder) EmitImageSampleExplicitLodOperands(resultType, sampledImage, coordinate SpirvId, imageOperandsMask uint32, operands ...SpirvId) SpirvId {
+	id := b.AllocId()
+	args := []uint32{uint32(resultType), uint32(id), uint32(sampledImage), uint32(coordinate), imageOperandsMask}
+	for _, op := range operands {
+		args = append(args, uint32(op))
+	}
+	b.instr(&b.code, spec.SpvOpImageSampleExplicitLod, args...)
 	return id
 }
 

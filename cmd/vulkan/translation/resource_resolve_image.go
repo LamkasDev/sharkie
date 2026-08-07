@@ -1,6 +1,7 @@
 package translation
 
 import (
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/gcn"
 	gcnSpec "github.com/LamkasDev/sharkie/cmd/lib_structs/gcn/spec"
 	"github.com/LamkasDev/sharkie/cmd/spirv"
 	. "github.com/LamkasDev/sharkie/cmd/spirv/common"
@@ -17,7 +18,7 @@ type ResolvedImageAccess struct {
 }
 
 // ResolveImageResources simulates scalar SGPR updates and resolves T# descriptors.
-func ResolveImageResources(shader *spirv.SpirvShader, userData []uint32) []ResolvedImageAccess {
+func (t *GpuTranslator) ResolveImageResources(shader *spirv.SpirvShader, userData []uint32) []ResolvedImageAccess {
 	stageBase := spirvStructs.GcnStageToUserDataOffset[shader.GcnShader.Stage]
 	registers := gcnSpec.GcnRegisters{}
 	for i := range 16 {
@@ -31,23 +32,23 @@ func ResolveImageResources(shader *spirv.SpirvShader, userData []uint32) []Resol
 		block := &shader.GcnShader.Cfg.Blocks[blockId]
 		for i := range block.Instructions {
 			instr := &block.Instructions[i]
-			accesses = resolveImageResourcesIns(instr, &registers, accesses)
+			accesses = t.resolveImageResourcesIns(shader.GcnShader, instr, &registers, accesses)
 		}
 	}
 
 	return accesses
 }
 
-func resolveImageResourcesIns(instr *gcnSpec.Instruction, registers *gcnSpec.GcnRegisters, accesses []ResolvedImageAccess) []ResolvedImageAccess {
+func (t *GpuTranslator) resolveImageResourcesIns(shader *gcn.GcnShader, instr *gcnSpec.Instruction, registers *gcnSpec.GcnRegisters, accesses []ResolvedImageAccess) []ResolvedImageAccess {
 	switch instr.Encoding {
 	case gcnSpec.EncSOP1:
-		applySOP1(instr, registers)
+		applySOP1(shader, instr, registers)
 	case gcnSpec.EncSOP2:
 		applySOP2(instr, registers)
 	case gcnSpec.EncSOPC:
 		applySOPC(instr, registers)
 	case gcnSpec.EncSMRD:
-		applySMRD(instr, registers)
+		t.applySMRD(instr, registers)
 	case gcnSpec.EncMIMG:
 		accesses = append(accesses, resolveMIMG(instr, registers))
 	}

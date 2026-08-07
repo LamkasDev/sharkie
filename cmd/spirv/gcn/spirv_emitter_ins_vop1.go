@@ -141,6 +141,33 @@ func EmitVOP1(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 		val := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
 		resF := b.EmitExtInst(ctx.GetId(BlockContextIdTypeFloat), ctx.GetId(BlockContextIdTypeGlsl), spec.SpvGlslOpLog2, val)
 		StoreRegisterPointerMaskedModified(b, ctx, details.Clamp, details.OMod, details.Vdst+gcnSpec.OpVgpr0, resF, true)
+	case gcnSpec.Vop1OpSinF32:
+		typeFloat := ctx.GetId(BlockContextIdTypeFloat)
+		typeBool := ctx.GetId(BlockContextIdTypeBool)
+		typeUint := ctx.GetId(BlockContextIdTypeUint)
+
+		valF := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
+
+		// Convert normalized input to radians (valF * 2PI).
+		// 0x40C90FDB is the IEEE-754 binary representation of 2*PI (6.2831855).
+		twoPi := b.EmitBitcast(typeFloat, b.EmitConstantUint(typeUint, 0x40C90FDB))
+		radians := b.EmitFMul(typeFloat, valF, twoPi)
+
+		// Compute the sine value.
+		sinVal := b.EmitExtInst(typeFloat, ctx.GetId(BlockContextIdTypeGlsl), spec.SpvGlslOpSin, radians)
+
+		// Bounds check (valid domain is [-256.0, +256.0]).
+		// We can check this efficiently by taking the absolute value: abs(valF) <= 256.0.
+		absVal := b.EmitExtInst(typeFloat, ctx.GetId(BlockContextIdTypeGlsl), spec.SpvGlslOpFAbs, valF)
+
+		// 0x43800000 is the IEEE-754 binary representation of 256.0.
+		limit := b.EmitBitcast(typeFloat, b.EmitConstantUint(typeUint, 0x43800000))
+		inBounds := b.EmitFOrdLessThanEqual(typeBool, absVal, limit)
+
+		// Select the computed sine if in bounds, otherwise 0.0.
+		resF := b.EmitSelect(typeFloat, inBounds, sinVal, ctx.GetConstId(ConstIdFloat0))
+
+		StoreRegisterPointerMaskedModified(b, ctx, details.Clamp, details.OMod, details.Vdst+gcnSpec.OpVgpr0, resF, true)
 	default:
 		panic(fmt.Sprintf("unknown vop1 op %s", gcnSpec.Mnemotics[gcnSpec.EncVOP1][details.Op]))
 	}

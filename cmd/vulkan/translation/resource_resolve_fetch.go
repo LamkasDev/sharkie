@@ -13,20 +13,13 @@ func ParseFetchShaderInstructions(shader *gcn.GcnShader) []*gcnSpec.Instruction 
 		for i := range block.Instructions {
 			instruction := &block.Instructions[i]
 			instructions = append(instructions, instruction)
-			switch instruction.Encoding {
-			case gcnSpec.EncSOP1:
-				details := instruction.Details.(*gcnSpec.ScalarDetails)
-				if details.Op == gcnSpec.Sop1OpSetpcB64 {
-					return instructions
-				}
-			}
 		}
 	}
 
 	return instructions
 }
 
-func GetFetchShaderPC(shader *gcn.GcnShader, userData []uint32) uintptr {
+func (t *GpuTranslator) GetFetchShaderPC(shader *gcn.GcnShader, userData []uint32) uintptr {
 	stageBase := spirvStructs.GcnStageToUserDataOffset[shader.Stage]
 	registers := gcnSpec.GcnRegisters{}
 	for i := range uint32(16) {
@@ -42,7 +35,7 @@ func GetFetchShaderPC(shader *gcn.GcnShader, userData []uint32) uintptr {
 			instr := &block.Instructions[i]
 			switch instr.Encoding {
 			case gcnSpec.EncSOP1:
-				applySOP1(instr, &registers)
+				applySOP1(shader, instr, &registers)
 				details := instr.Details.(*gcnSpec.ScalarDetails)
 				if details.Op == gcnSpec.Sop1OpSwappcB64 {
 					fetchPCLo := registers[details.Src0]
@@ -54,7 +47,7 @@ func GetFetchShaderPC(shader *gcn.GcnShader, userData []uint32) uintptr {
 			case gcnSpec.EncSOPC:
 				applySOPC(instr, &registers)
 			case gcnSpec.EncSMRD:
-				applySMRD(instr, &registers)
+				t.applySMRD(instr, &registers)
 			}
 		}
 	}

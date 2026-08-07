@@ -35,23 +35,33 @@ func (image *VulkanImage) ClearSync(flag ImageSyncFlags) {
 }
 
 func (image *VulkanImage) MarkCpuModified(frame uint64) {
+	if image.HasSync(ImageSyncCpuModified) {
+		return
+	}
 	image.SetSync(ImageSyncCpuModified)
 	image.ClearSync(ImageSyncGpuModified)
 }
 
 func (image *VulkanImage) MarkGpuModified(frame uint64) {
+	image.SetSync(ImageSyncNeedsReadBarrier)
 	if image.HasSync(ImageSyncGpuModified) {
-		image.SetSync(ImageSyncNeedsReadBarrier)
 		return
 	}
-	image.SetSync(ImageSyncGpuModified | ImageSyncNeedsReadBarrier)
+	image.SetSync(ImageSyncGpuModified)
 	image.ClearSync(ImageSyncCpuModified)
-	structs.GlobalMemoryManager.UpdateTraps(image.Address, image.GuestSize, 0) // PROT_NONE
+	if !image.IsSurface {
+		structs.GlobalMemoryManager.UpdateTraps(image.Address, image.GuestSize, 0) // PROT_NONE
+	}
 }
 
 func (image *VulkanImage) MarkSynced(frame uint64) {
+	if !image.HasSync(ImageSyncCpuModified) && !image.HasSync(ImageSyncGpuModified) {
+		return
+	}
 	image.ClearSync(ImageSyncCpuModified | ImageSyncGpuModified)
-	structs.GlobalMemoryManager.UpdateTraps(image.Address, image.GuestSize, 1) // PROT_READ
+	if !image.IsSurface {
+		structs.GlobalMemoryManager.UpdateTraps(image.Address, image.GuestSize, 1) // PROT_READ
+	}
 }
 
 type VulkanImage struct {
@@ -396,8 +406,8 @@ func (image *VulkanImage) NeedsRecreate(descriptor spirvStructs.ImageDescriptor,
 		return true
 	}
 	stored := image.FirstDescriptor
-	requestedBpp := gcn.GetBytesPerPixel(descriptor.DataFormat)
-	storedBpp := gcn.GetBytesPerPixel(stored.DataFormat)
+	_, requestedBpp := gcn.TranslateGcnFormat(descriptor.DataFormat, descriptor.NumFormat)
+	_, storedBpp := gcn.TranslateGcnFormat(stored.DataFormat, descriptor.NumFormat)
 	requestedIsBlock := descriptor.DataFormat >= gcn2.GcnDataFormatBC1 && descriptor.DataFormat <= gcn2.GcnDataFormatBC7
 	storedIsBlock := stored.DataFormat >= gcn2.GcnDataFormatBC1 && stored.DataFormat <= gcn2.GcnDataFormatBC7
 	if descriptor.TilingIndex != stored.TilingIndex || requestedBpp != storedBpp || requestedIsBlock != storedIsBlock {
@@ -416,7 +426,21 @@ func (image *VulkanImage) NeedsRecreate(descriptor spirvStructs.ImageDescriptor,
 
 func (image *VulkanImage) GetStagingBufferSize() vk.DeviceSize {
 	dims := image.GetTiledDimensions(int(image.FirstDescriptor.BaseLevel))
-	return vk.DeviceSize(dims.Width * dims.Height * dims.Bpp)
+
+	// Detile/retile shaders process full 8x8 micro-tiles.
+	// If the height is unaligned, the shader will still write to the padded rows.
+	paddedHeight := (dims.Height + 7) & ^uint32(7)
+	size := vk.DeviceSize(dims.Width * paddedHeight * dims.Bpp)
+
+	// Ensure the buffer is at least as large as the dispatched threads (groups * 64 texels).
+	texels := dims.Width * dims.Height
+	dispatchTexels := ((texels + 63) / 64) * 64
+	dispatchSize := vk.DeviceSize(dispatchTexels * dims.Bpp)
+	if dispatchSize > size {
+		size = dispatchSize
+	}
+
+	return size
 }
 
 type ImageDimensions struct {
@@ -431,7 +455,7 @@ type ImageDimensions struct {
 
 func (image *VulkanImage) GetLinearDimensions() ImageDimensions {
 	isBlock := image.FirstDescriptor.DataFormat >= gcn2.GcnDataFormatBC1 && image.FirstDescriptor.DataFormat <= gcn2.GcnDataFormatBC7
-	bpp := uint32(gcn.GetBytesPerPixel(image.FirstDescriptor.DataFormat))
+	_, bpp := gcn.TranslateGcnFormat(image.FirstDescriptor.DataFormat, image.FirstDescriptor.NumFormat)
 	width := uint32(image.FirstDescriptor.Width)
 	height := uint32(image.FirstDescriptor.Height)
 	pitch := uint32(image.FirstDescriptor.Pitch)
@@ -462,7 +486,7 @@ func (image *VulkanImage) GetLinearDimensions() ImageDimensions {
 
 func (image *VulkanImage) GetTiledDimensions(mipLevel int) ImageDimensions {
 	isBlock := image.FirstDescriptor.DataFormat >= gcn2.GcnDataFormatBC1 && image.FirstDescriptor.DataFormat <= gcn2.GcnDataFormatBC7
-	bpp := uint32(gcn.GetBytesPerPixel(image.FirstDescriptor.DataFormat))
+	_, bpp := gcn.TranslateGcnFormat(image.FirstDescriptor.DataFormat, image.FirstDescriptor.NumFormat)
 
 	if mipLevel >= len(image.Layouts) {
 		return ImageDimensions{}

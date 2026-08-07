@@ -11,7 +11,7 @@ import (
 
 	"github.com/LamkasDev/sharkie/cmd/config"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
-	"github.com/LamkasDev/sharkie/cmd/lib_structs/posix"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/posix"
 )
 
 var GlobalFilesystem *SharkieFilesystem
@@ -84,9 +84,6 @@ func (shFs *SharkieFilesystem) Open(path string, flags FileFlags, mode FileMode)
 	node, err := shFs.Fs.GetOrCreateNode(path, create, false, os.FileMode(mode))
 	if err != nil {
 		return -1, err
-	}
-	if node.isDir {
-		return -1, errors.New("is a directory")
 	}
 
 	// Handle TRUNC flag if it already existed and wasn't a device
@@ -321,6 +318,26 @@ func (shFs *SharkieFilesystem) StatFd(fd FileDescriptor) (*FileStat, error) {
 	return shFile.Stat()
 }
 
+func (shFs *SharkieFilesystem) Getdents(path string, nbytes uint64) ([]byte, error) {
+	fd, err := shFs.Open(path, O_RDONLY, 0)
+	if err != nil {
+		return nil, err
+	}
+	defer shFs.Close(fd)
+	return shFs.GetdentsFd(fd, nbytes)
+}
+
+func (shFs *SharkieFilesystem) GetdentsFd(fd FileDescriptor, nbytes uint64) ([]byte, error) {
+	shFs.Lock.Lock()
+	shFile, ok := shFs.Descriptors[fd]
+	shFs.Lock.Unlock()
+	if !ok {
+		return nil, errors.New("invalid file descriptor")
+	}
+
+	return shFile.Getdents(nbytes)
+}
+
 func (shFs *SharkieFilesystem) Close(fd FileDescriptor) error {
 	shFs.Lock.Lock()
 	defer shFs.Lock.Unlock()
@@ -420,25 +437,27 @@ func (shFs *SharkieFilesystem) GetUsablePath(rawPath string) string {
 func FsToPosixError(err error) uintptr {
 	switch err {
 	case fs.ErrPermission:
-		return posix.EACCES
+		return EACCES
 	case fs.ErrNotExist:
-		return posix.ENOENT
+		return ENOENT
 	case fs.ErrExist:
-		return posix.EEXIST
+		return EEXIST
 	case fs.ErrInvalid:
-		return posix.EFAULT // maybe ENOTDIR?
+		return EFAULT // maybe ENOTDIR?
 	}
 	switch err.Error() {
 	case "invalid file descriptor", "file not opened for reading", "file not opened for writing":
-		return posix.EBADF
+		return EBADF
 	case "is a directory":
-		return posix.EISDIR
+		return EISDIR
 	case "negative offset", "negative size", "invalid whence", "negative seek offset",
 		"illegal seek", "inappropriate ioctl for device":
-		return posix.EINVAL
+		return EINVAL
+	case "not a directory":
+		return ENOTDIR
 	}
 
-	return posix.EFAULT
+	return EFAULT
 }
 
 func SetupFilesystem() {

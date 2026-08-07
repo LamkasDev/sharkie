@@ -18,7 +18,7 @@ type ResolvedBufferAccess struct {
 }
 
 // ResolveBufferResources simulates scalar SGPR updates and resolves T# descriptors.
-func ResolveBufferResources(shader *spirv.SpirvShader, userData []uint32) []ResolvedBufferAccess {
+func (t *GpuTranslator) ResolveBufferResources(shader *spirv.SpirvShader, userData []uint32) []ResolvedBufferAccess {
 	stageBase := spirvStructs.GcnStageToUserDataOffset[shader.GcnShader.Stage]
 	registers := gcnSpec.GcnRegisters{}
 	for i := range 16 {
@@ -32,14 +32,14 @@ func ResolveBufferResources(shader *spirv.SpirvShader, userData []uint32) []Reso
 		block := &shader.GcnShader.Cfg.Blocks[blockId]
 		for i := range block.Instructions {
 			instr := &block.Instructions[i]
-			accesses = resolveBufferResourcesIns(instr, &registers, accesses)
+			accesses = t.resolveBufferResourcesIns(shader.GcnShader, instr, &registers, accesses)
 		}
 	}
 
 	return accesses
 }
 
-func resolveBufferResourcesIns(instr *gcnSpec.Instruction, registers *gcnSpec.GcnRegisters, accesses []ResolvedBufferAccess) []ResolvedBufferAccess {
+func (t *GpuTranslator) resolveBufferResourcesIns(shader *gcn.GcnShader, instr *gcnSpec.Instruction, registers *gcnSpec.GcnRegisters, accesses []ResolvedBufferAccess) []ResolvedBufferAccess {
 	switch instr.Encoding {
 	case gcnSpec.EncSOP1:
 		details := instr.Details.(*gcnSpec.ScalarDetails)
@@ -48,22 +48,22 @@ func resolveBufferResourcesIns(instr *gcnSpec.Instruction, registers *gcnSpec.Gc
 			fetchPCHi := registers[details.Src0+1]
 			fetchShaderAddress := uintptr(fetchPCLo) | (uintptr(fetchPCHi) << 32)
 			if fetchShaderAddress != 0 {
-				fetchShader := gpu.GlobalLiverpool.GetShader(gcn.GcnShaderStageVertex, fetchShaderAddress)
+				fetchShader := gpu.GlobalLiverpool.GetShader(gcn.GcnShaderStageFetch, fetchShaderAddress)
 				if fetchShader != nil {
 					fetchInstructions := ParseFetchShaderInstructions(fetchShader)
 					for _, fetchInstr := range fetchInstructions {
-						accesses = resolveBufferResourcesIns(fetchInstr, registers, accesses)
+						accesses = t.resolveBufferResourcesIns(shader, fetchInstr, registers, accesses)
 					}
 				}
 			}
 		}
-		applySOP1(instr, registers)
+		applySOP1(shader, instr, registers)
 	case gcnSpec.EncSOP2:
 		applySOP2(instr, registers)
 	case gcnSpec.EncSOPC:
 		applySOPC(instr, registers)
 	case gcnSpec.EncSMRD:
-		applySMRD(instr, registers)
+		t.applySMRD(instr, registers)
 	case gcnSpec.EncMUBUF:
 		accesses = append(accesses, resolveMUBUF(instr, registers))
 	case gcnSpec.EncMTBUF:

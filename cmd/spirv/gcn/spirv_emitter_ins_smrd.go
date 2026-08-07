@@ -40,54 +40,84 @@ func SmrdLoadDwordCount(op uint32) uint32 {
 
 func emitSMRDLoadScalar(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext, count uint32) {
 	details := instr.Details.(*gcnSpec.SmrdDetails)
+	typeUint := ctx.GetId(BlockContextIdTypeUint)
 
 	// S_LOAD_* uses a 64-bit byte base address from SGPR[SBASE*2].
 	base := details.Base * 2
 	lo, hi := ctx.GetOperand64Value(b, gcnSpec.OpSgpr0+base, 0)
 	base64 := ctx.Pack64(b, lo, hi)
 
-	emitSMRDLoadFromBase(b, instr, ctx, count, base64)
+	// Calculate offset in bytes.
+	var byteOffset SpirvId
+	if details.ImmOff {
+		if instr.HasLiteral {
+			// 64-bit SMRD: offset is a 32-bit byte offset.
+			byteOffset = b.EmitConstantUint(typeUint, instr.Literal)
+		} else {
+			// 32-bit SMRD: offset is an 8-bit unsigned dword offset.
+			byteOffset = b.EmitConstantUint(typeUint, details.Offset*4)
+		}
+	} else {
+		// Offset is an SGPR index containing an unsigned byte offset.
+		byteOffset = ctx.GetOperandUintValue(b, gcnSpec.OpSgpr0+details.Offset, 0)
+	}
+
+	// S_LOAD_DWORD does not have out-of-bounds checks, so always false.
+	outOfRange := ctx.GetId(BlockContextIdFalse)
+
+	emitSMRDLoadFromBase(b, instr, ctx, count, base64, byteOffset, outOfRange)
 }
 
 func emitSMRDLoadBuffer(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext, count uint32) {
 	details := instr.Details.(*gcnSpec.SmrdDetails)
 	typeUint := ctx.GetId(BlockContextIdTypeUint)
+	typeBool := ctx.GetId(BlockContextIdTypeBool)
 	idFFFF := ctx.GetConstId(ConstIdUintFFFF)
 
 	// S_BUFFER_LOAD_* uses a 4-SGPR buffer resource constant.
 	// Base address is {SGPR[SBASE*2+1][15:0], SGPR[SBASE*2]}.
 	lo := ctx.GetOperandUintValue(b, gcnSpec.OpSgpr0+details.Base*2, 0)
 	hi := ctx.GetOperandUintValue(b, gcnSpec.OpSgpr0+details.Base*2+1, 0)
-	hi = b.EmitBitwiseAnd(typeUint, hi, idFFFF)
-	base64 := ctx.Pack64(b, lo, hi)
+	hiPacked := b.EmitBitwiseAnd(typeUint, hi, idFFFF)
+	base64 := ctx.Pack64(b, lo, hiPacked)
 
-	emitSMRDLoadFromBase(b, instr, ctx, count, base64)
-}
-
-func emitSMRDLoadFromBase(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext, count uint32, base64 SpirvId) {
-	details := instr.Details.(*gcnSpec.SmrdDetails)
-	typeUint := ctx.GetId(BlockContextIdTypeUint)
-	typeUint64 := ctx.GetId(BlockContextIdTypeUint64)
-	idPtrPsbUint := ctx.GetId(BlockContextIdPtrPsbUint)
-	idNot3 := ctx.GetConstId(ConstId64UintNot3)
+	// Stride is dw1[29:16].
+	dw2 := ctx.GetOperandUintValue(b, gcnSpec.OpSgpr0+details.Base*2+2, 0)
+	stride := b.EmitBitwiseAnd(typeUint, b.EmitShiftRightLogical(typeUint, hi, ctx.GetConstId(ConstIdUint16)), ctx.GetConstId(ConstIdUint3FFF))
+	numRecords := dw2
 
 	// Calculate offset in bytes.
 	var byteOffset SpirvId
 	if details.ImmOff {
 		if instr.HasLiteral {
-			// TODO: use built-ins.
 			// 64-bit SMRD: offset is a 32-bit byte offset.
 			byteOffset = b.EmitConstantUint(typeUint, instr.Literal)
 		} else {
-			// TODO: use built-ins.
 			// 32-bit SMRD: offset is an 8-bit unsigned dword offset.
 			byteOffset = b.EmitConstantUint(typeUint, details.Offset*4)
 		}
 	} else {
-		// Offset is an SGPR index containing an unsigned byte offset.
-		offsetVal := ctx.GetOperandUintValue(b, gcnSpec.OpSgpr0+details.Offset, 0)
-		byteOffset = offsetVal
+		byteOffset = ctx.GetOperandUintValue(b, gcnSpec.OpSgpr0+details.Offset, 0)
 	}
+
+	// Buffer resource bounds check.
+	// Stride is zero: clamp if (offset >= num_records).
+	// Stride is non-zero: clamp if (offset >= (stride * num_records)).
+	strideIsZero := b.EmitIEqual(typeBool, stride, ctx.GetConstId(ConstIdUint0))
+	outOfRangeZero := b.EmitUGreaterThanEqual(typeBool, byteOffset, numRecords)
+	outOfRangeNonZero := b.EmitUGreaterThanEqual(typeBool, byteOffset, b.EmitIMul(typeUint, stride, numRecords))
+	outOfRange := b.EmitSelect(typeBool, strideIsZero, outOfRangeZero, outOfRangeNonZero)
+
+	emitSMRDLoadFromBase(b, instr, ctx, count, base64, byteOffset, outOfRange)
+}
+
+func emitSMRDLoadFromBase(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext, count uint32, base64, byteOffset, outOfRange SpirvId) {
+	details := instr.Details.(*gcnSpec.SmrdDetails)
+	typeUint := ctx.GetId(BlockContextIdTypeUint)
+	typeUint64 := ctx.GetId(BlockContextIdTypeUint64)
+	typeBool := ctx.GetId(BlockContextIdTypeBool)
+	idPtrPsbUint := ctx.GetId(BlockContextIdPtrPsbUint)
+	idNot3 := ctx.GetConstId(ConstId64UintNot3)
 
 	// m_addr = (base + m_offset) & ~0x3
 	byteOffset64 := b.EmitUConvert(typeUint64, byteOffset)
@@ -98,10 +128,27 @@ func emitSMRDLoadFromBase(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvB
 	translatedAddr64 := ctx.TranslateAddress(b, addr64Aligned)
 	ptrBase := b.EmitBitcast(idPtrPsbUint, translatedAddr64)
 
+	// Perform bounds checking.
+	isValid := b.EmitLogicalNot(typeBool, outOfRange)
+	validLabel := b.AllocId()
+	invalidLabel := b.AllocId()
+	mergeLabel := b.AllocId()
+
+	b.EmitSelectionMerge(mergeLabel, spec.SpvSelectionControlNone)
+	b.EmitBranchConditional(isValid, validLabel, invalidLabel)
+
+	// Load dwords.
+	b.EmitLabel(validLabel)
 	for i := range count {
-		// Load each dword.
 		ptr := b.EmitPtrAccessChain(idPtrPsbUint, ptrBase, ctx.GetConstId(ConstIdUint0+SpirvId(i)))
 		val := b.EmitLoad(typeUint, ptr, spec.SpvMemoryAccessAligned, 4)
 		ctx.StoreRegisterPointer(b, gcnSpec.OpSgpr0+details.Dst+i, val)
 	}
+	b.EmitBranch(mergeLabel)
+
+	// If the memory address is out-of-range (clamped), the operation is not performed.
+	b.EmitLabel(invalidLabel)
+	b.EmitBranch(mergeLabel)
+
+	b.EmitLabel(mergeLabel)
 }
