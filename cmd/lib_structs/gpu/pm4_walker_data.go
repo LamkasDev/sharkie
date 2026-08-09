@@ -84,13 +84,13 @@ func (l *Liverpool) handleDmaData(stream *LiverpoolCommandStream, payload []uint
 
 	// Validate.
 	count := payload[5] & 0x3FFFFF
+	if dstAddrLow == 0x3022C { // Not sure what this is, shadps4 skips it too.
+		return
+	}
 	if srcAddr == 0 || dstAddr == 0 {
 		logger.Printf("[%s] failed dma data invalid address.\n",
 			color.Green.Sprintf("PM4-%s/%d", stream.Name, len(payload)),
 		)
-		return
-	}
-	if dstAddrLow == 0x3022C { // Not sure what this is, shadps4 skips it too.
 		return
 	}
 

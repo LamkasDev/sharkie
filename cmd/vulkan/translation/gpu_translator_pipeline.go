@@ -28,7 +28,7 @@ func (t *GpuTranslator) BindPipeline(frame uint64, bind *gpu.LiverpoolBindPipeli
 	// Handle color surface.
 	var rtWidth, rtHeight uint32
 	var colorSurface *vulkan.VulkanSurface
-	rtFormat := vkGcn.TranslateColorFormat(bind.CbColorInfo0.Format(), bind.CbColorInfo0.NumberType(), bind.CbColorInfo0.CompSwap())
+	rtFormat, _ := vkGcn.TranslateGcnFormat(uint8(bind.CbColorInfo0.Format()), uint8(bind.CbColorInfo0.NumberType()), bind.CbColorInfo0.CompSwap())
 	if rtAddress != 0 && rtFormat != vk.FormatUndefined {
 		rtWidth = vkGcn.ColorBufferPitch(reg.CbColorPitch(bind.RtPitch))
 		rtHeight = vkGcn.ColorBufferHeight(reg.CbColorPitch(bind.RtPitch), bind.RtSlice)

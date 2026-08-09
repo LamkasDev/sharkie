@@ -2,9 +2,7 @@ package gnm_driver
 
 import (
 	"github.com/LamkasDev/sharkie/cmd/emu"
-	. "github.com/LamkasDev/sharkie/cmd/lib_structs/gc"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/gpu"
-	. "github.com/LamkasDev/sharkie/cmd/lib_structs/posix"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
 )
@@ -12,7 +10,11 @@ import (
 // 0x00000000000019D0
 // _BOOL8 sceGnmAreSubmitsAllowed()
 func libSceGnmDriver_sceGnmAreSubmitsAllowed() uintptr {
-	// TODO: finish this.
+	allowed := GlobalLiverpool.UnfinishedSubmits <= 0
+	if !allowed {
+		return 0
+	}
+
 	return 1
 }
 
@@ -20,10 +22,7 @@ func libSceGnmDriver_sceGnmAreSubmitsAllowed() uintptr {
 // __int64 sceGnmSubmitDone()
 func libSceGnmDriver_sceGnmSubmitDone() int64 {
 	// Wait for work to finish.
-	GlobalLiverpool.WaitOnFence()
-
-	// Signal that we're done.
-	WriteAddress(GlobalGraphicsController.SubmitDoneAddress, uintptr(1))
+	GlobalLiverpool.WaitIdleFinish()
 
 	if logger.LogGraphics {
 		logger.Printf("%-132s %s signaled done.\n",

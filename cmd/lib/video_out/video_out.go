@@ -16,6 +16,7 @@ func RegisterVideoOutStubs() {
 	elf.RegisterStub("libSceVideoOut", "sceVideoOutModeSetAny_", libSceVideoOut_stub)
 	elf.RegisterStub("libSceVideoOut", "sceVideoOutGetResolutionStatus", libSceVideoOut_sceVideoOutGetResolutionStatus)
 	elf.RegisterStub("libSceVideoOut", "sceVideoOutGetDeviceCapabilityInfo_", libSceVideoOut_sceVideoOutGetDeviceCapabilityInfo_)
+	elf.RegisterStub("libSceVideoOut", "sceVideoOutSetWindowModeMargins", libSceVideoOut_stub)
 
 	// Flip functions.
 	elf.RegisterStub("libSceVideoOut", "sceVideoOutAddFlipEvent", libSceVideoOut_sceVideoOutAddFlipEvent)

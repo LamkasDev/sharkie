@@ -130,6 +130,8 @@ func emitSMRDLoadFromBase(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvB
 
 	// Perform bounds checking.
 	isValid := b.EmitLogicalNot(typeBool, outOfRange)
+	isValidAddress := b.EmitINotEqual(typeBool, translatedAddr64, ctx.GetConstId(ConstId64Uint0))
+	isValid = b.EmitLogicalAnd(typeBool, isValid, isValidAddress)
 	validLabel := b.AllocId()
 	invalidLabel := b.AllocId()
 	mergeLabel := b.AllocId()
@@ -148,6 +150,8 @@ func emitSMRDLoadFromBase(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvB
 
 	// If the memory address is out-of-range (clamped), the operation is not performed.
 	b.EmitLabel(invalidLabel)
+	ctx.EmitDebugPrintf(b, "TranslateAddress failed (0x%lx): unmapped address 0x%lx + base 0x%lx + offset 0x%x\n",
+		b.EmitConstantUint64(typeUint64, uint64(ctx.Address)), addr64Aligned, base64, byteOffset)
 	b.EmitBranch(mergeLabel)
 
 	b.EmitLabel(mergeLabel)

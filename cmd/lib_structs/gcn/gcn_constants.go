@@ -27,6 +27,7 @@ const (
 )
 
 const (
+	GcnDataFormatInvalid     = 0
 	GcnDataFormat8           = 1
 	GcnDataFormat16          = 2
 	GcnDataFormat8_8         = 3

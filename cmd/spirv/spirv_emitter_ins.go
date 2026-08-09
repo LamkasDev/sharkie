@@ -25,6 +25,7 @@ var InstructionEmitMap = map[gcnSpec.Encoding]InstructionEmitFunc{
 	gcnSpec.EncMTBUF:  gcn.EmitMTBUF,
 	gcnSpec.EncMUBUF:  gcn.EmitMUBUF,
 	gcnSpec.EncMIMG:   gcn.EmitMIMG,
+	gcnSpec.EncDS:     gcn.EmitDS,
 	gcnSpec.EncEXP:    gcn.EmitEXP,
 }
 

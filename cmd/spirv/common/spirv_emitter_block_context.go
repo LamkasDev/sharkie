@@ -293,7 +293,7 @@ func (ctx *SpirvBlockContext) LoadPushConstantValue(b *SpvBuilder, i uint32) Spi
 	case PushConstantUserDataAddress:
 		valType = ctx.GetId(BlockContextIdPtrPsbUint)
 		ptrType = ctx.GetId(BlockContextIdPtrPcPsbUint)
-	case PushConstantOnionMemoryBaseAddress, PushConstantGarlicMemoryBaseAddress:
+	case PushConstantOnionMemoryBaseAddress, PushConstantGarlicMemoryBaseAddress, PushConstantGdsMemoryBaseAddress:
 		valType = ctx.GetId(BlockContextIdTypeUint64)
 		ptrType = ctx.GetId(BlockContextIdPtrPcUint64)
 	case PushConstantUserSgprCount, PushConstantShaderRsrc2, PushConstantVteControl, PushConstantClipControl:

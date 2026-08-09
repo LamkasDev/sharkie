@@ -86,6 +86,7 @@ func RegisterKernelStubs() {
 	elf.RegisterStub("libkernel", "sceKernelCheckReachability", libKernel_sceKernelCheckReachability)
 
 	// Directory functions.
+	elf.RegisterStub("libkernel", "sceKernelGetdents", libKernel_sceKernelGetdents)
 	elf.RegisterStub("libkernel", "sceKernelGetdirentries", libKernel_sceKernelGetdirentries)
 
 	// Shared memory functions.

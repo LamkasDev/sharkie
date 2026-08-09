@@ -11,7 +11,7 @@ import (
 )
 
 // emitBlock emits the SPIR-V for a single block.
-func emitBlock(b *SpvBuilder, block *GcnShaderCfgBlock, ctx *SpirvBlockContext) {
+func emitBlock(b *SpvBuilder, cfg *GcnShaderCfg, block *GcnShaderCfgBlock, ctx *SpirvBlockContext) {
 	// Start current block.
 	b.EmitLabel(ctx.GetLabelId(block.Id))
 
@@ -143,6 +143,25 @@ func emitBlock(b *SpvBuilder, block *GcnShaderCfgBlock, ctx *SpirvBlockContext) 
 	// Reset condition ID.
 	ctx.GcnConditionId = ctx.GetId(BlockContextIdFalse)
 
+	// We split the header by immediately merging and branching to a body block.
+	if block.IsLoopHeader {
+		bodyLabel := b.AllocId()
+		mergeLabel := ctx.GetLabelId(block.MergeBlockId)
+
+		var continueLabel SpirvId
+		if block.ContinueBlockId == block.Id {
+			// Self-loop (needs a dummy continue block).
+			continueLabel = ctx.GetId(BlockContextIdContinueBlocks + SpirvId(block.Id))
+		} else {
+			// Normal loop (use the real continue block).
+			continueLabel = ctx.GetLabelId(block.ContinueBlockId)
+		}
+
+		b.EmitLoopMerge(mergeLabel, continueLabel, spec.SpvLoopControlNone)
+		b.EmitBranch(bodyLabel)
+		b.EmitLabel(bodyLabel)
+	}
+
 	// Emit instructions for current block.
 	for i := range block.Instructions {
 		emitInstruction(b, &block.Instructions[i], ctx)
@@ -151,10 +170,18 @@ func emitBlock(b *SpvBuilder, block *GcnShaderCfgBlock, ctx *SpirvBlockContext) 
 	// Terminate current block.
 	switch block.Term {
 	case TermCBranch:
-		EmitConditionalBranch(b, block, ctx)
+		EmitConditionalBranch(b, cfg, block, ctx)
 	case TermBranch, TermFallthrough:
 		if len(block.Successors) > 0 {
-			b.EmitBranch(ctx.GetLabelId(block.Successors[0]))
+			targetId := block.Successors[0]
+			targetSpvId := ctx.GetLabelId(targetId)
+
+			// Intercept self-loop back-edges.
+			if targetId == block.Id && block.IsLoopHeader && block.ContinueBlockId == block.Id {
+				targetSpvId = ctx.GetId(BlockContextIdContinueBlocks + SpirvId(targetId))
+			}
+
+			b.EmitBranch(targetSpvId)
 		} else {
 			b.EmitUnreachable()
 		}
@@ -219,5 +246,12 @@ func emitBlock(b *SpvBuilder, block *GcnShaderCfgBlock, ctx *SpirvBlockContext) 
 		b.EmitReturn()
 	default:
 		b.EmitReturn()
+	}
+
+	// Emit the explicit continue block for self-loops.
+	if block.IsLoopHeader && block.ContinueBlockId == block.Id {
+		continueSpvId := ctx.GetId(BlockContextIdContinueBlocks + SpirvId(block.Id))
+		b.EmitLabel(continueSpvId)
+		b.EmitBranch(ctx.GetLabelId(block.Id)) // Branch back to the true header.
 	}
 }

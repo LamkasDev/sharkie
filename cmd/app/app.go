@@ -269,6 +269,7 @@ func (app *Application) VulkanDeviceCreateNext() unsafe.Pointer {
 			TextureCompressionBC:                 vk.True,
 			LogicOp:                              vk.True,
 			SamplerAnisotropy:                    vk.True,
+			WideLines:                            vk.True,
 		},
 	}
 	pageableDeviceLocalMemoryFeatures := &vulkan.VkPhysicalDevicePageableDeviceLocalMemoryFeaturesEXT{

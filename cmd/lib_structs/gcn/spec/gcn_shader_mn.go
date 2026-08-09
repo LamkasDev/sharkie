@@ -1008,6 +1008,7 @@ func (instr *Instruction) GetMnemotic() string {
 	case EncMIMG:
 		b = Mnemotics[instr.Encoding][instr.Details.(*MimgDetails).Op]
 	case EncDS:
+		b = Mnemotics[instr.Encoding][instr.Details.(*DsDetails).Op]
 	case EncEXP:
 		b = "export"
 	}
@@ -1174,6 +1175,15 @@ func (instr *Instruction) GetFieldsString() string {
 			instr.Details.(*MimgDetails).Dmask,
 		)
 	case EncDS:
+		fmt.Fprintf(&b, "offset0=%d offset1=v%d gds=%d addr=v%d data0=v%d data1=v%d vdst=v%d",
+			instr.Details.(*DsDetails).Offset0,
+			instr.Details.(*DsDetails).Offset1,
+			nstd.Btoi(instr.Details.(*DsDetails).Gds),
+			instr.Details.(*DsDetails).Addr,
+			instr.Details.(*DsDetails).Data0,
+			instr.Details.(*DsDetails).Data1,
+			instr.Details.(*DsDetails).Vdst,
+		)
 	case EncEXP:
 		fmt.Fprintf(&b, "vsrc3=v%d vsrc2=v%d vsrc1=v%d vsrc0=v%d vm=%d done=%d compr=%d target=%d en=%d",
 			instr.Details.(*ExpDetails).VSrcs[3],

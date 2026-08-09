@@ -81,6 +81,3 @@ const (
 	PM4_TYPE_2 = 2 // NOP padding.
 	PM4_TYPE_3 = 3 // modern packet.
 )
-
-// PM4_HEADER_TYPE2 is the single DWORD Type-2 NOP padding word.
-const PM4_HEADER_TYPE2 = uint32(0x80000000)

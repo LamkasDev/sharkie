@@ -104,9 +104,9 @@ func (e *Elf) NewDynamicSection(data []byte, dynOffset, dynSize uint64) *ElfDyna
 
 	section := &ElfDynamicSection{
 		Needed:          []string{},
-		ImportModules:   make([]*ElfModule, 1024),
-		ImportLibraries: make([]*ElfLibrary, 1024),
-		ExportLibraries: make([]*ElfLibrary, 1024),
+		ImportModules:   make([]*ElfModule, 2048),
+		ImportLibraries: make([]*ElfLibrary, 2048),
+		ExportLibraries: make([]*ElfLibrary, 2048),
 		StringTable:     map[uint64]string{},
 		InitArray:       []uint64{},
 		PreInitArray:    []uint64{},

@@ -67,7 +67,7 @@ func libKernel_sceKernelSetVirtualRangeName(addr uintptr, length uint64, namePtr
 // __int64 __fastcall sceKernelGetDirectMemorySize()
 func libKernel_sceKernelGetDirectMemorySize() uint64 {
 	// TODO: pthread_once
-	size := GlobalAllocator.Size
+	size := structs.GlobalMemoryManager.DirectMemorySize()
 
 	logger.Printf("%-132s %s returned %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),

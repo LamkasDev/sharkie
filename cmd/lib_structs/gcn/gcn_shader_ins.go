@@ -23,6 +23,7 @@ var InstructionDecodeMap = map[spec.Encoding]InstructionDecodeFunc{
 	spec.EncMTBUF:  (*spec.Instruction).DecodeMTBUF,
 	spec.EncMUBUF:  (*spec.Instruction).DecodeMUBUF,
 	spec.EncMIMG:   (*spec.Instruction).DecodeMIMG,
+	spec.EncDS:     (*spec.Instruction).DecodeDS,
 	spec.EncEXP:    (*spec.Instruction).DecodeEXP,
 }
 

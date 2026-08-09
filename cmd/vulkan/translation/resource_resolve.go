@@ -1,6 +1,7 @@
 package translation
 
 import (
+	"math"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/gcn"
@@ -100,9 +101,28 @@ func readScalarOperand(op uint32, instr *gcnSpec.Instruction, registers *gcnSpec
 	case op >= gcnSpec.OpInt0 && op <= gcnSpec.OpPosInt64:
 		return op - gcnSpec.OpInt0
 	case op >= gcnSpec.OpNegInt1 && op <= gcnSpec.OpNegInt16:
-		panic("unhandled")
+		return uint32(int32(-1 - int32(op-gcnSpec.OpNegInt1)))
 	case op >= gcnSpec.OpFloat05 && op <= gcnSpec.OpFloatNeg40:
-		panic("unhandled")
+		switch op {
+		case gcnSpec.OpFloat05:
+			return math.Float32bits(0.5)
+		case gcnSpec.OpFloatNeg05:
+			return math.Float32bits(-0.5)
+		case gcnSpec.OpFloat10:
+			return math.Float32bits(1.0)
+		case gcnSpec.OpFloatNeg10:
+			return math.Float32bits(-1.0)
+		case gcnSpec.OpFloat20:
+			return math.Float32bits(2.0)
+		case gcnSpec.OpFloatNeg20:
+			return math.Float32bits(-2.0)
+		case gcnSpec.OpFloat40:
+			return math.Float32bits(4.0)
+		case gcnSpec.OpFloatNeg40:
+			return math.Float32bits(-4.0)
+		default:
+			panic("unhandled")
+		}
 	case op >= gcnSpec.OpVccz && op <= gcnSpec.OpScc:
 		return registers[op]
 	case op == gcnSpec.OpLiteral && instr.HasLiteral:
@@ -141,11 +161,17 @@ func (t *GpuTranslator) applySMRD(instr *gcnSpec.Instruction, registers *gcnSpec
 		base := details.Base * 2
 		address = uintptr(registers[base]) | (uintptr(registers[base+1]&0xFFFF) << 32)
 		address = t.TranslateToHostAddress(address & 0xFFFFFFFFFF)
+		if address == 0 {
+			return
+		}
 		dwords = unsafe.Slice((*uint32)(unsafe.Pointer(address+offset)), count)
 	default:
 		base := details.Base * 2
 		address = uintptr(registers[base]) | (uintptr(registers[base+1]) << 32)
 		address = t.TranslateToHostAddress(address & 0xFFFFFFFFFF)
+		if address == 0 {
+			return
+		}
 		dwords = unsafe.Slice((*uint32)(unsafe.Pointer(address+offset)), count)
 	}
 

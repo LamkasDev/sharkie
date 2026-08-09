@@ -84,8 +84,9 @@ type GpuTranslator struct {
 	pendingCommandBuffers []*vulkan.VulkanCommandBuffer
 
 	// Fence for signaling kernel.
-	fenceChan  chan struct{}
-	fenceMutex sync.Mutex
+	fenceChan          chan struct{}
+	fenceMutex         sync.Mutex
+	OnFinishedRingWork func()
 
 	// Active state for chronological stream processing.
 	lastColorRtAddress              uintptr

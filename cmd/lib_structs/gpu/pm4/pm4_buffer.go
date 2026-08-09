@@ -49,13 +49,15 @@ func BuildPM4IndirectBuffers(count uint32, dcbGpuAddrsPtr, dcbSizesPtr, ccbGpuAd
 		if dcbSize == 0 {
 			return nil, fmt.Errorf("DCB %d has zero size", i)
 		}
-		if dcbSize>>2 > GNM_MAX_CB_SIZE_DWORDS {
+		dcbSizeDW := dcbSize >> 2
+		if dcbSizeDW > GNM_MAX_CB_SIZE_DWORDS {
 			return nil, fmt.Errorf("DCB %d size 0x%X exceeds limit", i, dcbSize)
 		}
 
 		// CCBs are optional, prepend them before DCBs.
 		if hasCcbs && ccbSizes[i] != 0 {
-			if ccbSizes[i]>>2 > GNM_MAX_CB_SIZE_DWORDS {
+			ccbSizeDW := ccbSizes[i] >> 2
+			if ccbSizeDW > GNM_MAX_CB_SIZE_DWORDS {
 				return nil, fmt.Errorf("CCB %d size 0x%X exceeds limit", i, ccbSizes[i])
 			}
 			buffers = append(buffers, NewPM4IndirectBuffer(ccbAddrs[i], ccbSizes[i], true))

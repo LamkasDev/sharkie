@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/gcn"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/gcn/reg"
 	vk "github.com/goki/vulkan"
 	"github.com/x448/float16"
@@ -87,213 +88,54 @@ func ColorBufferHeight(pitch reg.CbColorPitch, sliceReg uint32) uint32 {
 	return (totalTiles * 64) / p
 }
 
-func TranslateColorFormat(format uint32, numberType uint32, compSwap uint32) vk.Format {
-	if compSwap != 0 {
-		if !(format == 10 && compSwap == 1) && !(format == 8 && compSwap == 1) {
-			panic(fmt.Sprintf("unhandled compSwap %d for format %d", compSwap, format))
-		}
+func TranslateClearColor(word0 uint32, word1 uint32, dataFormat uint32, numFormat uint32, compSwap uint32) []float32 {
+	if compSwap != 0 && dataFormat != gcn.GcnDataFormat2_10_10_10 &&
+		dataFormat != gcn.GcnDataFormat8_8_8_8 && dataFormat != gcn.GcnDataFormat16_16_16_16 {
+		panic(fmt.Sprintf("unhandled comp swap %d for format %d", compSwap, dataFormat))
 	}
 
-	switch format {
-	case 1: // COLOR_8
-		switch numberType {
-		case 0:
-			return vk.FormatR8Unorm
-		case 1:
-			return vk.FormatR8Snorm
-		case 4:
-			return vk.FormatR8Uint
-		case 5:
-			return vk.FormatR8Sint
-		case 6:
-			return vk.FormatR8Srgb
-		}
-	case 2: // COLOR_16
-		switch numberType {
-		case 0:
-			return vk.FormatR16Unorm
-		case 1:
-			return vk.FormatR16Snorm
-		case 4:
-			return vk.FormatR16Uint
-		case 5:
-			return vk.FormatR16Sint
-		case 7:
-			return vk.FormatR16Sfloat
-		}
-	case 3: // COLOR_8_8
-		switch numberType {
-		case 0:
-			return vk.FormatR8g8Unorm
-		case 1:
-			return vk.FormatR8g8Snorm
-		case 4:
-			return vk.FormatR8g8Uint
-		case 5:
-			return vk.FormatR8g8Sint
-		case 6:
-			return vk.FormatR8g8Srgb
-		}
-	case 4: // COLOR_32
-		switch numberType {
-		case 4:
-			return vk.FormatR32Uint
-		case 5:
-			return vk.FormatR32Sint
-		case 7:
-			return vk.FormatR32Sfloat
-		}
-	case 5: // COLOR_16_16
-		switch numberType {
-		case 0:
-			return vk.FormatR16g16Unorm
-		case 1:
-			return vk.FormatR16g16Snorm
-		case 4:
-			return vk.FormatR16g16Uint
-		case 5:
-			return vk.FormatR16g16Sint
-		case 7:
-			return vk.FormatR16g16Sfloat
-		}
-	case 8: // COLOR_10_10_10_2
-		if compSwap == 1 { // SWAP_ALT (BGRA)
-			switch numberType {
-			case 0:
-				return vk.FormatA2r10g10b10UnormPack32
-			case 1:
-				return vk.FormatA2r10g10b10SnormPack32
-			case 4:
-				return vk.FormatA2r10g10b10UintPack32
-			case 5:
-				return vk.FormatA2r10g10b10SintPack32
-			}
-		}
-		switch numberType {
-		case 0:
-			return vk.FormatA2b10g10r10UnormPack32
-		case 1:
-			return vk.FormatA2b10g10r10SnormPack32
-		case 4:
-			return vk.FormatA2b10g10r10UintPack32
-		case 5:
-			return vk.FormatA2b10g10r10SintPack32
-		}
-	case 9: // COLOR_2_10_10_10
-		panic("unhandled format COLOR_2_10_10_10")
-	case 10: // COLOR_8_8_8_8
-		if compSwap == 1 { // SWAP_ALT (BGRA)
-			switch numberType {
-			case 0:
-				return vk.FormatB8g8r8a8Unorm
-			case 1:
-				return vk.FormatB8g8r8a8Snorm
-			case 4:
-				return vk.FormatB8g8r8a8Uint
-			case 5:
-				return vk.FormatB8g8r8a8Sint
-			case 6:
-				return vk.FormatB8g8r8a8Srgb
-			}
-		}
-		switch numberType {
-		case 0:
-			return vk.FormatR8g8b8a8Unorm
-		case 1:
-			return vk.FormatR8g8b8a8Snorm
-		case 4:
-			return vk.FormatR8g8b8a8Uint
-		case 5:
-			return vk.FormatR8g8b8a8Sint
-		case 6:
-			return vk.FormatR8g8b8a8Srgb
-		}
-	case 11: // COLOR_32_32
-		switch numberType {
-		case 4:
-			return vk.FormatR32g32Uint
-		case 5:
-			return vk.FormatR32g32Sint
-		case 7:
-			return vk.FormatR32g32Sfloat
-		}
-	case 12: // COLOR_16_16_16_16
-		switch numberType {
-		case 0:
-			return vk.FormatR16g16b16a16Unorm
-		case 1:
-			return vk.FormatR16g16b16a16Snorm
-		case 4:
-			return vk.FormatR16g16b16a16Uint
-		case 5:
-			return vk.FormatR16g16b16a16Sint
-		case 7:
-			return vk.FormatR16g16b16a16Sfloat
-		}
-	case 14: // COLOR_32_32_32_32
-		switch numberType {
-		case 4:
-			return vk.FormatR32g32b32a32Uint
-		case 5:
-			return vk.FormatR32g32b32a32Sint
-		case 7:
-			return vk.FormatR32g32b32a32Sfloat
-		}
-	case 16: // COLOR_5_6_5
-		return vk.FormatR5g6b5UnormPack16
-	case 17: // COLOR_1_5_5_5
-		return vk.FormatA1r5g5b5UnormPack16
-	case 18: // COLOR_5_5_5_1
-		return vk.FormatR5g5b5a1UnormPack16
-	case 19: // COLOR_4_4_4_4
-		return vk.FormatR4g4b4a4UnormPack16
-	case 20: // COLOR_8_24
-		return vk.FormatD24UnormS8Uint
-	case 21: // COLOR_24_8
-		return vk.FormatD24UnormS8Uint
-	case 22: // COLOR_X24_8_32_FLOAT
-		return vk.FormatD32SfloatS8Uint
-	}
-
-	return vk.FormatUndefined
-}
-
-func TranslateClearColor(word0 uint32, word1 uint32, format uint32, numberType uint32, compSwap uint32) []float32 {
 	var r, g, b, a float32 = 0.0, 0.0, 0.0, 1.0
-	switch format {
-	case 2:
-		switch numberType {
-		case 0:
+	switch dataFormat {
+	case gcn.GcnDataFormat8:
+		switch numFormat {
+		case gcn.GcnNumFormatUnorm:
+			r = float32(word0&0xFF) / 255.0
+		default:
+			panic("unhandled")
+		}
+	case gcn.GcnDataFormat16:
+		switch numFormat {
+		case gcn.GcnNumFormatUnorm:
 			r = float32(word0&0xFFFF) / 255.0
 		default:
 			panic("unhandled")
 		}
-	case 4:
-		switch numberType {
-		case 7:
+	case gcn.GcnDataFormat32:
+		switch numFormat {
+		case gcn.GcnNumFormatSfloat:
 			r = math.Float32frombits(word0)
 		default:
 			panic("unhandled")
 		}
-	case 5:
-		switch numberType {
-		case 7:
+	case gcn.GcnDataFormat16_16:
+		switch numFormat {
+		case gcn.GcnNumFormatSfloat:
 			r = float32(float16.Frombits(uint16(word0 & 0xFFFF)))
 			g = float32(float16.Frombits(uint16((word0 >> 16) & 0xFFFF)))
 		default:
 			panic("unhandled")
 		}
-	case 7:
-		switch numberType {
-		case 7:
+	case gcn.GcnDataFormat11_11_10:
+		switch numFormat {
+		case gcn.GcnNumFormatSfloat:
 			// TODO: fix this.
 			_ = "todo"
 		default:
 			panic("unhandled")
 		}
-	case 9:
-		switch numberType {
-		case 0:
+	case gcn.GcnDataFormat2_10_10_10:
+		switch numFormat {
+		case gcn.GcnNumFormatUnorm:
 			r = float32(word0&0x3) / 255.0
 			g = float32((word0>>2)&0x3FF) / 255.0
 			b = float32((word0>>12)&0x3FF) / 255.0
@@ -304,14 +146,14 @@ func TranslateClearColor(word0 uint32, word1 uint32, format uint32, numberType u
 		if compSwap == 1 {
 			r, b = b, r
 		}
-	case 10:
-		switch numberType {
-		case 0, 6:
+	case gcn.GcnDataFormat8_8_8_8:
+		switch numFormat {
+		case gcn.GcnNumFormatUnorm, gcn.GcnNumFormatSnormOgl:
 			r = float32(word0&0xFF) / 255.0
 			g = float32((word0>>8)&0xFF) / 255.0
 			b = float32((word0>>16)&0xFF) / 255.0
 			a = float32((word0>>24)&0xFF) / 255.0
-		case 4, 5:
+		case gcn.GcnNumFormatUint, gcn.GcnNumFormatSint:
 			r = float32(word0 & 0xFF)
 			g = float32((word0 >> 8) & 0xFF)
 			b = float32((word0 >> 16) & 0xFF)
@@ -322,9 +164,9 @@ func TranslateClearColor(word0 uint32, word1 uint32, format uint32, numberType u
 		if compSwap == 1 {
 			r, b = b, r
 		}
-	case 12:
-		switch numberType {
-		case 7:
+	case gcn.GcnDataFormat16_16_16_16:
+		switch numFormat {
+		case gcn.GcnNumFormatSfloat:
 			r = float32(float16.Frombits(uint16(word0 & 0xFFFF)))
 			g = float32(float16.Frombits(uint16((word0 >> 16) & 0xFFFF)))
 			b = float32(float16.Frombits(uint16(word1 & 0xFFFF)))

@@ -93,6 +93,7 @@ const (
 	SpvStorageInput                 = uint32(1)
 	SpvStorageUniform               = uint32(2)
 	SpvStorageOutput                = uint32(3)
+	SpvStorageWorkgroup             = uint32(4)
 	SpvStorageFunction              = uint32(7)
 	SpvStoragePushConstant          = uint32(9)
 	SpvStorageStorageBuffer         = uint32(12)
@@ -145,9 +146,10 @@ const (
 
 // SPIR-V image operand masks.
 const (
-	SpvImageOperandsNone     = uint32(0)
-	SpvImageOperandsBiasMask = uint32(1)
-	SpvImageOperandsLodMask  = uint32(2)
+	SpvImageOperandsNone       = uint32(0x0)
+	SpvImageOperandsBiasMask   = uint32(0x1)
+	SpvImageOperandsLodMask    = uint32(0x2)
+	SpvImageOperandsOffsetMask = uint32(0x10)
 )
 
 // SPIR-V Opcodes.
@@ -194,6 +196,7 @@ const (
 	SpvOpPtrAccessChain         = uint32(67)
 	SpvOpDecorate               = uint32(71)
 	SpvOpMemberDecorate         = uint32(72)
+	SpvOpVectorShuffle          = uint32(79)
 	SpvOpCompositeConstruct     = uint32(80)
 	SpvOpCompositeExtract       = uint32(81)
 	SpvOpSampledImage           = uint32(86)
@@ -203,6 +206,8 @@ const (
 	SpvOpImageRead              = uint32(98)
 	SpvOpImageWrite             = uint32(99)
 	SpvOpImage                  = uint32(100)
+	SpvOpImageQuerySizeLod      = uint32(103)
+	SpvOpImageQueryLod          = uint32(105)
 	SpvOpConvertFToU            = uint32(109)
 	SpvOpConvertFToS            = uint32(110)
 	SpvOpConvertSToF            = uint32(111)
@@ -233,6 +238,7 @@ const (
 	SpvOpUGreaterThanEqual      = uint32(174)
 	SpvOpULessThan              = uint32(176)
 	SpvOpULessThanEqual         = uint32(178)
+	SpvOpSLessThanEqual         = uint32(179)
 	SpvOpFOrdEqual              = uint32(180)
 	SpvOpFUnordEqual            = uint32(181)
 	SpvOpFUnordNotEqual         = uint32(183)
@@ -240,6 +246,7 @@ const (
 	SpvOpFOrdGreaterThan        = uint32(186)
 	SpvOpFOrdLessThanEqual      = uint32(188)
 	SpvOpFOrdGreaterThanEqual   = uint32(190)
+	SpvOpFUnordGreaterThanEqual = uint32(191)
 	SpvOpShiftRightLogical      = uint32(194)
 	SpvOpShiftRightArithmetic   = uint32(195)
 	SpvOpShiftLeftLogical       = uint32(196)
@@ -249,6 +256,7 @@ const (
 	SpvOpNot                    = uint32(200)
 	SpvOpBitFieldSExtract       = uint32(202)
 	SpvOpBitFieldUExtract       = uint32(203)
+	SpvOpBitReverse             = uint32(204)
 	SpvOpBitCount               = uint32(205)
 	SpvOpControlBarrier         = uint32(224)
 	SpvOpMemoryBarrier          = uint32(225)

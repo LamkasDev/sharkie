@@ -6,7 +6,7 @@ import (
 )
 
 func DescriptorGuestSize(descriptor spirvStructs.ImageDescriptor) uintptr {
-	_, bpp := gcn.TranslateGcnFormat(descriptor.DataFormat, descriptor.NumFormat)
+	_, bpp := gcn.TranslateGcnFormat(descriptor.DataFormat, descriptor.NumFormat, 0)
 	layouts := computeMipLayouts(descriptor, mipLevelCount(descriptor))
 	if len(layouts) > 0 {
 		last := layouts[len(layouts)-1]

@@ -27,16 +27,24 @@ func (b *SpvBuilder) EmitLoopMerge(mergeBlock, continueBlock SpirvId, loopContro
 
 // EmitConditionalBranch handles TermCBranch.
 // OpLoopMerge (loop headers) or OpSelectionMerge (selections) must appear immediately before the OpBranchConditional instruction.
-func EmitConditionalBranch(b *SpvBuilder, block *GcnShaderCfgBlock, ctx *SpirvBlockContext) {
-	if block.IsLoopHeader {
-		mergeLabelId := ctx.GetLabelId(block.MergeBlockId)
-		continueLabelId := ctx.GetLabelId(block.ContinueBlockId)
-		b.EmitLoopMerge(mergeLabelId, continueLabelId, spec.SpvLoopControlNone)
-	} else if block.MergeBlockId >= 0 {
+func EmitConditionalBranch(b *SpvBuilder, cfg *GcnShaderCfg, block *GcnShaderCfgBlock, ctx *SpirvBlockContext) {
+	// We only emit OpSelectionMerge here for non-loop constructs.
+	if !block.IsLoopHeader && block.MergeBlockId >= 0 {
 		b.EmitSelectionMerge(ctx.GetLabelId(block.MergeBlockId), spec.SpvSelectionControlNone)
 	}
 
-	falseLabelId := ctx.GetLabelId(block.Successors[0]) // fall-through.
-	trueLabelId := ctx.GetLabelId(block.Successors[1])  // branch target.
+	falseTarget := block.Successors[0]
+	trueTarget := block.Successors[1]
+	falseLabelId := ctx.GetLabelId(falseTarget) // fall-through.
+	trueLabelId := ctx.GetLabelId(trueTarget)   // branch target.
+
+	// Intercept self-loop back-edges and route to the dedicated continue block.
+	if falseTarget == block.Id && block.IsLoopHeader && block.ContinueBlockId == block.Id {
+		falseLabelId = ctx.GetId(BlockContextIdContinueBlocks + SpirvId(falseTarget))
+	}
+	if trueTarget == block.Id && block.IsLoopHeader && block.ContinueBlockId == block.Id {
+		trueLabelId = ctx.GetId(BlockContextIdContinueBlocks + SpirvId(trueTarget))
+	}
+
 	b.EmitBranchConditional(ctx.GcnConditionId, trueLabelId, falseLabelId)
 }

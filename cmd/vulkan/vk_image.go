@@ -406,8 +406,8 @@ func (image *VulkanImage) NeedsRecreate(descriptor spirvStructs.ImageDescriptor,
 		return true
 	}
 	stored := image.FirstDescriptor
-	_, requestedBpp := gcn.TranslateGcnFormat(descriptor.DataFormat, descriptor.NumFormat)
-	_, storedBpp := gcn.TranslateGcnFormat(stored.DataFormat, descriptor.NumFormat)
+	_, requestedBpp := gcn.TranslateGcnFormat(descriptor.DataFormat, descriptor.NumFormat, 0)
+	_, storedBpp := gcn.TranslateGcnFormat(stored.DataFormat, descriptor.NumFormat, 0)
 	requestedIsBlock := descriptor.DataFormat >= gcn2.GcnDataFormatBC1 && descriptor.DataFormat <= gcn2.GcnDataFormatBC7
 	storedIsBlock := stored.DataFormat >= gcn2.GcnDataFormatBC1 && stored.DataFormat <= gcn2.GcnDataFormatBC7
 	if descriptor.TilingIndex != stored.TilingIndex || requestedBpp != storedBpp || requestedIsBlock != storedIsBlock {
@@ -455,7 +455,7 @@ type ImageDimensions struct {
 
 func (image *VulkanImage) GetLinearDimensions() ImageDimensions {
 	isBlock := image.FirstDescriptor.DataFormat >= gcn2.GcnDataFormatBC1 && image.FirstDescriptor.DataFormat <= gcn2.GcnDataFormatBC7
-	_, bpp := gcn.TranslateGcnFormat(image.FirstDescriptor.DataFormat, image.FirstDescriptor.NumFormat)
+	_, bpp := gcn.TranslateGcnFormat(image.FirstDescriptor.DataFormat, image.FirstDescriptor.NumFormat, 0)
 	width := uint32(image.FirstDescriptor.Width)
 	height := uint32(image.FirstDescriptor.Height)
 	pitch := uint32(image.FirstDescriptor.Pitch)
@@ -486,7 +486,7 @@ func (image *VulkanImage) GetLinearDimensions() ImageDimensions {
 
 func (image *VulkanImage) GetTiledDimensions(mipLevel int) ImageDimensions {
 	isBlock := image.FirstDescriptor.DataFormat >= gcn2.GcnDataFormatBC1 && image.FirstDescriptor.DataFormat <= gcn2.GcnDataFormatBC7
-	_, bpp := gcn.TranslateGcnFormat(image.FirstDescriptor.DataFormat, image.FirstDescriptor.NumFormat)
+	_, bpp := gcn.TranslateGcnFormat(image.FirstDescriptor.DataFormat, image.FirstDescriptor.NumFormat, 0)
 
 	if mipLevel >= len(image.Layouts) {
 		return ImageDimensions{}

@@ -9,7 +9,6 @@ import (
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/gc"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/gpu"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/gpu/pm4"
-	. "github.com/LamkasDev/sharkie/cmd/lib_structs/posix"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
 )
@@ -59,6 +58,9 @@ func libSceGnmDriver_sceGnmSubmitCommandBuffersForWorkload(workloadId, count uin
 			return SCE_GNM_ERROR_INVALID_VALUE
 		}
 	}
+
+	// Wait until idle.
+	GlobalLiverpool.WaitIdleStart()
 
 	// Submit buffers.
 	buffers, err := BuildPM4IndirectBuffers(count, dcbGpuAddrsPtr, dcbSizesPtr, ccbGpuAddrsPtr, ccbSizesPtr)
@@ -128,6 +130,9 @@ func libSceGnmDriver_sceGnmSubmitAndFlipCommandBuffersForWorkload(workloadId, co
 			return SCE_GNM_ERROR_INVALID_VALUE
 		}
 	}
+
+	// Wait until idle.
+	GlobalLiverpool.WaitIdleStart()
 
 	// Patch prepare flip packet.
 	lastIdx := count - 1
@@ -200,6 +205,9 @@ func libSceGnmDriver_sceGnmRequestFlipAndSubmitDoneForWorkload(ctxPtr, dcbPtr, r
 		return SCE_GNM_ERROR_INVALID_POINTER
 	}
 
+	// Wait until idle.
+	GlobalLiverpool.WaitIdleStart()
+
 	// Write the minimal prepare flip header into the caller's buffer.
 	nop := (*PM4CmdNop)(unsafe.Pointer(dcbPtr))
 	nop.Header = GNM_PREPARE_FLIP_MAGIC
@@ -222,10 +230,7 @@ func libSceGnmDriver_sceGnmRequestFlipAndSubmitDoneForWorkload(ctxPtr, dcbPtr, r
 
 	// Submit buffers and wait.
 	GlobalLiverpool.SubmitCommandBuffers(buffers)
-	GlobalLiverpool.WaitOnFence()
-
-	// Signal that we're done.
-	WriteAddress(GlobalGraphicsController.SubmitDoneAddress, uintptr(1))
+	GlobalLiverpool.WaitIdleFinish()
 
 	// Schedule the flip.
 	flipResult := video_out.SceVideoOutSubmitEopFlip(uintptr(videoOutHandle), uintptr(bufferIndex), uintptr(flipMode), uintptr(flipArg), 0)

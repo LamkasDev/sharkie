@@ -142,3 +142,32 @@ const (
 	DsOpReadB96           = 0xFE
 	DsOpReadB128          = 0xFF
 )
+
+// Data share instructions.
+type DsDetails struct {
+	Offset0 uint32
+	Offset1 uint32
+	Gds     bool
+	Op      uint32
+
+	Addr  uint32
+	Data0 uint32
+	Data1 uint32
+	Vdst  uint32
+}
+
+func (instr *Instruction) DecodeDS() {
+	dw0 := instr.Dwords[0]
+	dw1 := instr.Dwords[1]
+	instr.Details = &DsDetails{
+		Offset0: dw0 & 0b1111_1111,
+		Offset1: (dw0 >> 8) & 0b1111_1111,
+		Gds:     (dw0>>17)&0b1 == 1,
+		Op:      (dw0 >> 18) & 0b1111_1111,
+
+		Addr:  dw1 & 0b1111_1111,
+		Data0: (dw1 >> 8) & 0b1111_1111,
+		Data1: (dw1 >> 16) & 0b1111_1111,
+		Vdst:  (dw1 >> 24) & 0b1111_1111,
+	}
+}

@@ -191,6 +191,30 @@ func EmitVOP2(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 		// D.f = S0.f * S1.f + K
 		resF := b.EmitExtInst(typeFloat, ctx.GetId(BlockContextIdTypeGlsl), spec.SpvGlslOpFma, val0, val1, valK)
 		StoreRegisterPointerMaskedModified(b, ctx, details.Clamp, details.OMod, details.Vdst+gcnSpec.OpVgpr0, resF, true)
+	case gcnSpec.Vop2OpMulI32I24:
+		typeInt := ctx.GetId(BlockContextIdTypeInt)
+		typeUint := ctx.GetId(BlockContextIdTypeUint)
+
+		val0 := GetOperandIntValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
+		val1 := GetOperandIntValueModified(b, ctx, details.Abs, details.Neg, details.Src1, 0, 1)
+
+		// Set up offset (0) and count (24) for the 24-bit bitfield extraction.
+		offset := b.EmitConstantUint(typeUint, 0)
+		count := b.EmitConstantUint(typeUint, 24)
+
+		// Extract the lower 24 bits and sign-extend them to 32 bits.
+		val0Ext := b.EmitBitFieldSExtract(typeInt, val0, offset, count)
+		val1Ext := b.EmitBitFieldSExtract(typeInt, val1, offset, count)
+
+		// Result = S0.i[23:0] * S1.i[23:0]
+		res := b.EmitIMul(typeInt, val0Ext, val1Ext)
+
+		StoreRegisterPointerMaskedModified(b, ctx, details.Clamp, details.OMod, details.Vdst+gcnSpec.OpVgpr0, res, false)
+	case gcnSpec.Vop2OpOrB32:
+		val0 := GetOperandUintValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
+		val1 := GetOperandUintValueModified(b, ctx, details.Abs, details.Neg, details.Src1, 0, 1)
+		resU := b.EmitBitwiseOr(ctx.GetId(BlockContextIdTypeUint), val0, val1)
+		StoreRegisterPointerMaskedModified(b, ctx, details.Clamp, details.OMod, details.Vdst+gcnSpec.OpVgpr0, resU, false)
 	default:
 		panic(fmt.Sprintf("unknown vop2 op %s", gcnSpec.Mnemotics[gcnSpec.EncVOP2][details.Op]))
 	}

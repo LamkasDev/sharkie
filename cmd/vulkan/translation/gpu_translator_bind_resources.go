@@ -140,6 +140,9 @@ func (t *GpuTranslator) GetBindDescriptorSet(shaders []*spirv.SpirvShader, userD
 	boundText := fmt.Sprintf("[Frame %d] Bound slot", t.currentGuestFrame)
 	for _, binding := range allLayouts {
 		access := accessByOffset[binding.InstructionOffset]
+		if access.Descriptor.BaseAddress == 0 {
+			continue
+		}
 
 		// Get image view and sampler.
 		view, err, _ := t.GetImageView(access.Descriptor)

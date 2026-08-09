@@ -33,7 +33,7 @@ func EmitMIMG(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 
 	bindingIndex := ctx.StaticBindingIndexConst(b, instr.DwordOffset)
 	switch details.Op {
-	case gcnSpec.MimgOpSample, gcnSpec.MimgOpSampleLz, gcnSpec.MimgOpSampleB:
+	case gcnSpec.MimgOpSample, gcnSpec.MimgOpSampleLz, gcnSpec.MimgOpSampleB, gcnSpec.MimgOpSampleLzO:
 		idStaticTextures1D := ctx.GetId(BlockContextIdStaticTextures1d)
 		idStaticTextures2D := ctx.GetId(BlockContextIdStaticTextures2d)
 		idStaticTextures3D := ctx.GetId(BlockContextIdStaticTextures3d)
@@ -58,19 +58,36 @@ func EmitMIMG(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 		ptr2DArray := b.EmitAccessChain(typePtrUniformSampledImage2DArray, idStaticTextures2DArray, bindingIndex)
 		sampledImage2DArray := b.EmitLoad(typeSampledImage2DArray, ptr2DArray)
 
-		// Determine if this is a biased sample and extract the bias.
+		// Flags for our supported prefixes.
+		isOffset := details.Op == gcnSpec.MimgOpSampleLzO
 		isBias := details.Op == gcnSpec.MimgOpSampleB
-		coordOffset := uint32(0)
-		var bias SpirvId
-		if isBias {
-			bias = b.EmitBitcast(typeFloat, ctx.LoadRegisterPointer(b, gcnSpec.OpVgpr0+details.Vaddr))
-			coordOffset++
+		isLz := details.Op == gcnSpec.MimgOpSampleLz || details.Op == gcnSpec.MimgOpSampleLzO
+		vaddrOffset := uint32(0)
+
+		// { offset } - send X, Y, Z integer offsets (packed into 1 dword) to offset XYZ address.
+		var offsetX, offsetY, offsetZ SpirvId
+		if isOffset {
+			rawOffsetUint := ctx.LoadRegisterPointer(b, gcnSpec.OpVgpr0+details.Vaddr+vaddrOffset)
+			vaddrOffset++
+
+			// Extract 6-bit signed offsets: X=[5:0], Y=[13:8], Z=[21:16].
+			rawOffsetInt := b.EmitBitcast(typeInt, rawOffsetUint)
+			offsetX = b.EmitBitFieldSExtract(typeInt, rawOffsetInt, ctx.GetConstId(ConstIdUint0), b.EmitConstantUint(typeUint, 6))
+			offsetY = b.EmitBitFieldSExtract(typeInt, rawOffsetInt, b.EmitConstantUint(typeUint, 8), b.EmitConstantUint(typeUint, 6))
+			offsetZ = b.EmitBitFieldSExtract(typeInt, rawOffsetInt, b.EmitConstantUint(typeUint, 16), b.EmitConstantUint(typeUint, 6))
 		}
 
-		// Coordinates from VGPRs.
-		coordX := b.EmitBitcast(typeFloat, ctx.LoadRegisterPointer(b, gcnSpec.OpVgpr0+details.Vaddr+coordOffset))
-		coordY := b.EmitBitcast(typeFloat, ctx.LoadRegisterPointer(b, gcnSpec.OpVgpr0+details.Vaddr+coordOffset+1))
-		coordZ := b.EmitBitcast(typeFloat, ctx.LoadRegisterPointer(b, gcnSpec.OpVgpr0+details.Vaddr+coordOffset+2))
+		// { bias } - add this BIAS to the LOD TA computes.
+		var bias SpirvId
+		if isBias {
+			bias = b.EmitBitcast(typeFloat, ctx.LoadRegisterPointer(b, gcnSpec.OpVgpr0+details.Vaddr+vaddrOffset))
+			vaddrOffset++
+		}
+
+		// { body } - coordinates from remaining VGPRs.
+		coordX := b.EmitBitcast(typeFloat, ctx.LoadRegisterPointer(b, gcnSpec.OpVgpr0+details.Vaddr+vaddrOffset))
+		coordY := b.EmitBitcast(typeFloat, ctx.LoadRegisterPointer(b, gcnSpec.OpVgpr0+details.Vaddr+vaddrOffset+1))
+		coordZ := b.EmitBitcast(typeFloat, ctx.LoadRegisterPointer(b, gcnSpec.OpVgpr0+details.Vaddr+vaddrOffset+2))
 
 		coord1D := coordX
 		coord2D := b.EmitCompositeConstruct(typeV2Float, coordX, coordY)
@@ -82,25 +99,145 @@ func EmitMIMG(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 			sampledImage1D, sampledImage2D, sampledImage3D, sampledImage2DArray,
 			coord1D, coord2D, coord3D, coord2DArray,
 			func(imageId, coord SpirvId, resType int) SpirvId {
-				if isBias {
-					if ctx.Stage == gcn.GcnShaderStageFragment {
-						return b.EmitImageSampleImplicitLodOperands(typeV4Float, imageId, coord, spec.SpvImageOperandsBiasMask, bias)
+				// Manually apply the offset to the coordinates before sampling.
+				if isOffset {
+					// Convert the extracted integer offsets into floats for math.
+					var offsetFloat SpirvId
+					switch resType {
+					case ResType1D:
+						offsetFloat = b.EmitConvertSToF(typeFloat, offsetX)
+					case ResType2D, ResType2DArray:
+						offsetFloat = b.EmitConvertSToF(typeV2Float, b.EmitCompositeConstruct(typeV2Int, offsetX, offsetY))
+					case ResType3D:
+						offsetFloat = b.EmitConvertSToF(typeV3Float, b.EmitCompositeConstruct(typeV3Int, offsetX, offsetY, offsetZ))
 					}
 
-					// Non-fragment stages do not support ImplicitLod in SPIR-V.
-					// Treat the bias as an absolute LOD value.
-					return b.EmitImageSampleExplicitLod(typeV4Float, imageId, coord, bias)
+					if details.Unorm {
+						// Coordinates are already in absolute texels (e.g., 0 to 1024).
+						// We can just add the float offset directly to the UVs.
+						switch resType {
+						case ResType1D:
+							coord = b.EmitFAdd(typeFloat, coord, offsetFloat)
+						case ResType2D:
+							coord = b.EmitFAdd(typeV2Float, coord, offsetFloat)
+						case ResType3D:
+							coord = b.EmitFAdd(typeV3Float, coord, offsetFloat)
+						case ResType2DArray:
+							// coord is V3 (U, V, Layer). We only add the offset to U and V.
+							coordU := b.EmitCompositeExtract(typeFloat, coord, 0)
+							coordV := b.EmitCompositeExtract(typeFloat, coord, 1)
+							coordLayer := b.EmitCompositeExtract(typeFloat, coord, 2)
+
+							coordUV := b.EmitCompositeConstruct(typeV2Float, coordU, coordV)
+							coordUV = b.EmitFAdd(typeV2Float, coordUV, offsetFloat)
+
+							coord = b.EmitCompositeConstruct(typeV3Float,
+								b.EmitCompositeExtract(typeFloat, coordUV, 0),
+								b.EmitCompositeExtract(typeFloat, coordUV, 1),
+								coordLayer)
+						}
+					} else {
+						// Coordinates are 0.0 to 1.0. We must divide the texel offset by the
+						// texture dimensions at the evaluated LOD to convert it into normalized space.
+						var lodInt SpirvId
+						if isLz {
+							// If it's an explicit LOD-zero instruction, we don't need to query LOD.
+							lodInt = ctx.GetConstId(ConstIdUint0)
+						} else {
+							// Prepare coordinate for OpImageQueryLod (strips array layer for 2DArray if needed).
+							queryCoord := coord
+							if resType == ResType2DArray {
+								coordU := b.EmitCompositeExtract(typeFloat, coord, 0)
+								coordV := b.EmitCompositeExtract(typeFloat, coord, 1)
+								queryCoord = b.EmitCompositeConstruct(typeV2Float, coordU, coordV)
+							}
+
+							// OpImageQueryLod returns a vec2 where Y (component 1) is the implicit LOD.
+							lodResult := b.EmitImageQueryLod(typeV2Float, imageId, queryCoord)
+							implicitLodFloat := b.EmitCompositeExtract(typeFloat, lodResult, 1)
+
+							// Cast the float LOD to an integer LOD for size querying.
+							lodInt = b.EmitConvertFToS(typeInt, implicitLodFloat)
+						}
+
+						// Query texture dimensions at the computed LOD and normalize the offset.
+						switch resType {
+						case ResType1D:
+							img := b.EmitImage(ctx.GetId(BlockContextIdTypeImage1d), imageId)
+							sizeInt := b.EmitImageQuerySizeLod(typeInt, img, lodInt)
+							sizeFloat := b.EmitConvertSToF(typeFloat, sizeInt)
+
+							normOffset := b.EmitFDiv(typeFloat, offsetFloat, sizeFloat)
+							coord = b.EmitFAdd(typeFloat, coord, normOffset)
+
+						case ResType2D:
+							img := b.EmitImage(ctx.GetId(BlockContextIdTypeImage2d), imageId)
+							sizeInt := b.EmitImageQuerySizeLod(typeV2Int, img, lodInt)
+							sizeFloat := b.EmitConvertSToF(typeV2Float, sizeInt)
+
+							normOffset := b.EmitFDiv(typeV2Float, offsetFloat, sizeFloat)
+							coord = b.EmitFAdd(typeV2Float, coord, normOffset)
+
+						case ResType3D:
+							img := b.EmitImage(ctx.GetId(BlockContextIdTypeImage3d), imageId)
+							sizeInt := b.EmitImageQuerySizeLod(typeV3Int, img, lodInt)
+							sizeFloat := b.EmitConvertSToF(typeV3Float, sizeInt)
+
+							normOffset := b.EmitFDiv(typeV3Float, offsetFloat, sizeFloat)
+							coord = b.EmitFAdd(typeV3Float, coord, normOffset)
+
+						case ResType2DArray:
+							img := b.EmitImage(ctx.GetId(BlockContextIdTypeImage2dArray), imageId)
+							sizeInt := b.EmitImageQuerySizeLod(typeV3Int, img, lodInt) // Returns (W, H, Layers)
+
+							// Extract only W and H for the offset normalization.
+							sizeV2Int := b.EmitVectorShuffle(typeV2Int, sizeInt, sizeInt, 0, 1)
+							sizeFloat := b.EmitConvertSToF(typeV2Float, sizeV2Int)
+							normOffset := b.EmitFDiv(typeV2Float, offsetFloat, sizeFloat)
+
+							// Add normalized offset to U and V, preserve Layer.
+							coordU := b.EmitCompositeExtract(typeFloat, coord, 0)
+							coordV := b.EmitCompositeExtract(typeFloat, coord, 1)
+							coordLayer := b.EmitCompositeExtract(typeFloat, coord, 2)
+
+							coordUV := b.EmitCompositeConstruct(typeV2Float, coordU, coordV)
+							coordUV = b.EmitFAdd(typeV2Float, coordUV, normOffset)
+
+							coord = b.EmitCompositeConstruct(typeV3Float,
+								b.EmitCompositeExtract(typeFloat, coordUV, 0),
+								b.EmitCompositeExtract(typeFloat, coordUV, 1),
+								coordLayer)
+						}
+					}
 				}
 
-				lod := ctx.GetConstId(ConstIdFloat0)
-				switch {
-				case details.Op == gcnSpec.MimgOpSampleLz:
-					return b.EmitImageSampleExplicitLod(typeV4Float, imageId, coord, lod)
-				case ctx.Stage == gcn.GcnShaderStageFragment:
-					return b.EmitImageSampleImplicitLod(typeV4Float, imageId, coord)
-				default:
-					return b.EmitImageSampleExplicitLod(typeV4Float, imageId, coord, lod)
+				// Build SPIR-V operands.
+				mask := uint32(0)
+				var args []SpirvId
+				if isBias {
+					mask |= spec.SpvImageOperandsBiasMask
+					args = append(args, bias)
 				}
+				if isLz {
+					mask |= spec.SpvImageOperandsLodMask
+					args = append(args, ctx.GetConstId(ConstIdFloat0))
+				}
+
+				// If no explicit lod is given; rely on ImplicitLod (only valid in Fragment stages).
+				if !isLz && ctx.Stage == gcn.GcnShaderStageFragment {
+					if mask == 0 {
+						return b.EmitImageSampleImplicitLod(typeV4Float, imageId, coord)
+					}
+					return b.EmitImageSampleImplicitLodOperands(typeV4Float, imageId, coord, mask, args...)
+				}
+
+				// Explicit lod path (Compute/Vertex stages or explicit _LZ).
+				if mask == 0 {
+					// Fallback just in case we didn't have _LZ or bias.
+					return b.EmitImageSampleExplicitLod(typeV4Float, imageId, coord, ctx.GetConstId(ConstIdFloat0))
+				}
+
+				return b.EmitImageSampleExplicitLodOperands(typeV4Float, imageId, coord, mask, args...)
 			},
 		)
 

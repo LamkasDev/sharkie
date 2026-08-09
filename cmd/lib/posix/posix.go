@@ -131,6 +131,7 @@ func RegisterPosixStubs() {
 	RegisterPosixStub("shm_open", libScePosix_shm_open)
 
 	// Directory functions.
+	RegisterPosixStub("getdents", libScePosix_getdents)
 	RegisterPosixStub("getdirentries", libScePosix_getdirentries)
 
 	// Memory functions.

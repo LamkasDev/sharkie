@@ -57,10 +57,8 @@ const (
 )
 
 const (
-	DirectMemoryDefaultSize = uint64(0x100000000) // 4GB
-	GpuMemoryDefaultSize    = uint64(0x080000000) // 2GB
-	MemoryPageSize          = uint64(0x4000)      // 16KB
-	GuardPageSize           = uint64(4096)        // 4KB
+	MemoryPageSize = uint64(0x4000) // 16KB
+	GuardPageSize  = uint64(4096)   // 4KB
 )
 
 type VirtualQueryInfo struct {
@@ -85,16 +83,15 @@ type Allocator struct {
 }
 
 func SetupAllocator() {
-	GlobalAllocator = NewAllocator(0x400000000, DirectMemoryDefaultSize)
-	GlobalGpuAllocator = NewAllocator(0xFE0000000, GpuMemoryDefaultSize)
+	GlobalAllocator = NewAllocator(0x400000000)
+	GlobalGpuAllocator = NewAllocator(0xFE0000000)
 }
 
 // NewAllocator creates a new instance of Allocator.
-func NewAllocator(base uintptr, size uint64) *Allocator {
+func NewAllocator(base uintptr) *Allocator {
 	return &Allocator{
 		Base:    base,
 		Current: base,
-		Size:    size,
 		Lock:    sync.Mutex{},
 	}
 }

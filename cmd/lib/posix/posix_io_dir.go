@@ -10,6 +10,14 @@ import (
 	"github.com/gookit/color"
 )
 
+func Getdents(fd FileDescriptor, bufPtr uintptr, nbytes uint64) int64 {
+	return libScePosix_getdents(fd, bufPtr, nbytes)
+}
+
+func libScePosix_getdents(fd FileDescriptor, bufPtr uintptr, nbytes uint64) int64 {
+	return libScePosix_getdirentries(fd, bufPtr, nbytes, 0)
+}
+
 func Getdirentries(fd FileDescriptor, bufPtr uintptr, nbytes uint64, basep uintptr) int64 {
 	return libScePosix_getdirentries(fd, bufPtr, nbytes, basep)
 }

@@ -104,7 +104,7 @@ func libScePosix_gettimeofday(timevalue *Timevalue, timezone *Timezone) uintptr 
 	now := time.Now()
 	if timevalue != nil {
 		timevalue.Seconds = now.Unix()
-		timevalue.Microseconds = now.UnixMicro()
+		timevalue.Microseconds = int64(now.Nanosecond() / 1000)
 	}
 	if timezone != nil {
 		_, offset := now.Zone()

@@ -213,6 +213,10 @@ func (m *MemoryManager) DirectMemoryQuery(addr uintptr, flags int32, info *posix
 	return 0x8002000D
 }
 
+func (m *MemoryManager) DirectMemorySize() uint64 {
+	return 5248 * 1024 * 1024 // 5248MB
+}
+
 func (m *MemoryManager) AvailableFlexibleMemorySize() uint64 {
 	return 512 * 1024 * 1024 // 512MB
 }

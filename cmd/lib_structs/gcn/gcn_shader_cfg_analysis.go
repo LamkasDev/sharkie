@@ -180,9 +180,22 @@ func (cfg *GcnShaderCfg) isReachable(start, end int) bool {
 	return dfs(start)
 }
 
+// isContinueOfEnclosingLoop reports whether candidate is the continue target of any loop header that dominates blockId.
+func (cfg *GcnShaderCfg) isContinueOfEnclosingLoop(immDom []int, blockId, candidate int) bool {
+	for b := blockId; b != -1; b = immDom[b] {
+		if cfg.Blocks[b].IsLoopHeader && cfg.Blocks[b].ContinueBlockId == candidate {
+			return true
+		}
+		if b == immDom[b] { // entry.
+			break
+		}
+	}
+
+	return false
+}
+
 // computeMergeBlocks sets MergeBlockId on every block that requires one for SPIR-V structured control flow.
 func (cfg *GcnShaderCfg) computeMergeBlocks(immDom []int) {
-	// Compute post-dominators by building the reverse GcnShaderCfg and running the same dominator algorithm.
 	postImmDom := cfg.computePostDominators()
 	rpo := cfg.ReversePostOrder()
 	rpoIndex := make([]int, len(cfg.Blocks))
@@ -193,15 +206,12 @@ func (cfg *GcnShaderCfg) computeMergeBlocks(immDom []int) {
 	for blockId := range cfg.Blocks {
 		block := &cfg.Blocks[blockId]
 		if block.IsLoopHeader {
-			// Loop merge block (the successor of the header that is NOT dominated by the header => the loop exit).
 			for _, succBlockId := range block.Successors {
 				if !cfg.dominates(immDom, block.Id, succBlockId) {
 					block.MergeBlockId = succBlockId
 					break
 				}
 			}
-
-			// Fallback (use post-dominator if no clear exit found).
 			if block.MergeBlockId == -1 && postImmDom[block.Id] != -1 && postImmDom[block.Id] != block.Id {
 				if cfg.dominates(immDom, block.Id, postImmDom[block.Id]) {
 					block.MergeBlockId = postImmDom[block.Id]
@@ -211,119 +221,138 @@ func (cfg *GcnShaderCfg) computeMergeBlocks(immDom []int) {
 		}
 
 		if block.Term == TermCBranch {
-			// A valid merge block must be strictly dominated by the header (immediate child in dom tree).
-			// And it must be reachable from all divergent paths (both successors) that do not exit early.
-			var children []int
-			for i, dom := range immDom {
-				if dom == block.Id && i != block.Id {
-					children = append(children, i)
-				}
+			bestM := -1
+			if pd := postImmDom[block.Id]; pd != -1 && pd != block.Id &&
+				cfg.dominates(immDom, block.Id, pd) &&
+				!cfg.isContinueOfEnclosingLoop(immDom, block.Id, pd) {
+				bestM = pd
 			}
 
-			bestM := -1
-			bestRpo := len(cfg.Blocks)
-			for _, child := range children {
-				reachableFromAll := true
-				for _, succ := range block.Successors {
-					if !cfg.isReachable(succ, child) {
-						reachableFromAll = false
-						break
+			if bestM == -1 {
+				var children []int
+				for i, dom := range immDom {
+					if dom == block.Id && i != block.Id {
+						children = append(children, i)
 					}
 				}
-				if reachableFromAll {
-					if rpoIndex[child] < bestRpo {
+				bestRpo := len(cfg.Blocks)
+				for _, child := range children {
+					if cfg.isContinueOfEnclosingLoop(immDom, block.Id, child) {
+						continue
+					}
+					reachableFromAll := true
+					for _, succ := range block.Successors {
+						if !cfg.isReachable(succ, child) {
+							reachableFromAll = false
+							break
+						}
+					}
+					if reachableFromAll && rpoIndex[child] < bestRpo {
 						bestM = child
 						bestRpo = rpoIndex[child]
 					}
 				}
 			}
 
-			// If no structural merge block exists (e.g. all paths return or break to an outer scope),
-			// we will later create a dummy unreachable block for it.
 			block.MergeBlockId = bestM
 		}
 	}
 
-	// SPIR-V requires that a merge block can only be a merge block for one header.
-	// We iterate through headers and inject dummy merge blocks for any shared merge blocks,
-	// or for headers that didn't find any structural merge block (m == -1).
+	// Dummy injection for shared merges, missing merges or merges that are continue targets of an enclosing loop.
 	mergeToHeader := make(map[int]int)
 	for _, blockId := range cfg.ReversePostOrder() {
 		block := &cfg.Blocks[blockId]
 		m := block.MergeBlockId
 
+		needsDummy := false
 		if m == -1 {
-			if block.Term != TermCBranch && !block.IsLoopHeader {
-				continue
+			if block.Term == TermCBranch || block.IsLoopHeader {
+				needsDummy = true
 			}
 		} else {
-			if _, exists := mergeToHeader[m]; !exists {
+			if _, exists := mergeToHeader[m]; exists {
+				needsDummy = true
+			} else if cfg.isContinueOfEnclosingLoop(immDom, blockId, m) {
+				// Inner construct cannot merge to outer continue.
+				needsDummy = true
+			} else {
 				mergeToHeader[m] = blockId
 				continue
 			}
 		}
-
-		// Find all escaping edges from this construct.
-		// An escaping edge is an edge from a block in the construct to a block NOT in the construct.
-		// The construct is the set of all blocks strictly dominated by blockId, plus blockId itself.
-		var escapingTargets []int
-		for i := range cfg.Blocks {
-			if i != blockId && !cfg.dominates(immDom, blockId, i) {
-				continue // i is not in the construct
-			}
-			for _, succ := range cfg.Blocks[i].Successors {
-				if succ != blockId && !cfg.dominates(immDom, blockId, succ) {
-					// succ is outside the construct, add to escaping targets if not present.
-					found := false
-					for _, t := range escapingTargets {
-						if t == succ {
-							found = true
-							break
-						}
-					}
-					if !found {
-						escapingTargets = append(escapingTargets, succ)
-					}
-				}
-			}
+		if !needsDummy {
+			continue
 		}
 
-		// This merge block is either shared or non-existent, we must create a unique dummy merge block.
 		newBlockId := len(cfg.Blocks)
 		dummyBlock := GcnShaderCfgBlock{
 			Id:              newBlockId,
-			Term:            TermBranch,
-			Successors:      nil,
 			MergeBlockId:    -1,
 			ContinueBlockId: -1,
 		}
 
-		if len(escapingTargets) > 0 {
-			dummyBlock.Successors = []int{escapingTargets[0]}
-		} else if m != -1 {
+		var targetToRedirect int
+		if m != -1 {
+			// Shared/Invalid merge trampoline.
+			dummyBlock.Term = TermBranch
 			dummyBlock.Successors = []int{m}
+			targetToRedirect = m
+		} else {
+			// Fully divergent construct (find escaping targets).
+			var escapingTargets []int
+			seen := make(map[int]bool)
+			for i := range cfg.Blocks {
+				if i != blockId && !cfg.dominates(immDom, blockId, i) {
+					continue
+				}
+				for _, succ := range cfg.Blocks[i].Successors {
+					if succ != blockId && !cfg.dominates(immDom, blockId, succ) {
+						if !seen[succ] {
+							seen[succ] = true
+							escapingTargets = append(escapingTargets, succ)
+						}
+					}
+				}
+			}
+
+			if len(escapingTargets) == 0 {
+				// True abort (returns/kills), safe to emit Unreachable.
+				dummyBlock.Term = TermBranch
+				dummyBlock.Successors = nil
+				targetToRedirect = -1
+			} else {
+				// Use trampoline to safely route the escaping branch out of the inner selection.
+				dummyBlock.Term = TermBranch
+				dummyBlock.Successors = []int{escapingTargets[0]}
+				targetToRedirect = escapingTargets[0]
+			}
 		}
+
 		cfg.Blocks = append(cfg.Blocks, dummyBlock)
+		immDom = append(immDom, blockId) // Dummy is strictly dominated by the header.
 
-		// Redirect any branches from within this construct that targeted `escapingTargets[0]` or `m` to target `newBlockId` instead.
-		for i := range cfg.Blocks {
-			// Skip newly added dummy blocks.
-			if i >= newBlockId {
-				continue
-			}
-			if i != blockId && !cfg.dominates(immDom, blockId, i) {
-				continue
-			}
-
-			b := &cfg.Blocks[i]
-			for j, succ := range b.Successors {
-				if (len(escapingTargets) > 0 && succ == escapingTargets[0]) || (m != -1 && succ == m) {
-					b.Successors[j] = newBlockId
+		// Redirect every edge that matches the target onto the dummy.
+		if targetToRedirect != -1 {
+			for i := range cfg.Blocks {
+				if i >= newBlockId {
+					continue
+				}
+				if i != blockId && !cfg.dominates(immDom, blockId, i) {
+					continue
+				}
+				b := &cfg.Blocks[i]
+				for j, succ := range b.Successors {
+					if succ == targetToRedirect {
+						b.Successors[j] = newBlockId
+						// Safely intercept and update the loop's continue target if we redirected a back-edge.
+						if cfg.Blocks[targetToRedirect].IsLoopHeader && cfg.Blocks[targetToRedirect].ContinueBlockId == i {
+							cfg.Blocks[targetToRedirect].ContinueBlockId = newBlockId
+						}
+					}
 				}
 			}
 		}
 
-		// Update the header's merge block.
 		cfg.Blocks[blockId].MergeBlockId = newBlockId
 	}
 }

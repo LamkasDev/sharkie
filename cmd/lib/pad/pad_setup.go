@@ -43,6 +43,10 @@ func libScePad_scePadOpen(userId UserId, padType, index, param uintptr) uintptr 
 func libScePad_scePadRead(handleId uint32, data *PadData, count uintptr) uintptr {
 	handle := GlobalPadEngine.Handles[handleId]
 	if handle == nil || data == nil {
+		logger.Printf("%-132s %s failed due to invalid handle or data pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("scePadRead"),
+		)
 		return 0x802F0001
 	}
 	handle.Device.Read(data)
@@ -68,6 +72,10 @@ func libScePad_scePadRead(handleId uint32, data *PadData, count uintptr) uintptr
 func libScePad_scePadGetControllerInformation(handleId uint32, info *PadControllerInformation) uintptr {
 	handle := GlobalPadEngine.Handles[handleId]
 	if handle == nil || info == nil {
+		logger.Printf("%-132s %s failed due to invalid handle or info pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("scePadGetControllerInformation"),
+		)
 		return 0x802F0001
 	}
 	handle.Device.GetControllerInformation(info)
@@ -80,6 +88,10 @@ func libScePad_scePadGetControllerInformation(handleId uint32, info *PadControll
 func libScePad_scePadReadState(handleId uint32, data *PadData) uintptr {
 	handle := GlobalPadEngine.Handles[handleId]
 	if handle == nil || data == nil {
+		logger.Printf("%-132s %s failed due to invalid handle or data pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("scePadReadState"),
+		)
 		return 0x802F0001
 	}
 	handle.Device.Read(data)

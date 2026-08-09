@@ -1,6 +1,8 @@
 package gcn
 
 import (
+	"fmt"
+
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/gcn"
 	vk "github.com/goki/vulkan"
 )
@@ -81,8 +83,20 @@ func TranslateDstSelToVkSwizzle(sel uint8) vk.ComponentSwizzle {
 }
 
 // TranslateGcnFormat maps GCN formats to Vulkan VkFormat and byte size.
-func TranslateGcnFormat(dataFormat, numFormat uint8) (vk.Format, uint32) {
+func TranslateGcnFormat(dataFormat, numFormat uint8, compSwap uint32) (vk.Format, uint32) {
+	if compSwap != 0 && dataFormat != gcn.GcnDataFormat8_8_8_8 &&
+		dataFormat != gcn.GcnDataFormat10_10_10_2 && dataFormat != gcn.GcnDataFormat2_10_10_10 {
+		panic(fmt.Sprintf("unhandled comp swap %d for format %d", compSwap, dataFormat))
+	}
+
 	switch dataFormat {
+	case gcn.GcnDataFormatInvalid:
+		switch numFormat {
+		case gcn.GcnNumFormatUnorm:
+			return vk.FormatUndefined, 0
+		default:
+			panic("invalid format")
+		}
 	case gcn.GcnDataFormat8:
 		switch numFormat {
 		case gcn.GcnNumFormatUnorm, gcn.GcnNumFormatUbnorm:
@@ -157,15 +171,24 @@ func TranslateGcnFormat(dataFormat, numFormat uint8) (vk.Format, uint32) {
 			return vk.FormatR16g16Sfloat, 4
 		}
 	case gcn.GcnDataFormat10_11_11:
-		if numFormat == gcn.GcnNumFormatSfloat {
-			return vk.FormatB10g11r11UfloatPack32, 4
-		}
-	case gcn.GcnDataFormat11_11_10:
-		if numFormat == gcn.GcnNumFormatSfloat {
-			// TODO: fix this.
+		switch numFormat {
+		case gcn.GcnNumFormatSfloat:
 			return vk.FormatB10g11r11UfloatPack32, 4
 		}
 	case gcn.GcnDataFormat10_10_10_2, gcn.GcnDataFormat2_10_10_10:
+		if compSwap == 1 { // SWAP_ALT (BGRA)
+			switch numFormat {
+			case gcn.GcnNumFormatUnorm:
+				return vk.FormatA2r10g10b10UnormPack32, 4
+			case gcn.GcnNumFormatSnorm:
+				return vk.FormatA2r10g10b10SnormPack32, 4
+			case gcn.GcnNumFormatUint:
+				return vk.FormatA2r10g10b10UintPack32, 4
+			case gcn.GcnNumFormatSint:
+				return vk.FormatA2r10g10b10SintPack32, 4
+			}
+			break
+		}
 		switch numFormat {
 		case gcn.GcnNumFormatUnorm:
 			return vk.FormatA2b10g10r10UnormPack32, 4
@@ -177,6 +200,21 @@ func TranslateGcnFormat(dataFormat, numFormat uint8) (vk.Format, uint32) {
 			return vk.FormatA2b10g10r10SintPack32, 4
 		}
 	case gcn.GcnDataFormat8_8_8_8:
+		if compSwap == 1 { // SWAP_ALT (BGRA)
+			switch numFormat {
+			case gcn.GcnNumFormatUnorm:
+				return vk.FormatB8g8r8a8Unorm, 4
+			case gcn.GcnNumFormatSnorm:
+				return vk.FormatB8g8r8a8Snorm, 4
+			case gcn.GcnNumFormatUint:
+				return vk.FormatB8g8r8a8Uint, 4
+			case gcn.GcnNumFormatSint:
+				return vk.FormatB8g8r8a8Sint, 4
+			case gcn.GcnNumFormatSrgb:
+				return vk.FormatB8g8r8a8Srgb, 4
+			}
+			break
+		}
 		switch numFormat {
 		case gcn.GcnNumFormatUnorm, gcn.GcnNumFormatUbnorm:
 			return vk.FormatR8g8b8a8Unorm, 4
@@ -294,7 +332,7 @@ func TranslateGcnFormat(dataFormat, numFormat uint8) (vk.Format, uint32) {
 		}
 	case gcn.GcnDataFormatBC6:
 		switch numFormat {
-		case 0, 7:
+		case gcn.GcnNumFormatUnorm, gcn.GcnNumFormatSfloat:
 			return vk.FormatBc6hUfloatBlock, 16
 		case gcn.GcnNumFormatSnorm:
 			return vk.FormatBc6hSfloatBlock, 16
@@ -308,7 +346,7 @@ func TranslateGcnFormat(dataFormat, numFormat uint8) (vk.Format, uint32) {
 		}
 	}
 
-	return vk.FormatUndefined, 0
+	panic(fmt.Sprintf("unhandled data format %d number format %d", dataFormat, numFormat))
 }
 
 // TranslateComponentMapping maps GCN DataFormat and NumFormat to Vulkan VkFormat and byte size.

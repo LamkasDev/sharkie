@@ -11,7 +11,7 @@ import (
 
 func (t *GpuTranslator) GetImageView(descriptor spirvStructs.ImageDescriptor) (*vulkan.VulkanImageView, error, bool) {
 	hash := descriptor.Hash()
-	format, _ := vkGcn.TranslateGcnFormat(descriptor.DataFormat, descriptor.NumFormat)
+	format, _ := vkGcn.TranslateGcnFormat(descriptor.DataFormat, descriptor.NumFormat, 0)
 	if format == vk.FormatUndefined {
 		return nil, fmt.Errorf("invalid format"), false
 	}

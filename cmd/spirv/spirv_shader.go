@@ -149,6 +149,7 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	// 	PhysicalStorageBuffer uint* UserDataAddress;
 	//  uint64_t OnionMemoryBaseAddress;
 	//  uint64_t GarlicMemoryBaseAddress;
+	//  uint64_t GdsMemoryBaseAddress;
 	//  uint_t UserSgprCount;
 	//  uint_t ShaderRsrc2;
 	//  uint_t VteControl;
@@ -157,7 +158,7 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	//  float_t GbVertClipAdj;
 	// }
 	typePc := b.EmitTypeStruct(
-		typePtrPsbUint, typeUint64, typeUint64,
+		typePtrPsbUint, typeUint64, typeUint64, typeUint64,
 		typeUint, typeUint, typeUint, typeUint,
 		typeFloat, typeFloat,
 	)
@@ -175,14 +176,15 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	b.EmitMemberDecorate(typePc, 0, spec.SpvDecorationOffset, baseOffset+0)
 	b.EmitMemberDecorate(typePc, 1, spec.SpvDecorationOffset, baseOffset+8)
 	b.EmitMemberDecorate(typePc, 2, spec.SpvDecorationOffset, baseOffset+16)
-
 	b.EmitMemberDecorate(typePc, 3, spec.SpvDecorationOffset, baseOffset+24)
-	b.EmitMemberDecorate(typePc, 4, spec.SpvDecorationOffset, baseOffset+28)
-	b.EmitMemberDecorate(typePc, 5, spec.SpvDecorationOffset, baseOffset+32)
-	b.EmitMemberDecorate(typePc, 6, spec.SpvDecorationOffset, baseOffset+36)
 
-	b.EmitMemberDecorate(typePc, 7, spec.SpvDecorationOffset, baseOffset+40)
-	b.EmitMemberDecorate(typePc, 8, spec.SpvDecorationOffset, baseOffset+44)
+	b.EmitMemberDecorate(typePc, 4, spec.SpvDecorationOffset, baseOffset+32)
+	b.EmitMemberDecorate(typePc, 5, spec.SpvDecorationOffset, baseOffset+36)
+	b.EmitMemberDecorate(typePc, 6, spec.SpvDecorationOffset, baseOffset+40)
+	b.EmitMemberDecorate(typePc, 7, spec.SpvDecorationOffset, baseOffset+44)
+
+	b.EmitMemberDecorate(typePc, 8, spec.SpvDecorationOffset, baseOffset+48)
+	b.EmitMemberDecorate(typePc, 9, spec.SpvDecorationOffset, baseOffset+52)
 
 	// Global push-constant variable.
 	typePtrPc := b.EmitTypePointer(spec.SpvStoragePushConstant, typePc)
@@ -467,6 +469,15 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 		b.EmitDeferredLocalVariable(typePtrFnBool, idIsValidPixel)
 	}
 
+	// Emit LDS scratchpad variable (32kB = 8192 Dwords).
+	var idLdsArray SpirvId
+	if shader.Stage == GcnShaderStageCompute {
+		typeLdsArray := b.EmitTypeArray(typeUint, b.EmitConstantUint(typeUint, 8192))
+		typePtrLdsArray := b.EmitTypePointer(spec.SpvStorageWorkgroup, typeLdsArray)
+		idLdsArray = b.EmitVariable(typePtrLdsArray, spec.SpvStorageWorkgroup)
+		b.EmitName(idLdsArray, "lds_array")
+	}
+
 	// GCN special registers.
 	var gcnSpecialIds [27]SpirvUsedId
 	gcnSpecialIds[GcnSpecIdFlatScrLo] = SpirvUsedId{Id: b.AllocId(), Name: "flat_scr_lo"}
@@ -646,6 +657,7 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 		BlockContextIdWorkgroupId:               {Id: idWorkgroupId, Name: "workgroup_id"},
 		BlockContextIdLocalInvocationId:         {Id: idLocalInvocationId, Name: "local_invocation_id"},
 		BlockContextIdIsValidPixel:              {Id: idIsValidPixel, Name: "is_valid_pixel"},
+		BlockContextIdLdsArray:                  {Id: idLdsArray, Name: "lds_array"},
 
 		// Pipeline outputs.
 		BlockContextIdPosOut:       {Id: typePosOut, Name: "pos_out_t"},
@@ -654,12 +666,18 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	for i, id := range idColorOuts {
 		ids[BlockContextIdColorOut0+SpirvId(i)] = SpirvUsedId{Id: id, Name: fmt.Sprintf("color_out_%d", i)}
 	}
-
 	for i, id := range idParamOuts {
 		ids[BlockContextIdParamOut0+SpirvId(i)] = SpirvUsedId{Id: id, Name: fmt.Sprintf("param_out_%d", i)}
 	}
 	for i, id := range idParamIns {
 		ids[BlockContextIdParamIn0+SpirvId(i)] = SpirvUsedId{Id: id, Name: fmt.Sprintf("param_in_%d", i)}
+	}
+
+	// Pre-allocate continue block IDs for loop headers.
+	for i, block := range shader.Cfg.Blocks {
+		if block.IsLoopHeader && block.ContinueBlockId == block.Id {
+			ids[BlockContextIdContinueBlocks+SpirvId(block.Id)] = SpirvUsedId{Id: b.AllocId(), Name: fmt.Sprintf("continue_%d", i)}
+		}
 	}
 
 	// Pre-allocate SPIR-V labels ID for GCN CFG blocks.
@@ -693,7 +711,7 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 
 	// Emit reachable blocks.
 	for _, blockId := range rpoBlockIds {
-		emitBlock(b, &shader.Cfg.Blocks[blockId], &blockContext)
+		emitBlock(b, &shader.Cfg, &shader.Cfg.Blocks[blockId], &blockContext)
 		emittedBlockIds[blockId] = true
 	}
 

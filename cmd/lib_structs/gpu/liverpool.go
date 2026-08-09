@@ -6,6 +6,7 @@ import (
 
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/gcn"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/gpu/pm4"
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/irq"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/video"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
@@ -27,10 +28,12 @@ type Liverpool struct {
 	DisplaySurfaces map[uintptr]*LiverpoolDisplaySurface
 	PM4Handlers     map[uint8]PM4Handler
 
-	OnFlip                   func(flip *VideoOutFlip)
-	OnRingWork               func(ringWork *RingWork)
 	OnRegisterDisplaySurface func(address uintptr, attribute *VideoOutBufferAttribute)
-	WaitOnFence              func()
+	OnFlip                   func(flip *VideoOutFlip)
+
+	UnfinishedSubmits    int32
+	OnRingWork           func(ringWork *RingWork)
+	WaitOnFinishRingWork func()
 }
 
 type RingWork struct {
@@ -49,6 +52,9 @@ func NewLiverpool() *Liverpool {
 		PM4Handlers:     map[uint8]PM4Handler{},
 	}
 	l.SetupPM4Handlers()
+	irq.GlobalInterruptHandler.Register(irq.InterruptIdGpuIdle, func(id irq.InterruptId) {
+		l.UnfinishedSubmits--
+	})
 
 	return l
 }
@@ -84,7 +90,21 @@ func (l *Liverpool) SubmitCommandBuffers(indirectBuffers []PM4IndirectBuffer) {
 			continue
 		}
 	}
+	l.UnfinishedSubmits++
 	l.OnRingWork(ringWork)
+}
+
+// TODO: we'll need to sync multiple threads trying to submit at same time.
+func (l *Liverpool) WaitIdleStart() {
+	if l.UnfinishedSubmits >= 0 {
+		l.WaitOnFinishRingWork()
+	}
+}
+
+func (l *Liverpool) WaitIdleFinish() {
+	if l.UnfinishedSubmits >= 0 {
+		l.WaitOnFinishRingWork()
+	}
 }
 
 func (l *Liverpool) GetShader(stage GcnShaderStage, address uintptr) *GcnShader {

@@ -7,6 +7,9 @@ import (
 var NextAddress uintptr = 0x3100000000
 
 func GetNextAlignedAddress(addr uintptr, length uint64, alignment uintptr) uintptr {
+	if alignment == 0 {
+		alignment = uintptr(MemoryPageSize)
+	}
 	if addr == 0 {
 		for {
 			// Align the current bump pointer.

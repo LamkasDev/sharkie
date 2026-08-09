@@ -105,6 +105,7 @@ const (
 	BlockContextIdInstanceIndex
 	BlockContextIdFragCoord
 	BlockContextIdIsValidPixel
+	BlockContextIdLdsArray
 	BlockContextIdWorkgroupId
 	BlockContextIdLocalInvocationId
 
@@ -187,6 +188,8 @@ const (
 	BlockContextIdParamOut29
 	BlockContextIdParamOut30
 	BlockContextIdParamOut31
+
+	BlockContextIdContinueBlocks = SpirvId(10000)
 )
 
 const (
@@ -296,10 +299,11 @@ const (
 	PushConstantUserDataAddress         = 0
 	PushConstantOnionMemoryBaseAddress  = 1
 	PushConstantGarlicMemoryBaseAddress = 2
-	PushConstantUserSgprCount           = 3
-	PushConstantShaderRsrc2             = 4
-	PushConstantVteControl              = 5
-	PushConstantClipControl             = 6
-	PushConstantGbHorzClipAdj           = 7
-	PushConstantGbVertClipAdj           = 8
+	PushConstantGdsMemoryBaseAddress    = 3
+	PushConstantUserSgprCount           = 4
+	PushConstantShaderRsrc2             = 5
+	PushConstantVteControl              = 6
+	PushConstantClipControl             = 7
+	PushConstantGbHorzClipAdj           = 8
+	PushConstantGbVertClipAdj           = 9
 )

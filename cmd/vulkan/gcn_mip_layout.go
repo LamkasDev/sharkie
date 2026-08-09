@@ -98,7 +98,7 @@ func computeMipLayouts(descriptor spirvStructs.ImageDescriptor, numLevels uint8)
 		numLevels = 16
 	}
 
-	_, bpp := gcn.TranslateGcnFormat(descriptor.DataFormat, descriptor.NumFormat)
+	_, bpp := gcn.TranslateGcnFormat(descriptor.DataFormat, descriptor.NumFormat, 0)
 	bpp *= 8
 	linear := isLinearTileMode(descriptor.TilingIndex)
 	isBlock := descriptor.DataFormat >= gcn2.GcnDataFormatBC1 && descriptor.DataFormat <= gcn2.GcnDataFormatBC7

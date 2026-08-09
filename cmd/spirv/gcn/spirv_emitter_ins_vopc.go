@@ -12,43 +12,66 @@ func EmitVOPC(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 	typeBool := ctx.GetId(BlockContextIdTypeBool)
 	var cond SpirvId
 	switch details.Op {
-	case gcnSpec.VopcOpCmpEqF32:
+	// Float versions.
+	case gcnSpec.VopcOpCmpEqF32, gcnSpec.VopcOpCmpxEqF32:
 		val0 := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
 		val1 := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src1, 0, 1)
 		cond = b.EmitFOrdEqual(typeBool, val0, val1)
-	case gcnSpec.VopcOpCmpNeqF32:
+	case gcnSpec.VopcOpCmpNeqF32, gcnSpec.VopcOpCmpxNeqF32:
 		val0 := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
 		val1 := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src1, 0, 1)
 		cond = b.EmitFUnordNotEqual(typeBool, val0, val1)
-	case gcnSpec.VopcOpCmpLtF32:
+	case gcnSpec.VopcOpCmpLtF32, gcnSpec.VopcOpCmpxLtF32:
 		val0 := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
 		val1 := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src1, 0, 1)
 		cond = b.EmitFOrdLessThan(typeBool, val0, val1)
-	case gcnSpec.VopcOpCmpLeF32:
+	case gcnSpec.VopcOpCmpLeF32, gcnSpec.VopcOpCmpxLeF32:
 		val0 := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
 		val1 := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src1, 0, 1)
 		cond = b.EmitFOrdLessThanEqual(typeBool, val0, val1)
-	case gcnSpec.VopcOpCmpGtF32:
+	case gcnSpec.VopcOpCmpGtF32, gcnSpec.VopcOpCmpxGtF32:
 		val0 := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
 		val1 := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src1, 0, 1)
 		cond = b.EmitFOrdGreaterThan(typeBool, val0, val1)
-	case gcnSpec.VopcOpCmpGeF32:
+	case gcnSpec.VopcOpCmpGeF32, gcnSpec.VopcOpCmpxGeF32:
 		val0 := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
 		val1 := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src1, 0, 1)
 		cond = b.EmitFOrdGreaterThanEqual(typeBool, val0, val1)
+	case gcnSpec.VopcOpCmpNgeF32, gcnSpec.VopcOpCmpxNgeF32:
+		val0 := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
+		val1 := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src1, 0, 1)
+		cond = b.EmitFOrdLessThan(typeBool, val0, val1)
+	case gcnSpec.VopcOpCmpNltF32, gcnSpec.VopcOpCmpxNltF32:
+		val0 := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
+		val1 := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src1, 0, 1)
+		cond = b.EmitFUnordGreaterThanEqual(typeBool, val0, val1)
+	// Unsigned versions.
+	case gcnSpec.VopcOpCmpEqU32, gcnSpec.VopcOpCmpxEqU32:
+		val0 := GetOperandUintValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
+		val1 := GetOperandUintValueModified(b, ctx, details.Abs, details.Neg, details.Src1, 0, 1)
+		cond = b.EmitIEqual(typeBool, val0, val1)
+	case gcnSpec.VopcOpCmpLtU32, gcnSpec.VopcOpCmpxLtU32:
+		val0 := GetOperandUintValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
+		val1 := GetOperandUintValueModified(b, ctx, details.Abs, details.Neg, details.Src1, 0, 1)
+		cond = b.EmitULessThan(typeBool, val0, val1)
+	case gcnSpec.VopcOpCmpLeU32, gcnSpec.VopcOpCmpxLeU32:
+		val0 := GetOperandUintValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
+		val1 := GetOperandUintValueModified(b, ctx, details.Abs, details.Neg, details.Src1, 0, 1)
+		cond = b.EmitULessThanEqual(typeBool, val0, val1)
 	case gcnSpec.VopcOpCmpGtU32, gcnSpec.VopcOpCmpxGtU32:
 		val0 := GetOperandUintValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
 		val1 := GetOperandUintValueModified(b, ctx, details.Abs, details.Neg, details.Src1, 0, 1)
 		cond = b.EmitUGreaterThan(typeBool, val0, val1)
-	case gcnSpec.VopcOpCmpLtU32:
-		val0 := GetOperandUintValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
-		val1 := GetOperandUintValueModified(b, ctx, details.Abs, details.Neg, details.Src1, 0, 1)
-		cond = b.EmitULessThan(typeBool, val0, val1)
-	case gcnSpec.VopcOpCmpxGeU32:
+	case gcnSpec.VopcOpCmpGeU32, gcnSpec.VopcOpCmpxGeU32:
 		val0 := GetOperandUintValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
 		val1 := GetOperandUintValueModified(b, ctx, details.Abs, details.Neg, details.Src1, 0, 1)
 		cond = b.EmitUGreaterThanEqual(typeBool, val0, val1)
-	case gcnSpec.VopcOpCmpLgI32:
+	case gcnSpec.VopcOpCmpLgU32, gcnSpec.VopcOpCmpxLgU32:
+		val0 := GetOperandUintValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
+		val1 := GetOperandUintValueModified(b, ctx, details.Abs, details.Neg, details.Src1, 0, 1)
+		cond = b.EmitINotEqual(typeBool, val0, val1)
+	// Signed versions.
+	case gcnSpec.VopcOpCmpLgI32, gcnSpec.VopcOpCmpxLgI32:
 		val0 := GetOperandIntValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
 		val1 := GetOperandIntValueModified(b, ctx, details.Abs, details.Neg, details.Src1, 0, 1)
 		cond = b.EmitINotEqual(typeBool, val0, val1)

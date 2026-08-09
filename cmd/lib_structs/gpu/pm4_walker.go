@@ -88,16 +88,17 @@ func (l *Liverpool) walkStream(stream *LiverpoolCommandStream, dwords []uint32) 
 	for i < len(dwords) {
 		// Type-2 is the single DWORD NOP padding.
 		header := dwords[i]
-		if header == 0 || header == PM4_HEADER_TYPE2 {
+		headerType := (header >> 30) & 0x3
+		if header == 0 || headerType == 2 {
 			i++
 			continue
 		}
 
 		// Extract header data.
-		headerType := (header >> 30) & 0x3
-		count := int((header>>16)&0x3FFF) + 1
+		countField := (header >> 16) & 0x3FFF
+		payloadLength := int((countField + 1) & 0x3FFF)
 		opcode := uint8((header >> 8) & 0xFF)
-		end := i + 1 + count
+		end := i + 1 + payloadLength
 
 		// Check if the packet is truncated.
 		if end > len(dwords) {
@@ -105,7 +106,7 @@ func (l *Liverpool) walkStream(stream *LiverpoolCommandStream, dwords []uint32) 
 				color.Green.Sprintf("PM4-%s", stream.Name),
 				color.Green.Sprintf("%d", headerType),
 				color.Yellow.Sprintf("0x%X", opcode),
-				color.Green.Sprintf("%d", count),
+				color.Green.Sprintf("%d", payloadLength),
 				color.Green.Sprintf("%d", len(dwords)-i-1),
 			)
 			break

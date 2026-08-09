@@ -205,6 +205,13 @@ func (b *SpvBuilder) EmitULessThanEqual(resultType, op1, op2 SpirvId) SpirvId {
 	return id
 }
 
+// EmitSLessThanEqual emits OpSLessThan and returns the result ID.
+func (b *SpvBuilder) EmitSLessThanEqual(resultType, op1, op2 SpirvId) SpirvId {
+	id := b.AllocId()
+	b.instr(&b.code, spec.SpvOpSLessThanEqual, uint32(resultType), uint32(id), uint32(op1), uint32(op2))
+	return id
+}
+
 // EmitBitFieldSExtract emits OpBitFieldSExtract and returns the result ID.
 func (b *SpvBuilder) EmitBitFieldSExtract(resultType, base, offset, count SpirvId) SpirvId {
 	id := b.AllocId()
@@ -219,46 +226,10 @@ func (b *SpvBuilder) EmitBitFieldUExtract(resultType, base, offset, count SpirvI
 	return id
 }
 
-// EmitSampledImage emits OpSampledImage and returns the result ID.
-func (b *SpvBuilder) EmitSampledImage(resultType, image, sampler SpirvId) SpirvId {
+// EmitBitReverse emits OpBitReverse and returns the result ID.
+func (b *SpvBuilder) EmitBitReverse(resultType, base SpirvId) SpirvId {
 	id := b.AllocId()
-	b.instr(&b.code, spec.SpvOpSampledImage, uint32(resultType), uint32(id), uint32(image), uint32(sampler))
-	return id
-}
-
-// EmitImageSampleImplicitLod emits OpImageSampleImplicitLod without any optional image operands.
-func (b *SpvBuilder) EmitImageSampleImplicitLod(resultType, sampledImage, coordinate SpirvId) SpirvId {
-	id := b.AllocId()
-	b.instr(&b.code, spec.SpvOpImageSampleImplicitLod, uint32(resultType), uint32(id), uint32(sampledImage), uint32(coordinate))
-	return id
-}
-
-// EmitImageSampleImplicitLodOperands emits OpImageSampleImplicitLod with a specific image operand mask and variadic arguments.
-func (b *SpvBuilder) EmitImageSampleImplicitLodOperands(resultType, sampledImage, coordinate SpirvId, imageOperandsMask uint32, operands ...SpirvId) SpirvId {
-	id := b.AllocId()
-	args := []uint32{uint32(resultType), uint32(id), uint32(sampledImage), uint32(coordinate), imageOperandsMask}
-	for _, op := range operands {
-		args = append(args, uint32(op))
-	}
-	b.instr(&b.code, spec.SpvOpImageSampleImplicitLod, args...)
-	return id
-}
-
-// EmitImageSampleExplicitLod emits OpImageSampleExplicitLod with the standard LOD mask and operand.
-func (b *SpvBuilder) EmitImageSampleExplicitLod(resultType, sampledImage, coordinate, lod SpirvId) SpirvId {
-	id := b.AllocId()
-	b.instr(&b.code, spec.SpvOpImageSampleExplicitLod, uint32(resultType), uint32(id), uint32(sampledImage), uint32(coordinate), uint32(spec.SpvImageOperandsLodMask), uint32(lod))
-	return id
-}
-
-// EmitImageSampleExplicitLodOperands emits OpImageSampleExplicitLod with a custom image operand mask and variadic arguments.
-func (b *SpvBuilder) EmitImageSampleExplicitLodOperands(resultType, sampledImage, coordinate SpirvId, imageOperandsMask uint32, operands ...SpirvId) SpirvId {
-	id := b.AllocId()
-	args := []uint32{uint32(resultType), uint32(id), uint32(sampledImage), uint32(coordinate), imageOperandsMask}
-	for _, op := range operands {
-		args = append(args, uint32(op))
-	}
-	b.instr(&b.code, spec.SpvOpImageSampleExplicitLod, args...)
+	b.instr(&b.code, spec.SpvOpBitReverse, uint32(resultType), uint32(id), uint32(base))
 	return id
 }
 
@@ -308,5 +279,12 @@ func (b *SpvBuilder) EmitFOrdLessThanEqual(resultType, op1, op2 SpirvId) SpirvId
 func (b *SpvBuilder) EmitFOrdGreaterThanEqual(resultType, op1, op2 SpirvId) SpirvId {
 	id := b.AllocId()
 	b.instr(&b.code, spec.SpvOpFOrdGreaterThanEqual, uint32(resultType), uint32(id), uint32(op1), uint32(op2))
+	return id
+}
+
+// EmitFUnordGreaterThanEqual emits OpFUnordGreaterThanEqual and returns the result ID.
+func (b *SpvBuilder) EmitFUnordGreaterThanEqual(resultType, op1, op2 SpirvId) SpirvId {
+	id := b.AllocId()
+	b.instr(&b.code, spec.SpvOpFUnordGreaterThanEqual, uint32(resultType), uint32(id), uint32(op1), uint32(op2))
 	return id
 }
