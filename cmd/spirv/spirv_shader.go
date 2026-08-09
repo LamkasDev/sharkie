@@ -17,11 +17,11 @@ import (
 type SpirvShader struct {
 	GcnShader    *GcnShader
 	Code         []uint32
-	StaticLayout []ShaderResourceBinding
+	StaticLayout map[*gcnSpec.Instruction]ShaderResourceBinding
 }
 
 func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, error) {
-	staticLayout := BuildStaticLayout(AnalyzeResources(shader), shader)
+	staticLayout := BuildStaticLayout(AnalyzeResources(shader, ctx), shader)
 	b := NewSpvBuilder()
 
 	// Capabilities.
@@ -194,76 +194,65 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 
 	idStaticCount := b.EmitConstantUint(typeUint, MaxStaticBindings)
 
-	// Buffers.
-	typeImageBuffer := b.EmitTypeImage(typeUint, 5, 0, 0, 0, 1, 0) // DimBuffer=5, Depth=0, Arrayed=0, MS=0, Sampled=1, FormatUnknown=0
-	typeSampledImageBuffer := b.EmitTypeSampledImage(typeImageBuffer)
-	typePtrUniformSampledImageBuffer := b.EmitTypePointer(spec.SpvStorageUniformConstant, typeSampledImageBuffer)
-	typeStaticSampledBufferArray := b.EmitTypeArray(typeSampledImageBuffer, idStaticCount)
-	typePtrUniformStaticSampledBufferArray := b.EmitTypePointer(spec.SpvStorageUniformConstant, typeStaticSampledBufferArray)
-	idStaticSampledBuffers := b.EmitVariable(typePtrUniformStaticSampledBufferArray, spec.SpvStorageUniformConstant)
-	b.EmitName(idStaticSampledBuffers, "static_sampled_buffers")
-	b.EmitDecorate(idStaticSampledBuffers, spec.SpvDecorationDescriptorSet, DescriptorSetSlotStatic)
-	b.EmitDecorate(idStaticSampledBuffers, spec.SpvDecorationBinding, StaticBindingSampledBuffers)
-
 	// 1D images.
 	typeStaticSampledArray1d := b.EmitTypeArray(typeSampledImage1d, idStaticCount)
 	typePtrUniformStaticSampledArray1d := b.EmitTypePointer(spec.SpvStorageUniformConstant, typeStaticSampledArray1d)
 	idStaticTextures1d := b.EmitVariable(typePtrUniformStaticSampledArray1d, spec.SpvStorageUniformConstant)
 	b.EmitName(idStaticTextures1d, "static_textures_1d")
-	b.EmitDecorate(idStaticTextures1d, spec.SpvDecorationDescriptorSet, DescriptorSetSlotStatic)
-	b.EmitDecorate(idStaticTextures1d, spec.SpvDecorationBinding, StaticBindingSampledImages1D)
+	b.EmitDecorate(idStaticTextures1d, spec.SpvDecorationDescriptorSet, DescriptorSetSlotImages)
+	b.EmitDecorate(idStaticTextures1d, spec.SpvDecorationBinding, ImageBindingSampledImages1D)
 
 	typeStaticStorageArray1d := b.EmitTypeArray(typeStorageImage1d, idStaticCount)
 	typePtrUniformStaticStorageArray1d := b.EmitTypePointer(spec.SpvStorageUniformConstant, typeStaticStorageArray1d)
 	idStaticStorageTextures1d := b.EmitVariable(typePtrUniformStaticStorageArray1d, spec.SpvStorageUniformConstant)
 	b.EmitName(idStaticStorageTextures1d, "static_storage_textures_1d")
-	b.EmitDecorate(idStaticStorageTextures1d, spec.SpvDecorationDescriptorSet, DescriptorSetSlotStatic)
-	b.EmitDecorate(idStaticStorageTextures1d, spec.SpvDecorationBinding, StaticBindingStorageImages1D)
+	b.EmitDecorate(idStaticStorageTextures1d, spec.SpvDecorationDescriptorSet, DescriptorSetSlotImages)
+	b.EmitDecorate(idStaticStorageTextures1d, spec.SpvDecorationBinding, ImageBindingStorageImages1D)
 
 	// 2D images.
 	typeStaticSampledArray2d := b.EmitTypeArray(typeSampledImage2d, idStaticCount)
 	typePtrUniformStaticSampledArray2d := b.EmitTypePointer(spec.SpvStorageUniformConstant, typeStaticSampledArray2d)
 	idStaticTextures2d := b.EmitVariable(typePtrUniformStaticSampledArray2d, spec.SpvStorageUniformConstant)
 	b.EmitName(idStaticTextures2d, "static_textures_2d")
-	b.EmitDecorate(idStaticTextures2d, spec.SpvDecorationDescriptorSet, DescriptorSetSlotStatic)
-	b.EmitDecorate(idStaticTextures2d, spec.SpvDecorationBinding, StaticBindingSampledImages2D)
+	b.EmitDecorate(idStaticTextures2d, spec.SpvDecorationDescriptorSet, DescriptorSetSlotImages)
+	b.EmitDecorate(idStaticTextures2d, spec.SpvDecorationBinding, ImageBindingSampledImages2D)
 
 	typeStaticStorageArray := b.EmitTypeArray(typeStorageImage2d, idStaticCount)
 	typePtrUniformStaticStorageArray := b.EmitTypePointer(spec.SpvStorageUniformConstant, typeStaticStorageArray)
 	idStaticStorageTextures2d := b.EmitVariable(typePtrUniformStaticStorageArray, spec.SpvStorageUniformConstant)
 	b.EmitName(idStaticStorageTextures2d, "static_storage_textures_2d")
-	b.EmitDecorate(idStaticStorageTextures2d, spec.SpvDecorationDescriptorSet, DescriptorSetSlotStatic)
-	b.EmitDecorate(idStaticStorageTextures2d, spec.SpvDecorationBinding, StaticBindingStorageImages2D)
+	b.EmitDecorate(idStaticStorageTextures2d, spec.SpvDecorationDescriptorSet, DescriptorSetSlotImages)
+	b.EmitDecorate(idStaticStorageTextures2d, spec.SpvDecorationBinding, ImageBindingStorageImages2D)
 
 	// 3D images.
 	typeStaticSampledArray3d := b.EmitTypeArray(typeSampledImage3d, idStaticCount)
 	typePtrUniformStaticSampledArray3d := b.EmitTypePointer(spec.SpvStorageUniformConstant, typeStaticSampledArray3d)
 	idStaticTextures3d := b.EmitVariable(typePtrUniformStaticSampledArray3d, spec.SpvStorageUniformConstant)
 	b.EmitName(idStaticTextures3d, "static_textures_3d")
-	b.EmitDecorate(idStaticTextures3d, spec.SpvDecorationDescriptorSet, DescriptorSetSlotStatic)
-	b.EmitDecorate(idStaticTextures3d, spec.SpvDecorationBinding, StaticBindingSampledImages3D)
+	b.EmitDecorate(idStaticTextures3d, spec.SpvDecorationDescriptorSet, DescriptorSetSlotImages)
+	b.EmitDecorate(idStaticTextures3d, spec.SpvDecorationBinding, ImageBindingSampledImages3D)
 
 	typeStaticStorageArray3d := b.EmitTypeArray(typeStorageImage3d, idStaticCount)
 	typePtrUniformStaticStorageArray3d := b.EmitTypePointer(spec.SpvStorageUniformConstant, typeStaticStorageArray3d)
 	idStaticStorageTextures3d := b.EmitVariable(typePtrUniformStaticStorageArray3d, spec.SpvStorageUniformConstant)
 	b.EmitName(idStaticStorageTextures3d, "static_storage_textures_3d")
-	b.EmitDecorate(idStaticStorageTextures3d, spec.SpvDecorationDescriptorSet, DescriptorSetSlotStatic)
-	b.EmitDecorate(idStaticStorageTextures3d, spec.SpvDecorationBinding, StaticBindingStorageImages3D)
+	b.EmitDecorate(idStaticStorageTextures3d, spec.SpvDecorationDescriptorSet, DescriptorSetSlotImages)
+	b.EmitDecorate(idStaticStorageTextures3d, spec.SpvDecorationBinding, ImageBindingStorageImages3D)
 
 	// 2D arrays.
 	typeStaticSampledArray2dArray := b.EmitTypeArray(typeSampledImage2dArray, idStaticCount)
 	typePtrUniformStaticSampledArray2dArray := b.EmitTypePointer(spec.SpvStorageUniformConstant, typeStaticSampledArray2dArray)
 	idStaticTextures2dArray := b.EmitVariable(typePtrUniformStaticSampledArray2dArray, spec.SpvStorageUniformConstant)
 	b.EmitName(idStaticTextures2dArray, "static_textures_2d_array")
-	b.EmitDecorate(idStaticTextures2dArray, spec.SpvDecorationDescriptorSet, DescriptorSetSlotStatic)
-	b.EmitDecorate(idStaticTextures2dArray, spec.SpvDecorationBinding, StaticBindingSampledImages2DArray)
+	b.EmitDecorate(idStaticTextures2dArray, spec.SpvDecorationDescriptorSet, DescriptorSetSlotImages)
+	b.EmitDecorate(idStaticTextures2dArray, spec.SpvDecorationBinding, ImageBindingSampledImages2DArray)
 
 	typeStaticStorageArray2dArray := b.EmitTypeArray(typeStorageImage2dArray, idStaticCount)
 	typePtrUniformStaticStorageArray2dArray := b.EmitTypePointer(spec.SpvStorageUniformConstant, typeStaticStorageArray2dArray)
 	idStaticStorageTextures2dArray := b.EmitVariable(typePtrUniformStaticStorageArray2dArray, spec.SpvStorageUniformConstant)
 	b.EmitName(idStaticStorageTextures2dArray, "static_storage_textures_2d_array")
-	b.EmitDecorate(idStaticStorageTextures2dArray, spec.SpvDecorationDescriptorSet, DescriptorSetSlotStatic)
-	b.EmitDecorate(idStaticStorageTextures2dArray, spec.SpvDecorationBinding, StaticBindingStorageImages2DArray)
+	b.EmitDecorate(idStaticStorageTextures2dArray, spec.SpvDecorationDescriptorSet, DescriptorSetSlotImages)
+	b.EmitDecorate(idStaticStorageTextures2dArray, spec.SpvDecorationBinding, ImageBindingStorageImages2DArray)
 
 	// Address translation.
 	typeStructAddressTranslationEntry := b.EmitTypeStruct(typeUint64, typeUint64, typeUint64, typeUint64)
@@ -283,8 +272,8 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	typePtrStorageAddressTranslationBuffer := b.EmitTypePointer(spec.SpvStorageStorageBuffer, typeAddressTranslationBuffer)
 	typeAddressTranslationBufferVar := b.EmitVariable(typePtrStorageAddressTranslationBuffer, spec.SpvStorageStorageBuffer)
 	b.EmitName(typeAddressTranslationBufferVar, "address_translation_buffer")
-	b.EmitDecorate(typeAddressTranslationBufferVar, spec.SpvDecorationDescriptorSet, DescriptorSetSlotStatic)
-	b.EmitDecorate(typeAddressTranslationBufferVar, spec.SpvDecorationBinding, StaticBindingAddressTranslation)
+	b.EmitDecorate(typeAddressTranslationBufferVar, spec.SpvDecorationDescriptorSet, DescriptorSetSlotGlobal)
+	b.EmitDecorate(typeAddressTranslationBufferVar, spec.SpvDecorationBinding, GlobalBindingAddressTranslation)
 	b.EmitDecorate(typeAddressTranslationBufferVar, spec.SpvDecorationNonWritable)
 
 	idZeroF := b.EmitConstantFloat(typeFloat, 0.0)
@@ -592,12 +581,6 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 		BlockContextIdTypeV3Uint:         {Id: typeV3Uint, Name: "v3uint_t"},
 		BlockContextIdTypeV4Uint:         {Id: typeV4Uint, Name: "v4uint_t"},
 		BlockContextIdTypeStructUintUint: {Id: typeStructUintUint, Name: "struct_uint_uint_t"},
-
-		// Buffers.
-		BlockContextIdTypeImageBuffer:              {Id: typeImageBuffer, Name: "image_buffer_t"},
-		BlockContextIdTypeSampledImageBuffer:       {Id: typeSampledImageBuffer, Name: "sampled_image_buffer_t"},
-		BlockContextIdPtrUniformSampledImageBuffer: {Id: typePtrUniformSampledImageBuffer, Name: "ptr_uniform_sampled_image_buffer_t"},
-		BlockContextIdStaticSampledBuffers:         {Id: idStaticSampledBuffers, Name: "static_sampled_buffers"},
 
 		// 1D images.
 		BlockContextIdTypeImage1d:              {Id: typeImage1d, Name: "image_1d_t"},

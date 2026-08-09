@@ -3,6 +3,7 @@ package translation
 import (
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/gcn"
 	gcnSpec "github.com/LamkasDev/sharkie/cmd/lib_structs/gcn/spec"
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/gpu"
 	"github.com/LamkasDev/sharkie/cmd/spirv"
 	. "github.com/LamkasDev/sharkie/cmd/spirv/common"
 	spirvStructs "github.com/LamkasDev/sharkie/cmd/spirv/structs"
@@ -11,10 +12,10 @@ import (
 
 // ResolvedImageAccess is a T# resolved at a specific MIMG instruction for a user-data snapshot.
 type ResolvedImageAccess struct {
-	InstructionOffset uintptr
-	Kind              ImageAccessKind
-	Descriptor        spirvStructs.ImageDescriptor
-	Sampler           *spirvStructs.SamplerDescriptor
+	Instruction *gcnSpec.Instruction
+	Kind        ImageAccessKind
+	Descriptor  spirvStructs.ImageDescriptor
+	Sampler     *spirvStructs.SamplerDescriptor
 }
 
 // ResolveImageResources simulates scalar SGPR updates and resolves T# descriptors.
@@ -42,6 +43,21 @@ func (t *GpuTranslator) ResolveImageResources(shader *spirv.SpirvShader, userDat
 func (t *GpuTranslator) resolveImageResourcesIns(shader *gcn.GcnShader, instr *gcnSpec.Instruction, registers *gcnSpec.GcnRegisters, accesses []ResolvedImageAccess) []ResolvedImageAccess {
 	switch instr.Encoding {
 	case gcnSpec.EncSOP1:
+		details := instr.Details.(*gcnSpec.ScalarDetails)
+		if details.Op == gcnSpec.Sop1OpSwappcB64 {
+			fetchPCLo := registers[details.Src0]
+			fetchPCHi := registers[details.Src0+1]
+			fetchShaderAddress := uintptr(fetchPCLo) | (uintptr(fetchPCHi) << 32)
+			if fetchShaderAddress != 0 {
+				fetchShader := gpu.GlobalLiverpool.GetShader(gcn.GcnShaderStageFetch, fetchShaderAddress)
+				if fetchShader != nil {
+					fetchInstructions := ParseFetchShaderInstructions(fetchShader)
+					for _, fetchInstr := range fetchInstructions {
+						accesses = t.resolveImageResourcesIns(shader, fetchInstr, registers, accesses)
+					}
+				}
+			}
+		}
 		applySOP1(shader, instr, registers)
 	case gcnSpec.EncSOP2:
 		applySOP2(instr, registers)
@@ -78,10 +94,10 @@ func resolveMIMG(instr *gcnSpec.Instruction, registers *gcnSpec.GcnRegisters) Re
 	}
 
 	return ResolvedImageAccess{
-		InstructionOffset: instr.DwordOffset,
-		Kind:              kind,
-		Descriptor:        descriptor,
-		Sampler:           samplerDescriptor,
+		Instruction: instr,
+		Kind:        kind,
+		Descriptor:  descriptor,
+		Sampler:     samplerDescriptor,
 	}
 }
 

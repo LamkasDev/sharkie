@@ -1,5 +1,18 @@
 package common
 
+import gcnSpec "github.com/LamkasDev/sharkie/cmd/lib_structs/gcn/spec"
+
+type SpirvShaderResourceType uint8
+
+const (
+	SpirvShaderResourceTypeImage SpirvShaderResourceType = iota
+	SpirvShaderResourceTypeBuffer
+)
+
+type ResourceAccessKind interface {
+	isResourceAccessKind()
+}
+
 type ImageAccessKind uint8
 
 const (
@@ -9,15 +22,18 @@ const (
 	ImageAccessSample
 )
 
-func (kind ImageAccessKind) Access() (BindingAccess, bool) {
+func (kind ImageAccessKind) isResourceAccessKind() {}
+
+func (kind ImageAccessKind) String() string {
 	switch kind {
-	case ImageAccessLoad, ImageAccessSample:
-		return BindingAccessSampledRead, true
+	case ImageAccessLoad:
+		return "load"
 	case ImageAccessStore:
-		return BindingAccessStorageWrite, true
-	default:
-		return 0, false
+		return "store"
+	case ImageAccessSample:
+		return "sample"
 	}
+	return "??"
 }
 
 type BufferAccessKind uint8
@@ -28,11 +44,24 @@ const (
 	BufferAccessStore
 )
 
+func (kind BufferAccessKind) isResourceAccessKind() {}
+
+func (kind BufferAccessKind) String() string {
+	switch kind {
+	case BufferAccessLoad:
+		return "load"
+	case BufferAccessStore:
+		return "store"
+	}
+	return "??"
+}
+
 type SgprSource struct {
 	UserDataOffset int32 // -1 if unknown
 }
 
 type SpirvShaderResource struct {
-	InstructionOffset uintptr
-	Kind              ImageAccessKind
+	Instruction *gcnSpec.Instruction
+	Type        SpirvShaderResourceType
+	Kind        ResourceAccessKind
 }

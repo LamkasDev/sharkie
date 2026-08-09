@@ -47,7 +47,7 @@ func (t *GpuTranslator) createDummyTextures() {
 	}
 	t.defaultSampler = surface2D.Sampler
 
-	t.initStaticDescriptorSet(
+	t.initDescriptorSets(
 		surface2D.ImageView.ImageView,
 		surface1D.ImageView.ImageView,
 		surface3D.ImageView.ImageView,
@@ -56,7 +56,7 @@ func (t *GpuTranslator) createDummyTextures() {
 	)
 }
 
-func (t *GpuTranslator) initStaticDescriptorSet(view2D, view1D, view3D, view2DArray vk.ImageView, sampler vk.Sampler) {
+func (t *GpuTranslator) initDescriptorSets(view2D, view1D, view3D, view2DArray vk.ImageView, sampler vk.Sampler) {
 	sampledInfos1D := make([]vk.DescriptorImageInfo, spirvStructs.MaxStaticBindings)
 	sampledInfos2D := make([]vk.DescriptorImageInfo, spirvStructs.MaxStaticBindings)
 	storageInfos2D := make([]vk.DescriptorImageInfo, spirvStructs.MaxStaticBindings)
@@ -76,12 +76,12 @@ func (t *GpuTranslator) initStaticDescriptorSet(view2D, view1D, view3D, view2DAr
 		sampledInfos2DArray[i] = vk.DescriptorImageInfo{Sampler: sampler, ImageView: view2DArray, ImageLayout: vk.ImageLayoutGeneral}
 	}
 
-	for _, pool := range t.staticDescriptorPool.Pools {
-		writes := []vk.WriteDescriptorSet{
+	for _, pool := range t.globalDescriptorPool.Pools {
+		vk.UpdateDescriptorSets(t.handles.Device, 1, []vk.WriteDescriptorSet{
 			{
 				SType:           vk.StructureTypeWriteDescriptorSet,
 				DstSet:          pool.DefaultSet,
-				DstBinding:      spirvStructs.StaticBindingAddressTranslation,
+				DstBinding:      spirvStructs.GlobalBindingAddressTranslation,
 				DstArrayElement: 0,
 				DescriptorCount: 1,
 				DescriptorType:  vk.DescriptorTypeStorageBuffer,
@@ -91,10 +91,15 @@ func (t *GpuTranslator) initStaticDescriptorSet(view2D, view1D, view3D, view2DAr
 					Range:  vk.DeviceSize(vk.WholeSize),
 				}},
 			},
+		}, 0, nil)
+	}
+
+	for _, pool := range t.imageDescriptorPool.Pools {
+		writes := []vk.WriteDescriptorSet{
 			{
 				SType:           vk.StructureTypeWriteDescriptorSet,
 				DstSet:          pool.DefaultSet,
-				DstBinding:      spirvStructs.StaticBindingSampledImages1D,
+				DstBinding:      spirvStructs.ImageBindingSampledImages1D,
 				DstArrayElement: 0,
 				DescriptorCount: spirvStructs.MaxStaticBindings,
 				DescriptorType:  vk.DescriptorTypeCombinedImageSampler,
@@ -103,7 +108,7 @@ func (t *GpuTranslator) initStaticDescriptorSet(view2D, view1D, view3D, view2DAr
 			{
 				SType:           vk.StructureTypeWriteDescriptorSet,
 				DstSet:          pool.DefaultSet,
-				DstBinding:      spirvStructs.StaticBindingSampledImages2D,
+				DstBinding:      spirvStructs.ImageBindingSampledImages2D,
 				DstArrayElement: 0,
 				DescriptorCount: spirvStructs.MaxStaticBindings,
 				DescriptorType:  vk.DescriptorTypeCombinedImageSampler,
@@ -112,7 +117,7 @@ func (t *GpuTranslator) initStaticDescriptorSet(view2D, view1D, view3D, view2DAr
 			{
 				SType:           vk.StructureTypeWriteDescriptorSet,
 				DstSet:          pool.DefaultSet,
-				DstBinding:      spirvStructs.StaticBindingStorageImages2D,
+				DstBinding:      spirvStructs.ImageBindingStorageImages2D,
 				DstArrayElement: 0,
 				DescriptorCount: spirvStructs.MaxStaticBindings,
 				DescriptorType:  vk.DescriptorTypeStorageImage,
@@ -121,7 +126,7 @@ func (t *GpuTranslator) initStaticDescriptorSet(view2D, view1D, view3D, view2DAr
 			{
 				SType:           vk.StructureTypeWriteDescriptorSet,
 				DstSet:          pool.DefaultSet,
-				DstBinding:      spirvStructs.StaticBindingStorageImages1D,
+				DstBinding:      spirvStructs.ImageBindingStorageImages1D,
 				DstArrayElement: 0,
 				DescriptorCount: spirvStructs.MaxStaticBindings,
 				DescriptorType:  vk.DescriptorTypeStorageImage,
@@ -130,7 +135,7 @@ func (t *GpuTranslator) initStaticDescriptorSet(view2D, view1D, view3D, view2DAr
 			{
 				SType:           vk.StructureTypeWriteDescriptorSet,
 				DstSet:          pool.DefaultSet,
-				DstBinding:      spirvStructs.StaticBindingStorageImages3D,
+				DstBinding:      spirvStructs.ImageBindingStorageImages3D,
 				DstArrayElement: 0,
 				DescriptorCount: spirvStructs.MaxStaticBindings,
 				DescriptorType:  vk.DescriptorTypeStorageImage,
@@ -139,7 +144,7 @@ func (t *GpuTranslator) initStaticDescriptorSet(view2D, view1D, view3D, view2DAr
 			{
 				SType:           vk.StructureTypeWriteDescriptorSet,
 				DstSet:          pool.DefaultSet,
-				DstBinding:      spirvStructs.StaticBindingStorageImages2DArray,
+				DstBinding:      spirvStructs.ImageBindingStorageImages2DArray,
 				DstArrayElement: 0,
 				DescriptorCount: spirvStructs.MaxStaticBindings,
 				DescriptorType:  vk.DescriptorTypeStorageImage,
@@ -148,7 +153,7 @@ func (t *GpuTranslator) initStaticDescriptorSet(view2D, view1D, view3D, view2DAr
 			{
 				SType:           vk.StructureTypeWriteDescriptorSet,
 				DstSet:          pool.DefaultSet,
-				DstBinding:      spirvStructs.StaticBindingSampledImages3D,
+				DstBinding:      spirvStructs.ImageBindingSampledImages3D,
 				DstArrayElement: 0,
 				DescriptorCount: spirvStructs.MaxStaticBindings,
 				DescriptorType:  vk.DescriptorTypeCombinedImageSampler,
@@ -157,7 +162,7 @@ func (t *GpuTranslator) initStaticDescriptorSet(view2D, view1D, view3D, view2DAr
 			{
 				SType:           vk.StructureTypeWriteDescriptorSet,
 				DstSet:          pool.DefaultSet,
-				DstBinding:      spirvStructs.StaticBindingSampledImages2DArray,
+				DstBinding:      spirvStructs.ImageBindingSampledImages2DArray,
 				DstArrayElement: 0,
 				DescriptorCount: spirvStructs.MaxStaticBindings,
 				DescriptorType:  vk.DescriptorTypeCombinedImageSampler,

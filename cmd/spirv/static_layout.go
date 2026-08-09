@@ -2,53 +2,77 @@ package spirv
 
 import (
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/gcn"
+	gcnSpec "github.com/LamkasDev/sharkie/cmd/lib_structs/gcn/spec"
 	. "github.com/LamkasDev/sharkie/cmd/spirv/common"
 	spirvStructs "github.com/LamkasDev/sharkie/cmd/spirv/structs"
 )
 
-func BuildStaticLayout(resources []SpirvShaderResource, shader *gcn.GcnShader) []ShaderResourceBinding {
-	var layout []ShaderResourceBinding
-	var sampledIndex, storageIndex uint32
+func BuildStaticLayout(resources []SpirvShaderResource, shader *gcn.GcnShader) map[*gcnSpec.Instruction]ShaderResourceBinding {
+	layout := make(map[*gcnSpec.Instruction]ShaderResourceBinding)
+	var sampledImageIndex, storageImageIndex uint32
+	var sampledBufferIndex, storageBufferIndex uint32
 
 	// Offset bindings for vertex shaders so they don't overlap with fragment shaders.
 	if shader.Stage == gcn.GcnShaderStageVertex {
-		sampledIndex = spirvStructs.VertexBindingOffset
-		storageIndex = spirvStructs.VertexBindingOffset
+		sampledImageIndex = spirvStructs.VertexBindingOffset
+		storageImageIndex = spirvStructs.VertexBindingOffset
+		sampledBufferIndex = spirvStructs.VertexBindingOffset
+		storageBufferIndex = spirvStructs.VertexBindingOffset
 	}
 
 	for _, resource := range resources {
-		access, ok := resource.Kind.Access()
-		if !ok {
+		var isStorage bool
+		var isValid bool
+		switch kind := resource.Kind.(type) {
+		case ImageAccessKind:
+			switch kind {
+			case ImageAccessLoad, ImageAccessSample:
+				isStorage = false
+				isValid = true
+			case ImageAccessStore:
+				isStorage = true
+				isValid = true
+			}
+		case BufferAccessKind:
+			switch kind {
+			case BufferAccessLoad:
+				isStorage = false
+				isValid = true
+			case BufferAccessStore:
+				isStorage = true
+				isValid = true
+			}
+		}
+		if !isValid {
 			continue
 		}
+
 		var bindingIndex uint32
-		switch access {
-		case BindingAccessSampledRead:
-			bindingIndex = sampledIndex
-			sampledIndex++
-		case BindingAccessStorageWrite:
-			bindingIndex = storageIndex
-			storageIndex++
+		if resource.Type == SpirvShaderResourceTypeImage {
+			if isStorage {
+				bindingIndex = storageImageIndex
+				storageImageIndex++
+			} else {
+				bindingIndex = sampledImageIndex
+				sampledImageIndex++
+			}
+		} else {
+			if isStorage {
+				bindingIndex = storageBufferIndex
+				storageBufferIndex++
+			} else {
+				bindingIndex = sampledBufferIndex
+				sampledBufferIndex++
+			}
 		}
-		layout = append(layout, ShaderResourceBinding{
-			InstructionOffset: resource.InstructionOffset,
-			Kind:              resource.Kind,
-			BindingIndex:      bindingIndex,
-			Access:            access,
-		})
+
+		layout[resource.Instruction] = ShaderResourceBinding{
+			Instruction:  resource.Instruction,
+			Type:         resource.Type,
+			Kind:         resource.Kind,
+			BindingIndex: bindingIndex,
+		}
 	}
 
 	return layout
-}
-
-func StaticResources(layout []ShaderResourceBinding) []SpirvShaderResource {
-	resources := make([]SpirvShaderResource, len(layout))
-	for i, binding := range layout {
-		resources[i] = SpirvShaderResource{
-			InstructionOffset: binding.InstructionOffset,
-			Kind:              binding.Kind,
-		}
-	}
-
-	return resources
 }

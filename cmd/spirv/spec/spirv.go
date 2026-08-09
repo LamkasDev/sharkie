@@ -254,6 +254,7 @@ const (
 	SpvOpBitwiseXor             = uint32(198)
 	SpvOpBitwiseAnd             = uint32(199)
 	SpvOpNot                    = uint32(200)
+	SpvOpBitFieldInsert         = uint32(201)
 	SpvOpBitFieldSExtract       = uint32(202)
 	SpvOpBitFieldUExtract       = uint32(203)
 	SpvOpBitReverse             = uint32(204)

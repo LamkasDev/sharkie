@@ -20,43 +20,16 @@ type SpirvBlockContext struct {
 	GcnSpecialIds  [27]SpirvUsedId
 	GcnConstIds    [120]SpirvUsedId
 	GcnConditionId SpirvId
-	StaticLayout   []ShaderResourceBinding
+	StaticLayout   map[*gcnSpec.Instruction]ShaderResourceBinding
 
 	Context SpirvShaderContext
 }
 
 type ShaderResourceBinding struct {
-	InstructionOffset uintptr
-	Kind              ImageAccessKind
-	BindingIndex      uint32
-	Access            BindingAccess
-}
-
-type BindingAccess uint8
-
-const (
-	BindingAccessSampledRead BindingAccess = iota
-	BindingAccessStorageWrite
-)
-
-func (access BindingAccess) String() string {
-	switch access {
-	case BindingAccessSampledRead:
-		return "read"
-	case BindingAccessStorageWrite:
-		return "write"
-	}
-
-	return "??"
-}
-
-func (ctx *SpirvBlockContext) StaticBindingIndexConst(b *SpvBuilder, instrOffset uintptr) SpirvId {
-	for _, binding := range ctx.StaticLayout {
-		if binding.InstructionOffset == instrOffset {
-			return b.EmitConstantUint(ctx.GetId(BlockContextIdTypeUint), binding.BindingIndex)
-		}
-	}
-	panic(fmt.Sprintf("static binding not found for instruction 0x%X", instrOffset))
+	Instruction  *gcnSpec.Instruction
+	Type         SpirvShaderResourceType
+	Kind         ResourceAccessKind
+	BindingIndex uint32
 }
 
 func (ctx *SpirvBlockContext) GetLabelId(i int) SpirvId {

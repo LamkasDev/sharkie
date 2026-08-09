@@ -12,9 +12,9 @@ import (
 
 // ResolvedBufferAccess is a T# resolved at a specific MUBUF/MTBUF instruction for a user-data snapshot.
 type ResolvedBufferAccess struct {
-	InstructionOffset uintptr
-	Kind              BufferAccessKind
-	Descriptor        spirvStructs.BufferDescriptor
+	Instruction *gcnSpec.Instruction
+	Kind        BufferAccessKind
+	Descriptor  spirvStructs.BufferDescriptor
 }
 
 // ResolveBufferResources simulates scalar SGPR updates and resolves T# descriptors.
@@ -84,9 +84,9 @@ func resolveMUBUF(instr *gcnSpec.Instruction, registers *gcnSpec.GcnRegisters) R
 	descriptor := spirvStructs.NewBufferDescriptor(bufferDwords[:])
 
 	return ResolvedBufferAccess{
-		InstructionOffset: instr.DwordOffset,
-		Kind:              spirv.MubufAccessKind(details.Op),
-		Descriptor:        descriptor,
+		Instruction: instr,
+		Kind:        spirv.MubufAccessKind(details.Op),
+		Descriptor:  descriptor,
 	}
 }
 
@@ -101,9 +101,9 @@ func resolveMTBUF(instr *gcnSpec.Instruction, registers *gcnSpec.GcnRegisters) R
 	descriptor := spirvStructs.NewBufferDescriptor(bufferDwords[:])
 
 	return ResolvedBufferAccess{
-		InstructionOffset: instr.DwordOffset,
-		Kind:              spirv.MtbufAccessKind(details.Op),
-		Descriptor:        descriptor,
+		Instruction: instr,
+		Kind:        spirv.MtbufAccessKind(details.Op),
+		Descriptor:  descriptor,
 	}
 }
 

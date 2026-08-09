@@ -35,7 +35,8 @@ type GpuTranslator struct {
 	pipelineLayout vk.PipelineLayout
 
 	// Descriptor sets.
-	staticDescriptorPool *vulkan.VulkanDescriptorPool2
+	globalDescriptorPool *vulkan.VulkanDescriptorPool2
+	imageDescriptorPool  *vulkan.VulkanDescriptorPool2
 
 	// Recompiled SPIR-V shaders mirroring Liverpool.LoadedShaders.
 	shadersMutex sync.Mutex
@@ -60,9 +61,10 @@ type GpuTranslator struct {
 	framebuffers      map[vulkan.FramebufferRequest]*vulkan.VulkanFramebuffer
 
 	// Caches for images, image views and samplers.
-	imagesMutex    sync.Mutex
-	images         map[uintptr]*vulkan.VulkanImage
-	imageViews     map[uint64]*vulkan.VulkanImageView
+	imagesMutex sync.Mutex
+	images      map[uintptr]*vulkan.VulkanImage
+	imageViews  map[uint64]*vulkan.VulkanImageView
+
 	samplersMutex  sync.Mutex
 	samplers       map[uint64]vk.Sampler
 	defaultSampler vk.Sampler
@@ -144,9 +146,10 @@ func NewGpuTranslator(handles *vulkan.VulkanHandles, bknd backend.Backend[glfwvu
 		framebuffersMutex: sync.Mutex{},
 		framebuffers:      map[vulkan.FramebufferRequest]*vulkan.VulkanFramebuffer{},
 
-		imagesMutex:   sync.Mutex{},
-		images:        map[uintptr]*vulkan.VulkanImage{},
-		imageViews:    map[uint64]*vulkan.VulkanImageView{},
+		imagesMutex: sync.Mutex{},
+		images:      map[uintptr]*vulkan.VulkanImage{},
+		imageViews:  map[uint64]*vulkan.VulkanImageView{},
+
 		samplersMutex: sync.Mutex{},
 		samplers:      map[uint64]vk.Sampler{},
 
@@ -248,12 +251,31 @@ func NewGpuTranslator(handles *vulkan.VulkanHandles, bknd backend.Backend[glfwvu
 		}
 	}
 
-	var staticDescriptorSetLayout vk.DescriptorSetLayout
-	t.pipelineLayout, staticDescriptorSetLayout, err = vulkan.CreateStubPipelineLayout(t.handles)
+	var globalDescriptorSetLayout, imageDescriptorSetLayout vk.DescriptorSetLayout
+	t.pipelineLayout, globalDescriptorSetLayout, imageDescriptorSetLayout, err = vulkan.CreateStubPipelineLayout(t.handles)
 	if err != nil {
 		return nil, fmt.Errorf("GpuTranslator: pipeline layout: %w", err)
 	}
-	t.staticDescriptorPool, err = vulkan.CreateDescriptorPool2(t.handles, staticDescriptorSetLayout, []vk.DescriptorPoolSize{
+
+	t.globalDescriptorPool, err = vulkan.CreateDescriptorPool2(t.handles, globalDescriptorSetLayout, []vk.DescriptorPoolSize{
+		{
+			Type:            vk.DescriptorTypeStorageBuffer,
+			DescriptorCount: 256,
+		},
+	}, 256)
+	if err != nil {
+		return nil, fmt.Errorf("GpuTranslator: global descriptor pool: %w", err)
+	}
+	t.globalDescriptorPool.SetCopyTemplate([]vk.CopyDescriptorSet{
+		{
+			SType:           vk.StructureTypeCopyDescriptorSet,
+			SrcBinding:      spirvStructs.GlobalBindingAddressTranslation,
+			DstBinding:      spirvStructs.GlobalBindingAddressTranslation,
+			DescriptorCount: 1,
+		},
+	})
+
+	t.imageDescriptorPool, err = vulkan.CreateDescriptorPool2(t.handles, imageDescriptorSetLayout, []vk.DescriptorPoolSize{
 		{
 			Type:            vk.DescriptorTypeCombinedImageSampler,
 			DescriptorCount: 32768,
@@ -262,75 +284,61 @@ func NewGpuTranslator(handles *vulkan.VulkanHandles, bknd backend.Backend[glfwvu
 			Type:            vk.DescriptorTypeStorageImage,
 			DescriptorCount: 8192,
 		},
-		{
-			Type:            vk.DescriptorTypeStorageBuffer,
-			DescriptorCount: 256,
-		},
-		{
-			Type:            vk.DescriptorTypeUniformTexelBuffer,
-			DescriptorCount: 256,
-		},
 	}, 8192)
 	if err != nil {
-		return nil, fmt.Errorf("GpuTranslator: descriptor pool: %w", err)
+		return nil, fmt.Errorf("GpuTranslator: image descriptor pool: %w", err)
 	}
-
-	t.staticDescriptorPool.SetCopyTemplate([]vk.CopyDescriptorSet{
+	t.imageDescriptorPool.SetCopyTemplate([]vk.CopyDescriptorSet{
 		{
 			SType:           vk.StructureTypeCopyDescriptorSet,
-			SrcBinding:      spirvStructs.StaticBindingAddressTranslation,
-			DstBinding:      spirvStructs.StaticBindingAddressTranslation,
-			DescriptorCount: 1,
-		},
-		{
-			SType:           vk.StructureTypeCopyDescriptorSet,
-			SrcBinding:      spirvStructs.StaticBindingSampledImages1D,
-			DstBinding:      spirvStructs.StaticBindingSampledImages1D,
+			SrcBinding:      spirvStructs.ImageBindingSampledImages1D,
+			DstBinding:      spirvStructs.ImageBindingSampledImages1D,
 			DescriptorCount: spirvStructs.MaxStaticBindings,
 		},
 		{
 			SType:           vk.StructureTypeCopyDescriptorSet,
-			SrcBinding:      spirvStructs.StaticBindingStorageImages1D,
-			DstBinding:      spirvStructs.StaticBindingStorageImages1D,
+			SrcBinding:      spirvStructs.ImageBindingStorageImages1D,
+			DstBinding:      spirvStructs.ImageBindingStorageImages1D,
 			DescriptorCount: spirvStructs.MaxStaticBindings,
 		},
 		{
 			SType:           vk.StructureTypeCopyDescriptorSet,
-			SrcBinding:      spirvStructs.StaticBindingSampledImages2D,
-			DstBinding:      spirvStructs.StaticBindingSampledImages2D,
+			SrcBinding:      spirvStructs.ImageBindingSampledImages2D,
+			DstBinding:      spirvStructs.ImageBindingSampledImages2D,
 			DescriptorCount: spirvStructs.MaxStaticBindings,
 		},
 		{
 			SType:           vk.StructureTypeCopyDescriptorSet,
-			SrcBinding:      spirvStructs.StaticBindingStorageImages2D,
-			DstBinding:      spirvStructs.StaticBindingStorageImages2D,
+			SrcBinding:      spirvStructs.ImageBindingStorageImages2D,
+			DstBinding:      spirvStructs.ImageBindingStorageImages2D,
 			DescriptorCount: spirvStructs.MaxStaticBindings,
 		},
 		{
 			SType:           vk.StructureTypeCopyDescriptorSet,
-			SrcBinding:      spirvStructs.StaticBindingSampledImages3D,
-			DstBinding:      spirvStructs.StaticBindingSampledImages3D,
+			SrcBinding:      spirvStructs.ImageBindingSampledImages3D,
+			DstBinding:      spirvStructs.ImageBindingSampledImages3D,
 			DescriptorCount: spirvStructs.MaxStaticBindings,
 		},
 		{
 			SType:           vk.StructureTypeCopyDescriptorSet,
-			SrcBinding:      spirvStructs.StaticBindingStorageImages3D,
-			DstBinding:      spirvStructs.StaticBindingStorageImages3D,
+			SrcBinding:      spirvStructs.ImageBindingStorageImages3D,
+			DstBinding:      spirvStructs.ImageBindingStorageImages3D,
 			DescriptorCount: spirvStructs.MaxStaticBindings,
 		},
 		{
 			SType:           vk.StructureTypeCopyDescriptorSet,
-			SrcBinding:      spirvStructs.StaticBindingSampledImages2DArray,
-			DstBinding:      spirvStructs.StaticBindingSampledImages2DArray,
+			SrcBinding:      spirvStructs.ImageBindingSampledImages2DArray,
+			DstBinding:      spirvStructs.ImageBindingSampledImages2DArray,
 			DescriptorCount: spirvStructs.MaxStaticBindings,
 		},
 		{
 			SType:           vk.StructureTypeCopyDescriptorSet,
-			SrcBinding:      spirvStructs.StaticBindingStorageImages2DArray,
-			DstBinding:      spirvStructs.StaticBindingStorageImages2DArray,
+			SrcBinding:      spirvStructs.ImageBindingStorageImages2DArray,
+			DstBinding:      spirvStructs.ImageBindingStorageImages2DArray,
 			DescriptorCount: spirvStructs.MaxStaticBindings,
 		},
 	})
+
 	t.activePipeline = vk.NullPipeline
 
 	// Allocate quad list index buffer.
@@ -377,7 +385,8 @@ func NewGpuTranslator(handles *vulkan.VulkanHandles, bknd backend.Backend[glfwvu
 // Destroy frees all Vulkan resources.
 func (t *GpuTranslator) Destroy() {
 	vk.DeviceWaitIdle(t.handles.Device)
-	t.staticDescriptorPool.Destroy(t.handles)
+	t.globalDescriptorPool.Destroy(t.handles)
+	t.imageDescriptorPool.Destroy(t.handles)
 	t.handles.FlushDeferredDestruction()
 	t.surfacesMutex.Lock()
 	for _, s := range t.surfaces {
@@ -500,7 +509,8 @@ func (t *GpuTranslator) BeforeTranslate() {
 	if t.currentGuestFrame == 0 {
 		t.createDummyTextures()
 	}
-	t.staticDescriptorPool.Reset(t.currentGuestFrame)
+	t.globalDescriptorPool.Reset(t.currentGuestFrame)
+	t.imageDescriptorPool.Reset(t.currentGuestFrame)
 	vulkan.ResetDetilePipelines(t.currentGuestFrame)
 }
 

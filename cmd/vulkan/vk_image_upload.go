@@ -5,7 +5,6 @@ import (
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/logger"
-	spirvStructs "github.com/LamkasDev/sharkie/cmd/spirv/structs"
 	vk "github.com/goki/vulkan"
 	"github.com/gookit/color"
 )
@@ -121,7 +120,7 @@ func (image *VulkanImage) UploadToVkImage(handles *VulkanHandles, commandBuffer 
 		// Set descriptor sets (input for detile pipeline).
 		vk.CmdBindDescriptorSets(
 			commandBuffer.CommandBuffer, vk.PipelineBindPointCompute,
-			pipeline.PipelineLayout, spirvStructs.DescriptorSetSlotStatic,
+			pipeline.PipelineLayout, 0,
 			1, []vk.DescriptorSet{setToBind},
 			0, nil,
 		)

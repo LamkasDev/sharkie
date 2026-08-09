@@ -244,6 +244,7 @@ func (app *Application) VulkanDeviceCreateNext() unsafe.Pointer {
 		DescriptorBindingSampledImageUpdateAfterBind:       vk.True,
 		DescriptorBindingStorageImageUpdateAfterBind:       vk.True,
 		DescriptorBindingUniformTexelBufferUpdateAfterBind: vk.True,
+		DescriptorBindingStorageTexelBufferUpdateAfterBind: vk.True,
 		ShaderSampledImageArrayNonUniformIndexing:          vk.True,
 		ScalarBlockLayout:                 vk.True,
 		BufferDeviceAddress:               vk.True,

@@ -42,12 +42,6 @@ const (
 	BlockContextIdTypeV4Uint
 	BlockContextIdTypeStructUintUint
 
-	// Buffers.
-	BlockContextIdTypeImageBuffer
-	BlockContextIdTypeSampledImageBuffer
-	BlockContextIdPtrUniformSampledImageBuffer
-	BlockContextIdStaticSampledBuffers
-
 	// 1D images.
 	BlockContextIdTypeImage1d
 	BlockContextIdTypeSampledImage1d

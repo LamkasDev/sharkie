@@ -49,9 +49,7 @@ func libKernel_sys_sceKernelAllocateDirectMemory(searchStart, searchEnd uintptr,
 	WriteAddress(destPtr, allocatedAddr)
 
 	HookAllocateDirect(allocatedAddr, length, memType)
-	if HookAllocateMemoryVulkan != nil {
-		HookAllocateMemoryVulkan(allocatedAddr, length)
-	}
+	HookAllocateMemoryVulkan(allocatedAddr, length)
 
 	logger.Printf("%-132s %s allocated %s bytes at %s (searchStart=%s, searchEnd=%s, alignment=%s, memType=%s, destPtr=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),

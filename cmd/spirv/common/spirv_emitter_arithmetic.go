@@ -226,6 +226,13 @@ func (b *SpvBuilder) EmitBitFieldUExtract(resultType, base, offset, count SpirvI
 	return id
 }
 
+// EmitBitFieldInsert emits OpBitFieldInsert and returns the result ID.
+func (b *SpvBuilder) EmitBitFieldInsert(resultType, base, insert, offset, count SpirvId) SpirvId {
+	id := b.AllocId()
+	b.instr(&b.code, spec.SpvOpBitFieldInsert, uint32(resultType), uint32(id), uint32(base), uint32(insert), uint32(offset), uint32(count))
+	return id
+}
+
 // EmitBitReverse emits OpBitReverse and returns the result ID.
 func (b *SpvBuilder) EmitBitReverse(resultType, base SpirvId) SpirvId {
 	id := b.AllocId()

@@ -8,29 +8,6 @@ import (
 	"go101.org/nstd"
 )
 
-type BufferDescriptor struct {
-	BaseAddress   uintptr
-	Stride        uint16
-	SwizzleCache  bool
-	SwizzleEnable bool
-
-	NumRecords   uint32
-	DstSelX      uint8
-	DstSelY      uint8
-	DstSelZ      uint8
-	DstSelW      uint8
-	NumFormat    uint8
-	DataFormat   uint8
-	ElementSize  uint8
-	IndexStride  uint8
-	AddTidEnable bool
-	Atc          bool
-	HashEnable   bool
-	Heap         bool
-	MType        uint8
-	Type         uint8
-}
-
 func NewBufferDescriptor(dwords []uint32) BufferDescriptor {
 	baseAddress := (uintptr(dwords[0]) | (uintptr(dwords[1]&0xFFFF) << 32)) & 0xFFFFFFFFFF
 	return BufferDescriptor{

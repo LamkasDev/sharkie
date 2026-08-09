@@ -31,7 +31,11 @@ func EmitMIMG(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 	is3D := b.EmitIEqual(typeBool, resourceType, b.EmitConstantUint(typeUint, gcn.GcnImageTypeColor3D))
 	isCubeOrArray := b.EmitUGreaterThanEqual(typeBool, resourceType, b.EmitConstantUint(typeUint, gcn.GcnImageTypeCubeOrArray))
 
-	bindingIndex := ctx.StaticBindingIndexConst(b, instr.DwordOffset)
+	binding, ok := ctx.StaticLayout[instr]
+	if !ok {
+		panic(fmt.Sprintf("static binding not found for instruction %v", instr))
+	}
+	bindingIndex := b.EmitConstantUint(typeUint, binding.BindingIndex)
 	switch details.Op {
 	case gcnSpec.MimgOpSample, gcnSpec.MimgOpSampleLz, gcnSpec.MimgOpSampleB, gcnSpec.MimgOpSampleLzO:
 		idStaticTextures1D := ctx.GetId(BlockContextIdStaticTextures1d)
