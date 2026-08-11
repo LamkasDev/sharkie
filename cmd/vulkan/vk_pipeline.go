@@ -49,6 +49,7 @@ type GraphicsPipelineKey struct {
 	CbTargetMask              reg.CbTargetMask
 	CbShaderMask              reg.CbShaderMask
 	CbColorControl            reg.CbColorControl
+	CbColorAttrib             reg.CbColorAttrib
 	PaSuPolyOffsetClamp       reg.PaSuPolyOffsetClamp
 	PaSuPolyOffsetFrontScale  reg.PaSuPolyOffsetFrontScale
 	PaSuPolyOffsetFrontOffset reg.PaSuPolyOffsetFrontOffset
@@ -161,6 +162,7 @@ func CreateGraphicsPipeline(handles *VulkanHandles, request GraphicsPipelineRequ
 		}},
 	}
 
+	// Setup rasterization state.
 	raster, provokingVertex := gcn.CreateRasterizationState(request.PaSuScModeCntl, request.PaSuLineCntl, request.PaSuPolyOffsetClamp, request.PaSuPolyOffsetFrontScale, request.PaSuPolyOffsetFrontOffset, request.PaSuPolyOffsetBackScale, request.PaSuPolyOffsetBackOffset)
 	raster.PNext = unsafe.Pointer(&provokingVertex)
 	depthStencil := request.DepthStencilState
@@ -173,6 +175,7 @@ func CreateGraphicsPipeline(handles *VulkanHandles, request GraphicsPipelineRequ
 	// Setup anti-aliasing.
 	multisample := gcn.CreateMultisampleState(request.PaScAaConfig, request.PaScModeCntl0, request.DbShaderControl, request.PaScAaMaskX0y0X1y0, request.PaScAaMaskX0y1X1y1)
 
+	// Setup blend attachments.
 	blendAttachments := gcn.CreateBlendAttachments(request.BlendAttachment, request.CbTargetMask, request.CbShaderMask, request.SpiShaderColFormat, request.CbColorControl)
 
 	// Setup blending.

@@ -25,7 +25,14 @@ func libScePad_scePadInit() uintptr {
 func libScePad_scePadOpen(userId UserId, padType, index, param uintptr) uintptr {
 	handle := GlobalPadEngine.CreateHandle()
 	if config.GlobalConfig != nil && config.GlobalConfig.InputMode == "controller" {
-		handle.Device = &ControllerDevice{Joystick: glfw.Joystick1}
+		joystick := glfw.Joystick1
+		if joystick.Present() {
+			handle.Device = &ControllerDevice{
+				Joystick: joystick,
+			}
+		} else {
+			handle.Device = &KeyboardDevice{Window: app.GlobalApplication.Window}
+		}
 	} else {
 		handle.Device = &KeyboardDevice{Window: app.GlobalApplication.Window}
 	}
@@ -38,39 +45,10 @@ func libScePad_scePadOpen(userId UserId, padType, index, param uintptr) uintptr 
 	return uintptr(handle.Id)
 }
 
-// 0x00000000000020B0
-// __int64 __fastcall scePadRead(__int64, __int64, __int64)
-func libScePad_scePadRead(handleId uint32, data *PadData, count uintptr) uintptr {
-	handle := GlobalPadEngine.Handles[handleId]
-	if handle == nil || data == nil {
-		logger.Printf("%-132s %s failed due to invalid handle or data pointer.\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("scePadRead"),
-		)
-		return 0x802F0001
-	}
-	handle.Device.Read(data)
-
-	// Global F11 debug logic.
-	if app.GlobalApplication != nil && app.GlobalApplication.Window != nil {
-		window := app.GlobalApplication.Window
-		isF11Pressed := window.GetKey(glfw.KeyF11) == glfw.Press
-		if isF11Pressed && !wasF11Pressed {
-			logger.Printf("pressed F11 (clearing resources)\n")
-			if app.GlobalApplication.Renderer != nil && app.GlobalApplication.Renderer.GpuTranslator != nil {
-				app.GlobalApplication.Renderer.GpuTranslator.ClearAllResources()
-			}
-		}
-		wasF11Pressed = isF11Pressed
-	}
-
-	return 1
-}
-
 // 0x00000000000036A0
 // __int64 __fastcall scePadGetControllerInformation(unsigned int, __int64, __m128 _XMM0, __m128 _XMM1)
 func libScePad_scePadGetControllerInformation(handleId uint32, info *PadControllerInformation) uintptr {
-	handle := GlobalPadEngine.Handles[handleId]
+	handle := GlobalPadEngine.GetHandle(handleId)
 	if handle == nil || info == nil {
 		logger.Printf("%-132s %s failed due to invalid handle or info pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -79,35 +57,6 @@ func libScePad_scePadGetControllerInformation(handleId uint32, info *PadControll
 		return 0x802F0001
 	}
 	handle.Device.GetControllerInformation(info)
-
-	return 0
-}
-
-// 0x00000000000020A0
-// __int64 __fastcall scePadReadState(__int64, __int64)
-func libScePad_scePadReadState(handleId uint32, data *PadData) uintptr {
-	handle := GlobalPadEngine.Handles[handleId]
-	if handle == nil || data == nil {
-		logger.Printf("%-132s %s failed due to invalid handle or data pointer.\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("scePadReadState"),
-		)
-		return 0x802F0001
-	}
-	handle.Device.Read(data)
-
-	// Global F11 debug logic.
-	if app.GlobalApplication != nil && app.GlobalApplication.Window != nil {
-		window := app.GlobalApplication.Window
-		isF11Pressed := window.GetKey(glfw.KeyF11) == glfw.Press
-		if isF11Pressed && !wasF11Pressed {
-			logger.Printf("pressed F11 (clearing resources)\n")
-			if app.GlobalApplication.Renderer != nil && app.GlobalApplication.Renderer.GpuTranslator != nil {
-				app.GlobalApplication.Renderer.GpuTranslator.ClearAllResources()
-			}
-		}
-		wasF11Pressed = isF11Pressed
-	}
 
 	return 0
 }

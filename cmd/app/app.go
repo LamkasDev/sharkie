@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"path/filepath"
 	"runtime"
 	"runtime/pprof"
 	"time"
@@ -12,6 +13,8 @@ import (
 
 	"github.com/LamkasDev/cimgui-go-vulkan/backend"
 	"github.com/LamkasDev/cimgui-go-vulkan/imgui"
+	"github.com/LamkasDev/sharkie"
+	"github.com/LamkasDev/sharkie/cmd/config"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/LamkasDev/sharkie/cmd/renderer"
 	"github.com/LamkasDev/sharkie/cmd/vulkan"
@@ -30,12 +33,39 @@ type Application struct {
 
 	Monitor *glfw.Monitor
 	Window  *glfw.Window
+
+	IsFullscreen bool
+	WindowedX    int
+	WindowedY    int
+	WindowedW    int
+	WindowedH    int
+}
+
+func (a *Application) ToggleFullscreen() {
+	if a.IsFullscreen {
+		a.Window.SetMonitor(nil, a.WindowedX, a.WindowedY, a.WindowedW, a.WindowedH, glfw.DontCare)
+		a.IsFullscreen = false
+	} else {
+		a.WindowedX, a.WindowedY = a.Window.GetPos()
+		a.WindowedW, a.WindowedH = a.Window.GetSize()
+		monitor := glfw.GetPrimaryMonitor()
+		mode := monitor.GetVideoMode()
+		a.Window.SetMonitor(monitor, 0, 0, mode.Width, mode.Height, mode.RefreshRate)
+		a.IsFullscreen = true
+	}
 }
 
 func SetupApplication() error {
 	// Initialize GLFW and Vulkan.
 	if err := glfw.Init(); err != nil {
 		return fmt.Errorf("glfw init: %w", err)
+	}
+	gameControllerDb, err := sharkie.Assets.ReadFile(filepath.Join("data", "gamecontrollerdb.txt"))
+	if err != nil {
+		return fmt.Errorf("failed reading gamecontrollerdb.txt: %w", err)
+	}
+	if !glfw.UpdateGamepadMappings(string(gameControllerDb)) {
+		return fmt.Errorf("failed mapping gamecontrollerdb.txt: %w", err)
 	}
 	vk.SetGetInstanceProcAddr(glfw.GetVulkanGetInstanceProcAddress())
 	if err := vk.Init(); err != nil {
@@ -128,36 +158,69 @@ func RunApplication() error {
 			}
 			glfw.PollEvents()
 
+			// Stall until we're ready for next frame.
+			if config.GlobalConfig != nil && config.GlobalConfig.SyncGuestFlips && config.GameName != "" {
+				select {
+				case <-GlobalApplication.Renderer.FrameReady:
+				default:
+					continue
+				}
+			} else {
+				select {
+				case <-GlobalApplication.Renderer.FrameReady:
+				default:
+				}
+			}
+
+			// Recreate swapchain if parameters changed.
+			fbW, fbH := GlobalApplication.Window.GetFramebufferSize()
+			if fbW == 0 || fbH == 0 {
+				continue
+			}
+			if fbW != int(GlobalApplication.VulkanContext.SwapchainDimensions.Width) || fbH != int(GlobalApplication.VulkanContext.SwapchainDimensions.Height) {
+				GlobalApplication.VulkanContext.PrepareSwapchain(&backend.SwapchainDimensions{
+					Width:  uint32(fbW),
+					Height: uint32(fbH),
+					Format: GlobalApplication.VulkanContext.SwapchainDimensions.Format,
+				})
+				GlobalApplication.VulkanContext.Prepare()
+				GlobalApplication.Renderer.RecreateSwapchain()
+				GlobalApplication.Renderer.Backend.UpdateSwapchain(fbW, fbH, GlobalApplication.VulkanContext.SwapchainImageResources)
+				continue
+			}
+
+			// Acquire next frame.
 			imageIdx, outdated, err := GlobalApplication.VulkanContext.AcquireNextImage()
 			if err != nil {
 				panic(err)
 			}
 			if outdated {
-				panic(fmt.Errorf("AcquireNextImage: %w", err))
+				fbW, fbH := GlobalApplication.Window.GetFramebufferSize()
+				GlobalApplication.Renderer.RecreateSwapchain()
+				GlobalApplication.Renderer.Backend.UpdateSwapchain(fbW, fbH, GlobalApplication.VulkanContext.SwapchainImageResources)
+				continue
 			}
-
 			GlobalApplication.Renderer.Backend.NewFrame(imageIdx)
-			select {
-			case <-GlobalApplication.Renderer.FrameReady:
-			default:
-			}
 
-			// Render UI and record command buffers .
+			// Render UI and record command buffers.
 			GlobalApplication.Renderer.Render()
 			// cimgui-go-vulkan backend submits to GraphicsQueue manually, we must lock manually.
 			GlobalApplication.Renderer.Handles.GraphicsQueue.Lock.Lock()
 			GlobalApplication.Renderer.Backend.RenderFrame(imageIdx)
 			GlobalApplication.Renderer.Handles.GraphicsQueue.Lock.Unlock()
 
+			// Present frame.
 			if err = GlobalApplication.VulkanContext.Submit(imageIdx); err != nil {
 				panic(err)
 			}
-			_, err = GlobalApplication.VulkanContext.PresentImage(imageIdx)
-
+			outdated, err = GlobalApplication.VulkanContext.PresentImage(imageIdx)
 			if err != nil {
 				panic(fmt.Errorf("PresentImage: %w", err))
 			}
-
+			if outdated {
+				GlobalApplication.Renderer.RecreateSwapchain()
+				continue
+			}
 			imgui.UpdatePlatformWindows()
 		}
 	}

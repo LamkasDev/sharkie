@@ -101,7 +101,7 @@ func TranslateGcnFormat(dataFormat, numFormat uint8, compSwap uint32) (vk.Format
 		switch numFormat {
 		case gcn.GcnNumFormatUnorm, gcn.GcnNumFormatUbnorm:
 			return vk.FormatR8Unorm, 1
-		case gcn.GcnNumFormatSnorm:
+		case gcn.GcnNumFormatSnorm, gcn.GcnNumFormatSnormOgl:
 			return vk.FormatR8Snorm, 1
 		case gcn.GcnNumFormatUscaled, gcn.GcnNumFormatUbscaled:
 			return vk.FormatR8Uscaled, 1
@@ -116,7 +116,7 @@ func TranslateGcnFormat(dataFormat, numFormat uint8, compSwap uint32) (vk.Format
 		switch numFormat {
 		case gcn.GcnNumFormatUnorm:
 			return vk.FormatR16Unorm, 2
-		case gcn.GcnNumFormatSnorm:
+		case gcn.GcnNumFormatSnorm, gcn.GcnNumFormatSnormOgl:
 			return vk.FormatR16Snorm, 2
 		case gcn.GcnNumFormatUscaled:
 			return vk.FormatR16Uscaled, 2
@@ -133,7 +133,7 @@ func TranslateGcnFormat(dataFormat, numFormat uint8, compSwap uint32) (vk.Format
 		switch numFormat {
 		case gcn.GcnNumFormatUnorm, gcn.GcnNumFormatUbnorm:
 			return vk.FormatR8g8Unorm, 2
-		case gcn.GcnNumFormatSnorm:
+		case gcn.GcnNumFormatSnorm, gcn.GcnNumFormatSnormOgl:
 			return vk.FormatR8g8Snorm, 2
 		case gcn.GcnNumFormatUscaled, gcn.GcnNumFormatUbscaled:
 			return vk.FormatR8g8Uscaled, 2
@@ -157,7 +157,7 @@ func TranslateGcnFormat(dataFormat, numFormat uint8, compSwap uint32) (vk.Format
 		switch numFormat {
 		case gcn.GcnNumFormatUnorm:
 			return vk.FormatR16g16Unorm, 4
-		case gcn.GcnNumFormatSnorm:
+		case gcn.GcnNumFormatSnorm, gcn.GcnNumFormatSnormOgl:
 			return vk.FormatR16g16Snorm, 4
 		case gcn.GcnNumFormatUscaled:
 			return vk.FormatR16g16Uscaled, 4
@@ -170,8 +170,11 @@ func TranslateGcnFormat(dataFormat, numFormat uint8, compSwap uint32) (vk.Format
 		case gcn.GcnNumFormatSfloat:
 			return vk.FormatR16g16Sfloat, 4
 		}
-	case gcn.GcnDataFormat10_11_11:
+	case gcn.GcnDataFormat10_11_11, gcn.GcnDataFormat11_11_10:
 		switch numFormat {
+		case gcn.GcnNumFormatUnorm:
+			// TODO: not sure about this one.
+			return vk.FormatB10g11r11UfloatPack32, 4
 		case gcn.GcnNumFormatSfloat:
 			return vk.FormatB10g11r11UfloatPack32, 4
 		}
@@ -180,7 +183,7 @@ func TranslateGcnFormat(dataFormat, numFormat uint8, compSwap uint32) (vk.Format
 			switch numFormat {
 			case gcn.GcnNumFormatUnorm:
 				return vk.FormatA2r10g10b10UnormPack32, 4
-			case gcn.GcnNumFormatSnorm:
+			case gcn.GcnNumFormatSnorm, gcn.GcnNumFormatSnormOgl:
 				return vk.FormatA2r10g10b10SnormPack32, 4
 			case gcn.GcnNumFormatUint:
 				return vk.FormatA2r10g10b10UintPack32, 4
@@ -194,7 +197,7 @@ func TranslateGcnFormat(dataFormat, numFormat uint8, compSwap uint32) (vk.Format
 			return vk.FormatA2b10g10r10UnormPack32, 4
 		case gcn.GcnNumFormatUint:
 			return vk.FormatA2b10g10r10UintPack32, 4
-		case gcn.GcnNumFormatSnorm:
+		case gcn.GcnNumFormatSnorm, gcn.GcnNumFormatSnormOgl:
 			return vk.FormatA2b10g10r10SnormPack32, 4
 		case gcn.GcnNumFormatSint:
 			return vk.FormatA2b10g10r10SintPack32, 4
@@ -204,8 +207,9 @@ func TranslateGcnFormat(dataFormat, numFormat uint8, compSwap uint32) (vk.Format
 			switch numFormat {
 			case gcn.GcnNumFormatUnorm:
 				return vk.FormatB8g8r8a8Unorm, 4
-			case gcn.GcnNumFormatSnorm:
-				return vk.FormatB8g8r8a8Snorm, 4
+			// TODO: not sure about this one.
+			case gcn.GcnNumFormatSnorm, gcn.GcnNumFormatSnormOgl:
+				return vk.FormatR8g8b8a8Snorm, 4
 			case gcn.GcnNumFormatUint:
 				return vk.FormatB8g8r8a8Uint, 4
 			case gcn.GcnNumFormatSint:
@@ -218,7 +222,7 @@ func TranslateGcnFormat(dataFormat, numFormat uint8, compSwap uint32) (vk.Format
 		switch numFormat {
 		case gcn.GcnNumFormatUnorm, gcn.GcnNumFormatUbnorm:
 			return vk.FormatR8g8b8a8Unorm, 4
-		case gcn.GcnNumFormatSnorm:
+		case gcn.GcnNumFormatSnorm, gcn.GcnNumFormatSnormOgl:
 			return vk.FormatR8g8b8a8Snorm, 4
 		case gcn.GcnNumFormatUscaled, gcn.GcnNumFormatUbscaled:
 			return vk.FormatR8g8b8a8Uscaled, 4
@@ -228,6 +232,9 @@ func TranslateGcnFormat(dataFormat, numFormat uint8, compSwap uint32) (vk.Format
 			return vk.FormatR8g8b8a8Uint, 4
 		case gcn.GcnNumFormatSint:
 			return vk.FormatR8g8b8a8Sint, 4
+		case gcn.GcnNumFormatSfloat:
+			// TODO: not sure about this one.
+			return vk.FormatR16g16b16a16Sfloat, 8
 		case gcn.GcnNumFormatSrgb:
 			return vk.FormatR8g8b8a8Srgb, 4
 		}
@@ -244,7 +251,7 @@ func TranslateGcnFormat(dataFormat, numFormat uint8, compSwap uint32) (vk.Format
 		switch numFormat {
 		case gcn.GcnNumFormatUnorm:
 			return vk.FormatR16g16b16a16Unorm, 8
-		case gcn.GcnNumFormatSnorm:
+		case gcn.GcnNumFormatSnorm, gcn.GcnNumFormatSnormOgl:
 			return vk.FormatR16g16b16a16Snorm, 8
 		case gcn.GcnNumFormatUscaled:
 			return vk.FormatR16g16b16a16Uscaled, 8
@@ -320,21 +327,21 @@ func TranslateGcnFormat(dataFormat, numFormat uint8, compSwap uint32) (vk.Format
 		switch numFormat {
 		case gcn.GcnNumFormatUnorm:
 			return vk.FormatBc4UnormBlock, 8
-		case gcn.GcnNumFormatSnorm:
+		case gcn.GcnNumFormatSnorm, gcn.GcnNumFormatSnormOgl:
 			return vk.FormatBc4SnormBlock, 8
 		}
 	case gcn.GcnDataFormatBC5:
 		switch numFormat {
 		case gcn.GcnNumFormatUnorm:
 			return vk.FormatBc5UnormBlock, 16
-		case gcn.GcnNumFormatSnorm:
+		case gcn.GcnNumFormatSnorm, gcn.GcnNumFormatSnormOgl:
 			return vk.FormatBc5SnormBlock, 16
 		}
 	case gcn.GcnDataFormatBC6:
 		switch numFormat {
 		case gcn.GcnNumFormatUnorm, gcn.GcnNumFormatSfloat:
 			return vk.FormatBc6hUfloatBlock, 16
-		case gcn.GcnNumFormatSnorm:
+		case gcn.GcnNumFormatSnorm, gcn.GcnNumFormatSnormOgl:
 			return vk.FormatBc6hSfloatBlock, 16
 		}
 	case gcn.GcnDataFormatBC7:
@@ -343,6 +350,11 @@ func TranslateGcnFormat(dataFormat, numFormat uint8, compSwap uint32) (vk.Format
 			return vk.FormatBc7UnormBlock, 16
 		case gcn.GcnNumFormatSrgb:
 			return vk.FormatBc7SrgbBlock, 16
+		}
+	case gcn.GcnDataFormatFmask8_1:
+		switch numFormat {
+		case gcn.GcnNumFormatUint:
+			return vk.FormatR8Uint, 1
 		}
 	}
 
@@ -404,6 +416,13 @@ func TranslateComponentMapping(dataFormat, numFormat, dstSelX, dstSelY, dstSelZ,
 			G: components.B,
 			B: components.G,
 			A: components.R,
+		}
+	// TODO: not sure about this one.
+	case gcn.GcnDataFormat11_11_10:
+		components = vk.ComponentMapping{
+			R: components.A,
+			G: components.G,
+			B: components.B,
 		}
 	}
 

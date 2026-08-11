@@ -12,6 +12,7 @@ import (
 type Config struct {
 	LibraryDirectories []string `json:"library_directories"`
 	InputMode          string   `json:"input_mode"` // "keyboard" or "controller"
+	SyncGuestFlips     bool     `json:"sync_guest_flips"`
 }
 
 func NewDefaultConfig() (*Config, error) {

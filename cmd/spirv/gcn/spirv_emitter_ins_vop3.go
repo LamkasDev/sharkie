@@ -97,6 +97,14 @@ func EmitVOP3(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 
 		resI := b.EmitIMul(typeInt, val0, val1)
 		StoreRegisterPointerMaskedModified(b, ctx, details.Clamp, details.OMod, details.Vdst+gcnSpec.OpVgpr0, resI, false)
+	case details.Op == gcnSpec.Vop3OpMulLoU32:
+		typeUint := ctx.GetId(BlockContextIdTypeUint)
+
+		val0 := GetOperandUintValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
+		val1 := GetOperandUintValueModified(b, ctx, details.Abs, details.Neg, details.Src1, instr.Literal, 1)
+
+		resI := b.EmitIMul(typeUint, val0, val1)
+		StoreRegisterPointerMaskedModified(b, ctx, details.Clamp, details.OMod, details.Vdst+gcnSpec.OpVgpr0, resI, false)
 	case details.Op == gcnSpec.Vop3OpMed3F32:
 		// TODO: add SPV_AMD_shader_trinary_minmax optimized version.
 		typeFloat := ctx.GetId(BlockContextIdTypeFloat)
@@ -142,9 +150,9 @@ func EmitVOP3(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 		typeBool := ctx.GetId(BlockContextIdTypeBool)
 		idC0 := ctx.GetConstId(ConstIdUint0)
 
-		val0 := ctx.GetOperandUintValue(b, details.Src0, instr.Literal)
-		val1 := ctx.GetOperandUintValue(b, details.Src1, instr.Literal)
-		val2 := ctx.GetOperandUintValue(b, details.Src2, instr.Literal)
+		val0 := GetOperandUintValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
+		val1 := GetOperandUintValueModified(b, ctx, details.Abs, details.Neg, details.Src1, instr.Literal, 1)
+		val2 := GetOperandUintValueModified(b, ctx, details.Abs, details.Neg, details.Src2, instr.Literal, 2)
 
 		// offset = src1[4:0]
 		// width = src2[4:0]
@@ -166,13 +174,42 @@ func EmitVOP3(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 
 		res := b.EmitSelect(typeUint, isWidthZero, idC0, b.EmitSelect(typeUint, isShortExtract, resShort, resLong))
 		StoreRegisterPointerMaskedModified(b, ctx, details.Clamp, details.OMod, details.Vdst+gcnSpec.OpVgpr0, res, false)
+	case details.Op == gcnSpec.Vop3OpBfeI32:
+		typeInt := ctx.GetId(BlockContextIdTypeInt)
+		typeUint := ctx.GetId(BlockContextIdTypeUint)
+		typeBool := ctx.GetId(BlockContextIdTypeBool)
+
+		val0 := GetOperandIntValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
+		val1 := GetOperandUintValueModified(b, ctx, details.Abs, details.Neg, details.Src1, instr.Literal, 1)
+		val2 := GetOperandUintValueModified(b, ctx, details.Abs, details.Neg, details.Src2, instr.Literal, 2)
+
+		// offset = src1[4:0]
+		// width = src2[4:0]
+		mask31 := ctx.GetConstId(ConstIdUint31)
+		offset := b.EmitBitwiseAnd(typeUint, val1, mask31)
+		width := b.EmitBitwiseAnd(typeUint, val2, mask31)
+
+		// If (width == 0) dst = 0
+		// Else if (width + offset <= 32) dst = bitfieldSExtract(src0, offset, width)
+		// Else dst = src0 >> offset
+		isWidthZero := b.EmitIEqual(typeBool, width, ctx.GetConstId(ConstIdUint0))
+		isShortExtract := b.EmitULessThan(typeBool, b.EmitIAdd(typeUint, width, offset), ctx.GetConstId(ConstIdUint33))
+
+		// Short extract: bitfieldSExtract(src0, offset, width)
+		resShort := b.EmitBitFieldSExtract(typeInt, val0, offset, width)
+
+		// Long extract: src0 >> offset
+		resLong := b.EmitShiftRightArithmetic(typeInt, val0, offset)
+
+		res := b.EmitSelect(typeInt, isWidthZero, b.EmitConstantUint(typeInt, 0), b.EmitSelect(typeInt, isShortExtract, resShort, resLong))
+		StoreRegisterPointerMaskedModified(b, ctx, details.Clamp, details.OMod, details.Vdst+gcnSpec.OpVgpr0, b.EmitBitcast(typeUint, res), false)
 	case details.Op == gcnSpec.Vop3OpSadU32:
 		typeUint := ctx.GetId(BlockContextIdTypeUint)
 		typeBool := ctx.GetId(BlockContextIdTypeBool)
 
-		val0 := ctx.GetOperandUintValue(b, details.Src0, instr.Literal)
-		val1 := ctx.GetOperandUintValue(b, details.Src1, instr.Literal)
-		val2 := ctx.GetOperandUintValue(b, details.Src2, instr.Literal)
+		val0 := GetOperandUintValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
+		val1 := GetOperandUintValueModified(b, ctx, details.Abs, details.Neg, details.Src1, instr.Literal, 1)
+		val2 := GetOperandUintValueModified(b, ctx, details.Abs, details.Neg, details.Src2, instr.Literal, 2)
 
 		// (A > B)
 		isGreater := b.EmitUGreaterThan(typeBool, val0, val1)
@@ -191,9 +228,9 @@ func EmitVOP3(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 		typeUint := ctx.GetId(BlockContextIdTypeUint)
 		idMask := b.EmitConstantUint(typeUint, 0xFFFFFF)
 
-		val0 := ctx.GetOperandUintValue(b, details.Src0, instr.Literal)
-		val1 := ctx.GetOperandUintValue(b, details.Src1, instr.Literal)
-		val2 := ctx.GetOperandUintValue(b, details.Src2, instr.Literal)
+		val0 := GetOperandUintValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
+		val1 := GetOperandUintValueModified(b, ctx, details.Abs, details.Neg, details.Src1, instr.Literal, 1)
+		val2 := GetOperandUintValueModified(b, ctx, details.Abs, details.Neg, details.Src2, instr.Literal, 2)
 
 		val0 = b.EmitBitwiseAnd(typeUint, val0, idMask)
 		val1 = b.EmitBitwiseAnd(typeUint, val1, idMask)
@@ -219,25 +256,6 @@ func EmitVOP3(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 		// Result = (S0 * S1) + S2.
 		mul := b.EmitIMul(typeInt, val0Ext, val1Ext)
 		res := b.EmitIAdd(typeInt, mul, val2)
-
-		StoreRegisterPointerMaskedModified(b, ctx, details.Clamp, details.OMod, details.Vdst+gcnSpec.OpVgpr0, res, false)
-	case details.Op == gcnSpec.Vop3OpMulI32I24:
-		typeInt := ctx.GetId(BlockContextIdTypeInt)
-		typeUint := ctx.GetId(BlockContextIdTypeUint)
-
-		val0 := GetOperandIntValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
-		val1 := GetOperandIntValueModified(b, ctx, details.Abs, details.Neg, details.Src1, instr.Literal, 1)
-
-		// Set up offset (0) and count (24) for the 24-bit bitfield extraction.
-		offset := b.EmitConstantUint(typeUint, 0)
-		count := b.EmitConstantUint(typeUint, 24)
-
-		// Extract the lower 24 bits and sign-extend them to 32 bits.
-		val0Ext := b.EmitBitFieldSExtract(typeInt, val0, offset, count)
-		val1Ext := b.EmitBitFieldSExtract(typeInt, val1, offset, count)
-
-		// Result = S0.i[23:0] * S1.i[23:0]
-		res := b.EmitIMul(typeInt, val0Ext, val1Ext)
 
 		StoreRegisterPointerMaskedModified(b, ctx, details.Clamp, details.OMod, details.Vdst+gcnSpec.OpVgpr0, res, false)
 	case details.Op == gcnSpec.Vop3OpFmaF32:

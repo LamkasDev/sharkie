@@ -202,6 +202,7 @@ func RegisterKernelStubs() {
 
 	// App functions.
 	elf.RegisterStub("libkernel", "sceKernelGetAppInfo", libKernel_sceKernelGetAppInfo)
+	elf.RegisterStub("libkernel", "sceKernelGetSystemSwVersion", libKernel_sceKernelGetSystemSwVersion)
 	elf.RegisterStub("libkernel", "sceKernelTitleWorkaroundIsEnabled", libKernel_sceKernelTitleWorkaroundIsEnabled)
 
 	// TSC functions.
@@ -238,6 +239,7 @@ func RegisterKernelStubs() {
 	// Kernel semaphore functions.
 	elf.RegisterStub("libkernel", "sceKernelCreateSema", libKernel_sceKernelCreateSema)
 	elf.RegisterStub("libkernel", "sceKernelOpenSema", libKernel_sceKernelOpenSema)
+	elf.RegisterStub("libkernel", "sceKernelCancelSema", libKernel_sceKernelCancelSema)
 	elf.RegisterStub("libkernel", "sceKernelDeleteSema", libKernel_sceKernelDeleteSema)
 	elf.RegisterStub("libkernel", "sceKernelWaitSema", libKernel_sceKernelWaitSema)
 	elf.RegisterStub("libkernel", "sceKernelPollSema", libKernel_sceKernelPollSema)

@@ -20,7 +20,7 @@ func (r PaSuScModeCntl) MultiPrimIbEna() bool        { return Reg(r).ExtractBool
 
 type PaScModeCntl0 Reg
 
-func (r PaScModeCntl0) MsaaEnable() bool           { return Reg(r).ExtractBool(0) }
+func (r PaScModeCntl0) MsaaEnable() bool           { return Reg(r).ExtractBool(0) } // TODO: Unused in pipeline
 func (r PaScModeCntl0) VpScissorEnable() bool      { return Reg(r).ExtractBool(1) }
 func (r PaScModeCntl0) LineStippleEnable() bool    { return Reg(r).ExtractBool(2) }
 func (r PaScModeCntl0) SendUnlitStilesToPkr() bool { return Reg(r).ExtractBool(3) } // TODO: Unused in pipeline
@@ -52,7 +52,7 @@ func (r PaClVportFloat) Float32() float32 { return math.Float32frombits(uint32(r
 
 type PaScAaConfig Reg
 
-func (r PaScAaConfig) MsaaNumSamples() uint32      { return Reg(r).Extract(0, 0x7) }
+func (r PaScAaConfig) MsaaNumSamples() uint32      { return Reg(r).Extract(0, 0x7) }  // TODO: Unused in pipeline
 func (r PaScAaConfig) AaMaskCentroidDtmn() bool    { return Reg(r).ExtractBool(4) }   // TODO: Unused in pipeline
 func (r PaScAaConfig) MaxSampleDist() uint32       { return Reg(r).Extract(13, 0xF) } // TODO: Unused in pipeline
 func (r PaScAaConfig) MsaaExposedSamples() uint32  { return Reg(r).Extract(20, 0x7) } // TODO: Unused in pipeline

@@ -12,6 +12,10 @@ func EmitDS(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext) {
 	details := instr.Details.(*gcnSpec.DsDetails)
 	typeUint := ctx.GetId(BlockContextIdTypeUint)
 	typeBool := ctx.GetId(BlockContextIdTypeBool)
+	if details.Op == gcnSpec.DsOpSwizzleB32 {
+		emitDsSwizzleB32(b, instr, ctx, details)
+		return
+	}
 
 	// Read base address from VGPR and M0 for bounds checking.
 	addr := ctx.GetOperandUintValue(b, gcnSpec.OpVgpr0+details.Addr, 0)
@@ -95,6 +99,45 @@ func EmitDS(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext) {
 		emitAccess(addr0, false)
 		emitAccess(addr1, true)
 	default:
-		panic(fmt.Sprintf("unknown ds op %d", details.Op))
+		panic(fmt.Sprintf("unknown ds op %s", gcnSpec.Mnemotics[gcnSpec.EncDS][details.Op]))
 	}
+}
+
+func emitDsSwizzleB32(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext, details *gcnSpec.DsDetails) {
+	typeUint := ctx.GetId(BlockContextIdTypeUint)
+	laneId := b.EmitLoad(typeUint, ctx.GetId(BlockContextIdSubgroupLocalInvocationId))
+
+	src := ctx.GetOperandUintValue(b, gcnSpec.OpVgpr0+details.Addr, 0)
+	offset0 := details.Offset0
+	offset1 := details.Offset1
+
+	var targetLane SpirvId
+	if (offset1 & 0x80) != 0 {
+		// Quad mode.
+		idInGroup := b.EmitBitwiseAnd(typeUint, laneId, ctx.GetConstId(ConstIdUint3))
+		base := b.EmitShiftLeftLogical(typeUint, idInGroup, ctx.GetConstId(ConstIdUint1))
+		offset0Id := b.EmitConstantUint(typeUint, uint32(offset0))
+		indexInQuad := b.EmitBitFieldUExtract(typeUint, offset0Id, base, ctx.GetConstId(ConstIdUint2))
+
+		laneBase := b.EmitBitwiseAnd(typeUint, laneId, b.EmitConstantUint(typeUint, 0xFFFFFFFC))
+		targetLane = b.EmitBitwiseOr(typeUint, laneBase, indexInQuad)
+	} else {
+		// 32-thread mode.
+		andMaskVal := uint32(offset0&0x1F) | 0xFFFFFFE0
+		orMaskVal := uint32(offset0>>5) | uint32((offset1&0x3)<<3)
+		xorMaskVal := uint32(offset1 >> 2)
+
+		andMask := b.EmitConstantUint(typeUint, andMaskVal)
+		orMask := b.EmitConstantUint(typeUint, orMaskVal)
+		xorMask := b.EmitConstantUint(typeUint, xorMaskVal)
+
+		// index = ((lane_id & and_mask) | or_mask) ^ xor_mask.
+		masked := b.EmitBitwiseAnd(typeUint, laneId, andMask)
+		ored := b.EmitBitwiseOr(typeUint, masked, orMask)
+		targetLane = b.EmitBitwiseXor(typeUint, ored, xorMask)
+	}
+
+	scope := b.EmitConstantUint(typeUint, spec.SpvScopeSubgroup)
+	res := b.EmitGroupNonUniformShuffle(typeUint, scope, src, targetLane)
+	ctx.StoreRegisterPointer(b, details.Vdst+gcnSpec.OpVgpr0, res)
 }

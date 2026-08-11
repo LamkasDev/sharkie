@@ -58,14 +58,16 @@ type ThreadContext struct {
 }
 
 // NewThreadContext creates a new ThreadContext for given thread ID and stack pointer.
-func NewThreadContext(threadPtr, stackPtr uintptr) *ThreadContext {
+func NewThreadContext(threadPtr, stackPtr uintptr, register bool) *ThreadContext {
 	threadContext := &ThreadContext{
 		ThreadPtr:     threadPtr,
 		PlaystationSP: stackPtr,
 	}
-	ThreadContextLock.Lock()
-	ThreadContextRepo[threadPtr] = threadContext
-	ThreadContextLock.Unlock()
+	if register {
+		ThreadContextLock.Lock()
+		ThreadContextRepo[threadPtr] = threadContext
+		ThreadContextLock.Unlock()
+	}
 	ThreadContextPinner.Pin(threadContext)
 
 	return threadContext

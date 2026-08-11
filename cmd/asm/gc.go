@@ -10,6 +10,11 @@ import (
 )
 
 var (
+	GuestEnterCallback func()
+	GuestLeaveCallback func()
+)
+
+var (
 	// NeedsGC indicates if a GC cycle is required.
 	NeedsGC atomic.Bool
 
@@ -71,6 +76,9 @@ func CheckAndRunGC() {
 
 // GuestEnter needs to be called everytime we transition from Go to guest code.
 func GuestEnter() {
+	if GuestEnterCallback != nil {
+		GuestEnterCallback()
+	}
 	for GCFence.Load() {
 		runtime.Gosched()
 	}
@@ -79,5 +87,8 @@ func GuestEnter() {
 
 // GuestLeave needs to be called everytime we transition from guest to Go code.
 func GuestLeave() {
+	if GuestLeaveCallback != nil {
+		GuestLeaveCallback()
+	}
 	ActiveGuestThreads.Add(-1)
 }

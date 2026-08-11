@@ -324,7 +324,7 @@ func InvokeImpiClientMethod(client *IpmiClient, resultPtr uintptr, syncMethod *I
 			outputSlice := unsafe.Slice((*uintptr)(unsafe.Pointer(syncMethod.OutputPtr)), syncMethod.OutputSize)
 			appStatusPtr := (*uint32)(unsafe.Pointer(outputSlice[0]))
 			if appStatusPtr != nil {
-				appId := uint32(GlobalAppInfo.AppId)
+				appId := uint32(0)
 				*appStatusPtr = appId
 				logger.Printf("%-132s %s returned app status (appId=%s).\n",
 					emu.GlobalModuleManager.GetCallSiteText(),

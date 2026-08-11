@@ -482,6 +482,15 @@ func (c *VulkanContext) PrepareSwapchain(dimensions *backend.SwapchainDimensions
 func (c *VulkanContext) Prepare() {
 	vk.DeviceWaitIdle(c.Device)
 
+	if c.CmdPool != vk.NullCommandPool {
+		vk.DestroyCommandPool(c.Device, c.CmdPool, nil)
+		c.CmdPool = vk.NullCommandPool
+	}
+	if c.PresentCmdPool != vk.NullCommandPool {
+		vk.DestroyCommandPool(c.Device, c.PresentCmdPool, nil)
+		c.PresentCmdPool = vk.NullCommandPool
+	}
+
 	var cmdPool vk.CommandPool
 	ret := vk.CreateCommandPool(c.Device, &vk.CommandPoolCreateInfo{
 		SType:            vk.StructureTypeCommandPoolCreateInfo,

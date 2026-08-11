@@ -53,7 +53,7 @@ func libSceVideoOut_sceVideoOutGetVblankStatus(rawHandle uintptr, vblankStatus *
 	}
 	*vblankStatus = handle.VblankStatus
 
-	if logger.LogGraphics {
+	if false && logger.LogGraphics {
 		logger.Printf("%-132s %s returned %s's v-blank status.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceVideoOutGetVblankStatus"),

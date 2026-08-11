@@ -37,7 +37,7 @@ func EmitMIMG(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 	}
 	bindingIndex := b.EmitConstantUint(typeUint, binding.BindingIndex)
 	switch details.Op {
-	case gcnSpec.MimgOpSample, gcnSpec.MimgOpSampleLz, gcnSpec.MimgOpSampleB, gcnSpec.MimgOpSampleLzO:
+	case gcnSpec.MimgOpSample, gcnSpec.MimgOpSampleLz, gcnSpec.MimgOpSampleB, gcnSpec.MimgOpSampleLzO, gcnSpec.MimgOpSampleC, gcnSpec.MimgOpSampleL:
 		idStaticTextures1D := ctx.GetId(BlockContextIdStaticTextures1d)
 		idStaticTextures2D := ctx.GetId(BlockContextIdStaticTextures2d)
 		idStaticTextures3D := ctx.GetId(BlockContextIdStaticTextures3d)
@@ -66,6 +66,8 @@ func EmitMIMG(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 		isOffset := details.Op == gcnSpec.MimgOpSampleLzO
 		isBias := details.Op == gcnSpec.MimgOpSampleB
 		isLz := details.Op == gcnSpec.MimgOpSampleLz || details.Op == gcnSpec.MimgOpSampleLzO
+		isLod := details.Op == gcnSpec.MimgOpSampleL
+		isPcf := details.Op == gcnSpec.MimgOpSampleC
 		vaddrOffset := uint32(0)
 
 		// { offset } - send X, Y, Z integer offsets (packed into 1 dword) to offset XYZ address.
@@ -85,6 +87,13 @@ func EmitMIMG(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 		var bias SpirvId
 		if isBias {
 			bias = b.EmitBitcast(typeFloat, ctx.LoadRegisterPointer(b, gcnSpec.OpVgpr0+details.Vaddr+vaddrOffset))
+			vaddrOffset++
+		}
+
+		// { z-compare } - PCF.
+		var zCompare SpirvId
+		if isPcf {
+			zCompare = b.EmitBitcast(typeFloat, ctx.LoadRegisterPointer(b, gcnSpec.OpVgpr0+details.Vaddr+vaddrOffset))
 			vaddrOffset++
 		}
 
@@ -226,9 +235,50 @@ func EmitMIMG(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 					mask |= spec.SpvImageOperandsLodMask
 					args = append(args, ctx.GetConstId(ConstIdFloat0))
 				}
+				if isLod {
+					numCoords := uint32(0)
+					switch resType {
+					case ResType1D:
+						numCoords = 1
+					case ResType2D:
+						numCoords = 2
+					case ResType3D, ResType2DArray:
+						numCoords = 3
+					}
+					userLod := b.EmitBitcast(typeFloat, ctx.LoadRegisterPointer(b, gcnSpec.OpVgpr0+details.Vaddr+vaddrOffset+numCoords))
+					mask |= spec.SpvImageOperandsLodMask
+					args = append(args, userLod)
+				}
+
+				if isPcf {
+					if resType == ResType3D {
+						// Vulkan forbids OpImageSampleDref* on 3D images.
+						// Since PCF on 3D images is technically invalid/undefined, we just return 0 to bypass validation errors.
+						zero := ctx.GetConstId(ConstIdFloat0)
+						return b.EmitCompositeConstruct(typeV4Float, zero, zero, zero, zero)
+					}
+
+					var sampledVal SpirvId
+					if !isLz && !isLod && ctx.Stage == gcn.GcnShaderStageFragment {
+						if mask == 0 {
+							sampledVal = b.EmitImageSampleDrefImplicitLod(typeFloat, imageId, coord, zCompare)
+						} else {
+							sampledVal = b.EmitImageSampleDrefImplicitLodOperands(typeFloat, imageId, coord, zCompare, mask, args...)
+						}
+					} else {
+						if mask == 0 {
+							sampledVal = b.EmitImageSampleDrefExplicitLod(typeFloat, imageId, coord, zCompare, ctx.GetConstId(ConstIdFloat0))
+						} else {
+							sampledVal = b.EmitImageSampleDrefExplicitLodOperands(typeFloat, imageId, coord, zCompare, mask, args...)
+						}
+					}
+
+					// Replicate scalar depth comparison result to V4Float (R, R, R, 1.0).
+					return b.EmitCompositeConstruct(typeV4Float, sampledVal, sampledVal, sampledVal, ctx.GetConstId(ConstIdFloat1))
+				}
 
 				// If no explicit lod is given; rely on ImplicitLod (only valid in Fragment stages).
-				if !isLz && ctx.Stage == gcn.GcnShaderStageFragment {
+				if !isLz && !isLod && ctx.Stage == gcn.GcnShaderStageFragment {
 					if mask == 0 {
 						return b.EmitImageSampleImplicitLod(typeV4Float, imageId, coord)
 					}
@@ -254,7 +304,7 @@ func EmitMIMG(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 				vgprOffset++
 			}
 		}
-	case gcnSpec.MimgOpLoadMip:
+	case gcnSpec.MimgOpLoad, gcnSpec.MimgOpLoadMip:
 		idStaticTextures1D := ctx.GetId(BlockContextIdStaticTextures1d)
 		idStaticTextures2D := ctx.GetId(BlockContextIdStaticTextures2d)
 		idStaticTextures3D := ctx.GetId(BlockContextIdStaticTextures3d)
@@ -303,6 +353,11 @@ func EmitMIMG(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 			image1D, image2D, image3D, image2DArray,
 			coord1D, coord2D, coord3D, coord2DArray,
 			func(imageId, coord SpirvId, resType int) SpirvId {
+				if details.Op == gcnSpec.MimgOpLoad {
+					lod := b.EmitBitcast(typeInt, ctx.GetConstId(ConstIdUint0))
+					return b.EmitImageFetch(typeV4Float, imageId, coord, spec.SpvImageOperandsLodMask, lod)
+				}
+
 				var lod SpirvId
 				switch resType {
 				case ResType1D:
@@ -387,6 +442,69 @@ func EmitMIMG(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 				return 0
 			},
 		)
+	case gcnSpec.MimgOpGetLod:
+		idStaticTextures1D := ctx.GetId(BlockContextIdStaticTextures1d)
+		idStaticTextures2D := ctx.GetId(BlockContextIdStaticTextures2d)
+		idStaticTextures3D := ctx.GetId(BlockContextIdStaticTextures3d)
+		idStaticTextures2DArray := ctx.GetId(BlockContextIdStaticTextures2dArray)
+
+		typeSampledImage1D := ctx.GetId(BlockContextIdTypeSampledImage1d)
+		typeSampledImage2D := ctx.GetId(BlockContextIdTypeSampledImage2d)
+		typeSampledImage3D := ctx.GetId(BlockContextIdTypeSampledImage3d)
+		typeSampledImage2DArray := ctx.GetId(BlockContextIdTypeSampledImage2dArray)
+
+		typePtrUniformSampledImage1D := ctx.GetId(BlockContextIdPtrUniformSampledImage1d)
+		typePtrUniformSampledImage2D := ctx.GetId(BlockContextIdPtrUniformSampledImage2d)
+		typePtrUniformSampledImage3D := ctx.GetId(BlockContextIdPtrUniformSampledImage3d)
+		typePtrUniformSampledImage2DArray := ctx.GetId(BlockContextIdPtrUniformSampledImage2dArray)
+
+		ptr1D := b.EmitAccessChain(typePtrUniformSampledImage1D, idStaticTextures1D, bindingIndex)
+		sampledImage1D := b.EmitLoad(typeSampledImage1D, ptr1D)
+		ptr2D := b.EmitAccessChain(typePtrUniformSampledImage2D, idStaticTextures2D, bindingIndex)
+		sampledImage2D := b.EmitLoad(typeSampledImage2D, ptr2D)
+		ptr3D := b.EmitAccessChain(typePtrUniformSampledImage3D, idStaticTextures3D, bindingIndex)
+		sampledImage3D := b.EmitLoad(typeSampledImage3D, ptr3D)
+		ptr2DArray := b.EmitAccessChain(typePtrUniformSampledImage2DArray, idStaticTextures2DArray, bindingIndex)
+		sampledImage2DArray := b.EmitLoad(typeSampledImage2DArray, ptr2DArray)
+
+		// { body } - coordinates from VGPRs.
+		coordX := b.EmitBitcast(typeFloat, ctx.LoadRegisterPointer(b, gcnSpec.OpVgpr0+details.Vaddr))
+		coordY := b.EmitBitcast(typeFloat, ctx.LoadRegisterPointer(b, gcnSpec.OpVgpr0+details.Vaddr+1))
+		coordZ := b.EmitBitcast(typeFloat, ctx.LoadRegisterPointer(b, gcnSpec.OpVgpr0+details.Vaddr+2))
+
+		coord1D := coordX
+		coord2D := b.EmitCompositeConstruct(typeV2Float, coordX, coordY)
+		coord3D := b.EmitCompositeConstruct(typeV3Float, coordX, coordY, coordZ)
+		coord2DArray := coord3D
+
+		// Query LOD.
+		resVec2 := EmitResourceTypeSwitch(b, typeV2Float, is1D, is3D, isCubeOrArray,
+			sampledImage1D, sampledImage2D, sampledImage3D, sampledImage2DArray,
+			coord1D, coord2D, coord3D, coord2DArray,
+			func(imageId, coord SpirvId, resType int) SpirvId {
+				queryCoord := coord
+				if resType == ResType2DArray {
+					coordU := b.EmitCompositeExtract(typeFloat, coord, 0)
+					coordV := b.EmitCompositeExtract(typeFloat, coord, 1)
+					queryCoord = b.EmitCompositeConstruct(typeV2Float, coordU, coordV)
+				}
+
+				// OpImageQueryLod returns a vec2 where X is clamped/accessed LOD, Y is raw LOD.
+				return b.EmitImageQueryLod(typeV2Float, imageId, queryCoord)
+			},
+		)
+
+		// Write results back to VGPRs based on dmask.
+		// Dmask bit 0 = clamped/accessed LOD (resVec2.x).
+		// Dmask bit 1 = raw/unclamped computed LOD (resVec2.y).
+		vgprOffset := uint32(0)
+		for i := range uint32(2) {
+			if (details.Dmask>>i)&1 == 1 {
+				val := b.EmitCompositeExtract(typeFloat, resVec2, i)
+				ctx.StoreRegisterPointerMasked(b, gcnSpec.OpVgpr0+details.Vdata+vgprOffset, b.EmitBitcast(typeUint, val))
+				vgprOffset++
+			}
+		}
 	default:
 		panic(fmt.Sprintf("unknown mimg op %s", gcnSpec.Mnemotics[gcnSpec.EncMIMG][details.Op]))
 	}

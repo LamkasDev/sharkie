@@ -215,6 +215,17 @@ func EmitVOP2(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 		val1 := GetOperandUintValueModified(b, ctx, details.Abs, details.Neg, details.Src1, 0, 1)
 		resU := b.EmitBitwiseOr(ctx.GetId(BlockContextIdTypeUint), val0, val1)
 		StoreRegisterPointerMaskedModified(b, ctx, details.Clamp, details.OMod, details.Vdst+gcnSpec.OpVgpr0, resU, false)
+	case gcnSpec.Vop2OpXorB32:
+		val0 := GetOperandUintValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
+		val1 := GetOperandUintValueModified(b, ctx, details.Abs, details.Neg, details.Src1, 0, 1)
+		resU := b.EmitBitwiseXor(ctx.GetId(BlockContextIdTypeUint), val0, val1)
+		StoreRegisterPointerMaskedModified(b, ctx, details.Clamp, details.OMod, details.Vdst+gcnSpec.OpVgpr0, resU, false)
+	case gcnSpec.Vop2OpLdexpF32:
+		val0 := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
+		val1 := GetOperandIntValueModified(b, ctx, details.Abs, details.Neg, details.Src1, instr.Literal, 1)
+
+		res := b.EmitExtInst(ctx.GetId(BlockContextIdTypeFloat), ctx.GetId(BlockContextIdTypeGlsl), spec.SpvGlslOpLdexp, val0, val1)
+		StoreRegisterPointerMaskedModified(b, ctx, details.Clamp, details.OMod, details.Vdst+gcnSpec.OpVgpr0, res, true)
 	default:
 		panic(fmt.Sprintf("unknown vop2 op %s", gcnSpec.Mnemotics[gcnSpec.EncVOP2][details.Op]))
 	}

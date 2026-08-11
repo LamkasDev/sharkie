@@ -100,17 +100,13 @@ func libSceLibcInternal_sceLibcMspaceReallocalign(handle, alignment, ptr, newSiz
 	GlobalMspaceAllocator.Lock.Lock()
 	defer GlobalMspaceAllocator.Lock.Unlock()
 	if mspace, ok := GlobalMspaceAllocator.Mspaces[handle]; ok {
-		newAddress := mspace.Allocator.MallocAligned(newSize, alignment)
+		newAddress := mspace.Allocator.ReallocAligned(ptr, newSize, alignment)
 		if newAddress == 0 {
 			logger.Printf("%-132s %s failed due to allocation error.\n",
 				emu.GlobalModuleManager.GetCallSiteText(),
 				color.Magenta.Sprint("sceLibcMspaceReallocalign"),
 			)
 			emu.SetErrno(ENOMEM)
-		} else if ptr != 0 {
-			oldSlice := unsafe.Slice((*byte)(unsafe.Pointer(ptr)), newSize)
-			newSlice := unsafe.Slice((*byte)(unsafe.Pointer(newAddress)), newSize)
-			copy(newSlice, oldSlice)
 		}
 
 		return newAddress

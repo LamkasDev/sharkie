@@ -3,16 +3,6 @@ package lib_structs
 const CurrentFirmwareVersion = uint32(0x11008001)
 const GameCompiledSdkVersion = uint32(0x04508001)
 
-var GlobalAppInfo = &AppInfo{
-	AppId:       0xB00B,
-	HasParamSfo: 1,
-}
-
-func init() {
-	namePtr := &GlobalAppInfo.CusaName[0]
-	CString(Cstring(namePtr), "CUSA00001")
-}
-
 type AppInfo struct {
 	AppId               int32
 	MmapFlags           int32
@@ -29,6 +19,12 @@ type AppInfo struct {
 	Attribute1          int32
 	HasParamSfo         int32
 	TitleWorkaround     TitleWorkaround
+}
+
+type SwVersion struct {
+	Size uint64
+	Text [28]byte
+	Hex  uint32
 }
 
 type TitleWorkaround struct {

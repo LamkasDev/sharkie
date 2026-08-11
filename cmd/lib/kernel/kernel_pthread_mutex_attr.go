@@ -42,7 +42,7 @@ func libKernel_scePthreadMutexattrSetprotocol(attrHandlePtr *uintptr, attrProtoc
 // 0x0000000000013A00
 // __int64 __fastcall scePthreadMutexattrDestroy(__int64 *)
 func libKernel_scePthreadMutexattrDestroy(attrHandlePtr *uintptr) uintptr {
-	err := posix.Pthread_attr_destroy(attrHandlePtr)
+	err := posix.Pthread_mutexattr_destroy(attrHandlePtr)
 	if err != 0 {
 		return err - SonyErrorOffset
 	}

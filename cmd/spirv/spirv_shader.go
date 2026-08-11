@@ -37,6 +37,7 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 		b.EmitCapability(spec.SpvCapInterpolationFunction)
 	}
 	b.EmitCapability(spec.SpvCapGroupNonUniformBallot)
+	b.EmitCapability(spec.SpvCapGroupNonUniformShuffle)
 	b.EmitCapability(spec.SpvCapSubgroupBallotKHR)
 	b.EmitCapability(spec.SpvCapRuntimeDescriptorArray)
 	b.EmitCapability(spec.SpvCapPhysicalStorageBufferAddresses)
@@ -460,12 +461,10 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 
 	// Emit LDS scratchpad variable (32kB = 8192 Dwords).
 	var idLdsArray SpirvId
-	if shader.Stage == GcnShaderStageCompute {
-		typeLdsArray := b.EmitTypeArray(typeUint, b.EmitConstantUint(typeUint, 8192))
-		typePtrLdsArray := b.EmitTypePointer(spec.SpvStorageWorkgroup, typeLdsArray)
-		idLdsArray = b.EmitVariable(typePtrLdsArray, spec.SpvStorageWorkgroup)
-		b.EmitName(idLdsArray, "lds_array")
-	}
+	typeLdsArray := b.EmitTypeArray(typeUint, b.EmitConstantUint(typeUint, 8192))
+	typePtrLdsArray := b.EmitTypePointer(spec.SpvStorageWorkgroup, typeLdsArray)
+	idLdsArray = b.EmitVariable(typePtrLdsArray, spec.SpvStorageWorkgroup)
+	b.EmitName(idLdsArray, "lds_array")
 
 	// GCN special registers.
 	var gcnSpecialIds [27]SpirvUsedId

@@ -7,6 +7,7 @@ require (
 	github.com/LamkasDev/cimgui-go-vulkan v0.0.0-20260707145319-90e11755ff1b
 	github.com/bpfsnoop/gapstone v0.0.0-20250326154852-7e3bee2c2f09
 	github.com/cespare/xxhash v1.1.0
+	github.com/ebitengine/oto/v3 v3.4.0
 	github.com/elokore/glfw/v3.4/glfw v0.0.0-20251221231958-c1dc85df2170
 	github.com/foize/go.fifo v0.0.0-20130327144150-3a04cfeec121
 	github.com/goki/vulkan v1.0.8
@@ -21,9 +22,12 @@ require (
 )
 
 require (
+	github.com/ebitengine/purego v0.9.0 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/philhofer/fwd v1.2.0 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 )
 
 replace github.com/langhuihui/gomem => ./temp/gomem
+
+replace github.com/LamkasDev/cimgui-go-vulkan => ./temp/cimgui-go-vulkan

@@ -125,6 +125,14 @@ func TranslateClearColor(word0 uint32, word1 uint32, dataFormat uint32, numForma
 		default:
 			panic("unhandled")
 		}
+	case gcn.GcnDataFormat10_11_11:
+		switch numFormat {
+		case gcn.GcnNumFormatSfloat:
+			// TODO: fix this.
+			_ = "todo"
+		default:
+			panic("unhandled")
+		}
 	case gcn.GcnDataFormat11_11_10:
 		switch numFormat {
 		case gcn.GcnNumFormatSfloat:

@@ -1,6 +1,9 @@
 package user_service
 
-import fifo "github.com/foize/go.fifo"
+import (
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/user"
+	fifo "github.com/foize/go.fifo"
+)
 
 var GlobalUserService *UserService
 
@@ -16,4 +19,7 @@ func NewUserService() *UserService {
 
 func SetupUserService() {
 	GlobalUserService = NewUserService()
+	for _, user := range GlobalUserManager.GetLoggedInUsers() {
+		GlobalUserService.EventQueue.Add(UserServiceEvent{Type: UserServiceEventTypeLogin, UserId: user.UserId})
+	}
 }

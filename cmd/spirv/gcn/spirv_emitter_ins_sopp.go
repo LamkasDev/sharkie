@@ -19,6 +19,10 @@ func EmitSOPP(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 		valLo, valHi := ctx.GetOperand64Value(b, gcnSpec.OpVccLo, 0)
 		val64 := ctx.Pack64(b, valLo, valHi)
 		ctx.GcnConditionId = b.EmitIEqual(ctx.GetId(BlockContextIdTypeBool), val64, ctx.GetConstId(ConstId64Uint0))
+	case gcnSpec.SoppOpCbranchVccnz:
+		valLo, valHi := ctx.GetOperand64Value(b, gcnSpec.OpVccLo, 0)
+		val64 := ctx.Pack64(b, valLo, valHi)
+		ctx.GcnConditionId = b.EmitINotEqual(ctx.GetId(BlockContextIdTypeBool), val64, ctx.GetConstId(ConstId64Uint0))
 	case gcnSpec.SoppOpCbranchExecz:
 		valLo, valHi := ctx.GetOperand64Value(b, gcnSpec.OpExecLo, 0)
 		val64 := ctx.Pack64(b, valLo, valHi)

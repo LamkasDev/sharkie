@@ -169,6 +169,24 @@ func EmitSOP2(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 		isCarry := b.EmitULessThan(typeBool, res, val0)
 		sccVal := b.EmitSelect(typeUint, isCarry, b.EmitConstantUint(typeUint, 1), idC0)
 		ctx.StoreRegisterPointer(b, gcnSpec.OpScc, sccVal)
+	case gcnSpec.Sop2OpAddcU32:
+		val0 := ctx.GetOperandUintValue(b, details.Src0, instr.Literal)
+		val1 := ctx.GetOperandUintValue(b, details.Src1, instr.Literal)
+		sccIn := ctx.LoadRegisterPointer(b, gcnSpec.OpScc)
+
+		// D.u = S0.u + S1.u + SCC
+		sum1 := b.EmitIAdd(typeUint, val0, val1)
+		res := b.EmitIAdd(typeUint, sum1, sccIn)
+		ctx.StoreRegisterPointer(b, details.Dst, res)
+
+		// SCC = unsigned carry out
+		// carry occurs if sum1 < val0 OR res < sum1
+		isCarry1 := b.EmitULessThan(typeBool, sum1, val0)
+		isCarry2 := b.EmitULessThan(typeBool, res, sum1)
+		isCarryOut := b.EmitLogicalOr(typeBool, isCarry1, isCarry2)
+
+		sccVal := b.EmitSelect(typeUint, isCarryOut, b.EmitConstantUint(typeUint, 1), idC0)
+		ctx.StoreRegisterPointer(b, gcnSpec.OpScc, sccVal)
 	case gcnSpec.Sop2OpAddI32:
 		val0 := ctx.GetOperandUintValue(b, details.Src0, instr.Literal)
 		val1 := ctx.GetOperandUintValue(b, details.Src1, instr.Literal)
@@ -235,6 +253,20 @@ func EmitSOP2(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 		// SCC = 1 if S0 is min (S0 < S1).
 		sccVal := b.EmitSelect(typeUint, isLess, b.EmitConstantUint(typeUint, 1), idC0)
 		ctx.StoreRegisterPointer(b, gcnSpec.OpScc, sccVal)
+	case gcnSpec.Sop2OpBfmB32:
+		val0 := ctx.GetOperandUintValue(b, details.Src0, instr.Literal)
+		val1 := ctx.GetOperandUintValue(b, details.Src1, instr.Literal)
+
+		size := b.EmitBitwiseAnd(typeUint, val0, ctx.GetConstId(ConstIdUint31))
+		offset := b.EmitBitwiseAnd(typeUint, val1, ctx.GetConstId(ConstIdUint31))
+
+		one := b.EmitConstantUint(typeUint, 1)
+		pow := b.EmitShiftLeftLogical(typeUint, one, size)
+		mask := b.EmitISub(typeUint, pow, one)
+
+		res := b.EmitShiftLeftLogical(typeUint, mask, offset)
+
+		ctx.StoreRegisterPointer(b, details.Dst, res)
 	default:
 		panic(fmt.Sprintf("unknown sop2 op %s", gcnSpec.Mnemotics[gcnSpec.EncSOP2][details.Op]))
 	}

@@ -18,7 +18,11 @@ import (
 // 0x0000000000023410
 // __int64 __fastcall sceKernelCreateSema(_QWORD *, __int64, unsigned int, unsigned int, unsigned int, __int64)
 func libKernel_sceKernelCreateSema(handlePtr uintptr, namePtr Cstring, attributes uint32, currentCount, maxCount int32, optionPtr uintptr) uintptr {
-	if handlePtr == 0 || optionPtr != 0 {
+	if handlePtr == 0 || attributes > 2 || currentCount < 0 || maxCount <= 0 || currentCount > maxCount {
+		logger.Printf("%-132s %s failed due to invalid parameters.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceKernelCreateSema"),
+		)
 		return SCE_KERNEL_ERROR_EINVAL
 	}
 
@@ -48,6 +52,10 @@ func libKernel_sceKernelCreateSema(handlePtr uintptr, namePtr Cstring, attribute
 // __int64 __fastcall sceKernelOpenSema(_QWORD *, __int64)
 func libKernel_sceKernelOpenSema(handlePtr uintptr, namePtr Cstring) uintptr {
 	if handlePtr == 0 || namePtr == nil {
+		logger.Printf("%-132s %s failed due to handle or name pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceKernelOpenSema"),
+		)
 		return SCE_KERNEL_ERROR_EINVAL
 	}
 	name := GoString(namePtr)
@@ -83,11 +91,59 @@ func libKernel_sceKernelOpenSema(handlePtr uintptr, namePtr Cstring) uintptr {
 	return 0
 }
 
-// 0x0000000000023460
-// __int64 sceKernelDeleteSema()
-func libKernel_sceKernelDeleteSema(handle uintptr) uintptr {
+// 0x0000000000023550
+// __int64 sceKernelCancelSema()
+func libKernel_sceKernelCancelSema(handle uint32, setCount int32, numWaitThreadsPtr uintptr) uintptr {
 	semaphore := GetSemaphore(handle)
 	if semaphore == nil {
+		logger.Printf("%-132s %s failed due to invalid handle.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceKernelCancelSema"),
+		)
+		return SCE_KERNEL_ERROR_ENOENT
+	}
+
+	semaphore.Cond.Mutex.Lock()
+
+	// Output the number of waiting threads.
+	if numWaitThreadsPtr != 0 {
+		waitersCount := atomic.LoadInt32(&semaphore.Cond.Waiters)
+		numWaitThreadsSlice := unsafe.Slice((*byte)(unsafe.Pointer(numWaitThreadsPtr)), 4)
+		binary.LittleEndian.PutUint32(numWaitThreadsSlice, uint32(waitersCount))
+	}
+
+	// Set the new token count (if < 0, reset to initial count).
+	if setCount < 0 {
+		semaphore.CurrentCount = semaphore.InitCount
+	} else {
+		semaphore.CurrentCount = setCount
+	}
+
+	// Cancel current waiters by bumping the generation and waking them up.
+	semaphore.CancelGeneration++
+	semaphore.Cond.Mutex.Unlock()
+	semaphore.Cond.Broadcast()
+	if logger.LogSyncing {
+		logger.Printf("%-132s %s canceled semaphore %s (newCount=%s).\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceKernelCancelSema"),
+			color.Blue.Sprint(semaphore.Name),
+			color.Yellow.Sprintf("0x%X", semaphore.CurrentCount),
+		)
+	}
+
+	return 0
+}
+
+// 0x0000000000023460
+// __int64 sceKernelDeleteSema()
+func libKernel_sceKernelDeleteSema(handle uint32) uintptr {
+	semaphore := GetSemaphore(handle)
+	if semaphore == nil {
+		logger.Printf("%-132s %s failed due to invalid handle.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceKernelDeleteSema"),
+		)
 		return SCE_KERNEL_ERROR_ENOENT
 	}
 
@@ -112,9 +168,13 @@ func libKernel_sceKernelDeleteSema(handle uintptr) uintptr {
 
 // 0x0000000000023490
 // __int64 __fastcall sceKernelWaitSema(unsigned int, unsigned int, __int64)
-func libKernel_sceKernelWaitSema(handle uintptr, needed int32, timeout *Timeout) uintptr {
+func libKernel_sceKernelWaitSema(handle uint32, needed int32, timeout *Timeout) uintptr {
 	semaphore := GetSemaphore(handle)
 	if semaphore == nil {
+		logger.Printf("%-132s %s failed due to invalid handle.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceKernelWaitSema"),
+		)
 		return SCE_KERNEL_ERROR_ENOENT
 	}
 
@@ -123,8 +183,19 @@ func libKernel_sceKernelWaitSema(handle uintptr, needed int32, timeout *Timeout)
 		timeoutDuration = time.Duration(timeout.Microseconds) * time.Microsecond
 	}
 
+	// Snapshot the cancel generation.
+	semaphore.Cond.Mutex.Lock()
+	startCancelGen := semaphore.CancelGeneration
+	semaphore.Cond.Mutex.Unlock()
+
 	start := time.Now()
 	for {
+		// Check if this semaphore wait was canceled.
+		if semaphore.CancelGeneration != startCancelGen {
+			semaphore.Cond.Mutex.Unlock()
+			return 0x80020055
+		}
+
 		// Check value.
 		semaphore.Cond.Mutex.Lock()
 		if semaphore.CurrentCount >= needed {
@@ -192,9 +263,13 @@ func libKernel_sceKernelWaitSema(handle uintptr, needed int32, timeout *Timeout)
 
 // 0x00000000000234F0
 // __int64 sceKernelPollSema()
-func libKernel_sceKernelPollSema(handle uintptr, needed int32) uintptr {
+func libKernel_sceKernelPollSema(handle uint32, needed int32) uintptr {
 	semaphore := GetSemaphore(handle)
 	if semaphore == nil {
+		logger.Printf("%-132s %s failed due to invalid handle.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceKernelPollSema"),
+		)
 		return SCE_KERNEL_ERROR_ENOENT
 	}
 
@@ -219,9 +294,13 @@ func libKernel_sceKernelPollSema(handle uintptr, needed int32) uintptr {
 
 // 0x0000000000023520
 // __int64 sceKernelSignalSema()
-func libKernel_sceKernelSignalSema(handle uintptr, signalCount int32) uintptr {
+func libKernel_sceKernelSignalSema(handle uint32, signalCount int32) uintptr {
 	semaphore := GetSemaphore(handle)
 	if semaphore == nil {
+		logger.Printf("%-132s %s failed due to invalid handle.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceKernelSignalSema"),
+		)
 		return SCE_KERNEL_ERROR_ENOENT
 	}
 

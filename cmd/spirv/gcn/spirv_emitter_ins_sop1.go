@@ -18,8 +18,19 @@ func EmitSOP1(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 		valLo, valHi := ctx.GetOperand64Value(b, details.Src0, instr.Literal)
 		ctx.StoreRegisterPointer(b, details.Dst, valLo)
 		ctx.StoreRegisterPointer(b, details.Dst+1, valHi)
+	case gcnSpec.Sop1OpBrevB32:
+		val := ctx.GetOperandUintValue(b, details.Src0, instr.Literal)
+		typeUint := ctx.GetId(BlockContextIdTypeUint)
+		res := b.EmitBitReverse(typeUint, val)
+		ctx.StoreRegisterPointer(b, details.Dst, res)
 	case gcnSpec.Sop1OpSwappcB64, gcnSpec.Sop1OpSetpcB64:
 		// Already handled via fetch shader.
+	case gcnSpec.Sop1OpGetpcB64:
+		// D.u = PC + 4; destination receives the byte address of the next instruction.
+		nextPcBytes := uint64(ctx.Address) + uint64(instr.DwordOffset+uintptr(instr.DwordLen))*4
+		typeUint := ctx.GetId(BlockContextIdTypeUint)
+		ctx.StoreRegisterPointer(b, details.Dst, b.EmitConstantUint(typeUint, uint32(nextPcBytes)))
+		ctx.StoreRegisterPointer(b, details.Dst+1, b.EmitConstantUint(typeUint, uint32(nextPcBytes>>32)))
 	/* case gcnSpec.Sop1OpNotB64:
 	valLo, valHi := ctx.GetOperand64Value(b, details.Src0, instr.Literal)
 	resLo := b.EmitNot(ctx.GetId(BlockContextIdTypeUint), valLo)

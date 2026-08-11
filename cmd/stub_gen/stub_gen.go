@@ -51,6 +51,7 @@ import (
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/user_service"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/posix"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/irq"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/audio_out"
 )
 
 func CreateDispatcher(goFn any) asm.StubDispatcher {

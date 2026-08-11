@@ -137,6 +137,43 @@ func libSceLibcInternal_realloc(ptr, newSize uintptr) uintptr {
 	return address
 }
 
+// 0x00000000000279C0
+// __int64 __fastcall reallocalign(unsigned __int64, unsigned __int64, __int64, __m128)
+func libSceLibcInternal_reallocalign(ptr, newSize, alignment uintptr) uintptr {
+	// Perform initial pointer checks.
+	if alignment != 0 && (alignment&(alignment-1)) != 0 {
+		logger.Printf("%-132s %s failed due to invalid alignment %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("reallocalign"),
+			color.Yellow.Sprintf("0x%X", alignment),
+		)
+		emu.SetErrno(EINVAL)
+		return ERR_PTR
+	}
+
+	address := GlobalGoAllocator.ReallocAligned(ptr, newSize, alignment)
+	if address == 0 {
+		logger.Printf("%-132s %s failed due to allocation error.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("reallocalign"),
+		)
+		emu.SetErrno(ENOMEM)
+		return 0
+	}
+
+	if logger.LogAlloc {
+		logger.Printf("%-132s %s reallocated %s to %s (newSize=%s, alignment=%s).\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("reallocalign"),
+			color.Yellow.Sprintf("0x%X", ptr),
+			color.Yellow.Sprintf("0x%X", address),
+			color.Yellow.Sprintf("0x%X", newSize),
+			color.Yellow.Sprintf("0x%X", alignment),
+		)
+	}
+	return address
+}
+
 // 0x0000000000028DB0
 // __int64 memalign()
 func libSceLibcInternal_memalign(alignment, size uintptr) uintptr {

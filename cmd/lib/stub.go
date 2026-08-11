@@ -4,12 +4,14 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/elf"
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	"github.com/LamkasDev/sharkie/cmd/lib/app_content"
+	"github.com/LamkasDev/sharkie/cmd/lib/audio_in"
 	"github.com/LamkasDev/sharkie/cmd/lib/audio_out"
 	"github.com/LamkasDev/sharkie/cmd/lib/common_dialog"
 	"github.com/LamkasDev/sharkie/cmd/lib/error_dialog"
 	"github.com/LamkasDev/sharkie/cmd/lib/game_custom_data_dialog"
 	"github.com/LamkasDev/sharkie/cmd/lib/gnm_driver"
 	"github.com/LamkasDev/sharkie/cmd/lib/http"
+	"github.com/LamkasDev/sharkie/cmd/lib/ime"
 	"github.com/LamkasDev/sharkie/cmd/lib/ime_dialog"
 	"github.com/LamkasDev/sharkie/cmd/lib/invitation_dialog"
 	"github.com/LamkasDev/sharkie/cmd/lib/kernel"
@@ -52,12 +54,14 @@ func RegisterStubs() {
 	elf.RegisterStub("", "__sharkie_generic_stub", GenericStub)
 
 	app_content.RegisterAppContentStubs()
+	audio_in.RegisterAudioInStubs()
 	audio_out.RegisterAudioOutStubs()
 	common_dialog.RegisterCommonDialogStubs()
 	error_dialog.RegisterErrorDialogStubs()
 	game_custom_data_dialog.RegisterGameCustomDataDialogStubs()
 	gnm_driver.RegisterGnmDriverStubs()
 	http.RegisterHttpStubs()
+	ime.RegisterImeStubs()
 	ime_dialog.RegisterImeDialogStubs()
 	invitation_dialog.RegisterInvitationDialogStubs()
 	kernel.RegisterKernelStubs()

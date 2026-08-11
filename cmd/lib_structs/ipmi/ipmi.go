@@ -83,15 +83,15 @@ func SetupImpiManager() {
 	GlobalIpmiManager = NewIpmiManager()
 	CreateImpiServer("SceLncService", 0)
 	shellCoreUtil := CreateImpiServer("SceShellCoreUtil", 0)
-	shellCoreUtil.CreateEventFlag(fmt.Sprintf("SceShellCoreUtil%x", GlobalAppInfo.AppId))
+	shellCoreUtil.CreateEventFlag(fmt.Sprintf("SceShellCoreUtil%x", 1))
 	CreateDefaultEventFlags([]string{
 		"SceShellCoreUtilAppFocus",
 		"SceShellCoreUtilCtrlFocus",
 		"SceShellCoreUtilPowerControl",
 	})
 	appMessaging := CreateImpiServer("SceAppMessaging", 0)
-	appMessaging.CreateEventFlag(fmt.Sprintf("SceAppMessaging%x", GlobalAppInfo.AppId))
-	CreateSemaphore(fmt.Sprintf("SceAppMessaging%x", GlobalAppInfo.AppId), 0, 0, 255)
+	appMessaging.CreateEventFlag(fmt.Sprintf("SceAppMessaging%x", 1))
+	CreateSemaphore(fmt.Sprintf("SceAppMessaging%x", 1), 0, 0, 255)
 	npMgrIpc := CreateImpiServer("SceNpMgrIpc", 0)
 	npMgrIpc.CreateEventFlag("SceNpMgrEvf")
 	npService := CreateImpiServer("SceNpService", 0)

@@ -18,7 +18,7 @@ func RegisterLibcStubs() {
 	elf.RegisterStub("libc", "realloc", libc_realloc)
 	elf.RegisterStub("libc", "memalign", libc_memalign)
 	elf.RegisterStub("libc", "aligned_alloc", libc_aligned_alloc)
-	elf.RegisterStub("libc", "reallocalign", libSceLibcInternal_stub)
+	elf.RegisterStub("libc", "reallocalign", libc_reallocalign)
 	elf.RegisterStub("libc", "sceLibcMspaceMalloc", libc_sceLibcMspaceMalloc)
 	elf.RegisterStub("libc", "sceLibcMspaceCalloc", libc_sceLibcMspaceCalloc)
 	elf.RegisterStub("libc", "sceLibcMspaceFree", libc_sceLibcMspaceFree)

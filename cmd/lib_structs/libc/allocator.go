@@ -147,6 +147,42 @@ func (allocator *GoAllocator) Realloc(ptr uintptr, newSize uintptr) uintptr {
 	return newAddress
 }
 
+func (allocator *GoAllocator) ReallocAligned(ptr uintptr, newSize uintptr, alignment uintptr) uintptr {
+	if ptr == 0 {
+		return allocator.MallocAligned(newSize, alignment)
+	}
+	if newSize == 0 {
+		allocator.Free(ptr)
+		return 0
+	}
+
+	// Read header (0 - original pointer, 8 - allocated size).
+	headerAddr := ptr - AllocationHeaderSize
+	address := *(*uintptr)(unsafe.Pointer(headerAddr))
+	allocatedSize := *(*uintptr)(unsafe.Pointer(headerAddr + 8))
+
+	// Allocate new block.
+	padding := ptr - address
+	oldUserSize := allocatedSize - padding
+	newAddress := allocator.MallocAligned(newSize, alignment)
+	if newAddress == 0 {
+		return 0
+	}
+
+	// Copy contents.
+	copySize := oldUserSize
+	if newSize < copySize {
+		copySize = newSize
+	}
+	copy(
+		unsafe.Slice((*byte)(unsafe.Pointer(newAddress)), copySize),
+		unsafe.Slice((*byte)(unsafe.Pointer(ptr)), copySize),
+	)
+	allocator.Free(ptr)
+
+	return newAddress
+}
+
 func (allocator *GoAllocator) UsableSize(ptr uintptr) uintptr {
 	if ptr == 0 {
 		return 0

@@ -8,6 +8,7 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/asm"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/app_content"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/audio_out"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/fs"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/irq"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/module"
@@ -121,6 +122,10 @@ func CreateDispatcher(goFn any) asm.StubDispatcher {
 	case func(*SaveDataMount2, *SaveDataMountResult) uintptr:
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn((*SaveDataMount2)(unsafe.Pointer(ctx.DI)), (*SaveDataMountResult)(unsafe.Pointer(ctx.SI))))
+		}
+	case func(*SwVersion) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn((*SwVersion)(unsafe.Pointer(ctx.DI))))
 		}
 	case func(*SystemServiceEvent) uintptr:
 		return func(ctx *asm.RegContext) uintptr {
@@ -399,6 +404,10 @@ func CreateDispatcher(goFn any) asm.StubDispatcher {
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn(int32(ctx.DI), (*AppInfo)(unsafe.Pointer(ctx.SI))))
 		}
+	case func(int32, AudioOutPortType, int32, uint32, uint32, uint32) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(int32(ctx.DI), AudioOutPortType(ctx.SI), int32(ctx.DX), uint32(ctx.CX), uint32(ctx.R8), uint32(ctx.R9)))
+		}
 	case func(int64, int32, int32, int64) uintptr:
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn(int64(ctx.DI), int32(ctx.SI), int32(ctx.DX), int64(ctx.CX)))
@@ -406,6 +415,10 @@ func CreateDispatcher(goFn any) asm.StubDispatcher {
 	case func(uint32) uintptr:
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn(uint32(ctx.DI)))
+		}
+	case func(uint32, *AudioOutPortState) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(uint32(ctx.DI), (*AudioOutPortState)(unsafe.Pointer(ctx.SI))))
 		}
 	case func(uint32, *PadControllerInformation) uintptr:
 		return func(ctx *asm.RegContext) uintptr {
@@ -438,9 +451,25 @@ func CreateDispatcher(goFn any) asm.StubDispatcher {
 			arg9 := *(*int64)(unsafe.Add(unsafe.Pointer(ctx), asm.RegContextSize+24))
 			return uintptr(fn(uint32(ctx.DI), (*uintptr)(unsafe.Pointer(ctx.SI)), (*uintptr)(unsafe.Pointer(ctx.DX)), (*uintptr)(unsafe.Pointer(ctx.CX)), (*uintptr)(unsafe.Pointer(ctx.R8)), uint32(ctx.R9), arg7, arg8, arg9))
 		}
+	case func(uint32, int32) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(uint32(ctx.DI), int32(ctx.SI)))
+		}
+	case func(uint32, int32, *Timeout) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(uint32(ctx.DI), int32(ctx.SI), (*Timeout)(unsafe.Pointer(ctx.DX))))
+		}
+	case func(uint32, int32, uintptr) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(uint32(ctx.DI), int32(ctx.SI), ctx.DX))
+		}
 	case func(uint32, uint32) int64:
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn(uint32(ctx.DI), uint32(ctx.SI)))
+		}
+	case func(uint32, uint32, *uint64) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(uint32(ctx.DI), uint32(ctx.SI), (*uint64)(unsafe.Pointer(ctx.DX))))
 		}
 	case func(uint32, uint32, *uintptr, *uintptr, *uintptr, *uintptr) int64:
 		return func(ctx *asm.RegContext) uintptr {
@@ -458,6 +487,10 @@ func CreateDispatcher(goFn any) asm.StubDispatcher {
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn(uint32(ctx.DI), uint32(ctx.SI), ctx.DX))
 		}
+	case func(uint32, uint64) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(uint32(ctx.DI), uint64(ctx.SI)))
+		}
 	case func(uint32, uintptr) uintptr:
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn(uint32(ctx.DI), ctx.SI))
@@ -469,6 +502,10 @@ func CreateDispatcher(goFn any) asm.StubDispatcher {
 	case func(uint32, uintptr, uintptr, uintptr, *VideoOutBufferAttribute) uintptr:
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn(uint32(ctx.DI), ctx.SI, ctx.DX, ctx.CX, (*VideoOutBufferAttribute)(unsafe.Pointer(ctx.R8))))
+		}
+	case func(uint64, uint32) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(uint64(ctx.DI), uint32(ctx.SI)))
 		}
 	case func(uintptr) uintptr:
 		return func(ctx *asm.RegContext) uintptr {
@@ -533,10 +570,6 @@ func CreateDispatcher(goFn any) asm.StubDispatcher {
 	case func(uintptr, int32) uintptr:
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn(ctx.DI, int32(ctx.SI)))
-		}
-	case func(uintptr, int32, *Timeout) uintptr:
-		return func(ctx *asm.RegContext) uintptr {
-			return uintptr(fn(ctx.DI, int32(ctx.SI), (*Timeout)(unsafe.Pointer(ctx.DX))))
 		}
 	case func(uintptr, int32, uintptr, uint64) uintptr:
 		return func(ctx *asm.RegContext) uintptr {

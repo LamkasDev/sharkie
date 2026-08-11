@@ -201,6 +201,7 @@ func (t *GpuTranslator) BindPipeline(frame uint64, bind *gpu.LiverpoolBindPipeli
 		CbTargetMask:              bind.RtTargetMask,
 		CbShaderMask:              bind.CbShaderMask,
 		CbColorControl:            bind.RtColorControl,
+		CbColorAttrib:             bind.RtAttrib,
 		PaSuPolyOffsetClamp:       bind.PaSuPolyOffsetClamp,
 		PaSuPolyOffsetFrontScale:  bind.PaSuPolyOffsetFrontScale,
 		PaSuPolyOffsetFrontOffset: bind.PaSuPolyOffsetFrontOffset,

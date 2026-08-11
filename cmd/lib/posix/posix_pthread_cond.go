@@ -1,6 +1,7 @@
 package posix
 
 import (
+	"fmt"
 	"sync/atomic"
 	"time"
 	"unsafe"
@@ -24,6 +25,7 @@ func InitStaticCond(condHandlePtr *uintptr) uintptr {
 	cond := (*PthreadCond)(unsafe.Pointer(condAddr))
 	cond.ClockId = ClockIdRealtime
 	cond.Flags = 0
+	cond.Name = fmt.Sprintf("0x%X", condAddr)
 
 	// Copy the pointer back to condHandlePtr.
 	*condHandlePtr = condAddr
@@ -50,6 +52,7 @@ func libScePosix_pthread_cond_init(condHandlePtr, attrHandlePtr *uintptr) uintpt
 	cond := (*PthreadCond)(unsafe.Pointer(condAddr))
 	cond.ClockId = ClockIdRealtime
 	cond.Flags = 0
+	cond.Name = fmt.Sprintf("0x%X", condAddr)
 
 	// Apply attributes.
 	attr, err := ResolveHandle[PthreadCondAttr](attrHandlePtr)

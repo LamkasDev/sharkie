@@ -53,3 +53,8 @@ func libc_memalign(alignment, size uintptr) uintptr {
 func libc_aligned_alloc(alignment, size uintptr) uintptr {
 	return libSceLibcInternal_aligned_alloc(alignment, size)
 }
+
+// __int64 reallocalign()
+func libc_reallocalign(ptr, newSize, alignment uintptr) uintptr {
+	return libSceLibcInternal_reallocalign(ptr, newSize, alignment)
+}

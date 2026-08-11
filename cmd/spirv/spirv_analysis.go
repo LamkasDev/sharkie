@@ -76,7 +76,7 @@ func MimgAccessKind(op uint32) ImageAccessKind {
 		return ImageAccessLoad
 	case gcnSpec.MimgOpStore, gcnSpec.MimgOpStoreMip:
 		return ImageAccessStore
-	case gcnSpec.MimgOpSample, gcnSpec.MimgOpSampleLz, gcnSpec.MimgOpSampleB, gcnSpec.MimgOpSampleLzO:
+	case gcnSpec.MimgOpSample, gcnSpec.MimgOpSampleLz, gcnSpec.MimgOpSampleB, gcnSpec.MimgOpSampleLzO, gcnSpec.MimgOpSampleC, gcnSpec.MimgOpSampleL, gcnSpec.MimgOpGetLod:
 		return ImageAccessSample
 	default:
 		return ImageAccessUnknown

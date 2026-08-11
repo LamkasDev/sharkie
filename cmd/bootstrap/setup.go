@@ -14,7 +14,7 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/lib"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/app_content"
-	"github.com/LamkasDev/sharkie/cmd/lib_structs/audio"
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/audio_out"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/dce"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/fs"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/gc"
@@ -94,7 +94,7 @@ func SetupEmulatorGuest(gameNameOrPath string) error {
 	ipmi.SetupImpiManager()
 	gc.SetupGraphicsController()
 	dce.SetupDisplayCoreEngine()
-	audio.SetupAudioEngine()
+	audio_out.SetupAudioOutputEngine()
 	pad.SetupPadEngine()
 	user.SetupUserManager()
 	save_data.SetupSaveDataManager()

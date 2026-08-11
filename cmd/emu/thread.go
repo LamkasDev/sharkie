@@ -7,6 +7,7 @@ import (
 	"runtime/pprof"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/asm"
@@ -19,6 +20,22 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/sys_struct"
 	"github.com/gookit/color"
 )
+
+func init() {
+	asm.GuestEnterCallback = func() {
+		if t := GetCurrentThread(); t != nil {
+			if t.OsThreadId == GetOsThreadId() {
+				t.CheckSuspend()
+			}
+			t.InGuest.Store(true)
+		}
+	}
+	asm.GuestLeaveCallback = func() {
+		if t := GetCurrentThread(); t != nil {
+			t.InGuest.Store(false)
+		}
+	}
+}
 
 var (
 	// ThreadRepo maps thread IDs to host threads.
@@ -48,6 +65,10 @@ type Thread struct {
 	AffinityMask ThreadAffinityMask
 
 	OsThreadId uint32
+
+	SuspendedByGC bool
+	SuspendCond   *sync.Cond
+	InGuest       atomic.Bool
 }
 
 func NewThread(name string, stackSize uint64) *Thread {
@@ -67,6 +88,7 @@ func NewThread(name string, stackSize uint64) *Thread {
 	}
 	thread.Tcb = NewTcb(thread)
 	thread.JoinCond = sync.NewCond(&thread.Lock)
+	thread.SuspendCond = sync.NewCond(&thread.Lock)
 
 	return thread
 }
@@ -110,9 +132,21 @@ func GetThreadForPtr(threadPtr uintptr) *Thread {
 	return nil
 }
 
-// Setup sets the current thread's context and TLS.
+func (t *Thread) CheckSuspend() {
+	t.Lock.Lock()
+	for t.SuspendedByGC {
+		t.SuspendCond.Wait()
+	}
+	t.Lock.Unlock()
+}
+
 func (t *Thread) Setup() {
-	asm.SetThreadContext(asm.NewThreadContext(uintptr(unsafe.Pointer(t)), t.Stack.CurrentPointer))
+	asm.SetThreadContext(asm.NewThreadContext(uintptr(unsafe.Pointer(t)), t.Stack.CurrentPointer, true))
+	sys_struct.SetTlsSlot(asm.PlaystationTlsSlot, uintptr(unsafe.Pointer(t.Tcb)))
+}
+
+func (t *Thread) SetupFake() {
+	asm.SetThreadContext(asm.NewThreadContext(uintptr(unsafe.Pointer(t)), t.Stack.CurrentPointer, false))
 	sys_struct.SetTlsSlot(asm.PlaystationTlsSlot, uintptr(unsafe.Pointer(t.Tcb)))
 }
 
@@ -124,6 +158,7 @@ func (t *Thread) CallAndWait(funcAddr uintptr, arg uintptr) {
 		runtime.LockOSThread()
 		defer runtime.UnlockOSThread()
 		t.OsThreadId = GetOsThreadId()
+		sys_struct.GrowGoStack(64)
 
 		t.Setup()
 		asm.GuestEnter()
@@ -166,6 +201,42 @@ func (t *Thread) CallAndWaitFromStub(funcAddr uintptr, args ...uintptr) uintptr 
 		asm.GuestEnter()
 		ret = asm.Call(funcAddr, stackPtr, arg1, arg2, arg3)
 		asm.GuestLeave()
+	})
+	wg.Wait()
+
+	return ret
+}
+
+// CallException creates a new goroutine, calls a function at specified address and waits until it finishes.
+// The stack it returns on is guaranteed to be safe even after guest execution.
+// It's tailored for exception handling only.
+func (t *Thread) CallException(funcAddr uintptr, args ...uintptr) uintptr {
+	threadContext := asm.GetCurrentThreadContext()
+	stackPtr := t.Stack.CurrentPointer
+	if threadContext != nil && threadContext.GlobalStubContext != 0 {
+		stackPtr = threadContext.GlobalStubContext - 128
+	}
+	stackPtr &^= 15
+	var arg1, arg2, arg3 uintptr
+	if len(args) > 0 {
+		arg1 = args[0]
+	}
+	if len(args) > 1 {
+		arg2 = args[1]
+	}
+	if len(args) > 2 {
+		arg3 = args[2]
+	}
+
+	var ret uintptr
+	var wg sync.WaitGroup
+	wg.Go(func() {
+		runtime.LockOSThread()
+		defer runtime.UnlockOSThread()
+
+		t.SetupFake()
+		ret = asm.Call(funcAddr, stackPtr, arg1, arg2, arg3)
+		t.InGuest.Store(false)
 	})
 	wg.Wait()
 

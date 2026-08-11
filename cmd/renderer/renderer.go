@@ -43,6 +43,7 @@ func NewRenderer(context *vulkan.VulkanContext, dimensions *backend.SwapchainDim
 		SwapchainDimensions: dimensions,
 		RingWorkSource:      NewRingWorkSource(),
 		FrameSource:         NewFlipSource(),
+		FrameReady:          make(chan struct{}, 1),
 	}
 	r.Handles = vulkan.NewVulkanHandles(context)
 
@@ -58,14 +59,7 @@ func NewRenderer(context *vulkan.VulkanContext, dimensions *backend.SwapchainDim
 	r.Depth = NewDepth(r)
 	r.prepareRenderPass()
 	r.preparePipelineCache()
-	r.prepareFramebuffers()
-	for _, res := range r.Handles.Context.SwapchainImageResources {
-		vk.BeginCommandBuffer(res.Cmd, &vk.CommandBufferBeginInfo{
-			SType: vk.StructureTypeCommandBufferBeginInfo,
-			Flags: vk.CommandBufferUsageFlags(vk.CommandBufferUsageSimultaneousUseBit),
-		})
-		vk.EndCommandBuffer(res.Cmd)
-	}
+	r.RecreateSwapchain()
 
 	return r
 }
@@ -217,6 +211,35 @@ func (r *Renderer) RegisterFramebuffer(address uintptr, attribute *VideoOutBuffe
 	// (1088 for 1080p), not the 1080 reported by sceVideoOutSetBufferAttribute.
 	_ = address
 	_ = attribute
+}
+
+func (r *Renderer) RecreateSwapchain() {
+	vk.DeviceWaitIdle(r.Handles.Device)
+	r.SwapchainDimensions = r.Handles.Context.SwapchainDimensions
+
+	// Destroy old framebuffers.
+	for _, res := range r.Handles.Context.SwapchainImageResources {
+		if res.Framebuffer != vk.NullFramebuffer {
+			vk.DestroyFramebuffer(r.Handles.Device, res.Framebuffer, nil)
+			res.Framebuffer = vk.NullFramebuffer
+		}
+	}
+
+	// Recreate depth buffer.
+	if r.Depth != nil {
+		r.Depth.Destroy(r)
+	}
+	r.Depth = NewDepth(r)
+
+	// Recreate framebuffers.
+	r.prepareFramebuffers()
+	for _, res := range r.Handles.Context.SwapchainImageResources {
+		vk.BeginCommandBuffer(res.Cmd, &vk.CommandBufferBeginInfo{
+			SType: vk.StructureTypeCommandBufferBeginInfo,
+			Flags: vk.CommandBufferUsageFlags(vk.CommandBufferUsageSimultaneousUseBit),
+		})
+		vk.EndCommandBuffer(res.Cmd)
+	}
 }
 
 func (r *Renderer) prepareFramebuffers() {

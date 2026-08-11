@@ -96,11 +96,7 @@ func CreateMultisampleState(aaConfig reg.PaScAaConfig, modeCntl0 reg.PaScModeCnt
 	if mask != 0xFFFF && mask != 0 {
 		pSampleMask = []vk.SampleMask{vk.SampleMask(mask)}
 	}
-
-	samples := TranslateMsaaSamples(aaConfig.MsaaNumSamples())
-	if !modeCntl0.MsaaEnable() {
-		samples = vk.SampleCount1Bit
-	}
+	samples := vk.SampleCount1Bit
 
 	return vk.PipelineMultisampleStateCreateInfo{
 		SType:                 vk.StructureTypePipelineMultisampleStateCreateInfo,

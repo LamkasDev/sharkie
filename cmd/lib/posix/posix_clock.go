@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/posix"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/time"
 	"github.com/LamkasDev/sharkie/cmd/logger"
@@ -83,8 +84,16 @@ func libScePosix_clock_gettime(clockId ClockId, timestamp *Timestamp) uintptr {
 	}
 
 	now := time.Now()
-	timestamp.Seconds = now.Unix()
-	timestamp.Nanoseconds = now.UnixNano()
+	switch clockId {
+	case ClockIdMonotonic, ClockIdMonotonicFast, ClockIdMonotonicPrecise,
+		ClockIdUptime, ClockIdUptimeFast, ClockIdUptimePrecise:
+		elapsed := time.Since(TscStartTime)
+		timestamp.Seconds = int64(elapsed.Seconds())
+		timestamp.Nanoseconds = int64(elapsed.Nanoseconds() % 1e9)
+	default:
+		timestamp.Seconds = now.Unix()
+		timestamp.Nanoseconds = int64(now.Nanosecond())
+	}
 
 	if logger.LogMisc {
 		logger.Printf("%-132s %s returned %s.\n",

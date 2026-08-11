@@ -260,9 +260,9 @@ func NewGpuTranslator(handles *vulkan.VulkanHandles, bknd backend.Backend[glfwvu
 	t.globalDescriptorPool, err = vulkan.CreateDescriptorPool2(t.handles, globalDescriptorSetLayout, []vk.DescriptorPoolSize{
 		{
 			Type:            vk.DescriptorTypeStorageBuffer,
-			DescriptorCount: 256,
+			DescriptorCount: 2048,
 		},
-	}, 256)
+	}, 2048)
 	if err != nil {
 		return nil, fmt.Errorf("GpuTranslator: global descriptor pool: %w", err)
 	}

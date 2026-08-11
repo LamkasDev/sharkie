@@ -1,6 +1,7 @@
 package posix
 
 import (
+	"fmt"
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
@@ -29,6 +30,7 @@ func InitStaticMutex(mutexHandlePtr *uintptr, initType uintptr) uintptr {
 	mutex.Count = 0
 	mutex.YieldLoops = 0
 	mutex.Protocol = PthreadMutexProtocolNone
+	mutex.Name = fmt.Sprintf("0x%X", mutexAddr)
 
 	// Copy the pointer back to mutexHandlePtr.
 	*mutexHandlePtr = mutexAddr
@@ -59,6 +61,7 @@ func libScePosix_pthread_mutex_init(mutexHandlePtr, attrHandlePtr *uintptr) uint
 	mutex.SpinLoops = 0
 	mutex.YieldLoops = 0
 	mutex.Protocol = PthreadMutexProtocolNone
+	mutex.Name = fmt.Sprintf("0x%X", mutexAddr)
 
 	// Apply attributes.
 	attr, err := ResolveHandle[PthreadMutexAttr](attrHandlePtr)

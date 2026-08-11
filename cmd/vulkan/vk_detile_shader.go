@@ -122,9 +122,9 @@ func GetDetilePipeline(handles *VulkanHandles, bpp int, isMicro bool, isDisplayM
 	pool2, err := CreateDescriptorPool2(handles, descLayout, []vk.DescriptorPoolSize{
 		{
 			Type:            vk.DescriptorTypeStorageBuffer,
-			DescriptorCount: 1024,
+			DescriptorCount: 2048,
 		},
-	}, 128)
+	}, 2048)
 	if err != nil {
 		return nil, err
 	}

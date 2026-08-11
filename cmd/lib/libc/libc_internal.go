@@ -22,7 +22,7 @@ func RegisterSceLibcInternalStubs() {
 	elf.RegisterStub("libSceLibcInternal", "realloc", libSceLibcInternal_realloc)
 	elf.RegisterStub("libSceLibcInternal", "memalign", libSceLibcInternal_memalign)
 	elf.RegisterStub("libSceLibcInternal", "aligned_alloc", libSceLibcInternal_aligned_alloc)
-	elf.RegisterStub("libSceLibcInternal", "reallocalign", libSceLibcInternal_stub)
+	elf.RegisterStub("libSceLibcInternal", "reallocalign", libSceLibcInternal_reallocalign)
 	elf.RegisterStub("libSceLibcInternal", "sceLibcMspaceMalloc", libSceLibcInternal_sceLibcMspaceMalloc)
 	elf.RegisterStub("libSceLibcInternal", "sceLibcMspaceCalloc", libSceLibcInternal_sceLibcMspaceCalloc)
 	elf.RegisterStub("libSceLibcInternal", "sceLibcMspaceFree", libSceLibcInternal_sceLibcMspaceFree)
@@ -124,6 +124,7 @@ func Exit(code uintptr) uintptr {
 }
 
 func Abort() uintptr {
+	logger.Printf(emu.SprintStackTrace())
 	logger.Printf(
 		"%-132s aborted :c\n",
 		emu.GlobalModuleManager.GetCallSiteText(),

@@ -58,6 +58,8 @@ const (
 	GcnDataFormatBC5 = 39
 	GcnDataFormatBC6 = 40
 	GcnDataFormatBC7 = 41
+
+	GcnDataFormatFmask8_1 = 47
 )
 
 const (

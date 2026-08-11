@@ -213,6 +213,13 @@ func (b *SpvBuilder) EmitGroupNonUniformBallot(resultType, scope, predicate Spir
 	return id
 }
 
+// EmitGroupNonUniformShuffle emits OpGroupNonUniformShuffle and returns the result ID.
+func (b *SpvBuilder) EmitGroupNonUniformShuffle(resultType, scope, value, laneId SpirvId) SpirvId {
+	id := b.AllocId()
+	b.instr(&b.code, spec.SpvOpGroupNonUniformShuffle, uint32(resultType), uint32(id), uint32(scope), uint32(value), uint32(laneId))
+	return id
+}
+
 // EmitImageFetch emits OpImageFetch and returns the result ID.
 func (b *SpvBuilder) EmitImageFetch(resultType, image, coordinate SpirvId, mask uint32, imageOperands ...SpirvId) SpirvId {
 	id := b.AllocId()
@@ -281,6 +288,42 @@ func (b *SpvBuilder) EmitImageSampleExplicitLodOperands(resultType, sampledImage
 		args = append(args, uint32(op))
 	}
 	b.instr(&b.code, spec.SpvOpImageSampleExplicitLod, args...)
+	return id
+}
+
+// EmitImageSampleDrefImplicitLod emits OpImageSampleDrefImplicitLod without any optional image operands.
+func (b *SpvBuilder) EmitImageSampleDrefImplicitLod(resultType, sampledImage, coordinate, dref SpirvId) SpirvId {
+	id := b.AllocId()
+	b.instr(&b.code, spec.SpvOpImageSampleDrefImplicitLod, uint32(resultType), uint32(id), uint32(sampledImage), uint32(coordinate), uint32(dref))
+	return id
+}
+
+// EmitImageSampleDrefImplicitLodOperands emits OpImageSampleDrefImplicitLod with a specific image operand mask and variadic arguments.
+func (b *SpvBuilder) EmitImageSampleDrefImplicitLodOperands(resultType, sampledImage, coordinate, dref SpirvId, imageOperandsMask uint32, operands ...SpirvId) SpirvId {
+	id := b.AllocId()
+	args := []uint32{uint32(resultType), uint32(id), uint32(sampledImage), uint32(coordinate), uint32(dref), imageOperandsMask}
+	for _, op := range operands {
+		args = append(args, uint32(op))
+	}
+	b.instr(&b.code, spec.SpvOpImageSampleDrefImplicitLod, args...)
+	return id
+}
+
+// EmitImageSampleDrefExplicitLod emits OpImageSampleDrefExplicitLod with the standard LOD mask and operand.
+func (b *SpvBuilder) EmitImageSampleDrefExplicitLod(resultType, sampledImage, coordinate, dref, lod SpirvId) SpirvId {
+	id := b.AllocId()
+	b.instr(&b.code, spec.SpvOpImageSampleDrefExplicitLod, uint32(resultType), uint32(id), uint32(sampledImage), uint32(coordinate), uint32(dref), uint32(spec.SpvImageOperandsLodMask), uint32(lod))
+	return id
+}
+
+// EmitImageSampleDrefExplicitLodOperands emits OpImageSampleDrefExplicitLod with a custom image operand mask and variadic arguments.
+func (b *SpvBuilder) EmitImageSampleDrefExplicitLodOperands(resultType, sampledImage, coordinate, dref SpirvId, imageOperandsMask uint32, operands ...SpirvId) SpirvId {
+	id := b.AllocId()
+	args := []uint32{uint32(resultType), uint32(id), uint32(sampledImage), uint32(coordinate), uint32(dref), imageOperandsMask}
+	for _, op := range operands {
+		args = append(args, uint32(op))
+	}
+	b.instr(&b.code, spec.SpvOpImageSampleDrefExplicitLod, args...)
 	return id
 }
 
