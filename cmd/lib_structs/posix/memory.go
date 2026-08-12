@@ -26,6 +26,7 @@ var (
 	HookAllocateMemoryVulkan func(offset uintptr, length uint64)
 	HookFreeMemoryVulkan     func(offset uintptr)
 	HookMapMemoryVulkan      func(addr uintptr, length uint64, offset uintptr)
+	HookUnmapMemoryVulkan    func(addr uintptr)
 )
 
 const (

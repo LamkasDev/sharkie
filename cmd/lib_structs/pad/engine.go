@@ -15,7 +15,7 @@ type PadEngine struct {
 func NewPadEngine() *PadEngine {
 	return &PadEngine{
 		Handles:    map[uint32]*PadHandle{},
-		NextHandle: 0x20000001,
+		NextHandle: 0x1001,
 		Lock:       sync.RWMutex{},
 	}
 }

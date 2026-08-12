@@ -30,10 +30,14 @@ func (image *VulkanImage) DownloadFromVkImage(handles *VulkanHandles, commandBuf
 		// Copy GPU buffer to RAM.
 		image.BarrierTransferSrc(commandBuffer)
 		bufferCopies := []vk.BufferImageCopy{{
-			BufferOffset:     vk.DeviceSize(texOffset),
-			BufferRowLength:  pitch,
-			ImageSubresource: vk.ImageSubresourceLayers{AspectMask: GetFormatAspectFlags(image.ImageFormat), LayerCount: 1},
-			ImageExtent:      vk.Extent3D{Width: width, Height: height, Depth: 1},
+			BufferOffset:    vk.DeviceSize(texOffset),
+			BufferRowLength: pitch,
+			ImageSubresource: vk.ImageSubresourceLayers{
+				AspectMask: GetFormatAspectFlags(image.ImageFormat),
+				MipLevel:   uint32(image.FirstDescriptor.BaseLevel),
+				LayerCount: 1,
+			},
+			ImageExtent: vk.Extent3D{Width: width, Height: height, Depth: 1},
 		}}
 		vk.CmdCopyImageToBuffer(commandBuffer.CommandBuffer, image.Image, vk.ImageLayoutTransferSrcOptimal, texBuffer, 1, bufferCopies)
 
@@ -79,9 +83,16 @@ func (image *VulkanImage) DownloadFromVkImage(handles *VulkanHandles, commandBuf
 
 		// Copy image to staging buffer.
 		image.BarrierTransferSrc(commandBuffer)
+		extentWidth := max(uint32(image.FirstDescriptor.Width)>>uint(mipLevel), 1)
+		extentHeight := max(uint32(image.FirstDescriptor.Height)>>uint(mipLevel), 1)
 		bufferCopies := []vk.BufferImageCopy{{
-			ImageSubresource: vk.ImageSubresourceLayers{AspectMask: GetFormatAspectFlags(image.ImageFormat), LayerCount: 1},
-			ImageExtent:      vk.Extent3D{Width: width, Height: height, Depth: 1},
+			BufferRowLength: width,
+			ImageSubresource: vk.ImageSubresourceLayers{
+				AspectMask: GetFormatAspectFlags(image.ImageFormat),
+				MipLevel:   uint32(mipLevel),
+				LayerCount: 1,
+			},
+			ImageExtent: vk.Extent3D{Width: extentWidth, Height: extentHeight, Depth: 1},
 		}}
 		vk.CmdCopyImageToBuffer(commandBuffer.CommandBuffer, image.Image, vk.ImageLayoutTransferSrcOptimal, stagingBuffer.Buffer, 1, bufferCopies)
 		image.BarrierGeneralShaderAccess(commandBuffer)

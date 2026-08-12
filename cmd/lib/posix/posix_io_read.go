@@ -38,7 +38,7 @@ func libScePosix_read(fd FileDescriptor, bufPtr uintptr, length uint64) int64 {
 		return ERR_PTRI
 	}
 
-	if logger.LogFilesystem {
+	if length > 1 && logger.LogFilesystem {
 		logger.Printf("%-132s %s read %s bytes (fd=%s, bufPtr=%s, length=%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("read"),
@@ -78,7 +78,7 @@ func libScePosix_pread(fd FileDescriptor, bufPtr uintptr, length uint64, offset 
 		return ERR_PTRI
 	}
 
-	if logger.LogFilesystem {
+	if length > 1 && logger.LogFilesystem {
 		logger.Printf("%-132s %s read %s bytes at offset %s (fd=%s, bufPtr=%s, length=%s).\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("pread"),

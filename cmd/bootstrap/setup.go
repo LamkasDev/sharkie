@@ -19,6 +19,7 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/fs"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/gc"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/gpu"
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/http"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/ipmi"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/libc"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/net"
@@ -80,6 +81,8 @@ func SetupEmulatorGuest(gameNameOrPath string) error {
 
 	// Log any interesting info.
 	logger.Printf("hi from %s :3\n", color.Blue.Sprint("sharkie"))
+	configPath, _ := config.AppScope.ConfigPath("config.json")
+	logger.Printf("config path: %s\n", configPath)
 	cachePath, _ := config.AppScope.CacheDir()
 	logger.Printf("cache path: %s\n", cachePath)
 	dataPath, _ := config.AppScope.DataPath("")
@@ -102,6 +105,7 @@ func SetupEmulatorGuest(gameNameOrPath string) error {
 	user_service.SetupUserService()
 	app_content.SetupAppContentInstance()
 	net.SetupNetConnectionInstance()
+	http.SetupHttpHandler()
 	gpu.SetupLiverpool()
 
 	// Hook functions.

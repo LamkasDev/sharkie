@@ -86,6 +86,7 @@ func RegisterKernelStubs() {
 	elf.RegisterStub("libkernel", "sceKernelCheckReachability", libKernel_sceKernelCheckReachability)
 
 	// Directory functions.
+	elf.RegisterStub("libkernel", "sceKernelMkdir", libKernel_sceKernelMkdir)
 	elf.RegisterStub("libkernel", "sceKernelGetdents", libKernel_sceKernelGetdents)
 	elf.RegisterStub("libkernel", "sceKernelGetdirentries", libKernel_sceKernelGetdirentries)
 
@@ -96,6 +97,7 @@ func RegisterKernelStubs() {
 	elf.RegisterStub("libkernel", "sceKernelGetProcessType", libKernel_sceKernelGetProcessType)
 	elf.RegisterStub("libkernel", "sceKernelGetProcParam", libKernel_sceKernelGetProcParam)
 	elf.RegisterStub("libkernel", "sceKernelGetCpumode", libKernel_sceKernelGetCpumode)
+	elf.RegisterStub("libkernel", "sceKernelSleep", libKernel_sceKernelSleep)
 	elf.RegisterStub("libkernel", "sceKernelUsleep", libKernel_sceKernelUsleep)
 	elf.RegisterStub("libkernel", "sceKernelNanosleep", libKernel_sceKernelNanosleep)
 

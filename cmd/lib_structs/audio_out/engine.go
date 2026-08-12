@@ -31,7 +31,7 @@ func NewAudioOutputEngine() *AudioOutputEngine {
 	return &AudioOutputEngine{
 		Context:    ctx,
 		Handles:    map[uint32]*AudioOutHandle{},
-		NextHandle: 0x20000001,
+		NextHandle: 0x1001,
 		Lock:       sync.RWMutex{},
 	}
 }

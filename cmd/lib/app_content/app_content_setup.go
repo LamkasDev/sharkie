@@ -26,18 +26,8 @@ func libSceAppContent_sceAppContentInitialize(initParamPtr, bootParamPtr uintptr
 	}
 	GlobalAppContentInstance.IsInitialized = true
 
-	// Load app metadata.
-	titleId := GlobalAppContentInstance.ParamSfo.MapStrings["TITLE_ID"]
-	if titleId == "" {
-		logger.Printf("%-132s %s failed due to missing title id.\n",
-			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("sceAppContentInitialize"),
-		)
-		return 0x809E0001
-	}
-
 	// Iterate addons and load their metadata.
-	addonsDir := config.GetGameAddonsDir(titleId)
+	addonsDir := config.GetGameAddonsDir()
 	if _, err := os.Stat(addonsDir); err == nil {
 		entries, _ := os.ReadDir(addonsDir)
 		for _, entry := range entries {
@@ -85,10 +75,9 @@ func libSceAppContent_sceAppContentInitialize(initParamPtr, bootParamPtr uintptr
 		system_service.GlobalSystemService.EventQueue.Add(event)
 	}
 
-	logger.Printf("%-132s %s initialized app content for %s.\n",
+	logger.Printf("%-132s %s initialized app content.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sceAppContentInitialize"),
-		color.Green.Sprint(titleId),
 	)
 	return 0
 }

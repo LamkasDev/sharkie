@@ -9,6 +9,7 @@ import (
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/posix"
 	"github.com/LamkasDev/sharkie/cmd/logger"
+	"github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/gookit/color"
 )
 
@@ -51,7 +52,7 @@ func libKernel_sceKernelMapFlexibleMemory(addrPtr uintptr, length uint64, prot, 
 	// Get virtual address.
 	addrPtrSlice := unsafe.Slice((*byte)(unsafe.Pointer(addrPtr)), 8)
 	allocatedAddr := uintptr(binary.LittleEndian.Uint64(addrPtrSlice))
-	if allocatedAddr == 0 {
+	if allocatedAddr == 0 || ((flags&0x10) == 0 && !structs.GlobalMemoryManager.IsAddressRangeFree(allocatedAddr, uintptr(length))) {
 		allocatedAddr = GlobalAllocator.GetNextAlignedAddress(MemoryPageSize, length)
 	}
 
@@ -105,7 +106,7 @@ func libKernel_sceKernelMapNamedSystemFlexibleMemory(addrPtr uintptr, length uin
 	// Get virtual address.
 	addrPtrSlice := unsafe.Slice((*byte)(unsafe.Pointer(addrPtr)), 8)
 	allocatedAddr := uintptr(binary.LittleEndian.Uint64(addrPtrSlice))
-	if allocatedAddr == 0 {
+	if allocatedAddr == 0 || ((flags&0x10) == 0 && !structs.GlobalMemoryManager.IsAddressRangeFree(allocatedAddr, uintptr(length))) {
 		allocatedAddr = GlobalAllocator.GetNextAlignedAddress(MemoryPageSize, length)
 	}
 

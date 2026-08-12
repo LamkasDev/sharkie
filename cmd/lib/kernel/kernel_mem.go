@@ -20,7 +20,6 @@ func libKernel_sceKernelMmap(addr uintptr, length uint64, prot, flags int32, fd 
 	if allocatedAddr == ERR_PTR {
 		return emu.GetErrno() - SonyErrorOffset
 	}
-
 	if retAddrPtr != 0 {
 		WriteAddress(retAddrPtr, allocatedAddr)
 	}
@@ -35,9 +34,8 @@ func libKernel_sceKernelMunmap(addr uintptr, length uint64) uintptr {
 	if err == ERR_PTR {
 		return emu.GetErrno() - SonyErrorOffset
 	}
-	if HookFreeMemoryVulkan != nil {
-		HookFreeMemoryVulkan(addr)
-	}
+	HookUnmapMemoryVulkan(addr)
+
 	return 0
 }
 

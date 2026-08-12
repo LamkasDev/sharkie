@@ -132,34 +132,103 @@ func (fsys *FS) GetHostPath(path string) (string, error) {
 
 // MkdirAll creates a directory and all its parents.
 func (fsys *FS) MkdirAll(path string, perm os.FileMode) error {
-	fsys.mu.Lock()
-	defer fsys.mu.Unlock()
-
 	path = strings.TrimLeft(path, "/")
+	if path == "" || path == "." {
+		return nil
+	}
+
 	parts := strings.Split(path, "/")
-	curr := fsys.root
+	var currentPath string
 	for _, part := range parts {
 		if part == "" || part == "." {
 			continue
 		}
-		curr.mu.Lock()
-		child, _ := findVirtualChild(curr, part)
-		if child == nil {
-			child = &Node{
-				name:     part,
-				isDir:    true,
-				mode:     fs.ModeDir | perm,
-				modTime:  time.Now(),
-				children: make(map[string]*Node),
+		if currentPath == "" {
+			currentPath = part
+		} else {
+			currentPath = currentPath + "/" + part
+		}
+
+		err := fsys.Mkdir(currentPath, perm)
+		if err == nil {
+			continue
+		}
+		if !errors.Is(err, fs.ErrExist) {
+			return err
+		}
+		if _, resolveErr := fsys.resolveDir(currentPath); resolveErr != nil {
+			if errors.Is(resolveErr, fs.ErrInvalid) {
+				return fs.ErrExist
 			}
-			curr.children[part] = child
-		} else if !child.isDir {
-			curr.mu.Unlock()
+			return resolveErr
+		}
+	}
+
+	return nil
+}
+
+// Mkdir creates a single directory. It fails if the directory already exists or the parent doesn't exist.
+func (fsys *FS) Mkdir(path string, perm os.FileMode) error {
+	fsys.mu.Lock()
+	defer fsys.mu.Unlock()
+
+	path = strings.TrimLeft(path, "/")
+	if path == "" || path == "." {
+		return fs.ErrExist
+	}
+
+	dirPath, baseName := ".", path
+	if idx := strings.LastIndex(path, "/"); idx >= 0 {
+		dirPath = path[:idx]
+		baseName = path[idx+1:]
+	}
+	dir, err := fsys.resolveDir(dirPath)
+	if err != nil {
+		return err // parent doesn't exist.
+	}
+	if dir.ReadOnly {
+		return fs.ErrPermission
+	}
+	dir.mu.Lock()
+	defer dir.mu.Unlock()
+
+	child, actualName := findVirtualChild(dir, baseName)
+	if child != nil {
+		return fs.ErrExist
+	}
+	if dir.hostPath != "" {
+		if _, _, err := resolveHostPath(dir.hostPath, baseName); err == nil {
 			return fs.ErrExist
 		}
-		curr.mu.Unlock()
-		curr = child
+		targetHostPath := filepath.Join(dir.hostPath, baseName)
+		errMk := os.Mkdir(targetHostPath, perm)
+		if errMk != nil && !os.IsExist(errMk) {
+			return errMk
+		}
+		actualName = baseName
+		child = &Node{
+			name:     actualName,
+			isDir:    true,
+			mode:     fs.ModeDir | perm,
+			modTime:  time.Now(),
+			hostPath: targetHostPath,
+			ReadOnly: dir.ReadOnly,
+			children: make(map[string]*Node),
+		}
+	} else {
+		if actualName == "" {
+			actualName = baseName
+		}
+		child = &Node{
+			name:     actualName,
+			isDir:    true,
+			mode:     fs.ModeDir | perm,
+			modTime:  time.Now(),
+			children: make(map[string]*Node),
+		}
 	}
+	dir.children[actualName] = child
+	dir.modTime = time.Now()
 
 	return nil
 }

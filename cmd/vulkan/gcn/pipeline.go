@@ -17,8 +17,7 @@ func CreateInputAssemblyState(primType uint32, resetEn reg.VgtMultiPrimIbResetEn
 			nstd.Btoi(resetEn.Enable() &&
 				(topology == vk.PrimitiveTopologyLineStrip ||
 					topology == vk.PrimitiveTopologyTriangleStrip ||
-					topology == vk.PrimitiveTopologyTriangleFan ||
-					topology == vk.PrimitiveTopologyPatchList)),
+					topology == vk.PrimitiveTopologyTriangleFan)),
 		),
 	}
 }

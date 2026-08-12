@@ -50,6 +50,15 @@ func NewFilesystem() *SharkieFilesystem {
 		panic(err)
 	}
 
+	// Mount additional directories.
+	download0Path := config.GetGameDownloadDir()
+	if err := os.MkdirAll(download0Path, 0755); err != nil {
+		panic(err)
+	}
+	if err := shFs.Fs.Mount(shFs.GetUsablePath("/download0"), download0Path, false); err != nil {
+		panic(err)
+	}
+
 	return shFs
 }
 
@@ -399,6 +408,11 @@ func (shFs *SharkieFilesystem) IsFile(path string) bool {
 // MkdirAll creates a new directory in VFS.
 func (shFs *SharkieFilesystem) MkdirAll(path string) error {
 	return shFs.Fs.MkdirAll(path, 0777)
+}
+
+// Mkdir creates a new single directory in VFS with POSIX semantics.
+func (shFs *SharkieFilesystem) Mkdir(path string, mode uint16) error {
+	return shFs.Fs.Mkdir(path, os.FileMode(mode))
 }
 
 // GetHostPath returns the underlying host path for a given virtual path, if it exists.

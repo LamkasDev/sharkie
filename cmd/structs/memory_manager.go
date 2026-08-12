@@ -65,6 +65,19 @@ func (m *MemoryManager) getPage(addr uintptr) *MemoryPage {
 	return p
 }
 
+func (m *MemoryManager) IsAddressRangeFree(address, size uintptr) bool {
+	end := address + size
+	m.Lock.Lock()
+	defer m.Lock.Unlock()
+	for addr := address >> posix.SystemPageShift; (addr << posix.SystemPageShift) < end; addr++ {
+		if page, ok := m.Pages[addr]; ok && page.Mapped {
+			return false
+		}
+	}
+
+	return true
+}
+
 func (m *MemoryManager) Map(address, size uintptr) {
 	end := address + size
 	m.Lock.Lock()

@@ -75,7 +75,7 @@ func NewIpmiManager() *IpmiManager {
 		Clients:    map[uint32]*IpmiClient{},
 		Servers:    map[uint32]*IpmiServer{},
 		Lock:       sync.RWMutex{},
-		NextHandle: 0x40000001,
+		NextHandle: 0x1001,
 	}
 }
 

@@ -231,11 +231,19 @@ func NewGpuTranslator(handles *vulkan.VulkanHandles, bknd backend.Backend[glfwvu
 			}
 			if addr != offset {
 				t.directAllocations[addr] = alloc
-				delete(t.directAllocations, offset)
+				// Alias support (do not delete the original offset).
 			}
 		} else {
 			fmt.Printf("GpuTranslator: HookMapMemoryVulkan failed to find direct allocation for offset 0x%X\n", offset)
 		}
+		t.updateAddressTranslationSSBO()
+	}
+
+	HookUnmapMemoryVulkan = func(addr uintptr) {
+		t.directAllocationsMutex.Lock()
+		defer t.directAllocationsMutex.Unlock()
+
+		delete(t.directAllocations, addr)
 		t.updateAddressTranslationSSBO()
 	}
 

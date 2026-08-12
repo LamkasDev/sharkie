@@ -4,11 +4,49 @@ import (
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/fs"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/posix"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
 )
+
+func Mkdir(pathPtr Cstring, mode uint16) int64 {
+	return libScePosix_mkdir(pathPtr, mode)
+}
+
+func libScePosix_mkdir(pathPtr Cstring, mode uint16) int64 {
+	if pathPtr == nil {
+		logger.Printf("%-132s %s failed due to invalid path pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("mkdir"),
+		)
+		emu.SetErrno(EFAULT)
+		return ERR_PTRI
+	}
+	path := GoString(pathPtr)
+	err := GlobalFilesystem.Mkdir(path, mode)
+	if err != nil {
+		logger.Printf("%-132s %s failed due to mkdir error on %s (%s).\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("mkdir"),
+			color.Yellow.Sprint(path),
+			err.Error(),
+		)
+		emu.SetErrno(FsToPosixError(err))
+		return ERR_PTRI
+	}
+
+	if logger.LogFilesystem {
+		logger.Printf("%-132s %s created directory %s (mode=%s).\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("mkdir"),
+			color.Yellow.Sprint(path),
+			color.Green.Sprintf("0%o", mode),
+		)
+	}
+	return 0
+}
 
 func Getdents(fd FileDescriptor, bufPtr uintptr, nbytes uint64) int64 {
 	return libScePosix_getdents(fd, bufPtr, nbytes)

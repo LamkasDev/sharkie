@@ -1,7 +1,10 @@
 package vulkan
 
 import (
+	"unsafe"
+
 	gcn2 "github.com/LamkasDev/sharkie/cmd/lib_structs/gcn"
+	"github.com/LamkasDev/sharkie/cmd/logger"
 	spirvStructs "github.com/LamkasDev/sharkie/cmd/spirv/structs"
 	"github.com/LamkasDev/sharkie/cmd/vulkan/gcn"
 	vk "github.com/goki/vulkan"
@@ -80,9 +83,27 @@ func CreateVkImageView(handles *VulkanHandles, request VulkanImageViewRequest, s
 		layerCount = (uint32(request.Descriptor.LastArray) + 1) - baseArray
 	}
 
+	// Filter unsupported usage bits based on format properties.
+	var formatProps vk.FormatProperties
+	vk.GetPhysicalDeviceFormatProperties(handles.PhysicalDevice, request.Image.ImageFormat, &formatProps)
+	formatProps.Deref()
+	imageUsage := request.Image.ImageUsage
+	if (formatProps.OptimalTilingFeatures & vk.FormatFeatureFlags(vk.FormatFeatureStorageImageBit)) == 0 {
+		if imageUsage&vk.ImageUsageFlags(vk.ImageUsageStorageBit) != 0 {
+			logger.Printf("Failed assigning storage bit to format %d.\n", request.Image.ImageFormat)
+		}
+		imageUsage &^= vk.ImageUsageFlags(vk.ImageUsageStorageBit)
+	}
+
+	usageInfo := vk.ImageViewUsageCreateInfo{
+		SType: vk.StructureTypeImageViewUsageCreateInfo,
+		Usage: imageUsage,
+	}
+
 	var view vk.ImageView
 	result := vk.CreateImageView(handles.Device, &vk.ImageViewCreateInfo{
 		SType:      vk.StructureTypeImageViewCreateInfo,
+		PNext:      unsafe.Pointer(&usageInfo),
 		Image:      request.Image.Image,
 		ViewType:   viewType,
 		Format:     request.Image.ImageFormat,

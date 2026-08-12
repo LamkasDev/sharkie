@@ -66,6 +66,17 @@ func libKernel_sceKernelGetCpumode() uintptr {
 	return cpuMode
 }
 
+// 0x0000000000014AA0
+// __int64 __fastcall sceKernelSleep(unsigned int)
+func libKernel_sceKernelSleep(seconds uint32) uintptr {
+	err := posix.Sleep(seconds)
+	if err != 0 {
+		return emu.GetErrno() - SonyErrorOffset
+	}
+
+	return 0
+}
+
 // 0x0000000000014BE0
 // __int64 __fastcall sceKernelUsleep(unsigned int)
 func libKernel_sceKernelUsleep(micros uint32) uintptr {

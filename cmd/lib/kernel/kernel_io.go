@@ -173,6 +173,17 @@ func libKernel_sceKernelCheckReachability(pathPtr Cstring) uintptr {
 	return 0
 }
 
+// 0x0000000000016340
+// __int64 sceKernelMkdir()
+func libKernel_sceKernelMkdir(pathPtr Cstring, mode uint16) int64 {
+	err := posix.Mkdir(pathPtr, mode)
+	if err != 0 {
+		return int64(emu.GetErrno() - SonyErrorOffset)
+	}
+
+	return err
+}
+
 // 0x0000000000016490
 // __int64 sceKernelGetdents()
 func libKernel_sceKernelGetdents(fd FileDescriptor, bufPtr uintptr, nbytes uint64) int64 {

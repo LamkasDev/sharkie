@@ -16,7 +16,7 @@ type DisplayCoreEngine struct {
 func NewDisplayCoreEngine() *DisplayCoreEngine {
 	return &DisplayCoreEngine{
 		Handles:    map[uint32]*VideoOutHandle{},
-		NextHandle: 0x40000001,
+		NextHandle: 0x1001,
 	}
 }
 

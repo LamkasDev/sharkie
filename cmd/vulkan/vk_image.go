@@ -72,6 +72,7 @@ type VulkanImage struct {
 	FirstDescriptor spirvStructs.ImageDescriptor
 	ImageFormat     vk.Format
 	ImageAspect     vk.ImageAspectFlags
+	ImageUsage      vk.ImageUsageFlags
 
 	ImageLayout vk.ImageLayout
 	ImageAccess vk.AccessFlags
@@ -118,6 +119,7 @@ func CreateImage(handles *VulkanHandles, request VulkanImageRequest, commandBuff
 		ImageFormat:     request.Format,
 		ImageLayout:     vk.ImageLayoutUndefined,
 		ImageAspect:     aspectMask,
+		ImageUsage:      imageUsage,
 		ImageAccess:     vk.AccessFlags(vk.AccessNone),
 		ImageStage:      vk.PipelineStageFlags(vk.PipelineStageTopOfPipeBit),
 		IsSurface:       request.IsSurface,
@@ -163,17 +165,26 @@ func CreateImage(handles *VulkanHandles, request VulkanImageRequest, commandBuff
 		imageUsage |= vk.ImageUsageFlags(vk.ImageUsageColorAttachmentBit)
 	}
 	if (formatProps.OptimalTilingFeatures & vk.FormatFeatureFlags(vk.FormatFeatureStorageImageBit)) == 0 {
+		if imageUsage&vk.ImageUsageFlags(vk.ImageUsageStorageBit) != 0 {
+			logger.Printf("Failed assigning storage bit to format %d.\n", request.Format)
+		}
 		imageUsage &^= vk.ImageUsageFlags(vk.ImageUsageStorageBit)
 	}
 	if (formatProps.OptimalTilingFeatures & vk.FormatFeatureFlags(vk.FormatFeatureColorAttachmentBit)) == 0 {
+		if imageUsage&vk.ImageUsageFlags(vk.ImageUsageColorAttachmentBit) != 0 {
+			logger.Printf("Failed assigning color attachment bit to format %d.\n", request.Format)
+		}
 		imageUsage &^= vk.ImageUsageFlags(vk.ImageUsageColorAttachmentBit)
 	}
 	if (formatProps.OptimalTilingFeatures & vk.FormatFeatureFlags(vk.FormatFeatureDepthStencilAttachmentBit)) == 0 {
+		if imageUsage&vk.ImageUsageFlags(vk.ImageUsageDepthStencilAttachmentBit) != 0 {
+			logger.Printf("Failed assigning depth stencil attachment bit to format %d.\n", request.Format)
+		}
 		imageUsage &^= vk.ImageUsageFlags(vk.ImageUsageDepthStencilAttachmentBit)
 	}
 
 	createFlags := vk.ImageCreateFlags(vk.ImageCreateMutableFormatBit)
-	if request.Descriptor.Type == 11 {
+	if request.Descriptor.Type == gcn2.GcnImageTypeCubeOrArray {
 		createFlags |= vk.ImageCreateFlags(vk.ImageCreateCubeCompatibleBit)
 	}
 

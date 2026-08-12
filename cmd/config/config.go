@@ -13,6 +13,7 @@ type Config struct {
 	LibraryDirectories []string `json:"library_directories"`
 	InputMode          string   `json:"input_mode"` // "keyboard" or "controller"
 	SyncGuestFlips     bool     `json:"sync_guest_flips"`
+	NetworkEnabled     bool     `json:"network_enabled"`
 }
 
 func NewDefaultConfig() (*Config, error) {
@@ -24,6 +25,7 @@ func NewDefaultConfig() (*Config, error) {
 	return &Config{
 		LibraryDirectories: []string{dataDir},
 		InputMode:          "keyboard",
+		NetworkEnabled:     true,
 	}, nil
 }
 
@@ -49,6 +51,10 @@ func init() {
 		panic(err)
 	}
 	err = os.MkdirAll(GetAddonsDir(), 0755)
+	if err != nil {
+		panic(err)
+	}
+	err = os.MkdirAll(GetDownloadDir(), 0755)
 	if err != nil {
 		panic(err)
 	}
@@ -107,8 +113,12 @@ func GetGameSaveDir(dirName string) string {
 	return filepath.Join(GetGameSavesDir(), dirName)
 }
 
-func GetGameAddonsDir(titleId string) string {
-	return filepath.Join(GetAddonsDir(), titleId)
+func GetGameAddonsDir() string {
+	return filepath.Join(GetAddonsDir(), GameName)
+}
+
+func GetGameDownloadDir() string {
+	return filepath.Join(GetDownloadDir(), GameName)
 }
 
 func GetLibDir() string {
@@ -129,6 +139,11 @@ func GetSavesDir() string {
 func GetAddonsDir() string {
 	addonsPath, _ := AppScope.DataPath("addons")
 	return addonsPath
+}
+
+func GetDownloadDir() string {
+	downloadPath, _ := AppScope.DataPath("download")
+	return downloadPath
 }
 
 func ResolveGame(arg string) error {
