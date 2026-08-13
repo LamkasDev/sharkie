@@ -2,13 +2,92 @@ package translation
 
 import (
 	"math"
-	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/gcn"
 	gcnSpec "github.com/LamkasDev/sharkie/cmd/lib_structs/gcn/spec"
-	spirvGcn "github.com/LamkasDev/sharkie/cmd/spirv/gcn"
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/gpu"
+	spirvCommon "github.com/LamkasDev/sharkie/cmd/spirv/common"
+	spirvStructs "github.com/LamkasDev/sharkie/cmd/spirv/structs"
 	"go101.org/nstd"
 )
+
+// ResolveResources simulates scalar SGPR updates and resolves T# descriptors.
+func (t *GpuTranslator) ResolveResources(shader *gcn.GcnShader, userData []uint32) ([]ResolvedImageAccess, []ResolvedBufferAccess, []ResolvedMemoryAccess) {
+	stageBase := spirvStructs.GcnStageToUserDataOffset[shader.Stage]
+	registers := gcnSpec.GcnRegisters{}
+	for i := range 16 {
+		offset := int(stageBase) + i
+		registers[i] = userData[offset]
+	}
+
+	var imageAccesses []ResolvedImageAccess
+	var bufferAccesses []ResolvedBufferAccess
+	var memoryAccesses []ResolvedMemoryAccess
+	rpo := shader.Cfg.ReversePostOrder()
+	for _, blockId := range rpo {
+		block := &shader.Cfg.Blocks[blockId]
+		for i := range block.Instructions {
+			instr := &block.Instructions[i]
+			imageAccesses, bufferAccesses, memoryAccesses = t.resolveResourcesIns(shader, instr, &registers, imageAccesses, bufferAccesses, memoryAccesses)
+		}
+	}
+
+	return imageAccesses, bufferAccesses, memoryAccesses
+}
+
+func (t *GpuTranslator) GetMubufFormats(shader *gcn.GcnShader, userData []uint32) []spirvCommon.SpirvMubufFormat {
+	_, bufferAccesses, _ := t.ResolveResources(shader, userData)
+	var formats []spirvCommon.SpirvMubufFormat
+	for _, access := range bufferAccesses {
+		switch access.Instruction.Encoding {
+		case gcnSpec.EncMUBUF, gcnSpec.EncMTBUF:
+			formats = append(formats, spirvCommon.SpirvMubufFormat{
+				PC:         uint32(access.Instruction.DwordOffset),
+				DataFormat: access.Descriptor.DataFormat,
+				NumFormat:  access.Descriptor.NumFormat,
+			})
+		}
+	}
+
+	return formats
+}
+
+func (t *GpuTranslator) resolveResourcesIns(shader *gcn.GcnShader, instr *gcnSpec.Instruction, registers *gcnSpec.GcnRegisters, imageAccesses []ResolvedImageAccess, bufferAccesses []ResolvedBufferAccess, memoryAccesses []ResolvedMemoryAccess) ([]ResolvedImageAccess, []ResolvedBufferAccess, []ResolvedMemoryAccess) {
+	switch instr.Encoding {
+	case gcnSpec.EncSOP1:
+		details := instr.Details.(*gcnSpec.ScalarDetails)
+		if details.Op == gcnSpec.Sop1OpSwappcB64 {
+			fetchPCLo := registers[details.Src0]
+			fetchPCHi := registers[details.Src0+1]
+			fetchShaderAddress := uintptr(fetchPCLo) | (uintptr(fetchPCHi) << 32)
+			if fetchShaderAddress != 0 {
+				fetchShader := gpu.GlobalLiverpool.GetShader(gcn.GcnShaderStageFetch, fetchShaderAddress)
+				if fetchShader != nil {
+					fetchInstructions := ParseFetchShaderInstructions(fetchShader)
+					for _, fetchInstr := range fetchInstructions {
+						imageAccesses, bufferAccesses, memoryAccesses = t.resolveResourcesIns(shader, fetchInstr, registers, imageAccesses, bufferAccesses, memoryAccesses)
+					}
+				}
+			}
+		}
+		applySOP1(shader, instr, registers)
+	case gcnSpec.EncSOP2:
+		applySOP2(instr, registers)
+	case gcnSpec.EncSOPC:
+		applySOPC(instr, registers)
+	case gcnSpec.EncSMRD:
+		access := t.applyAndResolveSMRD(instr, registers)
+		memoryAccesses = append(memoryAccesses, access)
+	case gcnSpec.EncMIMG:
+		imageAccesses = append(imageAccesses, resolveMIMG(instr, registers))
+	case gcnSpec.EncMUBUF:
+		bufferAccesses = append(bufferAccesses, resolveMUBUF(instr, registers))
+	case gcnSpec.EncMTBUF:
+		bufferAccesses = append(bufferAccesses, resolveMTBUF(instr, registers))
+	}
+
+	return imageAccesses, bufferAccesses, memoryAccesses
+}
 
 func applySOP1(shader *gcn.GcnShader, instr *gcnSpec.Instruction, registers *gcnSpec.GcnRegisters) {
 	details := instr.Details.(*gcnSpec.ScalarDetails)
@@ -132,55 +211,4 @@ func readScalarOperand(op uint32, instr *gcnSpec.Instruction, registers *gcnSpec
 	}
 
 	return 0
-}
-
-func (t *GpuTranslator) applySMRD(instr *gcnSpec.Instruction, registers *gcnSpec.GcnRegisters) {
-	details := instr.Details.(*gcnSpec.SmrdDetails)
-	if details.Dst >= uint32(len(registers)) {
-		return
-	}
-	count := spirvGcn.SmrdLoadDwordCount(details.Op)
-
-	var offset uintptr
-	if details.ImmOff {
-		if instr.HasLiteral {
-			offset = uintptr(instr.Literal)
-		} else {
-			offset = uintptr(details.Offset * 4)
-		}
-	} else {
-		if details.Offset < uint32(len(registers)) {
-			offset = uintptr(registers[details.Offset])
-		}
-	}
-
-	var address uintptr
-	var dwords []uint32
-	switch {
-	case details.Op >= gcnSpec.SmrdOpBufferLoadDword && details.Op <= gcnSpec.SmrdOpBufferLoadDwordx16:
-		base := details.Base * 2
-		address = uintptr(registers[base]) | (uintptr(registers[base+1]&0xFFFF) << 32)
-		address = t.TranslateToHostAddress(address & 0xFFFFFFFFFF)
-		if address == 0 {
-			return
-		}
-		dwords = unsafe.Slice((*uint32)(unsafe.Pointer(address+offset)), count)
-	default:
-		base := details.Base * 2
-		address = uintptr(registers[base]) | (uintptr(registers[base+1]) << 32)
-		address = t.TranslateToHostAddress(address & 0xFFFFFFFFFF)
-		if address == 0 {
-			return
-		}
-		dwords = unsafe.Slice((*uint32)(unsafe.Pointer(address+offset)), count)
-	}
-
-	dst := details.Dst
-	for i := uint32(0); i < count && int(dst+i) < len(registers); i++ {
-		if int(i) < len(dwords) {
-			registers[dst+i] = dwords[i]
-		} else {
-			registers[dst+i] = 0
-		}
-	}
 }

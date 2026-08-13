@@ -7,17 +7,18 @@ import (
 	spirvStructs "github.com/LamkasDev/sharkie/cmd/spirv/structs"
 )
 
-func BuildStaticLayout(resources []SpirvShaderResource, shader *gcn.GcnShader) map[*gcnSpec.Instruction]ShaderResourceBinding {
+type SpirvShaderStaticLayout map[*gcnSpec.Instruction]ShaderResourceBinding
+
+func BuildStaticLayout(resources []SpirvShaderResource, shader *gcn.GcnShader) SpirvShaderStaticLayout {
 	layout := make(map[*gcnSpec.Instruction]ShaderResourceBinding)
 	var sampledImageIndex, storageImageIndex uint32
-	var sampledBufferIndex, storageBufferIndex uint32
+	var translationBufferIndex uint32
 
 	// Offset bindings for vertex shaders so they don't overlap with fragment shaders.
 	if shader.Stage == gcn.GcnShaderStageVertex {
 		sampledImageIndex = spirvStructs.VertexBindingOffset
 		storageImageIndex = spirvStructs.VertexBindingOffset
-		sampledBufferIndex = spirvStructs.VertexBindingOffset
-		storageBufferIndex = spirvStructs.VertexBindingOffset
+		translationBufferIndex = spirvStructs.VertexBindingOffset
 	}
 
 	for _, resource := range resources {
@@ -42,6 +43,15 @@ func BuildStaticLayout(resources []SpirvShaderResource, shader *gcn.GcnShader) m
 				isStorage = true
 				isValid = true
 			}
+		case MemoryAccessKind:
+			switch kind {
+			case MemoryAccessLoad:
+				isStorage = false
+				isValid = true
+			case MemoryAccessStore:
+				isStorage = true
+				isValid = true
+			}
 		}
 		if !isValid {
 			continue
@@ -57,13 +67,8 @@ func BuildStaticLayout(resources []SpirvShaderResource, shader *gcn.GcnShader) m
 				sampledImageIndex++
 			}
 		} else {
-			if isStorage {
-				bindingIndex = storageBufferIndex
-				storageBufferIndex++
-			} else {
-				bindingIndex = sampledBufferIndex
-				sampledBufferIndex++
-			}
+			bindingIndex = translationBufferIndex
+			translationBufferIndex++
 		}
 
 		layout[resource.Instruction] = ShaderResourceBinding{

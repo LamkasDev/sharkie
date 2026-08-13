@@ -76,7 +76,7 @@ func (t *GpuTranslator) initDescriptorSets(view2D, view1D, view3D, view2DArray v
 		sampledInfos2DArray[i] = vk.DescriptorImageInfo{Sampler: sampler, ImageView: view2DArray, ImageLayout: vk.ImageLayoutGeneral}
 	}
 
-	for _, pool := range t.globalDescriptorPool.Pools {
+	for i, pool := range t.globalDescriptorPool.Pools {
 		vk.UpdateDescriptorSets(t.handles.Device, 1, []vk.WriteDescriptorSet{
 			{
 				SType:           vk.StructureTypeWriteDescriptorSet,
@@ -86,9 +86,9 @@ func (t *GpuTranslator) initDescriptorSets(view2D, view1D, view3D, view2DArray v
 				DescriptorCount: 1,
 				DescriptorType:  vk.DescriptorTypeStorageBuffer,
 				PBufferInfo: []vk.DescriptorBufferInfo{{
-					Buffer: t.addressTranslationBuffer,
+					Buffer: t.addressTranslationRing.Buffers[i%len(t.addressTranslationRing.Buffers)].Buffer,
 					Offset: 0,
-					Range:  vk.DeviceSize(vk.WholeSize),
+					Range:  vk.DeviceSize(spirvStructs.AddressTranslationBlockSize),
 				}},
 			},
 		}, 0, nil)

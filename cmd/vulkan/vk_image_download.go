@@ -192,11 +192,13 @@ func (image *VulkanImage) DownloadFromVkImage(handles *VulkanHandles, commandBuf
 	}
 
 	image.MarkSynced(frame)
-	logger.Printf("[%s] downloaded image 0x%X (%dx%d/%v) to RAM.\n",
-		color.Blue.Sprintf("Frame %d", frame),
-		image.Address, image.FirstDescriptor.Width, image.FirstDescriptor.Height,
-		linear,
-	)
+	if logger.LogRenderer {
+		logger.Printf("[%s] downloaded image 0x%X (%dx%d/%v) to RAM.\n",
+			color.Blue.Sprintf("Frame %d", frame),
+			image.Address, image.FirstDescriptor.Width, image.FirstDescriptor.Height,
+			linear,
+		)
+	}
 
 	return nil
 }

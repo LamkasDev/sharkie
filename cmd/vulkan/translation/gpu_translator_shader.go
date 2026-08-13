@@ -15,74 +15,17 @@ import (
 	vk "github.com/goki/vulkan"
 )
 
-type SpirvShaderKey struct {
-	Address uintptr
-	ThreadX uint32
-	ThreadY uint32
-	ThreadZ uint32
-
-	PsInControl     uint32
-	PsInputAddress  uint32
-	PsInputControls [32]uint32
-
-	FetchShaderAddress uintptr
-	ClipDistEnable     uint8
-	CullDistEnable     uint8
-	VsExportCount      uint32
-
-	DepthBeforeShader bool
-	ZOrder            uint32
-	BlendClamp        bool
-	FrontFaceEnable   bool
-}
-
-func (t *GpuTranslator) GetShader(gcnShader *gcn.GcnShader) *spirv.SpirvShader {
-	var ctx common.SpirvShaderContext
-	switch gcnShader.Stage {
-	case gcn.GcnShaderStageVertex:
-		ctx = common.SpirvVertexShaderContext{}
-	case gcn.GcnShaderStageFragment:
-		ctx = common.SpirvFragmentShaderContext{}
-	case gcn.GcnShaderStageCompute:
-		ctx = common.SpirvComputeShaderContext{}
-	}
-	shader, _ := t.GetShaderWithContext(gcnShader, ctx)
-	return shader
-}
-
-func (t *GpuTranslator) GetShaderAt(address uintptr) *spirv.SpirvShader {
-	t.shadersMutex.Lock()
-	defer t.shadersMutex.Unlock()
-	for key, shader := range t.shaders {
-		if key.Address == address {
-			return shader
-		}
-	}
-
-	return nil
-}
-
-func (t *GpuTranslator) GetShaderWithContext(gcnShader *gcn.GcnShader, context common.SpirvShaderContext) (*spirv.SpirvShader, SpirvShaderKey) {
-	key := SpirvShaderKey{
+func (t *GpuTranslator) GetShaderWithContext(gcnShader *gcn.GcnShader, context common.SpirvShaderContext) (*spirv.SpirvShader, common.SpirvShaderKey) {
+	key := common.SpirvShaderKey{
 		Address: gcnShader.Address,
 	}
 	switch c := context.(type) {
 	case common.SpirvComputeShaderContext:
-		key.ThreadX = c.ThreadX
-		key.ThreadY = c.ThreadY
-		key.ThreadZ = c.ThreadZ
+		key.ContextHash = c.Hash()
 	case common.SpirvFragmentShaderContext:
-		key.PsInControl = c.PsInControl
-		key.PsInputAddress = c.PsInputAddress
-		key.PsInputControls = c.PsInputControls
-		key.DepthBeforeShader = c.DepthBeforeShader
-		key.ZOrder = c.ZOrder
-		key.FrontFaceEnable = c.FrontFaceEnable
+		key.ContextHash = c.Hash()
 	case common.SpirvVertexShaderContext:
-		key.FetchShaderAddress = c.FetchShaderAddress
-		key.ClipDistEnable = c.ClipDistEnable
-		key.CullDistEnable = c.CullDistEnable
-		key.VsExportCount = c.VsExportCount
+		key.ContextHash = c.Hash()
 	}
 
 	// Get already loaded shader.
@@ -99,7 +42,7 @@ func (t *GpuTranslator) GetShaderWithContext(gcnShader *gcn.GcnShader, context c
 	if err != nil {
 		panic(err)
 	}
-	if err = t.DumpShaderOnce(key, shader); err != nil {
+	if err = t.DumpShaderOnce(shader, context); err != nil {
 		panic(err)
 	}
 	t.shaders[key] = shader
@@ -123,7 +66,7 @@ func (t *GpuTranslator) GetShaderModuleFromBytes(bytecode []uint32, name string)
 	return module, nil
 }
 
-func (t *GpuTranslator) GetShaderModule(key SpirvShaderKey, spirvShader *spirv.SpirvShader) (vk.ShaderModule, error) {
+func (t *GpuTranslator) GetShaderModule(key common.SpirvShaderKey, spirvShader *spirv.SpirvShader) (vk.ShaderModule, error) {
 	// Get already created shader module.
 	t.shaderModulesMutex.Lock()
 	mod, ok := t.shaderModules[key]
@@ -151,19 +94,27 @@ func (t *GpuTranslator) GetShaderModule(key SpirvShaderKey, spirvShader *spirv.S
 }
 
 // DumpShaderOnce prints shader byte-code to a file.
-func (t *GpuTranslator) DumpShaderOnce(key SpirvShaderKey, spirvShader *spirv.SpirvShader) error {
+func (t *GpuTranslator) DumpShaderOnce(spirvShader *spirv.SpirvShader, context common.SpirvShaderContext) error {
 	// Check if tools available, otherwise skip.
 	spirvValCheckCmd := exec.Command("spirv-val", "--help")
 	if err := spirvValCheckCmd.Run(); err != nil {
 		return nil
 	}
 
-	// Dump the recompiled shader.
+	// Derive filename.
 	shaderDir := filepath.Join(config.GetGameCacheDir(), "shaders")
 	if err := os.MkdirAll(shaderDir, 0755); err != nil {
 		return err
 	}
-	textFilename := filepath.Join(shaderDir, fmt.Sprintf("shader_0x%X_%X_%s.spv", spirvShader.GcnShader.Address, key.FetchShaderAddress, spirvShader.GcnShader.Stage))
+	var textFilename string
+	switch c := context.(type) {
+	case common.SpirvVertexShaderContext:
+		textFilename = filepath.Join(shaderDir, fmt.Sprintf("shader_0x%X_0x%X_%s.spv", spirvShader.GcnShader.Address, c.FetchShaderAddress, spirvShader.GcnShader.Stage))
+	default:
+		textFilename = filepath.Join(shaderDir, fmt.Sprintf("shader_0x%X_%s.spv", spirvShader.GcnShader.Address, spirvShader.GcnShader.Stage))
+	}
+
+	// Dump the recompiled shader.
 	if err := os.WriteFile(textFilename, common.SpvWordsToBytes(spirvShader.Code), 0777); err != nil {
 		return err
 	}

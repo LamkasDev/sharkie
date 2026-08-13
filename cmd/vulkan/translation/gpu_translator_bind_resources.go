@@ -9,6 +9,8 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/gpu"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 
+	"unsafe"
+
 	"github.com/LamkasDev/sharkie/cmd/spirv"
 	spirvCommon "github.com/LamkasDev/sharkie/cmd/spirv/common"
 	spirvStructs "github.com/LamkasDev/sharkie/cmd/spirv/structs"
@@ -38,6 +40,7 @@ func (t *GpuTranslator) BindResources(frame uint64, bind *gpu.LiverpoolBindResou
 		}
 		bind.VertexContext.FetchShaderAddress = fetchShaderAddress
 		bind.VertexContext.FetchShaderInstructions = fetchInstructions
+		bind.VertexContext.MubufFormats = t.GetMubufFormats(bind.VertexShader, userData[:])
 
 		vsSpirv, vsKey := t.GetShaderWithContext(bind.VertexShader, bind.VertexContext)
 		t.activeVertexShader = vsSpirv
@@ -45,16 +48,17 @@ func (t *GpuTranslator) BindResources(frame uint64, bind *gpu.LiverpoolBindResou
 		shaders = append(shaders, vsSpirv)
 	} else {
 		t.activeVertexShader = nil
-		t.activeVertexShaderKey = SpirvShaderKey{}
+		t.activeVertexShaderKey = spirvCommon.SpirvShaderKey{}
 	}
 	if bind.FragmentShader != nil {
+		bind.FragmentContext.MubufFormats = t.GetMubufFormats(bind.FragmentShader, userData[:])
 		psSpirv, psKey := t.GetShaderWithContext(bind.FragmentShader, bind.FragmentContext)
 		t.activeFragmentShader = psSpirv
 		t.activeFragmentShaderKey = psKey
 		shaders = append(shaders, psSpirv)
 	} else {
 		t.activeFragmentShader = nil
-		t.activeFragmentShaderKey = SpirvShaderKey{}
+		t.activeFragmentShaderKey = spirvCommon.SpirvShaderKey{}
 	}
 	if bind.GeometryShader != nil {
 		gsSpirv, gsKey := t.GetShaderWithContext(bind.GeometryShader, spirvCommon.SpirvShaderContext(nil))
@@ -63,6 +67,7 @@ func (t *GpuTranslator) BindResources(frame uint64, bind *gpu.LiverpoolBindResou
 		shaders = append(shaders, gsSpirv)
 	}
 	if bind.ComputeShader != nil {
+		bind.ComputeContext.MubufFormats = t.GetMubufFormats(bind.ComputeShader, userData[:])
 		csSpirv, csKey := t.GetShaderWithContext(bind.ComputeShader, bind.ComputeContext)
 		t.activeComputeShader = csSpirv
 		t.activeComputeShaderKey = csKey
@@ -104,15 +109,16 @@ func (t *GpuTranslator) GetBindDescriptorSet(shaders []*spirv.SpirvShader, userD
 	// Resolve resources accessed by the shaders.
 	var imageAccesses []ResolvedImageAccess
 	var bufferAccesses []ResolvedBufferAccess
+	var memoryAccesses []ResolvedMemoryAccess
 	var allLayouts = make(map[*gcnSpec.Instruction]spirvCommon.ShaderResourceBinding)
 	for _, shader := range shaders {
-		shaderImageAccesses := t.ResolveImageResources(shader, userData[:])
-		shaderBufferAccesses := t.ResolveBufferResources(shader, userData[:])
+		shaderImageAccesses, shaderBufferAccesses, shaderMemoryAccesses := t.ResolveResources(shader.GcnShader, userData[:])
 		imageAccesses = append(imageAccesses, shaderImageAccesses...)
 		bufferAccesses = append(bufferAccesses, shaderBufferAccesses...)
+		memoryAccesses = append(memoryAccesses, shaderMemoryAccesses...)
 		maps.Copy(allLayouts, shader.StaticLayout)
 	}
-	if len(imageAccesses) == 0 && len(bufferAccesses) == 0 {
+	if len(imageAccesses) == 0 && len(bufferAccesses) == 0 && len(memoryAccesses) == 0 {
 		return nil, nil, vk.NullDescriptorSet, vk.NullDescriptorSet, nil
 	}
 
@@ -126,7 +132,50 @@ func (t *GpuTranslator) GetBindDescriptorSet(shaders []*spirv.SpirvShader, userD
 		return nil, nil, vk.NullDescriptorSet, vk.NullDescriptorSet, err
 	}
 
+	// Resolve addresses.
+	bufferAccessByInstr := make(map[*gcnSpec.Instruction]ResolvedBufferAccess, len(bufferAccesses))
+	for _, access := range bufferAccesses {
+		bufferAccessByInstr[access.Instruction] = access
+	}
+	accessByInstr := make(map[*gcnSpec.Instruction]ResolvedImageAccess, len(imageAccesses))
+	for _, access := range imageAccesses {
+		accessByInstr[access.Instruction] = access
+	}
+	memoryAccessByInstr := make(map[*gcnSpec.Instruction]ResolvedMemoryAccess, len(memoryAccesses))
+	for _, access := range memoryAccesses {
+		memoryAccessByInstr[access.Instruction] = access
+	}
+
 	// Update address translation buffer.
+	ringBuffer := t.addressTranslationRing.Get(t.currentGuestFrame)
+	slice := unsafe.Slice((*uint64)(unsafe.Pointer(&ringBuffer.Mapped[t.addressTranslationOffset])), spirvStructs.AddressTranslationBlockEntries)
+	for i := range slice {
+		slice[i] = 0 // Clear previous bindings.
+	}
+	var boundText string
+	if logger.LogRenderer {
+		boundText = fmt.Sprintf("[Frame %d] Bound memory slot", t.currentGuestFrame)
+	}
+	for instr, binding := range allLayouts {
+		var baseAddress uint64
+		switch binding.Type {
+		case spirvCommon.SpirvShaderResourceTypeBuffer:
+			if access, ok := bufferAccessByInstr[instr]; ok {
+				baseAddress = uint64(access.Descriptor.BaseAddress)
+			}
+		case spirvCommon.SpirvShaderResourceTypeMemory:
+			if access, ok := memoryAccessByInstr[instr]; ok {
+				baseAddress = uint64(access.BaseAddress)
+			}
+		}
+		if baseAddress != 0 {
+			translated := t.TranslateToDeviceAddress(uintptr(baseAddress))
+			slice[binding.BindingIndex] = translated
+		}
+		if logger.LogRenderer {
+			boundText += fmt.Sprintf(" %s %d (0x%X->0x%X)", binding.Kind, binding.BindingIndex, baseAddress, slice[binding.BindingIndex])
+		}
+	}
 	vk.UpdateDescriptorSets(t.handles.Device, 1, []vk.WriteDescriptorSet{{
 		SType:           vk.StructureTypeWriteDescriptorSet,
 		DstSet:          activeGlobalSet,
@@ -135,18 +184,21 @@ func (t *GpuTranslator) GetBindDescriptorSet(shaders []*spirv.SpirvShader, userD
 		DescriptorCount: 1,
 		DescriptorType:  vk.DescriptorTypeStorageBuffer,
 		PBufferInfo: []vk.DescriptorBufferInfo{{
-			Buffer: t.addressTranslationBuffer,
-			Offset: 0,
-			Range:  vk.DeviceSize(vk.WholeSize),
+			Buffer: ringBuffer.Buffer,
+			Offset: vk.DeviceSize(t.addressTranslationOffset),
+			Range:  vk.DeviceSize(spirvStructs.AddressTranslationBlockSize),
 		}},
 	}}, 0, nil)
+	t.addressTranslationOffset += spirvStructs.AddressTranslationBlockSize
+	if len(allLayouts) > 0 && logger.LogRenderer {
+		boundText += ".\n"
+		logger.Print(boundText)
+	}
 
 	// Bind images to slots.
-	accessByInstr := make(map[*gcnSpec.Instruction]ResolvedImageAccess, len(imageAccesses))
-	for _, access := range imageAccesses {
-		accessByInstr[access.Instruction] = access
+	if logger.LogRenderer {
+		boundText = fmt.Sprintf("[Frame %d] Bound image slot", t.currentGuestFrame)
 	}
-	boundText := fmt.Sprintf("[Frame %d] Bound image slot", t.currentGuestFrame)
 	for instr, binding := range allLayouts {
 		if binding.Type != spirvCommon.SpirvShaderResourceTypeImage {
 			continue
@@ -178,19 +230,19 @@ func (t *GpuTranslator) GetBindDescriptorSet(shaders []*spirv.SpirvShader, userD
 			view.Image.BarrierComputeStorageWrite(t.commandBuffer)
 			t.updateImageDescriptorBinding(activeImageSet, binding.BindingIndex, nil, view, sampler)
 		}
-		boundText += fmt.Sprintf(" %s %d (0x%X/%dx%d)", binding.Kind, binding.BindingIndex, access.Descriptor.BaseAddress, access.Descriptor.Width, access.Descriptor.Height)
+		if logger.LogRenderer {
+			boundText += fmt.Sprintf(" %s %d (0x%X/%dx%d)", binding.Kind, binding.BindingIndex, access.Descriptor.BaseAddress, access.Descriptor.Width, access.Descriptor.Height)
+		}
 	}
-	boundText += ".\n"
 	if len(allLayouts) > 0 && logger.LogRenderer {
+		boundText += ".\n"
 		logger.Print(boundText)
 	}
 
-	// Bind buffers to slots.
-	bufferAccessByInstr := make(map[*gcnSpec.Instruction]ResolvedBufferAccess, len(bufferAccesses))
-	for _, access := range bufferAccesses {
-		bufferAccessByInstr[access.Instruction] = access
+	// Bind buffers to slots (not really).
+	if logger.LogRenderer {
+		boundText = fmt.Sprintf("[Frame %d] Bound buffer slot", t.currentGuestFrame)
 	}
-	boundText = fmt.Sprintf("[Frame %d] Bound buffer slot", t.currentGuestFrame)
 	for instr, binding := range allLayouts {
 		if binding.Type != spirvCommon.SpirvShaderResourceTypeBuffer {
 			continue
@@ -199,24 +251,12 @@ func (t *GpuTranslator) GetBindDescriptorSet(shaders []*spirv.SpirvShader, userD
 		if access.Descriptor.BaseAddress == 0 {
 			continue
 		}
-
-		// Get buffer view.
-		/* view, err, _ := t.GetBufferView(access.Descriptor)
-		if err != nil {
-			return nil, nil, vk.NullDescriptorSet, vk.NullDescriptorSet, vk.NullDescriptorSet, err
-		} */
-
-		// Update descriptor set.
-		/* switch binding.Kind {
-		case spirvCommon.BufferAccessLoad:
-			t.updateBufferDescriptorBinding(activeBufferSet, binding.BindingIndex, view, true)
-		case spirvCommon.BufferAccessStore:
-			t.updateBufferDescriptorBinding(activeBufferSet, binding.BindingIndex, view, false)
-		} */
-		boundText += fmt.Sprintf(" %s %d (0x%X/%d)", binding.Kind, binding.BindingIndex, access.Descriptor.BaseAddress, access.Descriptor.NumRecords)
+		if logger.LogRenderer {
+			boundText += fmt.Sprintf(" %s %d (0x%X/%d)", binding.Kind, binding.BindingIndex, access.Descriptor.BaseAddress, access.Descriptor.NumRecords)
+		}
 	}
-	boundText += ".\n"
 	if len(allLayouts) > 0 && logger.LogRenderer {
+		boundText += ".\n"
 		logger.Print(boundText)
 	}
 

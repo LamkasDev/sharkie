@@ -17,7 +17,7 @@ import (
 type SpirvShader struct {
 	GcnShader    *GcnShader
 	Code         []uint32
-	StaticLayout map[*gcnSpec.Instruction]ShaderResourceBinding
+	StaticLayout SpirvShaderStaticLayout
 }
 
 func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, error) {
@@ -256,15 +256,9 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	b.EmitDecorate(idStaticStorageTextures2dArray, spec.SpvDecorationBinding, ImageBindingStorageImages2DArray)
 
 	// Address translation.
-	typeStructAddressTranslationEntry := b.EmitTypeStruct(typeUint64, typeUint64, typeUint64, typeUint64)
-	b.EmitMemberDecorate(typeStructAddressTranslationEntry, 0, spec.SpvDecorationOffset, 0)
-	b.EmitMemberDecorate(typeStructAddressTranslationEntry, 1, spec.SpvDecorationOffset, 8)
-	b.EmitMemberDecorate(typeStructAddressTranslationEntry, 2, spec.SpvDecorationOffset, 16)
-	b.EmitMemberDecorate(typeStructAddressTranslationEntry, 3, spec.SpvDecorationOffset, 24)
-
-	idAddressTranslationCount := b.EmitConstantUint(typeUint, AddressTranslationCount)
-	typeAddressTranslationArray := b.EmitTypeArray(typeStructAddressTranslationEntry, idAddressTranslationCount)
-	b.EmitDecorate(typeAddressTranslationArray, spec.SpvDecorationArrayStride, 32)
+	idAddressTranslationBlockEntries := b.EmitConstantUint(typeUint, AddressTranslationBlockEntries)
+	typeAddressTranslationArray := b.EmitTypeArray(typeUint64, idAddressTranslationBlockEntries)
+	b.EmitDecorate(typeAddressTranslationArray, spec.SpvDecorationArrayStride, 8)
 
 	typeAddressTranslationBuffer := b.EmitTypeStruct(typeAddressTranslationArray)
 	b.EmitDecorate(typeAddressTranslationBuffer, spec.SpvDecorationBlock)

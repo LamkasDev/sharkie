@@ -184,11 +184,13 @@ func (image *VulkanImage) UploadToVkImage(handles *VulkanHandles, commandBuffer 
 	image.BarrierGeneralShaderAccess(commandBuffer)
 
 	image.MarkSynced(frame)
-	logger.Printf("[%s] uploaded image 0x%X (%dx%d/%v) to VRAM.\n",
-		color.Blue.Sprintf("Frame %d", frame),
-		image.Address, image.FirstDescriptor.Width, image.FirstDescriptor.Height,
-		linear,
-	)
+	if logger.LogRenderer {
+		logger.Printf("[%s] uploaded image 0x%X (%dx%d/%v) to VRAM.\n",
+			color.Blue.Sprintf("Frame %d", frame),
+			image.Address, image.FirstDescriptor.Width, image.FirstDescriptor.Height,
+			linear,
+		)
+	}
 
 	return nil
 }

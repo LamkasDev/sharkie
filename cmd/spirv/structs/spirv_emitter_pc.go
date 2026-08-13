@@ -19,4 +19,19 @@ type PushConstants struct {
 
 const PushConstantsSize = uint32(unsafe.Sizeof(PushConstants{}))
 
-const AddressTranslationCount = 2048
+const (
+	MaxCommandsPerFrame             = 6144
+	MaxSampleImageBindingsPerFrame  = MaxCommandsPerFrame * 8
+	MaxStorageImageBindingsPerFrame = MaxCommandsPerFrame * 4
+)
+
+const (
+	UserDataBufferSize = MaxCommandsPerFrame * UserDataSize
+)
+
+const (
+	AddressTranslationBlockEntrySize = 8
+	AddressTranslationBlockEntries   = MaxStaticBindings
+	AddressTranslationBlockSize      = AddressTranslationBlockEntries * AddressTranslationBlockEntrySize
+	AddressTranslationBufferSize     = AddressTranslationBlockSize * MaxCommandsPerFrame
+)

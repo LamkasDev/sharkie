@@ -7,6 +7,7 @@ type SpirvShaderResourceType uint8
 const (
 	SpirvShaderResourceTypeImage SpirvShaderResourceType = iota
 	SpirvShaderResourceTypeBuffer
+	SpirvShaderResourceTypeMemory
 )
 
 type ResourceAccessKind interface {
@@ -52,6 +53,23 @@ func (kind BufferAccessKind) String() string {
 		return "load"
 	case BufferAccessStore:
 		return "store"
+	}
+	return "??"
+}
+
+type MemoryAccessKind uint8
+
+const (
+	MemoryAccessUnknown MemoryAccessKind = iota
+	MemoryAccessLoad
+)
+
+func (kind MemoryAccessKind) isResourceAccessKind() {}
+
+func (kind MemoryAccessKind) String() string {
+	switch kind {
+	case MemoryAccessLoad:
+		return "load"
 	}
 	return "??"
 }

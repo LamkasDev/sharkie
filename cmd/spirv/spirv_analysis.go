@@ -65,6 +65,12 @@ func analyzeInstruction(instr *gcnSpec.Instruction) *SpirvShaderResource {
 			Type:        SpirvShaderResourceTypeBuffer,
 			Kind:        kind,
 		}
+	case gcnSpec.EncSMRD:
+		return &SpirvShaderResource{
+			Instruction: instr,
+			Type:        SpirvShaderResourceTypeMemory,
+			Kind:        MemoryAccessLoad,
+		}
 	}
 
 	return nil

@@ -8,6 +8,7 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/gcn/reg"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/gpu"
 	"github.com/LamkasDev/sharkie/cmd/logger"
+	spirvCommon "github.com/LamkasDev/sharkie/cmd/spirv/common"
 
 	spirvStructs "github.com/LamkasDev/sharkie/cmd/spirv/structs"
 	"github.com/LamkasDev/sharkie/cmd/vulkan"
@@ -152,22 +153,20 @@ func (t *GpuTranslator) BindPipeline(frame uint64, bind *gpu.LiverpoolBindPipeli
 
 	// Gather shaders.
 	var vsModule, psModule vk.ShaderModule
-	var fetchShaderAddress uintptr
-	var vertexShaderAddress, pixelShaderAddress uintptr
+	var vertexShaderKey, fragmentShaderKey spirvCommon.SpirvShaderKey
 	if t.activeVertexShader != nil {
 		vsModule, err = t.GetShaderModule(t.activeVertexShaderKey, t.activeVertexShader)
 		if err != nil {
 			return
 		}
-		fetchShaderAddress = t.activeVertexShaderKey.FetchShaderAddress
-		vertexShaderAddress = t.activeVertexShader.GcnShader.Address
+		vertexShaderKey = t.activeVertexShaderKey
 	}
 	if t.activeFragmentShader != nil {
 		psModule, err = t.GetShaderModule(t.activeFragmentShaderKey, t.activeFragmentShader)
 		if err != nil {
 			return
 		}
-		pixelShaderAddress = t.activeFragmentShader.GcnShader.Address
+		fragmentShaderKey = t.activeFragmentShaderKey
 	}
 	var tcsModule, tesModule, gsModule vk.ShaderModule
 	if bind.PrimType == 17 { // RECTLIST
@@ -204,11 +203,10 @@ func (t *GpuTranslator) BindPipeline(frame uint64, bind *gpu.LiverpoolBindPipeli
 
 	// Get pipeline.
 	key := vulkan.GraphicsPipelineKey{
-		VertexModuleAddress:   vertexShaderAddress,
-		FetchShaderAddress:    fetchShaderAddress,
-		FragmentModuleAddress: pixelShaderAddress,
-		RenderTargetAddress:   rtAddress,
-		DepthTargetAddress:    dbAddress,
+		VertexShaderKey:     vertexShaderKey,
+		FragmentShaderKey:   fragmentShaderKey,
+		RenderTargetAddress: rtAddress,
+		DepthTargetAddress:  dbAddress,
 
 		Width:    rtWidth,
 		Height:   rtHeight,
@@ -331,8 +329,8 @@ func (t *GpuTranslator) BindPipeline(frame uint64, bind *gpu.LiverpoolBindPipeli
 	if logger.LogRenderer {
 		logger.Printf("[%s] Bound pipeline (vertex=%s, fragment=%s, rtAddress=0x%X, rtPitch=%d, rtSize=%dx%d).\n",
 			color.Blue.Sprintf("Frame %d", frame),
-			color.Yellow.Sprintf("0x%X", vertexShaderAddress),
-			color.Yellow.Sprintf("0x%X", pixelShaderAddress),
+			color.Yellow.Sprintf("0x%X", vertexShaderKey.Address),
+			color.Yellow.Sprintf("0x%X", fragmentShaderKey.Address),
 			rtAddress, bind.RtPitch, rtWidth, rtHeight,
 		)
 	}

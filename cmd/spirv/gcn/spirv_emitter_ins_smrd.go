@@ -43,9 +43,7 @@ func emitSMRDLoadScalar(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlo
 	typeUint := ctx.GetId(BlockContextIdTypeUint)
 
 	// S_LOAD_* uses a 64-bit byte base address from SGPR[SBASE*2].
-	base := details.Base * 2
-	lo, hi := ctx.GetOperand64Value(b, gcnSpec.OpSgpr0+base, 0)
-	base64 := ctx.Pack64(b, lo, hi)
+	// base := details.Base * 2
 
 	// Calculate offset in bytes.
 	var byteOffset SpirvId
@@ -64,22 +62,19 @@ func emitSMRDLoadScalar(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlo
 
 	// S_LOAD_DWORD does not have out-of-bounds checks, so always false.
 	outOfRange := ctx.GetId(BlockContextIdFalse)
+	bindingIndex := ctx.StaticLayout[instr].BindingIndex
 
-	emitSMRDLoadFromBase(b, instr, ctx, count, base64, byteOffset, outOfRange)
+	emitSMRDLoadFromBase(b, instr, ctx, count, bindingIndex, byteOffset, outOfRange)
 }
 
 func emitSMRDLoadBuffer(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext, count uint32) {
 	details := instr.Details.(*gcnSpec.SmrdDetails)
 	typeUint := ctx.GetId(BlockContextIdTypeUint)
 	typeBool := ctx.GetId(BlockContextIdTypeBool)
-	idFFFF := ctx.GetConstId(ConstIdUintFFFF)
 
 	// S_BUFFER_LOAD_* uses a 4-SGPR buffer resource constant.
 	// Base address is {SGPR[SBASE*2+1][15:0], SGPR[SBASE*2]}.
-	lo := ctx.GetOperandUintValue(b, gcnSpec.OpSgpr0+details.Base*2, 0)
 	hi := ctx.GetOperandUintValue(b, gcnSpec.OpSgpr0+details.Base*2+1, 0)
-	hiPacked := b.EmitBitwiseAnd(typeUint, hi, idFFFF)
-	base64 := ctx.Pack64(b, lo, hiPacked)
 
 	// Stride is dw1[29:16].
 	dw2 := ctx.GetOperandUintValue(b, gcnSpec.OpSgpr0+details.Base*2+2, 0)
@@ -107,11 +102,12 @@ func emitSMRDLoadBuffer(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlo
 	outOfRangeZero := b.EmitUGreaterThanEqual(typeBool, byteOffset, numRecords)
 	outOfRangeNonZero := b.EmitUGreaterThanEqual(typeBool, byteOffset, b.EmitIMul(typeUint, stride, numRecords))
 	outOfRange := b.EmitSelect(typeBool, strideIsZero, outOfRangeZero, outOfRangeNonZero)
+	bindingIndex := ctx.StaticLayout[instr].BindingIndex
 
-	emitSMRDLoadFromBase(b, instr, ctx, count, base64, byteOffset, outOfRange)
+	emitSMRDLoadFromBase(b, instr, ctx, count, bindingIndex, byteOffset, outOfRange)
 }
 
-func emitSMRDLoadFromBase(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext, count uint32, base64, byteOffset, outOfRange SpirvId) {
+func emitSMRDLoadFromBase(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext, count uint32, bindingIndex uint32, byteOffset, outOfRange SpirvId) {
 	details := instr.Details.(*gcnSpec.SmrdDetails)
 	typeUint := ctx.GetId(BlockContextIdTypeUint)
 	typeUint64 := ctx.GetId(BlockContextIdTypeUint64)
@@ -119,13 +115,12 @@ func emitSMRDLoadFromBase(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvB
 	idPtrPsbUint := ctx.GetId(BlockContextIdPtrPsbUint)
 	idNot3 := ctx.GetConstId(ConstId64UintNot3)
 
-	// m_addr = (base + m_offset) & ~0x3
+	// m_offset & ~0x3
 	byteOffset64 := b.EmitUConvert(typeUint64, byteOffset)
-	addr64 := b.EmitIAdd(typeUint64, base64, byteOffset64)
-	addr64Aligned := b.EmitBitwiseAnd(typeUint64, addr64, idNot3)
+	byteOffset64Aligned := b.EmitBitwiseAnd(typeUint64, byteOffset64, idNot3)
 
 	// Translate and cast to pointer.
-	translatedAddr64 := ctx.TranslateAddress(b, addr64Aligned)
+	translatedAddr64 := ctx.TranslateAddress(b, bindingIndex, byteOffset64Aligned)
 	ptrBase := b.EmitBitcast(idPtrPsbUint, translatedAddr64)
 
 	// Perform bounds checking.
@@ -150,8 +145,8 @@ func emitSMRDLoadFromBase(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvB
 
 	// If the memory address is out-of-range (clamped), the operation is not performed.
 	b.EmitLabel(invalidLabel)
-	ctx.EmitDebugPrintf(b, "TranslateAddress failed (0x%lx): unmapped address 0x%lx + base 0x%lx + offset 0x%x\n",
-		b.EmitConstantUint64(typeUint64, uint64(ctx.Address)), addr64Aligned, base64, byteOffset)
+	ctx.EmitDebugPrintf(b, "TranslateAddress failed (0x%lx): unmapped address base[%d] + offset 0x%x\n",
+		b.EmitConstantUint64(typeUint64, uint64(ctx.Address)), b.EmitConstantUint(typeUint, bindingIndex), byteOffset)
 	b.EmitBranch(mergeLabel)
 
 	b.EmitLabel(mergeLabel)

@@ -421,13 +421,15 @@ func (image *VulkanImage) CopyToImage(handles *VulkanHandles, commandBuffer *Vul
 	}
 
 	dst.MarkSynced(frame)
-	logger.Printf("[%s] copied image 0x%X (%dx%d) to 0x%X (%dx%d).\n",
-		color.Blue.Sprintf("Frame %d", frame),
-		image.Address, image.FirstDescriptor.Width, image.FirstDescriptor.Height,
-		dst.Address, dst.FirstDescriptor.Width, dst.FirstDescriptor.Height,
-	)
-	logger.Printf("%+v\n", image.FirstDescriptor)
-	logger.Printf("%+v\n", dst.FirstDescriptor)
+	if logger.LogRenderer {
+		logger.Printf("[%s] copied image 0x%X (%dx%d) to 0x%X (%dx%d).\n",
+			color.Blue.Sprintf("Frame %d", frame),
+			image.Address, image.FirstDescriptor.Width, image.FirstDescriptor.Height,
+			dst.Address, dst.FirstDescriptor.Width, dst.FirstDescriptor.Height,
+		)
+		logger.Printf("%+v\n", image.FirstDescriptor)
+		logger.Printf("%+v\n", dst.FirstDescriptor)
+	}
 
 	return nil
 }

@@ -5,11 +5,9 @@ import (
 
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/gpu"
 	"github.com/LamkasDev/sharkie/cmd/logger"
-	vk "github.com/goki/vulkan"
+	"github.com/LamkasDev/sharkie/cmd/spirv/structs"
 	"github.com/gookit/color"
 )
-
-const UserDataBufferSize = 4 * 1024 * 1024
 
 func (t *GpuTranslator) UpdateUserDataBuffers(stream *gpu.LiverpoolCommandStream) {
 	t.userDataBuffersMutex.Lock()
@@ -35,7 +33,6 @@ func (t *GpuTranslator) UpdateUserDataBuffers(stream *gpu.LiverpoolCommandStream
 
 	// Reset offsets and map the user data buffer.
 	clear(t.userDataOffsets)
-	data := t.handles.MapMemory(t.userDataBufferMem, vk.DeviceSize(UserDataBufferSize))
 	offset := uint32(0)
 
 	// Create buffers for new active hashes.
@@ -48,12 +45,12 @@ func (t *GpuTranslator) UpdateUserDataBuffers(stream *gpu.LiverpoolCommandStream
 
 		// Upload.
 		size := uint32(len(contents) * 4)
-		if offset+size > UserDataBufferSize {
+		if offset+size > uint32(structs.UserDataBufferSize) {
 			logger.Printf("[%s] User data buffer overflow!\n", color.Red.Sprint("GPU"))
 			break
 		}
 
-		copy(data[offset:], unsafe.Slice((*byte)(unsafe.Pointer(&contents[0])), size))
+		copy(t.userDataBufferData[offset:], unsafe.Slice((*byte)(unsafe.Pointer(&contents[0])), size))
 		t.userDataOffsets[hash] = offset
 		offset += size
 
@@ -65,6 +62,4 @@ func (t *GpuTranslator) UpdateUserDataBuffers(stream *gpu.LiverpoolCommandStream
 			contents[gpu.UserDataOffsetCompute:gpu.UserDataOffsetCompute+16],
 		) */
 	}
-
-	vk.UnmapMemory(t.handles.Device, t.userDataBufferMem)
 }

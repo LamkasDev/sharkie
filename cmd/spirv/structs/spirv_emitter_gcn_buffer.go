@@ -49,54 +49,32 @@ func (d BufferDescriptor) Print() {
 }
 
 type BufferResource struct {
-	BaseAddress   SpirvId
 	Stride        SpirvId
 	SwizzleEnable SpirvId
+	NumRecords    SpirvId
 
-	NumRecords   SpirvId
-	DstSelX      SpirvId
-	DstSelY      SpirvId
-	DstSelZ      SpirvId
-	DstSelW      SpirvId
 	ElementSize  SpirvId
 	IndexStride  SpirvId
 	AddTidEnable SpirvId
-
-	Dw3        SpirvId
-	DataFormat SpirvId
-	NumFormat  SpirvId
+	Dw3          SpirvId
 }
 
 func NewBufferResource(b *SpvBuilder, ctx *SpirvBlockContext, srsrc uint32) BufferResource {
 	sgprBase := srsrc * 4
-	dw0 := ctx.LoadRegisterPointer(b, gcnSpec.OpSgpr0+sgprBase)
 	dw1 := ctx.LoadRegisterPointer(b, gcnSpec.OpSgpr0+sgprBase+1)
 	dw2 := ctx.LoadRegisterPointer(b, gcnSpec.OpSgpr0+sgprBase+2)
 	dw3 := ctx.LoadRegisterPointer(b, gcnSpec.OpSgpr0+sgprBase+3)
 
 	return BufferResource{
-		BaseAddress:   GetResourceBaseAddress(b, ctx, dw0, dw1),
 		Stride:        GetResourceStride(b, ctx, dw1),
 		SwizzleEnable: GetResourceSwizzleEnable(b, ctx, dw1),
+		NumRecords:    GetResourceNumRecords(b, ctx, dw2),
 
-		NumRecords:   GetResourceNumRecords(b, ctx, dw2),
 		ElementSize:  GetResourceElementSize(b, ctx, dw3),
 		IndexStride:  GetResourceIndexStride(b, ctx, dw3),
 		AddTidEnable: GetResourceAddTidEnable(b, ctx, dw3),
-
-		Dw3:        dw3,
-		DataFormat: GetResourceDataFormat(b, ctx, dw3),
-		NumFormat:  GetResourceNumFormat(b, ctx, dw3),
+		Dw3:          dw3,
 	}
-}
-
-func GetResourceBaseAddress(b *SpvBuilder, ctx *SpirvBlockContext, dw0, dw1 SpirvId) SpirvId {
-	typeUint := ctx.GetId(BlockContextIdTypeUint)
-
-	baseLo := dw0
-	baseHi := b.EmitBitwiseAnd(typeUint, dw1, ctx.GetConstId(ConstIdUintFFFF))
-	base := ctx.Pack64(b, baseLo, baseHi)
-	return base
 }
 
 func GetResourceStride(b *SpvBuilder, ctx *SpirvBlockContext, dw1 SpirvId) SpirvId {
@@ -130,18 +108,6 @@ func GetResourceIndexStride(b *SpvBuilder, ctx *SpirvBlockContext, dw3 SpirvId) 
 
 func GetResourceAddTidEnable(b *SpvBuilder, ctx *SpirvBlockContext, dw3 SpirvId) SpirvId {
 	return ctx.TestMask(b, dw3, 1<<23)
-}
-
-func GetResourceDataFormat(b *SpvBuilder, ctx *SpirvBlockContext, dw3 SpirvId) SpirvId {
-	typeUint := ctx.GetId(BlockContextIdTypeUint)
-
-	return b.EmitBitFieldUExtract(typeUint, dw3, ctx.GetConstId(ConstIdUint15), ctx.GetConstId(ConstIdUint4))
-}
-
-func GetResourceNumFormat(b *SpvBuilder, ctx *SpirvBlockContext, dw3 SpirvId) SpirvId {
-	typeUint := ctx.GetId(BlockContextIdTypeUint)
-
-	return b.EmitBitFieldUExtract(typeUint, dw3, ctx.GetConstId(ConstIdUint12), ctx.GetConstId(ConstIdUint3))
 }
 
 // CalculateBufferOffset calculates the byte offset into a buffer resource according to linear or swizzled addressing.

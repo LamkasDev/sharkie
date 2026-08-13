@@ -4,6 +4,7 @@ import (
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/gcn/reg"
+	spirvCommon "github.com/LamkasDev/sharkie/cmd/spirv/common"
 	"github.com/LamkasDev/sharkie/cmd/vulkan/gcn"
 	vk "github.com/goki/vulkan"
 )
@@ -21,11 +22,10 @@ type GraphicsPipelineRequest struct {
 }
 
 type GraphicsPipelineKey struct {
-	VertexModuleAddress   uintptr
-	FetchShaderAddress    uintptr
-	FragmentModuleAddress uintptr
-	RenderTargetAddress   uintptr
-	DepthTargetAddress    uintptr
+	VertexShaderKey     spirvCommon.SpirvShaderKey
+	FragmentShaderKey   spirvCommon.SpirvShaderKey
+	RenderTargetAddress uintptr
+	DepthTargetAddress  uintptr
 
 	// Pipeline options.
 	Width    uint32

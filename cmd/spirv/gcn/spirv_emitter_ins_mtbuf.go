@@ -58,10 +58,11 @@ func EmitMTBUF(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext
 	// Byte address for coordinated access (buffer_offset + mem_offset).
 	byteOffset := b.EmitIAdd(typeUint, bufferOffset, sgprOffset)
 
-	// Calculate absolute address.
+	// Calculate 64-bit byte offset for address translation.
 	typeUint64 := ctx.GetId(BlockContextIdTypeUint64)
 	byteOffset64 := b.EmitUConvert(typeUint64, byteOffset)
-	absoluteAddress := b.EmitIAdd(typeUint64, res.BaseAddress, byteOffset64)
+
+	bindingIndex := ctx.StaticLayout[instr].BindingIndex
 
 	// Determine operation type and how many components to process.
 	var count uint32
@@ -90,8 +91,8 @@ func EmitMTBUF(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext
 	default:
 		panic(fmt.Sprintf("unknown mtbuf op %s", gcnSpec.Mnemotics[gcnSpec.EncMTBUF][details.Op]))
 	}
-	dataFormat := ctx.GetConstId(ConstIdUint0 + SpirvId(details.DataFormat))
-	numFormat := ctx.GetConstId(ConstIdUint0 + SpirvId(details.NumFormat))
+	dataFormat := uint32(details.DataFormat)
+	numFormat := uint32(details.NumFormat)
 
 	if isStore {
 		// Gather registers into Vec4.
@@ -114,14 +115,14 @@ func EmitMTBUF(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext
 
 		// Store components.
 		b.EmitLabel(storeLabel)
-		structs.EmitFormatPackHelper(b, ctx, absoluteAddress, dataFormat, numFormat, uint32(details.Op), storeVec4)
+		structs.EmitFormatPackHelper(b, ctx, bindingIndex, byteOffset64, dataFormat, numFormat, uint32(details.Op), storeVec4)
 		b.EmitBranch(mergeLabel)
 
 		// Merge.
 		b.EmitLabel(mergeLabel)
 	} else {
 		// Fetch the components and unpack.
-		fetchedVec4 := structs.EmitFormatUnpackHelper(b, ctx, absoluteAddress, dataFormat, numFormat, outOfRange, uint32(details.Op))
+		fetchedVec4 := structs.EmitFormatUnpackHelper(b, ctx, bindingIndex, byteOffset64, dataFormat, numFormat, outOfRange, uint32(details.Op))
 
 		// Pre-extract all 4 components.
 		compR := b.EmitCompositeExtract(typeFloat, fetchedVec4, 0)

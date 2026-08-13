@@ -13,13 +13,16 @@ package structs
 #include <pthread.h>
 
 #define MAX_TRACKED_PAGES 262144
+#define HASH_MAP_CAPACITY 524288
+#define EMPTY_SLOT 0
+#define TOMBSTONE_SLOT 1
 
 typedef struct {
     uintptr_t addr;
     int prot_state; // 0 = PROT_NONE, 1 = PROT_READ, 2 = PROT_READ|PROT_WRITE
 } TrackedPage;
 
-static TrackedPage tracked_pages[MAX_TRACKED_PAGES];
+static TrackedPage tracked_pages[HASH_MAP_CAPACITY];
 static int num_tracked_pages = 0;
 
 static pthread_mutex_t sync_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -31,11 +34,27 @@ static int sync_done = 0;
 
 static struct sigaction old_segv_sa;
 
+static inline int hash_addr(uintptr_t addr) {
+    uintptr_t key = addr >> 12;
+    key ^= key >> 16;
+    key *= 0x85ebca6b;
+    key ^= key >> 13;
+    key *= 0xc2b2ae35;
+    key ^= key >> 16;
+    return key & (HASH_MAP_CAPACITY - 1);
+}
+
 static int find_tracked_page(uintptr_t aligned_addr) {
-    for (int i = 0; i < num_tracked_pages; i++) {
-        if (tracked_pages[i].addr == aligned_addr) {
-            return i;
+    int idx = hash_addr(aligned_addr);
+    for (int i = 0; i < HASH_MAP_CAPACITY; i++) {
+        uintptr_t slot_addr = tracked_pages[idx].addr;
+        if (slot_addr == aligned_addr) {
+            return idx;
         }
+        if (slot_addr == EMPTY_SLOT) {
+            return -1;
+        }
+        idx = (idx + 1) & (HASH_MAP_CAPACITY - 1);
     }
     return -1;
 }
@@ -94,35 +113,56 @@ static void install_segv_handler() {
 }
 
 static void c_track_page(uintptr_t addr, int prot_state) {
-    for (int i = 0; i < num_tracked_pages; i++) {
-        if (tracked_pages[i].addr == addr) {
-            tracked_pages[i].prot_state = prot_state;
+    int idx = hash_addr(addr);
+    int first_tombstone = -1;
+    for (int i = 0; i < HASH_MAP_CAPACITY; i++) {
+        uintptr_t slot_addr = tracked_pages[idx].addr;
+        if (slot_addr == addr) {
+            tracked_pages[idx].prot_state = prot_state;
             return;
         }
-    }
-    if (num_tracked_pages < MAX_TRACKED_PAGES) {
-        tracked_pages[num_tracked_pages].addr = addr;
-        tracked_pages[num_tracked_pages].prot_state = prot_state;
-        num_tracked_pages++;
+        if (slot_addr == TOMBSTONE_SLOT && first_tombstone == -1) {
+            first_tombstone = idx;
+        }
+        if (slot_addr == EMPTY_SLOT) {
+            int insert_idx = (first_tombstone != -1) ? first_tombstone : idx;
+            tracked_pages[insert_idx].addr = addr;
+            tracked_pages[insert_idx].prot_state = prot_state;
+            num_tracked_pages++;
+            return;
+        }
+        idx = (idx + 1) & (HASH_MAP_CAPACITY - 1);
     }
 }
 
 static void c_set_prot_state(uintptr_t addr, int prot_state) {
-    for (int i = 0; i < num_tracked_pages; i++) {
-        if (tracked_pages[i].addr == addr) {
-            tracked_pages[i].prot_state = prot_state;
+    int idx = hash_addr(addr);
+    for (int i = 0; i < HASH_MAP_CAPACITY; i++) {
+        uintptr_t slot_addr = tracked_pages[idx].addr;
+        if (slot_addr == addr) {
+            tracked_pages[idx].prot_state = prot_state;
             return;
         }
+        if (slot_addr == EMPTY_SLOT) {
+            return;
+        }
+        idx = (idx + 1) & (HASH_MAP_CAPACITY - 1);
     }
 }
 
 static void c_untrack_page(uintptr_t addr) {
-    for (int i = 0; i < num_tracked_pages; i++) {
-        if (tracked_pages[i].addr == addr) {
-            tracked_pages[i] = tracked_pages[num_tracked_pages - 1];
+    int idx = hash_addr(addr);
+    for (int i = 0; i < HASH_MAP_CAPACITY; i++) {
+        uintptr_t slot_addr = tracked_pages[idx].addr;
+        if (slot_addr == addr) {
+            tracked_pages[idx].addr = TOMBSTONE_SLOT;
             num_tracked_pages--;
             return;
         }
+        if (slot_addr == EMPTY_SLOT) {
+            return;
+        }
+        idx = (idx + 1) & (HASH_MAP_CAPACITY - 1);
     }
 }
 

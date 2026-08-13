@@ -2,7 +2,6 @@ package translation
 
 import (
 	"fmt"
-	"sort"
 
 	"github.com/LamkasDev/sharkie/cmd/vulkan"
 	vk "github.com/goki/vulkan"
@@ -14,13 +13,6 @@ type DirectAllocation struct {
 	Memory        vk.DeviceMemory
 	DeviceAddress uint64
 	Length        uint64
-}
-
-type AddressTranslationEntry struct {
-	GuestBase     uint64
-	GuestEnd      uint64
-	DeviceAddress uint64
-	Pad           uint64
 }
 
 func (t *GpuTranslator) GetBufferAddress(buffer vk.Buffer) uint64 {
@@ -51,26 +43,14 @@ func (t *GpuTranslator) TranslateToHostAddress(address uintptr) uintptr {
 	return 0
 }
 
-func (t *GpuTranslator) updateAddressTranslationSSBO() {
-	if t.addressTranslationMap == nil {
-		return
-	}
-	offsets := make([]uintptr, 0, len(t.directAllocations))
-	for offset := range t.directAllocations {
-		offsets = append(offsets, offset)
-	}
-	sort.Slice(offsets, func(i, j int) bool {
-		return offsets[i] < offsets[j]
-	})
-
-	for i, offset := range offsets {
-		alloc := t.directAllocations[offset]
-		t.addressTranslationMap[i].DeviceAddress = alloc.DeviceAddress
-		t.addressTranslationMap[i].GuestEnd = uint64(offset) + alloc.Length
-		t.addressTranslationMap[i].GuestBase = uint64(offset)
-		if offset == 0 || alloc.DeviceAddress == 0 {
-			panic("nope")
+func (t *GpuTranslator) TranslateToDeviceAddress(address uintptr) uint64 {
+	t.directAllocationsMutex.Lock()
+	defer t.directAllocationsMutex.Unlock()
+	for base, alloc := range t.directAllocations {
+		if address >= base && address < base+uintptr(alloc.Length) {
+			return alloc.DeviceAddress + uint64(address-base)
 		}
 	}
-	t.addressTranslationMap[len(offsets)].GuestBase = ^uint64(0)
+
+	return 0
 }
