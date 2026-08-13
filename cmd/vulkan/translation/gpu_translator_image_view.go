@@ -21,10 +21,10 @@ func (t *GpuTranslator) GetImageView(descriptor spirvStructs.ImageDescriptor) (*
 		return nil, err, false
 	}
 
-	t.imagesMutex.Lock()
+	t.imageViewsMutex.Lock()
 	view, ok := t.imageViews[hash]
-	if ok && view.Image == image && view.Image.Generation == image.Generation {
-		t.imagesMutex.Unlock()
+	if ok && view.Image == image {
+		t.imageViewsMutex.Unlock()
 		if image.ShouldUploadToVkImage(t.currentGuestFrame) {
 			if err = image.UploadToVkImage(t.handles, t.commandBuffer, t.GetLinearBuffer, t.currentGuestFrame); err != nil {
 				return nil, err, false
@@ -40,7 +40,7 @@ func (t *GpuTranslator) GetImageView(descriptor spirvStructs.ImageDescriptor) (*
 	if ok {
 		delete(t.imageViews, hash)
 	}
-	t.imagesMutex.Unlock()
+	t.imageViewsMutex.Unlock()
 
 	view, err = vulkan.CreateImageView(t.handles, vulkan.VulkanImageViewRequest{
 		Image:      image,
@@ -49,9 +49,9 @@ func (t *GpuTranslator) GetImageView(descriptor spirvStructs.ImageDescriptor) (*
 	if err != nil {
 		return nil, err, false
 	}
-	t.imagesMutex.Lock()
+	t.imageViewsMutex.Lock()
 	t.imageViews[hash] = view
-	t.imagesMutex.Unlock()
+	t.imageViewsMutex.Unlock()
 
 	return view, nil, recreated
 }

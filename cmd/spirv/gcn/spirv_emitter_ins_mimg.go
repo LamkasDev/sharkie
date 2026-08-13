@@ -599,7 +599,25 @@ func EmitResourceTypeSwitch(
 
 func extractResourceType(b *SpvBuilder, ctx *SpirvBlockContext, details *gcnSpec.MimgDetails) SpirvId {
 	typeUint := ctx.GetId(BlockContextIdTypeUint)
+	typeBool := ctx.GetId(BlockContextIdTypeBool)
+
+	dw2 := ctx.GetGcnSgprId(b, details.Srsrc*4+2)
 	dw3 := ctx.GetGcnSgprId(b, details.Srsrc*4+3)
-	shifted := b.EmitShiftRightLogical(typeUint, dw3, b.EmitConstantUint(typeUint, 28))
-	return b.EmitBitwiseAnd(typeUint, shifted, b.EmitConstantUint(typeUint, 0xF))
+	dw4 := ctx.GetGcnSgprId(b, details.Srsrc*4+4)
+
+	resType := b.EmitBitwiseAnd(typeUint, b.EmitShiftRightLogical(typeUint, dw3, b.EmitConstantUint(typeUint, 28)), b.EmitConstantUint(typeUint, 0xF))
+
+	// Temporary special handling for buffers.
+	isBuffer := b.EmitIEqual(typeBool, resType, b.EmitConstantUint(typeUint, gcn.GcnImageTypeBuffer))
+	depth := b.EmitIAdd(typeUint, b.EmitBitwiseAnd(typeUint, dw4, b.EmitConstantUint(typeUint, 0x1FFF)), b.EmitConstantUint(typeUint, 1))
+	height := b.EmitIAdd(typeUint, b.EmitBitwiseAnd(typeUint, b.EmitShiftRightLogical(typeUint, dw2, b.EmitConstantUint(typeUint, 14)), b.EmitConstantUint(typeUint, 0x3FFF)), b.EmitConstantUint(typeUint, 1))
+	is3D := b.EmitUGreaterThan(typeBool, depth, b.EmitConstantUint(typeUint, 1))
+	is2D := b.EmitUGreaterThan(typeBool, height, b.EmitConstantUint(typeUint, 1))
+	inferredType := b.EmitSelect(
+		typeUint, is3D,
+		b.EmitConstantUint(typeUint, gcn.GcnImageTypeColor3D),
+		b.EmitSelect(typeUint, is2D, b.EmitConstantUint(typeUint, gcn.GcnImageTypeColor2D), b.EmitConstantUint(typeUint, gcn.GcnImageTypeColor1D)),
+	)
+
+	return b.EmitSelect(typeUint, isBuffer, inferredType, resType)
 }

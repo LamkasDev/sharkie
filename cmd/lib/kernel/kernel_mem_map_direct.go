@@ -80,11 +80,57 @@ func libKernel_sys_sceKernelMapDirectMemory(addrPtr uintptr, length uint64, prot
 		return SCE_KERNEL_ERROR_EINVAL
 	}
 
-	// Get virtual address.
+	// Check adress alignment, round down hint to page boundary.
+	isFixed := (flags & MAP_FIXED) != 0
 	addrPtrSlice := unsafe.Slice((*byte)(unsafe.Pointer(addrPtr)), 8)
-	allocatedAddr := uintptr(binary.LittleEndian.Uint64(addrPtrSlice))
-	if allocatedAddr == 0 || ((flags&MAP_FIXED) == 0 && !structs.GlobalMemoryManager.IsAddressRangeFree(allocatedAddr, uintptr(length))) {
+	addr := uintptr(binary.LittleEndian.Uint64(addrPtrSlice))
+	if alignment == 0 {
+		alignment = uintptr(MemoryPageSize)
+	}
+	if isFixed && addr != 0 && (addr&(alignment-1)) != 0 {
+		logger.Printf("%-132s %s failed due to invalid fixed address alignment %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceKernelMapDirectMemory"),
+			color.Yellow.Sprintf("0x%X", addr),
+		)
+		emu.SetErrno(EINVAL)
+		return ERR_PTR
+	}
+	alignedAddr := addr & ^(alignment - 1)
+	alignedSize := (length + uint64(alignment) - 1) & ^(uint64(alignment) - 1)
+
+	// Get virtual address.
+	allocatedAddr := alignedAddr
+	if allocatedAddr == 0 {
 		allocatedAddr = GlobalAllocator.GetNextAlignedAddress(uint64(alignment), length)
+	}
+	if !structs.GlobalMemoryManager.IsAddressRangeUnmapped(alignedAddr, uintptr(alignedSize)) {
+		allocatedAddr = 0
+		if !isFixed {
+			allocatedAddr = GlobalAllocator.GetNextAlignedAddress(uint64(alignment), length)
+		}
+	}
+	if allocatedAddr == 0 {
+		logger.Printf("%-132s %s failed mapping memory (addrPtr=%s, length=%s, prot=%s, flags=%s, offset=%s, alignment=%s).\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceKernelMapDirectMemory"),
+			color.Yellow.Sprintf("0x%X", addrPtr),
+			color.Yellow.Sprintf("0x%X", length),
+			color.Blue.Sprint(MemoryProtName(prot)),
+			color.Yellow.Sprintf("0x%X", flags),
+			color.Yellow.Sprintf("0x%X", offset),
+			color.Yellow.Sprintf("0x%X", alignment),
+		)
+		emu.SetErrno(ENOMEM)
+		return ERR_PTR
+	}
+	if !isFixed && alignedAddr != 0 && allocatedAddr != alignedAddr {
+		logger.Printf("%-132s %s ignored map address hint (wanted=%s, got=%s).\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceKernelMapDirectMemory"),
+			color.Yellow.Sprintf("0x%X", alignedAddr),
+			color.Yellow.Sprintf("0x%X", allocatedAddr),
+		)
 	}
 
 	// Map memory.
@@ -102,15 +148,15 @@ func libKernel_sys_sceKernelMapDirectMemory(addrPtr uintptr, length uint64, prot
 	// Write back address.
 	WriteAddress(addrPtr, allocatedAddr)
 
-	logger.Printf("%-132s %s mapped %s bytes at %s (addrPtr=%s, offset=%s, prot=%s, flags=%s, alignment=%s).\n",
+	logger.Printf("%-132s %s mapped %s bytes at %s (addrPtr=%s, prot=%s, flags=%s, offset=%s, alignment=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sceKernelMapDirectMemory"),
 		color.Yellow.Sprintf("0x%X", length),
 		color.Yellow.Sprintf("0x%X", allocatedAddr),
 		color.Yellow.Sprintf("0x%X", addrPtr),
-		color.Yellow.Sprintf("0x%X", offset),
 		color.Blue.Sprint(MemoryProtName(prot)),
 		color.Yellow.Sprintf("0x%X", flags),
+		color.Yellow.Sprintf("0x%X", offset),
 		color.Yellow.Sprintf("0x%X", alignment),
 	)
 	return 0

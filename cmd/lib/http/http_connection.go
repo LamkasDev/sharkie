@@ -29,6 +29,7 @@ func libSceHttp_sceHttpCreateConnectionWithURL(templateId uint32, url Cstring, e
 		)
 		return 0x80433060
 	}
+	urlString := GoString(url)
 
 	// Parse URI (first get required size, then parse with allocated pool).
 	var required uint64
@@ -66,7 +67,7 @@ func libSceHttp_sceHttpCreateConnectionWithURL(templateId uint32, url Cstring, e
 	// Create connection.
 	connection := GlobalHttpHandler.CreateConnection()
 	connection.TemplateId = templateId
-	connection.Url = GoString(url)
+	connection.Url = urlString
 	connection.Scheme = schemeString
 	connection.Host = hostString
 	if enableKeepAlive != 0 {

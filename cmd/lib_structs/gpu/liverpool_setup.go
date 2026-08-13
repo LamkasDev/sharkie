@@ -29,11 +29,13 @@ type OrderedIndirectBuffer struct {
 
 // LiverpoolRegisters mirrors register banks on the Liverpool GPU.
 type LiverpoolRegisters struct {
-	System     [GcnRegBankSize]uint32
-	Config     [GcnRegBankSize]uint32
-	Shader     [GcnRegBankSize]uint32
-	Context    [GcnRegBankSize]uint32
-	UserConfig [GcnRegBankSize]uint32
+	System        [GcnRegBankSize]uint32
+	Config        [GcnRegBankSize]uint32
+	Shader        [GcnRegBankSize]uint32
+	Context       [GcnRegBankSize]uint32
+	UserConfig    [GcnRegBankSize]uint32
+	CbColorExtent [8]uint32
+	DbDepthExtent uint32
 }
 
 var GlobalUserDataSnapshots = map[uint32]spirvStructs.UserData{}

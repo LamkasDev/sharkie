@@ -17,28 +17,29 @@ func (t *GpuTranslator) GetSurfaceByAddress(address uintptr) *vulkan.VulkanSurfa
 }
 
 func (t *GpuTranslator) GetSurface(descriptor spirvStructs.ImageDescriptor, format vk.Format) (*vulkan.VulkanSurface, error) {
-	t.surfacesMutex.Lock()
-	surface, ok := t.surfaces[descriptor.BaseAddress]
-	t.surfacesMutex.Unlock()
-
-	if ok {
-		// Check if we need to recreate the existing surface.
-		recreate := surface.ImageView.Image.NeedsRecreate(descriptor, format, true)
-		if !recreate {
-			surface.ImageView.Image.IsSurface = true
-			if surface.ImageView.Image.ShouldUploadToVkImage(t.currentGuestFrame) {
-				if err := surface.ImageView.Image.UploadToVkImage(t.handles, t.commandBuffer, t.GetLinearBuffer, t.currentGuestFrame); err != nil {
-					logger.Printf("failed to upload image: %v\n", err)
-				}
-			}
-			return surface, nil
-		}
-	}
-
 	image, err, _ := t.GetImage(descriptor, format, true)
 	if err != nil {
 		return nil, err
 	}
+
+	t.surfacesMutex.Lock()
+	surface, ok := t.surfaces[descriptor.BaseAddress]
+	if ok && surface.ImageView.Image == image {
+		t.surfacesMutex.Unlock()
+		return surface, nil
+	}
+
+	if ok {
+		delete(t.surfaces, descriptor.BaseAddress)
+		if t.activeSurface != nil && t.activeSurface.Address == descriptor.BaseAddress {
+			t.activeSurface = nil
+		}
+		if t.activeDepthSurface != nil && t.activeDepthSurface.Address == descriptor.BaseAddress {
+			t.activeDepthSurface = nil
+		}
+		t.handles.DeferDestroySurface(surface)
+	}
+	t.surfacesMutex.Unlock()
 
 	surface, err = vulkan.CreateSurface(t.handles, vulkan.VulkanSurfaceRequest{
 		Descriptor: descriptor,

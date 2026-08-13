@@ -23,8 +23,8 @@ func (t *GpuTranslator) ReadMemory(address, size uintptr) bool {
 
 // InvalidateMemory services a CPU write fault or guest mprotect.
 func (t *GpuTranslator) InvalidateMemory(address, size uintptr) bool {
-	for _, image := range t.CollectGpuResourcesInRange(address, size) {
-		image.MarkCpuModified(t.currentGuestFrame)
+	for _, group := range t.CollectGpuResourcesInRange(address, size) {
+		group.MarkCpuModified(t.currentGuestFrame)
 	}
 
 	return true

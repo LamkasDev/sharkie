@@ -81,6 +81,7 @@ const (
 )
 
 const (
+	GcnImageTypeBuffer           = 0
 	GcnImageTypeColor1D          = 8
 	GcnImageTypeColor2D          = 9
 	GcnImageTypeColor3D          = 10

@@ -1,11 +1,13 @@
 package structs
 
-import "github.com/cespare/xxhash"
+import (
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/gcn"
+	"github.com/cespare/xxhash"
+)
 
 func NewImageDescriptor(dwords []uint32) ImageDescriptor {
 	baseAddress := ((uintptr(dwords[0]) | (uintptr(dwords[1]&0xFF) << 32)) << 8) & 0xFFFFFFFFFF
 	return ImageDescriptor{
-		Dwords:         [8]uint32(dwords),
 		BaseAddress:    baseAddress,
 		MinLod:         uint16((dwords[1] >> 8) & 0xFFF),
 		DataFormat:     uint8((dwords[1] >> 20) & 0x3F),
@@ -34,7 +36,36 @@ func NewImageDescriptor(dwords []uint32) ImageDescriptor {
 	}
 }
 
+// Temporary special handling for buffers.
+func (z *ImageDescriptor) InferredType() uint8 {
+	if z.Type == gcn.GcnImageTypeBuffer {
+		if z.Depth > 1 {
+			return gcn.GcnImageTypeColor3D
+		} else if z.Height > 1 {
+			return gcn.GcnImageTypeColor2D
+		}
+
+		return gcn.GcnImageTypeColor1D
+	}
+
+	return z.Type
+}
+
 func (z *ImageDescriptor) Hash() uint64 {
 	data, _ := z.MarshalHash()
+	return xxhash.Sum64(data)
+}
+
+func (z *ImageDescriptor) ViewHash() uint64 {
+	clone := *z
+	clone.DstSelX = 0
+	clone.DstSelY = 0
+	clone.DstSelZ = 0
+	clone.DstSelW = 0
+	clone.MType = 0
+	clone.PerfModulation = 0
+	clone.Type = z.InferredType()
+
+	data, _ := clone.MarshalHash()
 	return xxhash.Sum64(data)
 }

@@ -152,13 +152,13 @@ func (r *Renderer) ConsumeFlips(done chan struct{}) {
 		var err error
 		surface := r.GpuTranslator.GetSurfaceByAddress(frame.Flip.GpuAddress)
 		if surface == nil {
-			image := r.GpuTranslator.GetImageByAddress(frame.Flip.GpuAddress)
-			if image == nil {
+			group := r.GpuTranslator.GetImageByAddress(frame.Flip.GpuAddress)
+			if group == nil {
 				logger.Printf("[%s] failed to find surface image.\n",
 					color.Blue.Sprintf("Frame %d", frame.Number),
 				)
 			} else {
-				surface, err = r.GpuTranslator.GetSurface(image.FirstDescriptor, image.ImageFormat)
+				surface, err = r.GpuTranslator.GetSurface(group.LeadingImage.FirstDescriptor, group.LeadingImage.ImageFormat)
 				if err != nil {
 					panic(err)
 				}

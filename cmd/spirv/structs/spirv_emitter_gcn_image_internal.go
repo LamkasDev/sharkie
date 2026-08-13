@@ -4,8 +4,6 @@ package structs
 //go:generate go run ../../hsp_gen/hsp_gen.go -- spirv_emitter_gcn_image_internal_gen.go
 
 type ImageDescriptor struct {
-	Dwords [8]uint32
-
 	// 128-bit resource.
 	BaseAddress    uintptr
 	MinLod         uint16

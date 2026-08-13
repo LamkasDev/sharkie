@@ -5,9 +5,9 @@ import (
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
-	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/posix"
 	"github.com/LamkasDev/sharkie/cmd/logger"
+	"github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/gookit/color"
 )
 
@@ -44,23 +44,64 @@ func libKernel_sceKernelReserveVirtualRange(addrPtr uintptr, length uint64, flag
 		return ERR_PTR
 	}
 
+	// Check adress alignment, round down hint to page boundary.
+	isFixed := (flags & MAP_FIXED) != 0
 	addrPtrSlice := unsafe.Slice((*byte)(unsafe.Pointer(addrPtr)), 8)
 	addr := uintptr(binary.LittleEndian.Uint64(addrPtrSlice))
-
-	allocatedAddr, err := AllocKernelMemory(addr, length, PROT_NONE, flags|MAP_ANON, alignment)
-	if allocatedAddr == 0 {
-		logger.Printf("%-132s %s failed due to allocation error (%s).\n",
+	if alignment == 0 {
+		alignment = uintptr(MemoryPageSize)
+	}
+	if isFixed && addr != 0 && (addr&(alignment-1)) != 0 {
+		logger.Printf("%-132s %s failed due to invalid fixed address alignment %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceKernelReserveVirtualRange"),
-			err.Error(),
+			color.Yellow.Sprintf("0x%X", addr),
 		)
-		return emu.GetErrno() - SonyErrorOffset
+		emu.SetErrno(EINVAL)
+		return ERR_PTR
+	}
+	alignedAddr := addr & ^(alignment - 1)
+	alignedSize := (length + uint64(alignment) - 1) & ^(uint64(alignment) - 1)
+
+	// Get virtual address.
+	allocatedAddr := alignedAddr
+	if allocatedAddr == 0 {
+		allocatedAddr = GlobalAllocator.GetNextAlignedAddress(uint64(alignment), length)
+	}
+	if !structs.GlobalMemoryManager.IsAddressRangeFree(alignedAddr, uintptr(alignedSize)) {
+		allocatedAddr = 0
+		if !isFixed {
+			allocatedAddr = GlobalAllocator.GetNextAlignedAddress(uint64(alignment), length)
+		}
+	}
+	if allocatedAddr == 0 {
+		logger.Printf("%-132s %s failed reserving memory (addrPtr=%s, length=%s, flags=%s, alignment=%s).\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceKernelReserveVirtualRange"),
+			color.Yellow.Sprintf("0x%X", addrPtr),
+			color.Yellow.Sprintf("0x%X", length),
+			color.Yellow.Sprintf("0x%X", flags),
+			color.Yellow.Sprintf("0x%X", alignment),
+		)
+		emu.SetErrno(ENOMEM)
+		return ERR_PTR
+	}
+	if !isFixed && alignedAddr != 0 && allocatedAddr != alignedAddr {
+		/* logger.Printf("%-132s %s ignored reservation address hint (wanted=%s, got=%s).\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceKernelReserveVirtualRange"),
+			color.Yellow.Sprintf("0x%X", alignedAddr),
+			color.Yellow.Sprintf("0x%X", allocatedAddr),
+		) */
 	}
 
-	HookMap(allocatedAddr, length, PROT_NONE)
+	// Reserve memory.
+	HookReserve(allocatedAddr, length)
+
+	// Write back address.
 	WriteAddress(addrPtr, allocatedAddr)
 
-	logger.Printf("%-132s %s mapped %s bytes at %s (addrPtr=%s, flags=%s, alignment=%s).\n",
+	logger.Printf("%-132s %s reserved %s bytes at %s (addrPtr=%s, flags=%s, alignment=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sceKernelReserveVirtualRange"),
 		color.Yellow.Sprintf("0x%X", length),

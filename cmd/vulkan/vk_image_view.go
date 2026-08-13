@@ -64,8 +64,8 @@ func CreateVkImageView(handles *VulkanHandles, request VulkanImageViewRequest, s
 	viewType := vk.ImageViewType2d
 	baseArray := uint32(request.Descriptor.BaseArray)
 	layerCount := uint32(1)
-	switch request.Descriptor.Type {
-	case gcn2.GcnImageTypeColor1D:
+	switch request.Descriptor.InferredType() {
+	case gcn2.GcnImageTypeBuffer, gcn2.GcnImageTypeColor1D:
 		viewType = vk.ImageViewType1d
 	case gcn2.GcnImageTypeColor3D:
 		viewType = vk.ImageViewType3d

@@ -4,8 +4,6 @@ package structs
 //go:generate go run ../../hsp_gen/hsp_gen.go -- spirv_emitter_gcn_sampler_internal_gen.go
 
 type SamplerDescriptor struct {
-	Dwords [4]uint32
-
 	ClampX            uint8
 	ClampY            uint8
 	ClampZ            uint8

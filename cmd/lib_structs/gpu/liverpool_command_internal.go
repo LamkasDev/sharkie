@@ -31,6 +31,8 @@ type LiverpoolBindPipelineInternal struct {
 
 	// Render target.
 	RtBase         reg.GpuMemoryBase
+	RtWidth        uint16
+	RtHeight       uint16
 	RtPitch        reg.CbColorPitch
 	RtSlice        uint32
 	RtView         reg.CbColorView
@@ -74,6 +76,8 @@ type LiverpoolBindPipelineInternal struct {
 	DbDepthControl    reg.DbDepthControl
 	DbDepthSize       reg.DbDepthSize
 	DbZWriteBase      reg.GpuMemoryBase
+	DbWidth           uint16
+	DbHeight          uint16
 	DbZInfo           reg.DbZInfo
 	DbDepthClearValue uint32
 

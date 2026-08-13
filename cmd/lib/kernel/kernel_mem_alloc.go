@@ -8,6 +8,18 @@ import (
 	"github.com/gookit/color"
 )
 
+// 0x0000000000017690
+// __int64 __fastcall sceKernelAllocateMainDirectMemory(__m128 _XMM0, __int64, __int64, __int64, _QWORD *)
+func libKernel_sceKernelAllocateMainDirectMemory(length, alignment uint64, memType int32, destPtr uintptr) uintptr {
+	size := libKernel_sceKernelGetDirectMemorySize()
+	err := libKernel_sys_sceKernelAllocateDirectMemory(0, uintptr(size), length, alignment, memType, destPtr)
+	if err == ERR_PTR {
+		return emu.GetErrno() - SonyErrorOffset
+	}
+
+	return 0
+}
+
 // 0x00000000000175D0
 // __int64 __fastcall sceKernelAllocateDirectMemory(__int64, __int64, __int64, __int64, int, _QWORD *)
 func libKernel_sceKernelAllocateDirectMemory(searchStart, searchEnd uintptr, length, alignment uint64, memType int32, destPtr uintptr) uintptr {

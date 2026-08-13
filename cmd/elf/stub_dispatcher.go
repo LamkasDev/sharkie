@@ -14,6 +14,7 @@ import (
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/irq"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/module"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/net"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/np_manager"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/pad"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/posix"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/save_data"
@@ -381,6 +382,10 @@ func CreateDispatcher(goFn any) asm.StubDispatcher {
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn(SysmoduleId(ctx.DI)))
 		}
+	case func(UserId, *NpState) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(UserId(ctx.DI), (*NpState)(unsafe.Pointer(ctx.SI))))
+		}
 	case func(UserId, *UserColor) uintptr:
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn(UserId(ctx.DI), (*UserColor)(unsafe.Pointer(ctx.SI))))
@@ -555,6 +560,10 @@ func CreateDispatcher(goFn any) asm.StubDispatcher {
 	case func(uint64, uint32) uintptr:
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn(uint64(ctx.DI), uint32(ctx.SI)))
+		}
+	case func(uint64, uint64, int32, uintptr) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(uint64(ctx.DI), uint64(ctx.SI), int32(ctx.DX), ctx.CX))
 		}
 	case func(uintptr) uintptr:
 		return func(ctx *asm.RegContext) uintptr {

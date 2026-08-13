@@ -22,16 +22,64 @@ func (t *GpuTranslator) BindPipeline(frame uint64, bind *gpu.LiverpoolBindPipeli
 	if rtAddress == 0 && dbAddress == 0 {
 		return
 	}
-	dbWidth := (bind.DbDepthSize.PitchTileMax() + 1) * 8
-	dbHeight := (bind.DbDepthSize.HeightTileMax() + 1) * 8
+
+	// Handle depth surface.
+	var dbWidth, dbHeight uint32
+	var depthSurface *vulkan.VulkanSurface
+	depthTestEnable := bind.DbDepthControl.ZEnable()
+	depthWriteEnable := bind.DbDepthControl.ZWriteEnable()
+	depthFormat := vkGcn.TranslateGcnDepthFormat(bind.DbZInfo.Format(), t.handles.FormatProperties)
+	if dbAddress != 0 && depthFormat != vk.FormatUndefined && (depthTestEnable || depthWriteEnable) {
+		dbWidth = uint32(bind.DbWidth)
+		if dbWidth == 0 {
+			dbWidth = (bind.DbDepthSize.PitchTileMax() + 1) * 8
+		}
+		dbHeight = uint32(bind.DbHeight)
+		if dbHeight == 0 {
+			dbHeight = (bind.DbDepthSize.HeightTileMax() + 1) * 8
+		}
+
+		var err error
+		depthSurface, err = t.GetSurface(spirvStructs.ImageDescriptor{
+			BaseAddress: dbAddress,
+			Width:       uint16(dbWidth),
+			Height:      uint16(dbHeight),
+			DataFormat:  gcn2.GcnDataFormat8_8_8_8, NumFormat: gcn2.GcnNumFormatUnorm,
+			DstSelX: 4, DstSelY: 5, DstSelZ: 6, DstSelW: 7,
+			Depth: 1, Pitch: uint16(dbWidth),
+		}, depthFormat)
+		if err != nil {
+			return
+		}
+		dbWidth = uint32(depthSurface.ImageView.Image.FirstDescriptor.Width)
+		dbHeight = uint32(depthSurface.ImageView.Image.FirstDescriptor.Height)
+	} else {
+		dbAddress = 0
+		dbWidth = 0
+		dbHeight = 0
+	}
+	t.activeDepthSurface = depthSurface
 
 	// Handle color surface.
 	var rtWidth, rtHeight uint32
 	var colorSurface *vulkan.VulkanSurface
 	rtFormat, _ := vkGcn.TranslateGcnFormat(uint8(bind.CbColorInfo0.Format()), uint8(bind.CbColorInfo0.NumberType()), bind.CbColorInfo0.CompSwap())
 	if rtAddress != 0 && rtFormat != vk.FormatUndefined {
-		rtWidth = vkGcn.ColorBufferPitch(reg.CbColorPitch(bind.RtPitch))
-		rtHeight = vkGcn.ColorBufferHeight(reg.CbColorPitch(bind.RtPitch), bind.RtSlice)
+		rtWidth = uint32(bind.RtWidth)
+		if rtWidth == 0 {
+			rtWidth = vkGcn.ColorBufferPitch(reg.CbColorPitch(bind.RtPitch))
+		}
+		rtHeight = uint32(bind.RtHeight)
+		if rtHeight == 0 {
+			rtHeight = vkGcn.ColorBufferHeight(reg.CbColorPitch(bind.RtPitch), bind.RtSlice)
+		}
+		// TODO: can't figure this out.
+		if rtWidth == 1920 && rtHeight == 1088 {
+			rtHeight = 1080
+		}
+		if rtWidth == 640 && rtHeight == 512 {
+			rtHeight = 480
+		}
 
 		var err error
 		colorSurface, err = t.GetSurface(spirvStructs.ImageDescriptor{
@@ -45,6 +93,8 @@ func (t *GpuTranslator) BindPipeline(frame uint64, bind *gpu.LiverpoolBindPipeli
 		if err != nil {
 			return
 		}
+		rtWidth = uint32(colorSurface.ImageView.Image.FirstDescriptor.Width)
+		rtHeight = uint32(colorSurface.ImageView.Image.FirstDescriptor.Height)
 	} else {
 		// Fallback for depth-only rendering.
 		rtWidth = dbWidth
@@ -56,19 +106,15 @@ func (t *GpuTranslator) BindPipeline(frame uint64, bind *gpu.LiverpoolBindPipeli
 	// Stale depth from a previous color target corrupts compositing on the next one.
 	if t.lastColorRtAddress != 0 && t.lastColorRtAddress != rtAddress {
 		t.surfacesMutex.Lock()
-		depthSurface := t.surfaces[bind.DbZWriteBase.Address()]
+		clearDepthSurface := t.surfaces[bind.DbZWriteBase.Address()]
 		t.surfacesMutex.Unlock()
-		if depthSurface != nil {
-			depthSurface.FrameUsed = 0
+		if clearDepthSurface != nil {
+			clearDepthSurface.FrameUsed = 0
 		}
 	}
 	t.lastColorRtAddress = rtAddress
 
-	// Handle depth surface.
-	var depthSurface *vulkan.VulkanSurface
-	depthFormat := vkGcn.TranslateGcnDepthFormat(bind.DbZInfo.Format(), t.handles.FormatProperties)
-	depthTestEnable := bind.DbDepthControl.ZEnable()
-	depthWriteEnable := bind.DbDepthControl.ZWriteEnable()
+	// Handle depth writes.
 	if bind.SpiShaderZFormat.ZExportFormat() == 0 {
 		depthWriteEnable = false // SPI_SHADER_ZERO (No depth export)
 	}
@@ -76,23 +122,6 @@ func (t *GpuTranslator) BindPipeline(frame uint64, bind *gpu.LiverpoolBindPipeli
 	if zfunc == 7 { // ALWAYS
 		depthWriteEnable = false
 	}
-	if dbAddress != 0 && depthFormat != vk.FormatUndefined && (depthTestEnable || depthWriteEnable) {
-		var err error
-		depthSurface, err = t.GetSurface(spirvStructs.ImageDescriptor{
-			BaseAddress: dbAddress,
-			Width:       uint16(dbWidth),
-			Height:      uint16(dbHeight),
-			DataFormat:  gcn2.GcnDataFormat8_8_8_8, NumFormat: gcn2.GcnNumFormatUnorm,
-			DstSelX: 4, DstSelY: 5, DstSelZ: 6, DstSelW: 7,
-			Depth: 1, Pitch: uint16(dbWidth),
-		}, depthFormat)
-		if err != nil {
-			return
-		}
-	} else {
-		dbAddress = 0
-	}
-	t.activeDepthSurface = depthSurface
 
 	// Get or create framebuffer.
 	format := vk.FormatUndefined

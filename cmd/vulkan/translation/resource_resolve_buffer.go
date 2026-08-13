@@ -118,14 +118,14 @@ func (t *GpuTranslator) ResolveBufferTargets(accesses []ResolvedBufferAccess, ki
 		if _, ok := seen[access.Descriptor.BaseAddress]; ok {
 			continue
 		}
-		t.imagesMutex.Lock()
-		image, ok := t.images[access.Descriptor.BaseAddress]
-		t.imagesMutex.Unlock()
+		t.imageGroupsMutex.Lock()
+		group, ok := t.imageGroups[access.Descriptor.BaseAddress]
+		t.imageGroupsMutex.Unlock()
 		if !ok {
 			continue
 		}
 		seen[access.Descriptor.BaseAddress] = struct{}{}
-		images = append(images, image)
+		images = append(images, group.LeadingImage)
 	}
 
 	return images, nil

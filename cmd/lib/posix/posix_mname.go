@@ -38,11 +38,12 @@ func libScePosix_mname(addr uintptr, size uint64, namePtr Cstring) uintptr {
 	alignedAddr := addr & ^(uintptr(MemoryPageSize) - 1)
 	alignedSize := (size + MemoryPageSize - 1) & ^(MemoryPageSize - 1)
 
-	// TODO: actually name the regions.
+	// Name region.
 	name := "unnamed"
 	if namePtr != nil {
 		name = GoString(namePtr)
 	}
+	HookName(alignedAddr, alignedSize, name)
 
 	logger.Printf("%-132s %s marked %s bytes at %s as %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),

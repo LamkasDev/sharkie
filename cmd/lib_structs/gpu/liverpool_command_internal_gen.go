@@ -25,19 +25,21 @@ func (z LiverpoolBindComputePipelineInternal) Msgsize() (s int) {
 func (z *LiverpoolBindPipelineInternal) MarshalHash() (o []byte, err error) {
 	var b []byte
 	o = hsp.Require(b, z.Msgsize())
-	// map header, size 45
-	o = append(o, 0xde, 0x0, 0x2d)
+	// map header, size 49
+	o = append(o, 0xde, 0x0, 0x31)
 	o = hsp.AppendUint64(o, uint64(z.CbColorInfo0))
 	o = hsp.AppendUint64(o, uint64(z.CbShaderMask))
 	o = hsp.AppendUint32(o, z.DbDepthClearValue)
 	o = hsp.AppendUint64(o, uint64(z.DbDepthControl))
 	o = hsp.AppendUint64(o, uint64(z.DbDepthSize))
+	o = hsp.AppendUint16(o, z.DbHeight)
 	o = hsp.AppendUint64(o, uint64(z.DbRenderControl))
 	o = hsp.AppendUint64(o, uint64(z.DbShaderControl))
 	o = hsp.AppendUint32(o, z.DbStencilClearValue)
 	o = hsp.AppendUint64(o, uint64(z.DbStencilControl))
 	o = hsp.AppendUint64(o, uint64(z.DbStencilRefMask))
 	o = hsp.AppendUint64(o, uint64(z.DbStencilRefMaskBf))
+	o = hsp.AppendUint16(o, z.DbWidth)
 	o = hsp.AppendUint64(o, uint64(z.DbZInfo))
 	o = hsp.AppendUint64(o, uint64(z.DbZWriteBase))
 	o = hsp.AppendUint32(o, z.MultiPrimIbResetIndex)
@@ -66,10 +68,12 @@ func (z *LiverpoolBindPipelineInternal) MarshalHash() (o []byte, err error) {
 	o = hsp.AppendUint32(o, z.RtClearWord0)
 	o = hsp.AppendUint32(o, z.RtClearWord1)
 	o = hsp.AppendUint64(o, uint64(z.RtColorControl))
+	o = hsp.AppendUint16(o, z.RtHeight)
 	o = hsp.AppendUint64(o, uint64(z.RtPitch))
 	o = hsp.AppendUint32(o, z.RtSlice)
 	o = hsp.AppendUint64(o, uint64(z.RtTargetMask))
 	o = hsp.AppendUint64(o, uint64(z.RtView))
+	o = hsp.AppendUint16(o, z.RtWidth)
 	o = hsp.AppendUint64(o, uint64(z.SpiShaderColFormat))
 	o = hsp.AppendUint64(o, uint64(z.SpiShaderZFormat))
 	o = hsp.AppendUint64(o, uint64(z.SpiVsOutConfig))
@@ -80,7 +84,7 @@ func (z *LiverpoolBindPipelineInternal) MarshalHash() (o []byte, err error) {
 
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
 func (z *LiverpoolBindPipelineInternal) Msgsize() (s int) {
-	s = 3 + hsp.Uint64Size + hsp.Uint64Size + 18 + hsp.Uint32Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + 20 + hsp.Uint32Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + 22 + hsp.Uint32Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + 9 + hsp.Uint32Size + hsp.Uint64Size + hsp.Uint64Size + 16 + hsp.ArrayHeaderSize + (int(32) * (hsp.Uint32Size)) + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + 13 + hsp.Uint32Size + 13 + hsp.Uint32Size + hsp.Uint64Size + hsp.Uint64Size + 8 + hsp.Uint32Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + 13 + hsp.Uint32Size + hsp.Uint64Size
+	s = 3 + hsp.Uint64Size + hsp.Uint64Size + 18 + hsp.Uint32Size + hsp.Uint64Size + hsp.Uint64Size + 9 + hsp.Uint16Size + hsp.Uint64Size + hsp.Uint64Size + 20 + hsp.Uint32Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + 8 + hsp.Uint16Size + hsp.Uint64Size + hsp.Uint64Size + 22 + hsp.Uint32Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + 9 + hsp.Uint32Size + hsp.Uint64Size + hsp.Uint64Size + 16 + hsp.ArrayHeaderSize + (int(32) * (hsp.Uint32Size)) + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + 13 + hsp.Uint32Size + 13 + hsp.Uint32Size + hsp.Uint64Size + 9 + hsp.Uint16Size + hsp.Uint64Size + 8 + hsp.Uint32Size + hsp.Uint64Size + hsp.Uint64Size + 8 + hsp.Uint16Size + hsp.Uint64Size + hsp.Uint64Size + hsp.Uint64Size + 13 + hsp.Uint32Size + hsp.Uint64Size
 	return
 }
 

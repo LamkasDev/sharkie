@@ -61,9 +61,11 @@ type GpuTranslator struct {
 	framebuffers      map[vulkan.FramebufferRequest]*vulkan.VulkanFramebuffer
 
 	// Caches for images, image views and samplers.
-	imagesMutex sync.Mutex
-	images      map[uintptr]*vulkan.VulkanImage
-	imageViews  map[uint64]*vulkan.VulkanImageView
+	imageGroupsMutex sync.Mutex
+	imageGroups      map[uintptr]*vulkan.VulkanImageGroup
+
+	imageViewsMutex sync.Mutex
+	imageViews      map[uint64]*vulkan.VulkanImageView
 
 	samplersMutex  sync.Mutex
 	samplers       map[uint64]vk.Sampler
@@ -146,9 +148,10 @@ func NewGpuTranslator(handles *vulkan.VulkanHandles, bknd backend.Backend[glfwvu
 		framebuffersMutex: sync.Mutex{},
 		framebuffers:      map[vulkan.FramebufferRequest]*vulkan.VulkanFramebuffer{},
 
-		imagesMutex: sync.Mutex{},
-		images:      map[uintptr]*vulkan.VulkanImage{},
-		imageViews:  map[uint64]*vulkan.VulkanImageView{},
+		imageGroupsMutex: sync.Mutex{},
+		imageGroups:      map[uintptr]*vulkan.VulkanImageGroup{},
+		imageViewsMutex:  sync.Mutex{},
+		imageViews:       map[uint64]*vulkan.VulkanImageView{},
 
 		samplersMutex: sync.Mutex{},
 		samplers:      map[uint64]vk.Sampler{},
@@ -629,8 +632,8 @@ func (t *GpuTranslator) ResetFence() {
 	}
 }
 
-func (t *GpuTranslator) CollectGpuResourcesInRange(address, size uintptr) []*vulkan.VulkanImage {
-	var images []*vulkan.VulkanImage
+func (t *GpuTranslator) CollectGpuResourcesInRange(address, size uintptr) []*vulkan.VulkanImageGroup {
+	var groups []*vulkan.VulkanImageGroup
 	end := address + size
 	seen := map[uintptr]struct{}{}
 
@@ -641,25 +644,25 @@ func (t *GpuTranslator) CollectGpuResourcesInRange(address, size uintptr) []*vul
 				if resource == nil {
 					continue
 				}
-				image := resource.(*vulkan.VulkanImage)
-				if _, ok := seen[image.Address]; !ok {
-					images = append(images, image)
-					seen[image.Address] = struct{}{}
+				group := resource.(*vulkan.VulkanImageGroup)
+				if _, ok := seen[group.Address]; !ok {
+					groups = append(groups, group)
+					seen[group.Address] = struct{}{}
 				}
 			}
 		}
 	}
 	structs.GlobalMemoryManager.Lock.Unlock()
 
-	return images
+	return groups
 }
 
 func (t *GpuTranslator) DownloadRegionVkImages(address, size uintptr, commandBuffer *vulkan.VulkanCommandBuffer) error {
-	for _, image := range t.CollectGpuResourcesInRange(address, size) {
-		if !image.ShouldDownloadFromVkImage() {
+	for _, group := range t.CollectGpuResourcesInRange(address, size) {
+		if !group.ShouldDownloadFromVkImage() {
 			continue
 		}
-		err := image.DownloadFromVkImage(t.handles, commandBuffer, t.GetLinearBuffer, t.currentGuestFrame)
+		err := group.DownloadFromVkImage(t.handles, commandBuffer, t.GetLinearBuffer, t.currentGuestFrame)
 		if err != nil {
 			return err
 		}
@@ -669,14 +672,13 @@ func (t *GpuTranslator) DownloadRegionVkImages(address, size uintptr, commandBuf
 }
 
 func (t *GpuTranslator) UploadRegionVkImages(address, size uintptr, commandBuffer *vulkan.VulkanCommandBuffer) error {
-	for _, image := range t.CollectGpuResourcesInRange(address, size) {
-		if !image.ShouldUploadToVkImage(t.currentGuestFrame) {
+	for _, group := range t.CollectGpuResourcesInRange(address, size) {
+		if !group.ShouldUploadToVkImage(t.currentGuestFrame) {
 			continue
 		}
-		if err := image.UploadToVkImage(t.handles, commandBuffer, t.GetLinearBuffer, t.currentGuestFrame); err != nil {
+		if err := group.UploadToVkImage(t.handles, commandBuffer, t.GetLinearBuffer, t.currentGuestFrame); err != nil {
 			return err
 		}
 	}
-
 	return nil
 }

@@ -253,8 +253,8 @@ func (t *GpuTranslator) updateImageDescriptorBinding(set vk.DescriptorSet, index
 	if sampledView != nil && sampledView.ImageView != vk.NullImageView {
 		dstBinding := uint32(spirvStructs.ImageBindingSampledImages2D)
 		if sampledView.Image != nil {
-			switch sampledView.Image.FirstDescriptor.Type {
-			case gcn.GcnImageTypeColor1D:
+			switch sampledView.Image.FirstDescriptor.InferredType() {
+			case gcn.GcnImageTypeBuffer, gcn.GcnImageTypeColor1D:
 				dstBinding = spirvStructs.ImageBindingSampledImages1D
 			case gcn.GcnImageTypeColor3D:
 				dstBinding = spirvStructs.ImageBindingSampledImages3D
@@ -281,8 +281,8 @@ func (t *GpuTranslator) updateImageDescriptorBinding(set vk.DescriptorSet, index
 	if storageView != nil && storageView.StorageImageView != vk.NullImageView {
 		dstBinding := uint32(spirvStructs.ImageBindingStorageImages2D)
 		if storageView.Image != nil {
-			switch storageView.Image.FirstDescriptor.Type {
-			case gcn.GcnImageTypeColor1D:
+			switch storageView.Image.FirstDescriptor.InferredType() {
+			case gcn.GcnImageTypeBuffer, gcn.GcnImageTypeColor1D:
 				dstBinding = spirvStructs.ImageBindingStorageImages1D
 			case gcn.GcnImageTypeColor3D:
 				dstBinding = spirvStructs.ImageBindingStorageImages3D

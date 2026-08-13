@@ -12,6 +12,7 @@ import (
 
 type MemoryPage struct {
 	Mapped    bool
+	Reserved  bool
 	Prot      uint32
 	Resources []interface{}
 }
@@ -26,10 +27,10 @@ type MemoryManager struct {
 var GlobalMemoryManager = &MemoryManager{
 	Pages: make(map[uintptr]*MemoryPage),
 	VMAs: []VMA{
-		{Start: 0, End: ^uintptr(0), Mapped: false, Prot: 0},
+		{Start: 0, End: ^uintptr(0), Mapped: false, Reserved: false, Prot: 0},
 	},
 	DirectVMAs: []VMA{
-		{Start: 0, End: ^uintptr(0), Mapped: false, Prot: 0},
+		{Start: 0, End: ^uintptr(0), Mapped: false, Reserved: false, Prot: 0},
 	},
 	Lock: sync.Mutex{},
 }
@@ -42,6 +43,9 @@ func init() {
 	posix.HookMapDirect = func(addr uintptr, length uint64, offset uint64, memType int32, prot int32) {
 		GlobalMemoryManager.MapDirect(addr, uintptr(length), offset, memType, uint32(prot))
 	}
+	posix.HookReserve = func(addr uintptr, length uint64) {
+		GlobalMemoryManager.Reserve(addr, uintptr(length))
+	}
 	posix.HookUnmap = func(addr uintptr, length uintptr) {
 		GlobalMemoryManager.Unmap(addr, length)
 	}
@@ -50,6 +54,9 @@ func init() {
 	}
 	posix.HookAllocateDirect = func(offset uintptr, length uint64, memType int32) {
 		GlobalMemoryManager.AllocateDirect(offset, uintptr(length), memType)
+	}
+	posix.HookName = func(addr uintptr, length uint64, name string) {
+		GlobalMemoryManager.Name(addr, uintptr(length), name)
 	}
 }
 
@@ -70,6 +77,19 @@ func (m *MemoryManager) IsAddressRangeFree(address, size uintptr) bool {
 	m.Lock.Lock()
 	defer m.Lock.Unlock()
 	for addr := address >> posix.SystemPageShift; (addr << posix.SystemPageShift) < end; addr++ {
+		if page, ok := m.Pages[addr]; ok && (page.Mapped || page.Reserved) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func (m *MemoryManager) IsAddressRangeUnmapped(address, size uintptr) bool {
+	end := address + size
+	m.Lock.Lock()
+	defer m.Lock.Unlock()
+	for addr := address >> posix.SystemPageShift; (addr << posix.SystemPageShift) < end; addr++ {
 		if page, ok := m.Pages[addr]; ok && page.Mapped {
 			return false
 		}
@@ -78,15 +98,39 @@ func (m *MemoryManager) IsAddressRangeFree(address, size uintptr) bool {
 	return true
 }
 
+func (m *MemoryManager) Reserve(address, size uintptr) {
+	end := address + size
+	m.Lock.Lock()
+	for addr := address >> posix.SystemPageShift; (addr << posix.SystemPageShift) < end; addr++ {
+		page := m.getPage(addr << posix.SystemPageShift)
+		page.Reserved = true
+	}
+	m.updateVMA(address, end, func(v *VMA) {
+		v.Reserved = true
+	})
+	m.Lock.Unlock()
+}
+
+func (m *MemoryManager) Name(address, size uintptr, name string) {
+	end := address + size
+	m.Lock.Lock()
+	m.updateVMA(address, end, func(v *VMA) {
+		v.Name = name
+	})
+	m.Lock.Unlock()
+}
+
 func (m *MemoryManager) Map(address, size uintptr) {
 	end := address + size
 	m.Lock.Lock()
 	for addr := address >> posix.SystemPageShift; (addr << posix.SystemPageShift) < end; addr++ {
 		page := m.getPage(addr << posix.SystemPageShift)
 		page.Mapped = true
+		page.Reserved = false
 	}
 	m.updateVMA(address, end, func(v *VMA) {
 		v.Mapped = true
+		v.Reserved = false
 	})
 	m.Lock.Unlock()
 }
@@ -97,10 +141,12 @@ func (m *MemoryManager) MapDirect(address, size uintptr, offset uint64, memType 
 	for addr := address >> posix.SystemPageShift; (addr << posix.SystemPageShift) < end; addr++ {
 		page := m.getPage(addr << posix.SystemPageShift)
 		page.Mapped = true
+		page.Reserved = false
 		page.Prot = prot
 	}
 	m.updateVMA(address, end, func(v *VMA) {
 		v.Mapped = true
+		v.Reserved = false
 		v.IsDirect = true
 		v.Offset = offset
 		v.MemoryType = memType
@@ -115,9 +161,11 @@ func (m *MemoryManager) Unmap(address, size uintptr) {
 	for addr := address >> posix.SystemPageShift; (addr << posix.SystemPageShift) < end; addr++ {
 		page := m.getPage(addr << posix.SystemPageShift)
 		page.Mapped = false
+		page.Reserved = false
 	}
 	m.updateVMA(address, end, func(v *VMA) {
 		v.Mapped = false
+		v.Reserved = false
 		v.Prot = 0
 		v.Name = ""
 		v.MemoryType = 0

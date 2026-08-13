@@ -40,7 +40,7 @@ func (t *GpuTranslator) DmaCopy(frame uint64, dmaCopy *gpu.LiverpoolDmaCopy) {
 	}})
 
 	// Upload DMA destination into any overlapping VkImages (guest buffer is now fresh in-GPU-order).
-	for _, image := range t.CollectGpuResourcesInRange(dmaCopy.DstAddress, copySize) {
-		image.MarkCpuModified(t.currentGuestFrame)
+	for _, group := range t.CollectGpuResourcesInRange(dmaCopy.DstAddress, copySize) {
+		group.MarkCpuModified(t.currentGuestFrame)
 	}
 }

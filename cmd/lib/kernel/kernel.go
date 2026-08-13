@@ -56,6 +56,7 @@ func RegisterKernelStubs() {
 	// Memory functions.
 	elf.RegisterStub("libkernel", "sceKernelMmap", libKernel_sceKernelMmap)
 	elf.RegisterStub("libkernel", "sceKernelMunmap", libKernel_sceKernelMunmap)
+	elf.RegisterStub("libkernel", "sceKernelAllocateMainDirectMemory", libKernel_sceKernelAllocateMainDirectMemory)
 	elf.RegisterStub("libkernel", "sceKernelAllocateDirectMemory", libKernel_sceKernelAllocateDirectMemory)
 	elf.RegisterStub("libkernel", "sceKernelMapDirectMemory", libKernel_sceKernelMapDirectMemory)
 	elf.RegisterStub("libkernel", "sceKernelMapNamedDirectMemory", libKernel_sceKernelMapNamedDirectMemory)

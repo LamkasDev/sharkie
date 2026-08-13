@@ -119,6 +119,8 @@ func (l *Liverpool) recordDraw(stream *LiverpoolCommandStream, isIndexed bool) {
 			PrimType: l.Registers.UserConfig[GREG_MM_VGT_PRIMITIVE_TYPE__CI__VI],
 
 			RtBase:             reg.GpuMemoryBase(l.Registers.Context[GREG_MM_CB_COLOR0_BASE]),
+			RtWidth:            uint16(l.Registers.CbColorExtent[0] & 0xFFFF),
+			RtHeight:           uint16(l.Registers.CbColorExtent[0] >> 16),
 			RtPitch:            reg.CbColorPitch(l.Registers.Context[GREG_MM_CB_COLOR0_PITCH]),
 			RtSlice:            l.Registers.Context[GREG_MM_CB_COLOR0_SLICE],
 			RtView:             reg.CbColorView(l.Registers.Context[GREG_MM_CB_COLOR0_VIEW]),
@@ -154,7 +156,9 @@ func (l *Liverpool) recordDraw(stream *LiverpoolCommandStream, isIndexed bool) {
 				}
 				return reg.GpuMemoryBase(l.Registers.Context[GREG_MM_DB_Z_READ_BASE])
 			}(),
-			DbZInfo: reg.DbZInfo(l.Registers.Context[GREG_MM_DB_Z_INFO]),
+			DbWidth:  uint16(l.Registers.DbDepthExtent & 0xFFFF),
+			DbHeight: uint16(l.Registers.DbDepthExtent >> 16),
+			DbZInfo:  reg.DbZInfo(l.Registers.Context[GREG_MM_DB_Z_INFO]),
 
 			DbStencilControl:    reg.DbStencilControl(l.Registers.Context[GREG_MM_DB_STENCIL_CONTROL]),
 			DbStencilRefMask:    reg.DbStencilrefmask(l.Registers.Context[GREG_MM_DB_STENCILREFMASK]),

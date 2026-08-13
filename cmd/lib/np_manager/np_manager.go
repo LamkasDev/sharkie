@@ -8,6 +8,9 @@ import (
 )
 
 func RegisterNpManagerStubs() {
+	// Setup functions.
+	elf.RegisterStub("libSceNpManager", "sceNpGetState", libSceNpManager_sceNpGetState)
+
 	elf.RegisterStub("libSceNpManager", "sceNpUnregisterStateCallback", libSceNpManager_stub)
 	elf.RegisterStub("libSceNpManager", "sceNpInGameMessageSendData", libSceNpManager_stub)
 	elf.RegisterStub("libSceNpManager", "sceNpInGameMessagePrepare", libSceNpManager_stub)
@@ -20,7 +23,6 @@ func RegisterNpManagerStubs() {
 	elf.RegisterStub("libSceNpManager", "sceNpRegisterGamePresenceCallback", libSceNpManager_stub)
 	elf.RegisterStub("libSceNpManager", "sceNpRegisterStateCallback", libSceNpManager_stub)
 	elf.RegisterStub("libSceNpManager", "sceNpGetGamePresenceStatus", libSceNpManager_stub)
-	elf.RegisterStub("libSceNpManager", "sceNpGetState", libSceNpManager_stub)
 	elf.RegisterStub("libSceNpManager", "sceNpGetParentalControlInfo", libSceNpManager_stub)
 	elf.RegisterStub("libSceNpManager", "sceNpCheckNpAvailability", libSceNpManager_stub)
 	elf.RegisterStub("libSceNpManager", "sceNpDeleteRequest", libSceNpManager_stub)

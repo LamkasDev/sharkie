@@ -10,8 +10,8 @@ import (
 func (z *SamplerDescriptor) MarshalHash() (o []byte, err error) {
 	var b []byte
 	o = hsp.Require(b, z.Msgsize())
-	// map header, size 28
-	o = append(o, 0xde, 0x0, 0x1c)
+	// map header, size 27
+	o = append(o, 0xde, 0x0, 0x1b)
 	o = hsp.AppendFloat32(o, z.AnisoBias)
 	o = hsp.AppendUint8(o, z.AnisoThreshold)
 	o = hsp.AppendUint16(o, z.BorderColorPtr)
@@ -22,10 +22,6 @@ func (z *SamplerDescriptor) MarshalHash() (o []byte, err error) {
 	o = hsp.AppendUint8(o, z.DepthCompareFunc)
 	o = hsp.AppendBool(o, z.DisableCubeWrap)
 	o = hsp.AppendBool(o, z.DisableLsbCeil)
-	o = hsp.AppendArrayHeader(o, uint32(4))
-	for za0001 := range z.Dwords {
-		o = hsp.AppendUint32(o, z.Dwords[za0001])
-	}
 	o = hsp.AppendUint8(o, z.FilterMode)
 	o = hsp.AppendBool(o, z.ForceDegamma)
 	o = hsp.AppendBool(o, z.ForceUnnormalized)
@@ -48,6 +44,6 @@ func (z *SamplerDescriptor) MarshalHash() (o []byte, err error) {
 
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
 func (z *SamplerDescriptor) Msgsize() (s int) {
-	s = 3 + 10 + hsp.Float32Size + 15 + hsp.Uint8Size + 15 + hsp.Uint16Size + 16 + hsp.Uint8Size + 7 + hsp.Uint8Size + 7 + hsp.Uint8Size + 7 + hsp.Uint8Size + 17 + hsp.Uint8Size + 16 + hsp.BoolSize + 15 + hsp.BoolSize + 7 + hsp.ArrayHeaderSize + (int(4) * (hsp.Uint32Size)) + 11 + hsp.Uint8Size + 13 + hsp.BoolSize + 18 + hsp.BoolSize + 8 + hsp.Float32Size + 11 + hsp.Float32Size + 14 + hsp.Uint8Size + 7 + hsp.Float32Size + 13 + hsp.BoolSize + 7 + hsp.Float32Size + 10 + hsp.Uint8Size + 17 + hsp.BoolSize + 8 + hsp.Uint8Size + 6 + hsp.Uint8Size + 11 + hsp.BoolSize + 12 + hsp.Uint8Size + 12 + hsp.Uint8Size + 8 + hsp.Uint8Size
+	s = 3 + 10 + hsp.Float32Size + 15 + hsp.Uint8Size + 15 + hsp.Uint16Size + 16 + hsp.Uint8Size + 7 + hsp.Uint8Size + 7 + hsp.Uint8Size + 7 + hsp.Uint8Size + 17 + hsp.Uint8Size + 16 + hsp.BoolSize + 15 + hsp.BoolSize + 11 + hsp.Uint8Size + 13 + hsp.BoolSize + 18 + hsp.BoolSize + 8 + hsp.Float32Size + 11 + hsp.Float32Size + 14 + hsp.Uint8Size + 7 + hsp.Float32Size + 13 + hsp.BoolSize + 7 + hsp.Float32Size + 10 + hsp.Uint8Size + 17 + hsp.BoolSize + 8 + hsp.Uint8Size + 6 + hsp.Uint8Size + 11 + hsp.BoolSize + 12 + hsp.Uint8Size + 12 + hsp.Uint8Size + 8 + hsp.Uint8Size
 	return
 }

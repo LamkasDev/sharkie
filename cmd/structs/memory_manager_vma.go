@@ -11,6 +11,7 @@ type VMA struct {
 	End        uintptr
 	Prot       uint32
 	Mapped     bool
+	Reserved   bool
 	Name       string
 	IsDirect   bool
 	Offset     uint64
@@ -58,6 +59,7 @@ func (m *MemoryManager) updateVMA(start, end uintptr, update func(*VMA)) {
 		canMerge := last.End == v.Start &&
 			last.Prot == v.Prot &&
 			last.Mapped == v.Mapped &&
+			last.Reserved == v.Reserved &&
 			last.Name == v.Name &&
 			last.MemoryType == v.MemoryType &&
 			last.IsDirect == v.IsDirect
@@ -142,6 +144,7 @@ func (m *MemoryManager) updateDirectVMA(start, end uintptr, update func(*VMA)) {
 		canMerge := last.End == v.Start &&
 			last.Prot == v.Prot &&
 			last.Mapped == v.Mapped &&
+			last.Reserved == v.Reserved &&
 			last.Name == v.Name &&
 			last.MemoryType == v.MemoryType &&
 			last.IsDirect == v.IsDirect

@@ -24,7 +24,7 @@ func libSceUserService_sceUserServiceGetInitialUser(userId *UserId) uintptr {
 	logger.Printf("%-132s %s returned %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("sceUserServiceGetInitialUser"),
-		color.Yellow.Sprintf("0x%X", user.UserId),
+		color.Green.Sprint(user.UserId),
 	)
 	return 0
 }
@@ -90,7 +90,7 @@ func libSceUserService_sceUserServiceGetUserColor(userId UserId, userColor *User
 		logger.Printf("%-132s %s failed due to unknown user id %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceUserServiceGetUserColor"),
-			color.Yellow.Sprintf("0x%X", userId),
+			color.Green.Sprint(userId),
 		)
 		user = NewDefaultUser()
 	}
@@ -122,10 +122,12 @@ func libSceUserService_sceUserServiceGetLoginUserIdList(userIdList *LoginUserIdL
 		userIdList.UserIds[i] = user.UserId
 	}
 
-	logger.Printf("%-132s %s returned %s users.\n",
-		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprint("sceUserServiceGetLoginUserIdList"),
-		color.Green.Sprint(len(loggedInUsers)),
-	)
+	if logger.LogMisc {
+		logger.Printf("%-132s %s returned %s users.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceUserServiceGetLoginUserIdList"),
+			color.Green.Sprint(len(loggedInUsers)),
+		)
+	}
 	return 0
 }
