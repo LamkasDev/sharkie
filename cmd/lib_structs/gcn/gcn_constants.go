@@ -78,6 +78,8 @@ const (
 	GcnNumFormatUbint     = 12
 	GcnNumFormatUbscaled  = 13
 	GcnNumFormatFloat     = 14
+
+	GcnNumFormatConvertToDepthPls = 100
 )
 
 const (

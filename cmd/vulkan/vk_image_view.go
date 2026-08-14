@@ -20,6 +20,7 @@ type VulkanImageView struct {
 type VulkanImageViewRequest struct {
 	Image      *VulkanImage
 	Descriptor spirvStructs.ImageDescriptor
+	IsSurface  bool
 }
 
 func CreateImageView(handles *VulkanHandles, request VulkanImageViewRequest) (*VulkanImageView, error) {
@@ -52,7 +53,7 @@ func CreateVkImageView(handles *VulkanHandles, request VulkanImageViewRequest, s
 		request.Descriptor.DataFormat, request.Descriptor.NumFormat,
 		request.Descriptor.DstSelX, request.Descriptor.DstSelY, request.Descriptor.DstSelZ, request.Descriptor.DstSelW,
 	)
-	if storageLayout {
+	if request.IsSurface || storageLayout {
 		components = vk.ComponentMapping{
 			R: vk.ComponentSwizzleIdentity,
 			G: vk.ComponentSwizzleIdentity,

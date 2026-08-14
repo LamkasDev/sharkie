@@ -25,6 +25,8 @@ func (m *ModuleManager) LoadModule(pathOrName string, force bool) (*elf.Elf, err
 		return module, nil
 	}
 	logger.Println()
+	GlobalModuleManager.ModulesLock.Lock()
+	defer GlobalModuleManager.ModulesLock.Unlock()
 
 	// Only load the modules.
 	loadedModule, err := m._RecursiveLoadModule(pathOrName, force)
@@ -33,8 +35,6 @@ func (m *ModuleManager) LoadModule(pathOrName string, force bool) (*elf.Elf, err
 	}
 
 	// Link & patch everything now.
-	GlobalModuleManager.ModulesLock.RLock()
-	defer GlobalModuleManager.ModulesLock.RUnlock()
 	var newlyLinkedModules []*elf.Elf
 	for _, module := range m.Modules {
 		if module == nil || module.Linked {
@@ -70,7 +70,7 @@ func (m *ModuleManager) LoadModule(pathOrName string, force bool) (*elf.Elf, err
 // _RecursiveLoadModule loads a module and dependencies without linking.
 func (m *ModuleManager) _RecursiveLoadModule(pathOrName string, force bool) (*elf.Elf, error) {
 	// Check if module is loaded already.
-	if module := m.GetModule(pathOrName); module != nil {
+	if module := m.GetModuleNoLock(pathOrName); module != nil {
 		return module, nil
 	}
 
@@ -116,7 +116,6 @@ func (m *ModuleManager) _RecursiveLoadModule(pathOrName string, force bool) (*el
 	module := elf.NewElf(data)
 	module.ModuleIndex = moduleIndex
 	module.Path = *modulePath
-	GlobalModuleManager.ModulesLock.Lock()
 	m.Modules = append(m.Modules, module)
 
 	// We strip any extensions from pathOrName and module name; Sometimes module name and file name don't match.
@@ -130,7 +129,6 @@ func (m *ModuleManager) _RecursiveLoadModule(pathOrName string, force bool) (*el
 	if moduleName != baseName {
 		m.ModulesMap[moduleName] = module
 	}
-	GlobalModuleManager.ModulesLock.Unlock()
 	logger.Println()
 
 	// Recursively load dependencies.
@@ -164,6 +162,10 @@ func (m *ModuleManager) IsModuleLoaded(pathOrName string) bool {
 func (m *ModuleManager) GetModule(pathOrName string) *elf.Elf {
 	GlobalModuleManager.ModulesLock.RLock()
 	defer GlobalModuleManager.ModulesLock.RUnlock()
+	return m.GetModuleNoLock(pathOrName)
+}
+
+func (m *ModuleManager) GetModuleNoLock(pathOrName string) *elf.Elf {
 	return m.ModulesMap[stripExtension(filepath.Base(pathOrName))]
 }
 

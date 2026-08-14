@@ -88,11 +88,7 @@ func displayVblankTicker(handle *VideoOutHandle) {
 			continue
 		}
 
-		// Submit flip to Vulkan if ready.
-		labelSlot := (*uint64)(unsafe.Pointer(handle.LabelBufferAddress + uintptr(handle.CurrentFlip.BufferIndex)*8))
-		if *labelSlot == 0 {
-			continue
-		}
+		// Submit flip to Vulkan.
 		gpu.GlobalLiverpool.OnFlip(handle.CurrentFlip)
 		oldLabelAddress := handle.LabelBufferAddress + uintptr(handle.CurrentFlip.BufferIndex)*8
 		*(*uint64)(unsafe.Pointer(oldLabelAddress)) = 0

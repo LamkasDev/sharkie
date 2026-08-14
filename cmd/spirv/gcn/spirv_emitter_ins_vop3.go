@@ -203,6 +203,20 @@ func EmitVOP3(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 
 		res := b.EmitSelect(typeInt, isWidthZero, b.EmitConstantUint(typeInt, 0), b.EmitSelect(typeInt, isShortExtract, resShort, resLong))
 		StoreRegisterPointerMaskedModified(b, ctx, details.Clamp, details.OMod, details.Vdst+gcnSpec.OpVgpr0, b.EmitBitcast(typeUint, res), false)
+	case details.Op == gcnSpec.Vop3OpBfiB32:
+		typeUint := ctx.GetId(BlockContextIdTypeUint)
+
+		val0 := GetOperandUintValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
+		val1 := GetOperandUintValueModified(b, ctx, details.Abs, details.Neg, details.Src1, instr.Literal, 1)
+		val2 := GetOperandUintValueModified(b, ctx, details.Abs, details.Neg, details.Src2, instr.Literal, 2)
+
+		// D.u = (S0.u & S1.u) | (~S0.u & S2.u)
+		and01 := b.EmitBitwiseAnd(typeUint, val0, val1)
+		not0 := b.EmitNot(typeUint, val0)
+		andNot02 := b.EmitBitwiseAnd(typeUint, not0, val2)
+		res := b.EmitBitwiseOr(typeUint, and01, andNot02)
+
+		StoreRegisterPointerMaskedModified(b, ctx, details.Clamp, details.OMod, details.Vdst+gcnSpec.OpVgpr0, res, false)
 	case details.Op == gcnSpec.Vop3OpSadU32:
 		typeUint := ctx.GetId(BlockContextIdTypeUint)
 		typeBool := ctx.GetId(BlockContextIdTypeBool)

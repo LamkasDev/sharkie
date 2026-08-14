@@ -49,13 +49,13 @@ func (t *GpuTranslator) ResolveImageTargets(accesses []ResolvedImageAccess, kind
 	seen := map[uintptr]struct{}{}
 	var images []*vulkan.VulkanImage
 	for _, access := range accesses {
-		if access.Kind != kind {
+		if access.Kind != kind || access.Descriptor.BaseAddress == 0 {
 			continue
 		}
 		if _, ok := seen[access.Descriptor.BaseAddress]; ok {
 			continue
 		}
-		view, err, _ := t.GetImageView(access.Descriptor)
+		view, err, _ := t.GetImageView(access.Descriptor, 0)
 		if err != nil {
 			return nil, err
 		}

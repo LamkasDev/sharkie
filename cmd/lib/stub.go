@@ -6,7 +6,9 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/lib/app_content"
 	"github.com/LamkasDev/sharkie/cmd/lib/audio_in"
 	"github.com/LamkasDev/sharkie/cmd/lib/audio_out"
+	"github.com/LamkasDev/sharkie/cmd/lib/av_player"
 	"github.com/LamkasDev/sharkie/cmd/lib/common_dialog"
+	"github.com/LamkasDev/sharkie/cmd/lib/disc_map"
 	"github.com/LamkasDev/sharkie/cmd/lib/error_dialog"
 	"github.com/LamkasDev/sharkie/cmd/lib/game_custom_data_dialog"
 	"github.com/LamkasDev/sharkie/cmd/lib/gnm_driver"
@@ -16,9 +18,11 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/lib/invitation_dialog"
 	"github.com/LamkasDev/sharkie/cmd/lib/kernel"
 	"github.com/LamkasDev/sharkie/cmd/lib/libc"
+	"github.com/LamkasDev/sharkie/cmd/lib/mouse"
 	"github.com/LamkasDev/sharkie/cmd/lib/msg_dialog"
 	"github.com/LamkasDev/sharkie/cmd/lib/net"
 	"github.com/LamkasDev/sharkie/cmd/lib/net_ctl"
+	"github.com/LamkasDev/sharkie/cmd/lib/ngs2"
 	"github.com/LamkasDev/sharkie/cmd/lib/np_auth"
 	"github.com/LamkasDev/sharkie/cmd/lib/np_commerce"
 	"github.com/LamkasDev/sharkie/cmd/lib/np_common"
@@ -56,7 +60,9 @@ func RegisterStubs() {
 	app_content.RegisterAppContentStubs()
 	audio_in.RegisterAudioInStubs()
 	audio_out.RegisterAudioOutStubs()
+	av_player.RegisterAvPlayerStubs()
 	common_dialog.RegisterCommonDialogStubs()
+	disc_map.RegisterDiscMapStubs()
 	error_dialog.RegisterErrorDialogStubs()
 	game_custom_data_dialog.RegisterGameCustomDataDialogStubs()
 	gnm_driver.RegisterGnmDriverStubs()
@@ -68,9 +74,11 @@ func RegisterStubs() {
 	libc.RegisterSceLibcInternalStubs()
 	libc.RegisterLibcStubs()
 	pngdec.RegisterPngDecStubs()
+	mouse.RegisterMouseStubs()
 	msg_dialog.RegisterMsgDialogStubs()
 	net.RegisterNetStubs()
 	net_ctl.RegisterNetCtlStubs()
+	ngs2.RegisterNgs2Stubs()
 	np_auth.RegisterNpAuthStubs()
 	np_commerce.RegisterNpCommerceStubs()
 	np_common.RegisterNpCommonStubs()

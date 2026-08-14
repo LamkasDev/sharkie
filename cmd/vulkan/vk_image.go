@@ -88,34 +88,63 @@ type VulkanImage struct {
 
 type VulkanImageRequest struct {
 	Descriptor spirvStructs.ImageDescriptor
-	Format     vk.Format
+	CompSwap   uint32
 	IsSurface  bool
 }
 
 func CreateImage(handles *VulkanHandles, request VulkanImageRequest, commandBuffer *VulkanCommandBuffer, frame uint64) (*VulkanImage, error) {
+	// Figure out format.
+	format, _ := gcn.TranslateGcnFormat(request.Descriptor.DataFormat, request.Descriptor.NumFormat, request.CompSwap)
+
 	// Figure out image flags.
-	imageUsage := vk.ImageUsageFlags(vk.ImageUsageSampledBit | vk.ImageUsageTransferSrcBit | vk.ImageUsageTransferDstBit)
+	imageUsage := vk.ImageUsageFlags(vk.ImageUsageColorAttachmentBit | vk.ImageUsageSampledBit | vk.ImageUsageTransferSrcBit | vk.ImageUsageTransferDstBit)
 	isBlock := request.Descriptor.DataFormat >= gcn2.GcnDataFormatBC1 && request.Descriptor.DataFormat <= gcn2.GcnDataFormatBC7
 	if !isBlock {
 		imageUsage |= vk.ImageUsageFlags(vk.ImageUsageStorageBit)
 	}
 	aspectMask := vk.ImageAspectFlags(vk.ImageAspectColorBit)
 	dstLayout := vk.ImageLayoutGeneral
-	dstAccess := vk.AccessFlags(vk.AccessShaderReadBit | vk.AccessShaderWriteBit)
-	if request.IsSurface {
-		imageUsage = vk.ImageUsageFlags(vk.ImageUsageColorAttachmentBit | vk.ImageUsageSampledBit | vk.ImageUsageStorageBit | vk.ImageUsageTransferSrcBit | vk.ImageUsageTransferDstBit)
-		dstAccess = vk.AccessFlags(vk.AccessShaderReadBit | vk.AccessShaderWriteBit | vk.AccessColorAttachmentReadBit | vk.AccessColorAttachmentWriteBit)
-		if IsDepthFormat(request.Format) {
-			imageUsage = vk.ImageUsageFlags(vk.ImageUsageDepthStencilAttachmentBit | vk.ImageUsageSampledBit | vk.ImageUsageTransferSrcBit | vk.ImageUsageTransferDstBit)
-			aspectMask = vk.ImageAspectFlags(vk.ImageAspectDepthBit | vk.ImageAspectStencilBit)
-			dstLayout = vk.ImageLayoutDepthStencilAttachmentOptimal
-			dstAccess = vk.AccessFlags(vk.AccessDepthStencilAttachmentReadBit | vk.AccessDepthStencilAttachmentWriteBit)
-		}
+	dstAccess := vk.AccessFlags(vk.AccessShaderReadBit | vk.AccessShaderWriteBit | vk.AccessColorAttachmentReadBit | vk.AccessColorAttachmentWriteBit)
+	if IsDepthFormat(format) {
+		imageUsage = vk.ImageUsageFlags(vk.ImageUsageDepthStencilAttachmentBit | vk.ImageUsageSampledBit | vk.ImageUsageTransferSrcBit | vk.ImageUsageTransferDstBit)
+		aspectMask = vk.ImageAspectFlags(vk.ImageAspectDepthBit | vk.ImageAspectStencilBit)
+		dstLayout = vk.ImageLayoutDepthStencilAttachmentOptimal
+		dstAccess = vk.AccessFlags(vk.AccessDepthStencilAttachmentReadBit | vk.AccessDepthStencilAttachmentWriteBit)
 	}
+
+	// Fix up format.
+	if imageUsage&vk.ImageUsageFlags(vk.ImageUsageStorageBit) != 0 && request.Descriptor.NumFormat == gcn2.GcnNumFormatSrgb {
+		format, _ = gcn.TranslateGcnFormat(request.Descriptor.DataFormat, gcn2.GcnNumFormatUnorm, request.CompSwap)
+	}
+
+	// Filter unsupported usage bits based on format properties.
+	var formatProps vk.FormatProperties
+	vk.GetPhysicalDeviceFormatProperties(handles.PhysicalDevice, format, &formatProps)
+	formatProps.Deref()
+	if (formatProps.OptimalTilingFeatures & vk.FormatFeatureFlags(vk.FormatFeatureStorageImageBit)) == 0 {
+		if imageUsage&vk.ImageUsageFlags(vk.ImageUsageStorageBit) != 0 {
+			logger.Printf("Failed assigning storage bit to format %d.\n", format)
+		}
+		imageUsage &^= vk.ImageUsageFlags(vk.ImageUsageStorageBit)
+	}
+	if (formatProps.OptimalTilingFeatures & vk.FormatFeatureFlags(vk.FormatFeatureColorAttachmentBit)) == 0 {
+		if imageUsage&vk.ImageUsageFlags(vk.ImageUsageColorAttachmentBit) != 0 {
+			logger.Printf("Failed assigning color attachment bit to format %d.\n", format)
+		}
+		imageUsage &^= vk.ImageUsageFlags(vk.ImageUsageColorAttachmentBit)
+	}
+	if (formatProps.OptimalTilingFeatures & vk.FormatFeatureFlags(vk.FormatFeatureDepthStencilAttachmentBit)) == 0 {
+		if imageUsage&vk.ImageUsageFlags(vk.ImageUsageDepthStencilAttachmentBit) != 0 {
+			logger.Printf("Failed assigning depth stencil attachment bit to format %d.\n", format)
+		}
+		imageUsage &^= vk.ImageUsageFlags(vk.ImageUsageDepthStencilAttachmentBit)
+	}
+
+	// Create our image.
 	image := &VulkanImage{
 		Address:         request.Descriptor.BaseAddress,
 		FirstDescriptor: request.Descriptor,
-		ImageFormat:     request.Format,
+		ImageFormat:     format,
 		ImageLayout:     vk.ImageLayoutUndefined,
 		ImageAspect:     aspectMask,
 		ImageUsage:      imageUsage,
@@ -133,6 +162,7 @@ func CreateImage(handles *VulkanHandles, request VulkanImageRequest, commandBuff
 	}
 	defer pinner.Unpin()
 
+	// Determine image type.
 	imageType := vk.ImageType2d
 	extentDepth := uint32(1)
 	arrayLayers := uint32(1)
@@ -153,42 +183,17 @@ func CreateImage(handles *VulkanHandles, request VulkanImageRequest, commandBuff
 		arrayLayers = uint32(request.Descriptor.Depth) + 1
 	}
 
-	// Filter unsupported usage bits based on format properties.
-	var formatProps vk.FormatProperties
-	vk.GetPhysicalDeviceFormatProperties(handles.PhysicalDevice, request.Format, &formatProps)
-	formatProps.Deref()
-	if !IsDepthFormat(request.Format) && !isBlock {
-		imageUsage |= vk.ImageUsageFlags(vk.ImageUsageColorAttachmentBit)
-	}
-	if (formatProps.OptimalTilingFeatures & vk.FormatFeatureFlags(vk.FormatFeatureStorageImageBit)) == 0 {
-		if imageUsage&vk.ImageUsageFlags(vk.ImageUsageStorageBit) != 0 {
-			logger.Printf("Failed assigning storage bit to format %d.\n", request.Format)
-		}
-		imageUsage &^= vk.ImageUsageFlags(vk.ImageUsageStorageBit)
-	}
-	if (formatProps.OptimalTilingFeatures & vk.FormatFeatureFlags(vk.FormatFeatureColorAttachmentBit)) == 0 {
-		if imageUsage&vk.ImageUsageFlags(vk.ImageUsageColorAttachmentBit) != 0 {
-			logger.Printf("Failed assigning color attachment bit to format %d.\n", request.Format)
-		}
-		imageUsage &^= vk.ImageUsageFlags(vk.ImageUsageColorAttachmentBit)
-	}
-	if (formatProps.OptimalTilingFeatures & vk.FormatFeatureFlags(vk.FormatFeatureDepthStencilAttachmentBit)) == 0 {
-		if imageUsage&vk.ImageUsageFlags(vk.ImageUsageDepthStencilAttachmentBit) != 0 {
-			logger.Printf("Failed assigning depth stencil attachment bit to format %d.\n", request.Format)
-		}
-		imageUsage &^= vk.ImageUsageFlags(vk.ImageUsageDepthStencilAttachmentBit)
-	}
-
 	createFlags := vk.ImageCreateFlags(vk.ImageCreateMutableFormatBit)
 	if request.Descriptor.InferredType() == gcn2.GcnImageTypeCubeOrArray {
 		createFlags |= vk.ImageCreateFlags(vk.ImageCreateCubeCompatibleBit)
 	}
 
+	// Create Vulkan image.
 	result := vk.CreateImage(handles.Device, &vk.ImageCreateInfo{
 		SType:     vk.StructureTypeImageCreateInfo,
 		Flags:     createFlags,
 		ImageType: imageType,
-		Format:    request.Format,
+		Format:    format,
 		Extent: vk.Extent3D{
 			Width:  uint32(request.Descriptor.Width),
 			Height: uint32(request.Descriptor.Height),

@@ -429,6 +429,8 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 
 	// Register GCN SGPRs and VGPRs.
 	typePtrFnUint := b.EmitTypePointer(spec.SpvStorageFunction, typeUint)
+	typePtrImageUint := b.EmitTypePointer(spec.SpvStorageImage, typeUint)
+	typePtrImageInt := b.EmitTypePointer(spec.SpvStorageImage, typeInt)
 	idSgprCount := b.EmitConstantUint(typeUint, 104)
 	idVgprCount := b.EmitConstantUint(typeUint, 256)
 	typeSgprArray := b.EmitTypeArray(typeUint, idSgprCount)
@@ -541,6 +543,8 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 	constIds[ConstIdFloat65535] = SpirvUsedId{Id: b.AllocId(), Value: math.Float32bits(65535.0), Name: "65535.0"}
 	constIds[ConstIdFloatMin] = SpirvUsedId{Id: b.AllocId(), Value: math.Float32bits(-math.MaxFloat32), Name: "-MaxFloat32"}
 	constIds[ConstIdFloatMax] = SpirvUsedId{Id: b.AllocId(), Value: math.Float32bits(math.MaxFloat32), Name: "MaxFloat32"}
+	constIds[ConstIdScopeDevice] = SpirvUsedId{Id: b.AllocId(), Value: spec.SpvScopeDevice, Name: "ScopeDevice"}
+	constIds[ConstIdMemorySemanticsAtomicImage] = SpirvUsedId{Id: b.AllocId(), Value: spec.SpvMemorySemanticsAcquireRelease | spec.SpvMemorySemanticsUniformMemory, Name: "MemorySemanticsAtomicImage"}
 
 	// Prepare internal IDs.
 	ids := map[SpirvId]SpirvUsedId{
@@ -623,6 +627,8 @@ func NewSpirvShader(shader *GcnShader, ctx SpirvShaderContext) (*SpirvShader, er
 		BlockContextIdPtrPsbV3Uint: {Id: typePtrPsbV3Uint, Name: "ptr_psb_v3_uint_t"},
 		BlockContextIdPtrPsbV4Uint: {Id: typePtrPsbV4Uint, Name: "ptr_psb_v4_uint_t"},
 		BlockContextIdPtrFnUint:    {Id: typePtrFnUint, Name: "ptr_fn_uint_t"},
+		BlockContextIdPtrImageUint: {Id: typePtrImageUint, Name: "ptr_image_uint_t"},
+		BlockContextIdPtrImageInt:  {Id: typePtrImageInt, Name: "ptr_image_int_t"},
 
 		// System variables & built-ins.
 		BlockContextIdPcVar:                     {Id: pcVar, Name: "pc_var"},

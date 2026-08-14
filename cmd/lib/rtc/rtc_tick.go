@@ -221,3 +221,9 @@ func libSceRtc_sceRtcTickAddSeconds(tick1, tick2 *RtcTick, add int64) uintptr {
 
 	return 0
 }
+
+// 0x00000000000020E0
+// __int64 sceRtcGetTickResolution()
+func libSceRtc_sceRtcGetTickResolution() uintptr {
+	return 1000000
+}

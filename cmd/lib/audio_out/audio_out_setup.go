@@ -59,6 +59,12 @@ func libSceAudioOut_sceAudioOutOpen(userId int32, portType AudioOutPortType, ind
 	return uintptr(handle.Id)
 }
 
+// 0x0000000000000820
+// __int64 __fastcall sceAudioOutOpenEx(unsigned int, int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int)
+func libSceAudioOut_sceAudioOutOpenEx() uintptr {
+	return 0
+}
+
 // 0x0000000000002D90
 // __int64 __fastcall sceAudioOutGetPortState(int a1, unsigned __int8 *a2)
 func libSceAudioOut_sceAudioOutGetPortState(handleId uint32, state *AudioOutPortState) uintptr {

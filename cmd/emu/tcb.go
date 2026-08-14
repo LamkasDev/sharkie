@@ -74,9 +74,7 @@ func ExpandThreadTLS(module *elf.Elf) {
 		return
 	}
 
-	GlobalModuleManager.ModulesLock.RLock()
 	maxTlsIndex := uintptr(len(GlobalModuleManager.ModulesMap))
-	GlobalModuleManager.ModulesLock.RUnlock()
 
 	ThreadLock.Lock()
 	defer ThreadLock.Unlock()

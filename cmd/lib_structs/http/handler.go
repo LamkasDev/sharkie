@@ -61,6 +61,10 @@ func (handler *HttpHandler) CreateTemplate() *HttpTemplate {
 	return template
 }
 
+func (handler *HttpHandler) DeleteTemplate(id uint32) {
+	delete(handler.Templates, id)
+}
+
 func (handler *HttpHandler) GetTemplate(id uint32) *HttpTemplate {
 	handler.Lock.RLock()
 	defer handler.Lock.RUnlock()
@@ -75,6 +79,10 @@ func (handler *HttpHandler) CreateConnection() *HttpConnection {
 	handler.NextObjectId++
 
 	return connection
+}
+
+func (handler *HttpHandler) DeleteConnection(id uint32) {
+	delete(handler.Connections, id)
 }
 
 func (handler *HttpHandler) GetConnection(id uint32) *HttpConnection {

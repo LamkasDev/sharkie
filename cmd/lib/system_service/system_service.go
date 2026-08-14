@@ -9,9 +9,11 @@ import (
 
 func RegisterSystemServiceStubs() {
 	elf.RegisterStub("libSceSystemService", "sceSystemServiceHideSplashScreen", libSceSystemService_stub)
+	elf.RegisterStub("libSceSystemService", "sceSystemServiceReportAbnormalTermination", libSceSystemService_stub)
 
 	// Status functions.
 	elf.RegisterStub("libSceSystemService", "sceSystemServiceGetStatus", libSceSystemService_sceSystemServiceGetStatus)
+	elf.RegisterStub("libSceSystemService", "sceSystemServiceGetDisplaySafeAreaInfo", libSceSystemService_sceSystemServiceGetDisplaySafeAreaInfo)
 
 	// Event functions.
 	elf.RegisterStub("libSceSystemService", "sceSystemServiceReceiveEvent", libSceSystemService_sceSystemServiceReceiveEvent)

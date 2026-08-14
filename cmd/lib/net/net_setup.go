@@ -4,7 +4,8 @@ import (
 	"unsafe"
 
 	"github.com/LamkasDev/sharkie/cmd/emu"
-	structsNet "github.com/LamkasDev/sharkie/cmd/lib_structs/net"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/net"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
 )
@@ -21,7 +22,7 @@ func libSceNet_sceNetGetMacAddress(addrPtr uintptr, flags int32) uintptr {
 	}
 
 	addr := (*[6]byte)(unsafe.Pointer(addrPtr))
-	*addr = structsNet.GlobalNetConnectionInstance.MacAddress
+	*addr = GlobalNetConnectionInstance.MacAddress
 
 	if logger.LogMisc {
 		logger.Printf("%-132s %s returned %s.\n",
@@ -32,4 +33,20 @@ func libSceNet_sceNetGetMacAddress(addrPtr uintptr, flags int32) uintptr {
 	}
 
 	return 0
+}
+
+var NextNetPoolId = uint32(0x1001)
+
+// 0x0000000000001B90
+// __int64 __fastcall sceNetPoolCreate(__int64, unsigned int, unsigned int)
+func libSceNet_sceNetPoolCreate(name Cstring, size uint64, flags int32) uintptr {
+	id := NextNetPoolId
+	NextNetPoolId++
+
+	logger.Printf("%-132s %s returned %s.\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("sceNetPoolCreate"),
+		color.Yellow.Sprintf("0x%X", id),
+	)
+	return uintptr(id)
 }

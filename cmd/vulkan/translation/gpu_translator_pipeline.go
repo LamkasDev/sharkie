@@ -29,7 +29,7 @@ func (t *GpuTranslator) BindPipeline(frame uint64, bind *gpu.LiverpoolBindPipeli
 	var depthSurface *vulkan.VulkanSurface
 	depthTestEnable := bind.DbDepthControl.ZEnable()
 	depthWriteEnable := bind.DbDepthControl.ZWriteEnable()
-	depthFormat := vkGcn.TranslateGcnDepthFormat(bind.DbZInfo.Format(), t.handles.FormatProperties)
+	depthFormat, _ := vkGcn.TranslateGcnFormat(uint8(bind.DbZInfo.Format()), gcn2.GcnNumFormatConvertToDepthPls, 0)
 	if dbAddress != 0 && depthFormat != vk.FormatUndefined && (depthTestEnable || depthWriteEnable) {
 		dbWidth = uint32(bind.DbWidth)
 		if dbWidth == 0 {
@@ -45,10 +45,10 @@ func (t *GpuTranslator) BindPipeline(frame uint64, bind *gpu.LiverpoolBindPipeli
 			BaseAddress: dbAddress,
 			Width:       uint16(dbWidth),
 			Height:      uint16(dbHeight),
-			DataFormat:  gcn2.GcnDataFormat8_8_8_8, NumFormat: gcn2.GcnNumFormatUnorm,
+			DataFormat:  uint8(bind.DbZInfo.Format()), NumFormat: gcn2.GcnNumFormatConvertToDepthPls,
 			DstSelX: 4, DstSelY: 5, DstSelZ: 6, DstSelW: 7,
 			Depth: 1, Pitch: uint16(dbWidth),
-		}, depthFormat)
+		}, 0)
 		if err != nil {
 			return
 		}
@@ -86,11 +86,11 @@ func (t *GpuTranslator) BindPipeline(frame uint64, bind *gpu.LiverpoolBindPipeli
 		colorSurface, err = t.GetSurface(spirvStructs.ImageDescriptor{
 			BaseAddress: rtAddress,
 			Width:       uint16(rtWidth), Height: uint16(rtHeight),
-			DataFormat: gcn2.GcnDataFormat8_8_8_8, NumFormat: gcn2.GcnNumFormatUnorm,
+			DataFormat: uint8(bind.CbColorInfo0.Format()), NumFormat: uint8(bind.CbColorInfo0.NumberType()),
 			DstSelX: 4, DstSelY: 5, DstSelZ: 6, DstSelW: 7,
 			Depth: 1, Pitch: uint16(rtWidth),
 			TilingIndex: uint8(bind.RtAttrib.TileModeIndex()),
-		}, rtFormat)
+		}, bind.CbColorInfo0.CompSwap())
 		if err != nil {
 			return
 		}

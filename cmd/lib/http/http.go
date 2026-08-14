@@ -11,13 +11,16 @@ func RegisterHttpStubs() {
 	// Setup functions.
 	elf.RegisterStub("libSceHttp", "sceHttpInit", libSceHttp_sceHttpInit)
 	elf.RegisterStub("libSceHttp", "sceHttpCreateTemplate", libSceHttp_sceHttpCreateTemplate)
+	elf.RegisterStub("libSceHttp", "sceHttpDeleteTemplate", libSceHttp_sceHttpDeleteTemplate)
 
 	// URI functions.
 	elf.RegisterStub("libSceHttp", "sceHttpUriParse", libSceHttp_sceHttpUriParse)
 	elf.RegisterStub("libSceHttp", "sceHttpUriSweepPath", libSceHttp_sceHttpUriSweepPath)
 
 	// Connection functions.
+	elf.RegisterStub("libSceHttp", "sceHttpCreateConnection", libSceHttp_sceHttpCreateConnection)
 	elf.RegisterStub("libSceHttp", "sceHttpCreateConnectionWithURL", libSceHttp_sceHttpCreateConnectionWithURL)
+	elf.RegisterStub("libSceHttp", "sceHttpDeleteConnection", libSceHttp_sceHttpDeleteConnection)
 
 	// Header functions.
 	elf.RegisterStub("libSceHttp", "sceHttpAddRequestHeader", libSceHttp_sceHttpAddRequestHeader)
@@ -44,8 +47,6 @@ func RegisterHttpStubs() {
 	elf.RegisterStub("libSceHttp", "sceHttpSetResolveTimeOut", libSceHttp_stub)
 	elf.RegisterStub("libSceHttp", "sceHttpParseResponseHeader", libSceHttp_stub)
 	elf.RegisterStub("libSceHttp", "sceHttpCreateRequest", libSceHttp_stub)
-	elf.RegisterStub("libSceHttp", "sceHttpDeleteTemplate", libSceHttp_stub)
-	elf.RegisterStub("libSceHttp", "sceHttpDeleteConnection", libSceHttp_stub)
 	elf.RegisterStub("libSceHttp", "sceHttpsSetSslCallback", libSceHttp_stub)
 	elf.RegisterStub("libSceHttp", "sceHttpsDisableOption", libSceHttp_stub)
 }

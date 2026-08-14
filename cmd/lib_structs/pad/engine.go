@@ -32,6 +32,10 @@ func (pe *PadEngine) CreateHandle() *PadHandle {
 	return handle
 }
 
+func (pe *PadEngine) DeleteHandle() {
+	delete(pe.Handles, pe.NextHandle)
+}
+
 func (pe *PadEngine) GetHandle(id uint32) *PadHandle {
 	pe.Lock.RLock()
 	defer pe.Lock.RUnlock()

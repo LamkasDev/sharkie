@@ -158,7 +158,7 @@ func (r *Renderer) ConsumeFlips(done chan struct{}) {
 					color.Blue.Sprintf("Frame %d", frame.Number),
 				)
 			} else {
-				surface, err = r.GpuTranslator.GetSurface(group.LeadingImage.FirstDescriptor, group.LeadingImage.ImageFormat)
+				surface, err = r.GpuTranslator.GetSurface(group.LeadingImage.FirstDescriptor, 0)
 				if err != nil {
 					panic(err)
 				}

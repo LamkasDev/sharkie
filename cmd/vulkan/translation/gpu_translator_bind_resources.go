@@ -209,7 +209,7 @@ func (t *GpuTranslator) GetBindDescriptorSet(shaders []*spirv.SpirvShader, userD
 		}
 
 		// Get image view and sampler.
-		view, err, _ := t.GetImageView(access.Descriptor)
+		view, err, _ := t.GetImageView(access.Descriptor, 0)
 		if err != nil {
 			return nil, nil, vk.NullDescriptorSet, vk.NullDescriptorSet, err
 		}

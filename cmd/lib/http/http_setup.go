@@ -63,3 +63,26 @@ func libSceHttp_sceHttpCreateTemplate(contextId uint32, userAgent Cstring, httpV
 	)
 	return uintptr(template.Id)
 }
+
+// 0x00000000000112D0
+// __int64 __fastcall sceHttpDeleteTemplate(unsigned int)
+func libSceHttp_sceHttpDeleteTemplate(templateId uint32) uintptr {
+	template := GlobalHttpHandler.GetTemplate(templateId)
+	if template == nil {
+		logger.Printf("%-132s %s failed due to invalid template id.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceHttpDeleteTemplate"),
+		)
+		return 0x80431100
+	}
+
+	// Delete template.
+	GlobalHttpHandler.DeleteTemplate(templateId)
+
+	logger.Printf("%-132s %s deleted http template %s.\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("sceHttpDeleteTemplate"),
+		color.Yellow.Sprintf("0x%X", template.Id),
+	)
+	return 0
+}

@@ -221,6 +221,8 @@ func RegisterKernelStubs() {
 	elf.RegisterStub("libkernel", "sceKernelClockGettime", libKernel_sceKernelClockGettime)
 	elf.RegisterStub("libkernel", "sceKernelGetProcessTime", libKernel_sceKernelGetProcessTime)
 	elf.RegisterStub("libkernel", "sceKernelGettimeofday", libKernel_sceKernelGettimeofday)
+	elf.RegisterStub("libkernel", "sceKernelConvertUtcToLocaltime", libKernel_sceKernelConvertUtcToLocaltime)
+	elf.RegisterStub("libkernel", "sceKernelConvertLocaltimeToUtc", libKernel_sceKernelConvertLocaltimeToUtc)
 
 	// Signal functions.
 	elf.RegisterStub("libkernel", "sigprocmask", libKernel_sigprocmask)
@@ -252,6 +254,12 @@ func RegisterKernelStubs() {
 	elf.RegisterStub("libkernel", "__sys_netcontrol", libKernel___sys_netcontrol)
 	elf.RegisterStub("libkernel", "__sys_socketex", libKernel___sys_socketex)
 	elf.RegisterStub("libkernel", "__sys_socketclose", libKernel___sys_socketclose)
+
+	// Coredump functions.
+	elf.RegisterStub("libkernel", "sceCoredumpRegisterCoredumpHandler", libKernel_sceCoredumpRegisterCoredumpHandler)
+	elf.RegisterStub("libSceCoredump", "sceCoredumpRegisterCoredumpHandler", libKernel_sceCoredumpRegisterCoredumpHandler)
+	elf.RegisterStub("libkernel", "sceCoredumpUnregisterCoredumpHandler", libKernel_sceCoredumpUnregisterCoredumpHandler)
+	elf.RegisterStub("libSceCoredump", "sceCoredumpUnregisterCoredumpHandler", libKernel_sceCoredumpUnregisterCoredumpHandler)
 }
 
 func StackChkFail() uintptr {

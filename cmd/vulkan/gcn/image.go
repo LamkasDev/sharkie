@@ -84,6 +84,9 @@ func TranslateDstSelToVkSwizzle(sel uint8) vk.ComponentSwizzle {
 
 // TranslateGcnFormat maps GCN formats to Vulkan VkFormat and byte size.
 func TranslateGcnFormat(dataFormat, numFormat uint8, compSwap uint32) (vk.Format, uint32) {
+	if numFormat == gcn.GcnNumFormatConvertToDepthPls {
+		return TranslateGcnDepthFormat(dataFormat)
+	}
 	if compSwap != 0 && dataFormat != gcn.GcnDataFormat8_8_8_8 &&
 		dataFormat != gcn.GcnDataFormat10_10_10_2 && dataFormat != gcn.GcnDataFormat2_10_10_10 {
 		panic(fmt.Sprintf("unhandled comp swap %d for format %d", compSwap, dataFormat))

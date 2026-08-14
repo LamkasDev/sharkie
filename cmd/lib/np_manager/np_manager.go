@@ -10,6 +10,9 @@ import (
 func RegisterNpManagerStubs() {
 	// Setup functions.
 	elf.RegisterStub("libSceNpManager", "sceNpGetState", libSceNpManager_sceNpGetState)
+	elf.RegisterStub("libSceNpManager", "sceNpHasSignedUp", libSceNpManager_sceNpHasSignedUp)
+	elf.RegisterStub("libSceNpManager", "sceNpGetOnlineId", libSceNpManager_sceNpGetOnlineId)
+	elf.RegisterStub("libSceNpManager", "sceNpGetNpId", libSceNpManager_sceNpGetNpId)
 
 	elf.RegisterStub("libSceNpManager", "sceNpUnregisterStateCallback", libSceNpManager_stub)
 	elf.RegisterStub("libSceNpManager", "sceNpInGameMessageSendData", libSceNpManager_stub)
@@ -28,12 +31,10 @@ func RegisterNpManagerStubs() {
 	elf.RegisterStub("libSceNpManager", "sceNpDeleteRequest", libSceNpManager_stub)
 	elf.RegisterStub("libSceNpManager", "sceNpCheckPlus", libSceNpManager_stub)
 	elf.RegisterStub("libSceNpManager", "sceNpCreateAsyncRequest", libSceNpManager_stub)
-	elf.RegisterStub("libSceNpManager", "sceNpGetOnlineId", libSceNpManager_stub)
 	elf.RegisterStub("libSceNpManager", "sceNpSetContentRestriction", libSceNpManager_stub)
 	elf.RegisterStub("libSceNpManager", "sceNpNotifyPlusFeature", libSceNpManager_stub)
 	elf.RegisterStub("libSceNpManager", "sceNpSetNpTitleId", libSceNpManager_stub)
 	elf.RegisterStub("libSceNpManager", "sceNpInGameMessageInitialize", libSceNpManager_stub)
-	elf.RegisterStub("libSceNpManager", "sceNpGetNpId", libSceNpManager_stub)
 }
 
 func libSceNpManager_stub() uintptr {

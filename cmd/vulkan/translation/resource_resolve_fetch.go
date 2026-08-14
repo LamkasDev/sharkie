@@ -46,6 +46,8 @@ func (t *GpuTranslator) GetFetchShaderPC(shader *gcn.GcnShader, userData []uint3
 				applySOP2(instr, &registers)
 			case gcnSpec.EncSOPC:
 				applySOPC(instr, &registers)
+			case gcnSpec.EncSOPK:
+				applySOPK(instr, &registers)
 			case gcnSpec.EncSMRD:
 				t.applyAndResolveSMRD(instr, &registers)
 			}

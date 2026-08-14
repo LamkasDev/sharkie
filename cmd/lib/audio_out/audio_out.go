@@ -8,6 +8,7 @@ func RegisterAudioOutStubs() {
 	// Setup functions.
 	elf.RegisterStub("libSceAudioOut", "sceAudioOutInit", libSceAudioOut_sceAudioOutInit)
 	elf.RegisterStub("libSceAudioOut", "sceAudioOutOpen", libSceAudioOut_sceAudioOutOpen)
+	elf.RegisterStub("libSceAudioOut", "sceAudioOutOpenEx", libSceAudioOut_sceAudioOutOpenEx)
 	elf.RegisterStub("libSceAudioOut", "sceAudioOutGetPortState", libSceAudioOut_sceAudioOutGetPortState)
 	elf.RegisterStub("libSceAudioOut", "sceAudioOutSetVolume", libSceAudioOut_sceAudioOutSetVolume)
 

@@ -21,11 +21,13 @@ func libSceUserService_sceUserServiceGetInitialUser(userId *UserId) uintptr {
 	user := GlobalUserManager.GetInitialUser()
 	*userId = user.UserId
 
-	logger.Printf("%-132s %s returned %s.\n",
-		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprint("sceUserServiceGetInitialUser"),
-		color.Green.Sprint(user.UserId),
-	)
+	if logger.LogMisc {
+		logger.Printf("%-132s %s returned %s.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceUserServiceGetInitialUser"),
+			color.Green.Sprint(user.UserId),
+		)
+	}
 	return 0
 }
 

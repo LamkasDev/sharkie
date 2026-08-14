@@ -9,14 +9,14 @@ import (
 	vk "github.com/goki/vulkan"
 )
 
-func (t *GpuTranslator) GetImageView(descriptor spirvStructs.ImageDescriptor) (*vulkan.VulkanImageView, error, bool) {
+func (t *GpuTranslator) GetImageView(descriptor spirvStructs.ImageDescriptor, compSwap uint32) (*vulkan.VulkanImageView, error, bool) {
 	hash := descriptor.Hash()
 	format, _ := vkGcn.TranslateGcnFormat(descriptor.DataFormat, descriptor.NumFormat, 0)
 	if format == vk.FormatUndefined {
 		return nil, fmt.Errorf("invalid format"), false
 	}
 
-	image, err, created := t.GetImage(descriptor, format, false)
+	image, err, created := t.GetImage(descriptor, compSwap, false)
 	if err != nil {
 		return nil, err, false
 	}
@@ -45,6 +45,7 @@ func (t *GpuTranslator) GetImageView(descriptor spirvStructs.ImageDescriptor) (*
 	view, err = vulkan.CreateImageView(t.handles, vulkan.VulkanImageViewRequest{
 		Image:      image,
 		Descriptor: descriptor,
+		IsSurface:  false,
 	})
 	if err != nil {
 		return nil, err, false

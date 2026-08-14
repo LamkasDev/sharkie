@@ -8,9 +8,11 @@ import (
 )
 
 func RegisterSslStubs() {
+	// Setup functions.
+	elf.RegisterStub("libSceSsl", "sceSslInit", libSceSsl_sceSslInit)
+
 	elf.RegisterStub("libSceSsl", "sceSslTerm", libSceSsl_stub)
 	elf.RegisterStub("libSceSsl", "sceSslGetSerialNumber", libSceSsl_stub)
-	elf.RegisterStub("libSceSsl", "sceSslInit", libSceSsl_stub)
 }
 
 func libSceSsl_stub() uintptr {

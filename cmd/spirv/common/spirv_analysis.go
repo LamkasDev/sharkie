@@ -21,6 +21,7 @@ const (
 	ImageAccessLoad
 	ImageAccessStore
 	ImageAccessSample
+	ImageAccessAtomic
 )
 
 func (kind ImageAccessKind) isResourceAccessKind() {}
@@ -33,6 +34,8 @@ func (kind ImageAccessKind) String() string {
 		return "store"
 	case ImageAccessSample:
 		return "sample"
+	case ImageAccessAtomic:
+		return "atomic"
 	}
 	return "??"
 }

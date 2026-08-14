@@ -372,6 +372,20 @@ func (b *SpvBuilder) EmitAtomicIAdd(resultType, pointer, scope, semantics, value
 	return id
 }
 
+// EmitAtomicUMin emits OpAtomicUMin and returns the result ID.
+func (b *SpvBuilder) EmitAtomicUMin(resultType, pointer, scope, semantics, value SpirvId) SpirvId {
+	id := b.AllocId()
+	b.instr(&b.code, spec.SpvOpAtomicUMin, uint32(resultType), uint32(id), uint32(pointer), uint32(scope), uint32(semantics), uint32(value))
+	return id
+}
+
+// EmitImageTexelPointer emits OpImageTexelPointer and returns the result ID.
+func (b *SpvBuilder) EmitImageTexelPointer(resultType, image, coordinate, sample SpirvId) SpirvId {
+	id := b.AllocId()
+	b.instr(&b.code, spec.SpvOpImageTexelPointer, uint32(resultType), uint32(id), uint32(image), uint32(coordinate), uint32(sample))
+	return id
+}
+
 // EmitAtomicCompareExchange emits OpAtomicCompareExchange and returns the result ID.
 func (b *SpvBuilder) EmitAtomicCompareExchange(resultType, pointer, scope, semanticsEqual, semanticsUnequal, value, comparator SpirvId) SpirvId {
 	id := b.AllocId()

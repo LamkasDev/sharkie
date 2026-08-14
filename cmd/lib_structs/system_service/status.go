@@ -9,3 +9,8 @@ type SystemServiceStatus struct {
 	IsOutOfVrPlayArea        bool
 	// Reserved.
 }
+
+type SystemServiceDisplaySafeAreaInfo struct {
+	Ratio    float32
+	Reserved [128]byte
+}

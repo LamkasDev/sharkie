@@ -15,6 +15,7 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/lib_structs"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/app_content"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/audio_out"
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/av_player"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/dce"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/fs"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/gc"
@@ -23,6 +24,8 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/ipmi"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/libc"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/net"
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/np_trophy"
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/np_web_api"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/pad"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/posix"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/rng"
@@ -95,17 +98,24 @@ func SetupEmulatorGuest(gameNameOrPath string) error {
 	fs.SetupFilesystem()
 	rng.SetupRngDevice()
 	ipmi.SetupImpiManager()
+
+	app_content.SetupAppContentInstance()
+	system_service.SetupSystemService()
+	user.SetupUserManager()
+	user_service.SetupUserService()
+	save_data.SetupSaveDataManager()
+
 	gc.SetupGraphicsController()
 	dce.SetupDisplayCoreEngine()
 	audio_out.SetupAudioOutputEngine()
+	av_player.SetupAvPlayerEngine()
 	pad.SetupPadEngine()
-	user.SetupUserManager()
-	save_data.SetupSaveDataManager()
-	system_service.SetupSystemService()
-	user_service.SetupUserService()
-	app_content.SetupAppContentInstance()
+
 	net.SetupNetConnectionInstance()
 	http.SetupHttpHandler()
+	np_trophy.SetupTrophyManager()
+	np_web_api.SetupWebApiManager()
+
 	gpu.SetupLiverpool()
 
 	// Hook functions.

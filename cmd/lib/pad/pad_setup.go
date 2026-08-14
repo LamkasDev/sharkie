@@ -37,7 +37,7 @@ func libScePad_scePadOpen(userId UserId, padType, index, param uintptr) uintptr 
 		handle.Device = &KeyboardDevice{Window: app.GlobalApplication.Window}
 	}
 
-	logger.Printf("%-132s %s returned %s.\n",
+	logger.Printf("%-132s %s opened %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("scePadOpen"),
 		color.Yellow.Sprintf("0x%X", handle.Id),
@@ -45,18 +45,23 @@ func libScePad_scePadOpen(userId UserId, padType, index, param uintptr) uintptr 
 	return uintptr(handle.Id)
 }
 
-// 0x00000000000036A0
-// __int64 __fastcall scePadGetControllerInformation(unsigned int, __int64, __m128 _XMM0, __m128 _XMM1)
-func libScePad_scePadGetControllerInformation(handleId uint32, info *PadControllerInformation) uintptr {
+// 0x0000000000000980
+// __int64 __fastcall scePadClose(unsigned int, __m128)
+func libScePad_scePadClose(handleId uint32) uintptr {
 	handle := GlobalPadEngine.GetHandle(handleId)
-	if handle == nil || info == nil {
-		logger.Printf("%-132s %s failed due to invalid handle or info pointer.\n",
+	if handle == nil {
+		logger.Printf("%-132s %s failed due to invalid handle.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
-			color.Magenta.Sprint("scePadGetControllerInformation"),
+			color.Magenta.Sprint("scePadClose"),
 		)
-		return 0x802F0001
+		return 0x80920003
 	}
-	handle.Device.GetControllerInformation(info)
+	GlobalPadEngine.DeleteHandle()
 
+	logger.Printf("%-132s %s closed %s.\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("scePadClose"),
+		color.Yellow.Sprintf("0x%X", handle.Id),
+	)
 	return 0
 }

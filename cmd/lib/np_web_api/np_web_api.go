@@ -8,6 +8,9 @@ import (
 )
 
 func RegisterNpWebApiStubs() {
+	// Setup functions.
+	elf.RegisterStub("libSceNpWebApi", "sceNpWebApiInitialize", libSceNpWebApi_sceNpWebApiInitialize)
+
 	elf.RegisterStub("libSceNpWebApi", "sceNpWebApiUtilityParseNpId", libSceNpWebApi_stub)
 	elf.RegisterStub("libSceNpWebApi", "sceNpWebApiDeleteContext", libSceNpWebApi_stub)
 	elf.RegisterStub("libSceNpWebApi", "sceNpWebApiUnregisterPushEventCallback", libSceNpWebApi_stub)
@@ -30,7 +33,6 @@ func RegisterNpWebApiStubs() {
 	elf.RegisterStub("libSceNpWebApi", "sceNpWebApiCreateServicePushEventFilter", libSceNpWebApi_stub)
 	elf.RegisterStub("libSceNpWebApi", "sceNpWebApiCreatePushEventFilter", libSceNpWebApi_stub)
 	elf.RegisterStub("libSceNpWebApi", "sceNpWebApiCreateHandle", libSceNpWebApi_stub)
-	elf.RegisterStub("libSceNpWebApi", "sceNpWebApiInitialize", libSceNpWebApi_stub)
 }
 
 func libSceNpWebApi_stub() uintptr {

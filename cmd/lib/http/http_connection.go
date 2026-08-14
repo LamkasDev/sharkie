@@ -1,6 +1,7 @@
 package http
 
 import (
+	"fmt"
 	"strings"
 	"unsafe"
 
@@ -10,6 +11,56 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
 )
+
+// 0x00000000000114F0
+// __int64 __fastcall sceHttpCreateConnection(unsigned int, __int64, __int64, unsigned __int16, unsigned int)
+func libSceHttp_sceHttpCreateConnection(templateId uint32, serverName, scheme Cstring, port uint16, enableKeepAlive uint32) uintptr {
+	template := GlobalHttpHandler.GetTemplate(templateId)
+	if template == nil {
+		logger.Printf("%-132s %s failed due to invalid template id.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceHttpCreateConnection"),
+		)
+		return 0x80431100
+	}
+	if serverName == nil {
+		logger.Printf("%-132s %s failed due to invalid url.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceHttpCreateConnection"),
+		)
+		return 0x804311FE
+	}
+
+	// Validate scheme.
+	schemeString := GoString(scheme)
+	isSecure, err := checkScheme(schemeString)
+	if err != 0 {
+		return err
+	}
+	hostString := GoString(serverName)
+
+	// Create connection.
+	connection := GlobalHttpHandler.CreateConnection()
+	connection.TemplateId = templateId
+	connection.Url = fmt.Sprintf("%s://%s:%d", schemeString, hostString, port)
+	connection.Scheme = schemeString
+	connection.Host = hostString
+	if enableKeepAlive != 0 {
+		connection.KeepAlive = true
+	}
+	connection.IsSecure = isSecure
+	connection.Settings = template.Settings
+
+	logger.Printf("%-132s %s created http connection %s (templateId=%s, url=%s, enableKeepAlive=%s).\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("sceHttpCreateConnection"),
+		color.Yellow.Sprintf("0x%X", connection.Id),
+		color.Yellow.Sprintf("0x%X", templateId),
+		color.Blue.Sprint(connection.Url),
+		color.Green.Sprint(enableKeepAlive),
+	)
+	return uintptr(connection.Id)
+}
 
 // 0x00000000000113E0
 // __int64 __fastcall sceHttpCreateConnectionWithURL(unsigned int, __int64, unsigned int)
@@ -78,13 +129,36 @@ func libSceHttp_sceHttpCreateConnectionWithURL(templateId uint32, url Cstring, e
 
 	logger.Printf("%-132s %s created http connection %s (templateId=%s, url=%s, enableKeepAlive=%s).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
-		color.Magenta.Sprint("sceHttpCreateTemplate"),
+		color.Magenta.Sprint("sceHttpCreateConnectionWithURL"),
 		color.Yellow.Sprintf("0x%X", connection.Id),
 		color.Yellow.Sprintf("0x%X", templateId),
 		color.Blue.Sprint(connection.Url),
 		color.Green.Sprint(enableKeepAlive),
 	)
 	return uintptr(connection.Id)
+}
+
+// 0x0000000000011620
+// __int64 __fastcall sceHttpDeleteConnection(unsigned int)
+func libSceHttp_sceHttpDeleteConnection(connectionId uint32) uintptr {
+	connection := GlobalHttpHandler.GetConnection(connectionId)
+	if connection == nil {
+		logger.Printf("%-132s %s failed due to invalid connection id.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceHttpDeleteConnection"),
+		)
+		return 0x80431100
+	}
+
+	// Delete connection.
+	GlobalHttpHandler.DeleteConnection(connectionId)
+
+	logger.Printf("%-132s %s deleted http connection %s.\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("sceHttpDeleteConnection"),
+		color.Yellow.Sprintf("0x%X", connection.Id),
+	)
+	return 0
 }
 
 // checkScheme validates the scheme and determines if the connection should be secure.

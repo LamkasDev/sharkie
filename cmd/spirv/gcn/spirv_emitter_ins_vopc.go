@@ -45,6 +45,52 @@ func EmitVOPC(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 		val0 := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
 		val1 := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src1, 0, 1)
 		cond = b.EmitFUnordGreaterThanEqual(typeBool, val0, val1)
+	case gcnSpec.VopcOpCmpClassF32, gcnSpec.VopcOpCmpxClassF32:
+		typeUint := ctx.GetId(BlockContextIdTypeUint)
+		val0 := GetOperandFloatValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)
+		val1 := GetOperandUintValueModified(b, ctx, details.Abs, details.Neg, details.Src1, 0, 1)
+
+		vUint := b.EmitBitcast(typeUint, val0)
+		sign := b.EmitShiftRightLogical(typeUint, vUint, b.EmitConstantUint(typeUint, 31))
+		exp := b.EmitBitwiseAnd(typeUint, b.EmitShiftRightLogical(typeUint, vUint, b.EmitConstantUint(typeUint, 23)), b.EmitConstantUint(typeUint, 0xFF))
+		mant := b.EmitBitwiseAnd(typeUint, vUint, b.EmitConstantUint(typeUint, 0x7FFFFF))
+
+		isExpFF := b.EmitSelect(typeUint, b.EmitIEqual(typeBool, exp, b.EmitConstantUint(typeUint, 0xFF)), b.EmitConstantUint(typeUint, 1), b.EmitConstantUint(typeUint, 0))
+		isExp0 := b.EmitSelect(typeUint, b.EmitIEqual(typeBool, exp, b.EmitConstantUint(typeUint, 0)), b.EmitConstantUint(typeUint, 1), b.EmitConstantUint(typeUint, 0))
+		isExpNormal := b.EmitBitwiseAnd(typeUint, b.EmitBitwiseXor(typeUint, isExpFF, b.EmitConstantUint(typeUint, 1)), b.EmitBitwiseXor(typeUint, isExp0, b.EmitConstantUint(typeUint, 1)))
+
+		isMant0 := b.EmitSelect(typeUint, b.EmitIEqual(typeBool, mant, b.EmitConstantUint(typeUint, 0)), b.EmitConstantUint(typeUint, 1), b.EmitConstantUint(typeUint, 0))
+		isMantNot0 := b.EmitBitwiseXor(typeUint, isMant0, b.EmitConstantUint(typeUint, 1))
+
+		mantHasMSB := b.EmitSelect(typeUint, b.EmitINotEqual(typeBool, b.EmitBitwiseAnd(typeUint, mant, b.EmitConstantUint(typeUint, 0x400000)), b.EmitConstantUint(typeUint, 0)), b.EmitConstantUint(typeUint, 1), b.EmitConstantUint(typeUint, 0))
+		mantNoMSB := b.EmitBitwiseXor(typeUint, mantHasMSB, b.EmitConstantUint(typeUint, 1))
+
+		isSign1 := sign
+		isSign0 := b.EmitBitwiseXor(typeUint, sign, b.EmitConstantUint(typeUint, 1))
+
+		isSNaN := b.EmitBitwiseAnd(typeUint, b.EmitBitwiseAnd(typeUint, isExpFF, isMantNot0), mantNoMSB)
+		isQNaN := b.EmitBitwiseAnd(typeUint, b.EmitBitwiseAnd(typeUint, isExpFF, isMantNot0), mantHasMSB)
+		isNegInf := b.EmitBitwiseAnd(typeUint, b.EmitBitwiseAnd(typeUint, isExpFF, isMant0), isSign1)
+		isPosInf := b.EmitBitwiseAnd(typeUint, b.EmitBitwiseAnd(typeUint, isExpFF, isMant0), isSign0)
+		isNegZero := b.EmitBitwiseAnd(typeUint, b.EmitBitwiseAnd(typeUint, isExp0, isMant0), isSign1)
+		isPosZero := b.EmitBitwiseAnd(typeUint, b.EmitBitwiseAnd(typeUint, isExp0, isMant0), isSign0)
+		isNegDenorm := b.EmitBitwiseAnd(typeUint, b.EmitBitwiseAnd(typeUint, isExp0, isMantNot0), isSign1)
+		isPosDenorm := b.EmitBitwiseAnd(typeUint, b.EmitBitwiseAnd(typeUint, isExp0, isMantNot0), isSign0)
+		isNegNorm := b.EmitBitwiseAnd(typeUint, isExpNormal, isSign1)
+		isPosNorm := b.EmitBitwiseAnd(typeUint, isExpNormal, isSign0)
+
+		mask := isSNaN
+		mask = b.EmitBitwiseOr(typeUint, mask, b.EmitShiftLeftLogical(typeUint, isQNaN, b.EmitConstantUint(typeUint, 1)))
+		mask = b.EmitBitwiseOr(typeUint, mask, b.EmitShiftLeftLogical(typeUint, isNegInf, b.EmitConstantUint(typeUint, 2)))
+		mask = b.EmitBitwiseOr(typeUint, mask, b.EmitShiftLeftLogical(typeUint, isNegNorm, b.EmitConstantUint(typeUint, 3)))
+		mask = b.EmitBitwiseOr(typeUint, mask, b.EmitShiftLeftLogical(typeUint, isNegDenorm, b.EmitConstantUint(typeUint, 4)))
+		mask = b.EmitBitwiseOr(typeUint, mask, b.EmitShiftLeftLogical(typeUint, isNegZero, b.EmitConstantUint(typeUint, 5)))
+		mask = b.EmitBitwiseOr(typeUint, mask, b.EmitShiftLeftLogical(typeUint, isPosZero, b.EmitConstantUint(typeUint, 6)))
+		mask = b.EmitBitwiseOr(typeUint, mask, b.EmitShiftLeftLogical(typeUint, isPosDenorm, b.EmitConstantUint(typeUint, 7)))
+		mask = b.EmitBitwiseOr(typeUint, mask, b.EmitShiftLeftLogical(typeUint, isPosNorm, b.EmitConstantUint(typeUint, 8)))
+		mask = b.EmitBitwiseOr(typeUint, mask, b.EmitShiftLeftLogical(typeUint, isPosInf, b.EmitConstantUint(typeUint, 9)))
+
+		cond = b.EmitINotEqual(typeBool, b.EmitBitwiseAnd(typeUint, mask, val1), b.EmitConstantUint(typeUint, 0))
 	// Unsigned versions.
 	case gcnSpec.VopcOpCmpEqU32, gcnSpec.VopcOpCmpxEqU32:
 		val0 := GetOperandUintValueModified(b, ctx, details.Abs, details.Neg, details.Src0, instr.Literal, 0)

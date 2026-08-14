@@ -7,6 +7,7 @@ import (
 func RegisterUserServiceStubs() {
 	// Setup functions.
 	elf.RegisterStub("libSceUserService", "sceUserServiceInitialize", libSceUserService_sceUserServiceInitialize)
+	elf.RegisterStub("libSceUserService", "sceUserServiceInitialize2", libSceUserService_sceUserServiceInitialize)
 
 	// Event functions.
 	elf.RegisterStub("libSceUserService", "sceUserServiceGetEvent", libSceUserService_sceUserServiceGetEvent)

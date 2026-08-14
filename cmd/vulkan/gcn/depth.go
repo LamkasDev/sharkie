@@ -1,6 +1,8 @@
 package gcn
 
 import (
+	"fmt"
+
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/gcn/reg"
 	vk "github.com/goki/vulkan"
 	"go101.org/nstd"
@@ -102,25 +104,26 @@ func TranslateStencilOp(op uint32) vk.StencilOp {
 	}
 }
 
-func TranslateGcnDepthFormat(format uint32, formatProperties map[vk.Format]vk.FormatProperties) vk.Format {
-	var requested vk.Format
-	switch format {
-	case 1: // Z_16: 16-bit UNORM depth surface.
-		requested = vk.FormatD16UnormS8Uint
-	case 2: // Z_24: 24-bit UNORM depth surface.
-		requested = vk.FormatD24UnormS8Uint
-	case 3: // Z_32_FLOAT: 32-bit FLOAT depth surface.
-		requested = vk.FormatD32SfloatS8Uint
+// TranslateGcnDepthFormat maps GCN depth formats to Vulkan VkFormat and byte size.
+func TranslateGcnDepthFormat(dataFormat uint8) (vk.Format, uint32) {
+	// TODO: finish checking format support.
+	switch dataFormat {
+	case 0:
+		return vk.FormatUndefined, 0
 	default:
-		return vk.FormatUndefined
+		return vk.FormatD32SfloatS8Uint, 4
 	}
 
-	// Check if the physical device supports optimal tiling for this format as both a depth-stencil attachment and a sampled image.
-	required := vk.FormatFeatureFlags(vk.FormatFeatureDepthStencilAttachmentBit | vk.FormatFeatureSampledImageBit)
-	if (formatProperties[requested].OptimalTilingFeatures & required) == required {
-		return requested
+	switch dataFormat {
+	case 0:
+		return vk.FormatUndefined, 0
+	case 1: // Z_16: 16-bit UNORM depth surface.
+		return vk.FormatD16UnormS8Uint, 2
+	case 2: // Z_24: 24-bit UNORM depth surface.
+		return vk.FormatD24UnormS8Uint, 3
+	case 3: // Z_32_FLOAT: 32-bit FLOAT depth surface.
+		return vk.FormatD32SfloatS8Uint, 4
 	}
 
-	// Fallback to D32_SFLOAT_S8_UINT which is universally supported by all Vulkan implementations supporting stencil.
-	return vk.FormatD32SfloatS8Uint
+	panic(fmt.Sprintf("unhandled data format %d", dataFormat))
 }

@@ -26,12 +26,12 @@ layout(push_constant) uniform image_info {
 
 const uint lut_64bpp[][16] = {
     {
-        0x09080100, 0x49484140, 
-        0x0b0a0302, 0x4a4b4342,
+        0x09080100, 0x49484140,
+        0x0b0a0302, 0x4b4a4342,
         0x19181110, 0x59585150,
-        0x1b1a1312, 0x5a5b5352,
+        0x1b1a1312, 0x5b5a5352,
         0x89888180, 0xc9c8c1c0,
-        0x8b8a8382, 0xcacbc3c2,
+        0x8b8a8382, 0xcbcac3c2,
         0x99989190, 0xd9d8d1d0,
         0x9b9a9392, 0xdbdad3d2,
     },

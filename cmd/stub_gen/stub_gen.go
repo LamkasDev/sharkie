@@ -54,6 +54,9 @@ import (
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/audio_out"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/http"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/np_manager"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/av_player"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/mouse"
+	_ "github.com/LamkasDev/sharkie/cmd/lib_structs/np_trophy"
 )
 
 func CreateDispatcher(goFn any) asm.StubDispatcher {

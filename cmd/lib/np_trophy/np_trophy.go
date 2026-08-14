@@ -8,6 +8,15 @@ import (
 )
 
 func RegisterNpTrophyStubs() {
+	// Setup functions.
+	// elf.RegisterStub("libSceNpTrophy", "sceNpTrophyCreateContext", libSceNpTrophy_sceNpTrophyCreateContext)
+	// elf.RegisterStub("libSceNpTrophy", "sceNpTrophyCreateHandle", libSceNpTrophy_sceNpTrophyCreateHandle)
+	// elf.RegisterStub("libSceNpTrophy", "sceNpTrophyRegisterContext", libSceNpTrophy_sceNpTrophyRegisterContext)
+
+	// Query functions.
+	// elf.RegisterStub("libSceNpTrophy", "sceNpTrophyGetGameInfo", libSceNpTrophy_sceNpTrophyGetGameInfo)
+	// elf.RegisterStub("libSceNpTrophy", "sceNpTrophyGetTrophyInfo", libSceNpTrophy_sceNpTrophyGetTrophyInfo)
+
 	elf.RegisterStub("libSceNpTrophy", "sceNpTrophyGetGroupInfo", libSceNpTrophy_stub)
 	elf.RegisterStub("libSceNpTrophy", "sceNpTrophyGetTrophyInfo", libSceNpTrophy_stub)
 	elf.RegisterStub("libSceNpTrophy", "sceNpTrophyGetGameInfo", libSceNpTrophy_stub)

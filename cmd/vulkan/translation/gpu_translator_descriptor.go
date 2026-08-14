@@ -30,7 +30,7 @@ func (t *GpuTranslator) createDummyTextures() {
 		descriptor.BaseAddress = uintptr(unsafe.Pointer(&data[0]))
 		*(*uint32)(unsafe.Pointer(descriptor.BaseAddress)) = 0xFFFF00FF // magenta
 
-		surface, err := t.GetSurface(descriptor, vk.FormatR8g8b8a8Unorm)
+		surface, err := t.GetSurface(descriptor, 0)
 		if err != nil {
 			fmt.Printf("failed to create dummy texture: %v\n", err)
 			return nil

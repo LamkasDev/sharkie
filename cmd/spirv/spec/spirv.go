@@ -97,12 +97,14 @@ const (
 	SpvStorageWorkgroup             = uint32(4)
 	SpvStorageFunction              = uint32(7)
 	SpvStoragePushConstant          = uint32(9)
+	SpvStorageImage                 = uint32(11)
 	SpvStorageStorageBuffer         = uint32(12)
 	SpvStoragePhysicalStorageBuffer = uint32(5349)
 )
 
 // SPIR-V scopes.
 const (
+	SpvScopeDevice    = uint32(1)
 	SpvScopeWorkgroup = uint32(2)
 	SpvScopeSubgroup  = uint32(3)
 )
@@ -142,6 +144,7 @@ const (
 // SPIR-V memory semantics masks.
 const (
 	SpvMemorySemanticsAcquireRelease  = uint32(8)
+	SpvMemorySemanticsUniformMemory   = uint32(64)
 	SpvMemorySemanticsWorkgroupMemory = uint32(256)
 )
 
@@ -191,6 +194,7 @@ const (
 	SpvOpVariable                   = uint32(59)
 	SpvOpFunction                   = uint32(54)
 	SpvOpFunctionEnd                = uint32(56)
+	SpvOpImageTexelPointer          = uint32(60)
 	SpvOpLoad                       = uint32(61)
 	SpvOpStore                      = uint32(62)
 	SpvOpAccessChain                = uint32(65)
@@ -269,6 +273,7 @@ const (
 	SpvOpAtomicExchange             = uint32(229)
 	SpvOpAtomicCompareExchange      = uint32(230)
 	SpvOpAtomicIAdd                 = uint32(234)
+	SpvOpAtomicUMin                 = uint32(237)
 	SpvOpPhi                        = uint32(245)
 	SpvOpLoopMerge                  = uint32(246)
 	SpvOpSelectionMerge             = uint32(247)

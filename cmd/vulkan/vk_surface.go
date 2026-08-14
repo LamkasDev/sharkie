@@ -27,7 +27,7 @@ type VulkanSurface struct {
 
 type VulkanSurfaceRequest struct {
 	Descriptor spirvStructs.ImageDescriptor
-	Format     vk.Format
+	CompSwap   uint32
 	Image      *VulkanImage
 }
 
@@ -36,11 +36,11 @@ func CreateSurface(handles *VulkanHandles, req VulkanSurfaceRequest) (*VulkanSur
 		ImageView: &VulkanImageView{},
 	}
 
-	imageViewReq := VulkanImageViewRequest{
+	imageView, err := CreateImageView(handles, VulkanImageViewRequest{
 		Image:      req.Image,
 		Descriptor: req.Descriptor,
-	}
-	imageView, err := CreateImageView(handles, imageViewReq)
+		IsSurface:  true,
+	})
 	if err != nil {
 		return nil, err
 	}

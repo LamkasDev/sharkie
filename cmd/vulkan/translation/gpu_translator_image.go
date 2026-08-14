@@ -5,7 +5,6 @@ import (
 	spirvStructs "github.com/LamkasDev/sharkie/cmd/spirv/structs"
 	"github.com/LamkasDev/sharkie/cmd/structs"
 	"github.com/LamkasDev/sharkie/cmd/vulkan"
-	vk "github.com/goki/vulkan"
 )
 
 func (t *GpuTranslator) GetImageByAddress(address uintptr) *vulkan.VulkanImageGroup {
@@ -16,7 +15,7 @@ func (t *GpuTranslator) GetImageByAddress(address uintptr) *vulkan.VulkanImageGr
 	return group
 }
 
-func (t *GpuTranslator) GetImage(descriptor spirvStructs.ImageDescriptor, format vk.Format, isSurface bool) (*vulkan.VulkanImage, error, bool) {
+func (t *GpuTranslator) GetImage(descriptor spirvStructs.ImageDescriptor, compSwap uint32, isSurface bool) (*vulkan.VulkanImage, error, bool) {
 	t.imageGroupsMutex.Lock()
 	group, ok := t.imageGroups[descriptor.BaseAddress]
 	if !ok {
@@ -27,7 +26,7 @@ func (t *GpuTranslator) GetImage(descriptor spirvStructs.ImageDescriptor, format
 
 	// Get image from the group.
 	oldSize := group.GuestSize
-	image, err, created := group.GetImage(t.handles, descriptor, format, isSurface, t.commandBuffer, t.currentGuestFrame, t.GetLinearBuffer)
+	image, err, created := group.GetImage(t.handles, descriptor, compSwap, isSurface, t.commandBuffer, t.currentGuestFrame, t.GetLinearBuffer)
 	if err != nil {
 		return nil, err, false
 	}
@@ -36,12 +35,16 @@ func (t *GpuTranslator) GetImage(descriptor spirvStructs.ImageDescriptor, format
 	if !ok {
 		t.imageGroups[descriptor.BaseAddress] = group
 		structs.GlobalMemoryManager.Track(group.Address, group.GuestSize, group)
-		logger.Printf("registered image group at 0x%X (0x%X bytes).\n", group.Address, group.GuestSize)
+		if logger.LogRenderer {
+			logger.Printf("registered image group at 0x%X (0x%X bytes).\n", group.Address, group.GuestSize)
+		}
 	}
 	if group.GuestSize > oldSize {
 		structs.GlobalMemoryManager.Untrack(group.Address, oldSize, group)
 		structs.GlobalMemoryManager.Track(group.Address, group.GuestSize, group)
-		logger.Printf("expanded image group at 0x%X (0x%X bytes -> 0x%X bytes).\n", group.Address, oldSize, group.GuestSize)
+		if logger.LogRenderer {
+			logger.Printf("expanded image group at 0x%X (0x%X bytes -> 0x%X bytes).\n", group.Address, oldSize, group.GuestSize)
+		}
 	}
 
 	return image, nil, created

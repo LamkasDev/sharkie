@@ -16,8 +16,8 @@ func (t *GpuTranslator) GetSurfaceByAddress(address uintptr) *vulkan.VulkanSurfa
 	return surface
 }
 
-func (t *GpuTranslator) GetSurface(descriptor spirvStructs.ImageDescriptor, format vk.Format) (*vulkan.VulkanSurface, error) {
-	image, err, _ := t.GetImage(descriptor, format, true)
+func (t *GpuTranslator) GetSurface(descriptor spirvStructs.ImageDescriptor, compSwap uint32) (*vulkan.VulkanSurface, error) {
+	image, err, _ := t.GetImage(descriptor, compSwap, true)
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +43,7 @@ func (t *GpuTranslator) GetSurface(descriptor spirvStructs.ImageDescriptor, form
 
 	surface, err = vulkan.CreateSurface(t.handles, vulkan.VulkanSurfaceRequest{
 		Descriptor: descriptor,
-		Format:     format,
+		CompSwap:   compSwap,
 		Image:      image,
 	})
 	if err != nil {

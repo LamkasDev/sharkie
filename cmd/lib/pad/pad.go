@@ -11,16 +11,20 @@ func RegisterPadStubs() {
 	// Setup functions.
 	elf.RegisterStub("libScePad", "scePadInit", libScePad_scePadInit)
 	elf.RegisterStub("libScePad", "scePadOpen", libScePad_scePadOpen)
+	elf.RegisterStub("libScePad", "scePadClose", libScePad_scePadClose)
+
+	// Query functions.
 	elf.RegisterStub("libScePad", "scePadGetControllerInformation", libScePad_scePadGetControllerInformation)
-	elf.RegisterStub("libScePad", "scePadClose", libScePad_stub)
-	elf.RegisterStub("libScePad", "scePadResetLightBar", libScePad_stub)
-	elf.RegisterStub("libScePad", "scePadSetLightBar", libScePad_stub)
-	elf.RegisterStub("libScePad", "scePadSetMotionSensorState", libScePad_stub)
-	elf.RegisterStub("libScePad", "scePadSetVibration", libScePad_stub)
 
 	// Read functions.
 	elf.RegisterStub("libScePad", "scePadRead", libScePad_scePadRead)
 	elf.RegisterStub("libScePad", "scePadReadState", libScePad_scePadReadState)
+
+	// State functions.
+	elf.RegisterStub("libScePad", "scePadResetLightBar", libScePad_stub)
+	elf.RegisterStub("libScePad", "scePadSetLightBar", libScePad_stub)
+	elf.RegisterStub("libScePad", "scePadSetMotionSensorState", libScePad_stub)
+	elf.RegisterStub("libScePad", "scePadSetVibration", libScePad_stub)
 }
 
 func libScePad_stub() uintptr {

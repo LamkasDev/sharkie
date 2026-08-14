@@ -6,26 +6,24 @@ import (
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
 	"github.com/LamkasDev/sharkie/cmd/lib_structs/fs"
-	. "github.com/LamkasDev/sharkie/cmd/lib_structs/module"
-	. "github.com/LamkasDev/sharkie/cmd/lib_structs/posix"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
 )
 
 // 0x000000000002C370
 // void sceKernelLoadStartModuleForSysmodule()
-func libKernel_sceKernelLoadStartModuleForSysmodule(namePtr Cstring, argc, argvPtr, flags, optionPtr, statusPtr uintptr) uintptr {
-	return libKernel_sys_sceKernelLoadStartModule(namePtr, argc, argvPtr, flags, optionPtr, statusPtr)
+func libKernel_sceKernelLoadStartModuleForSysmodule(namePtr Cstring, argc, argvPtr uintptr, flags uint32, optionPtr uintptr, resultPtr *int32) uintptr {
+	return libKernel_sys_sceKernelLoadStartModule(namePtr, argc, argvPtr, flags, optionPtr, resultPtr)
 }
 
 // 0x000000000002BB00
 // __int64 __fastcall sceKernelLoadStartModule(__int64, __int64, __int64, int, __int64, int *, __m128, __m128, __m128, __m128, double, double, __m128, __m128)
-func libKernel_sceKernelLoadStartModule(namePtr Cstring, argc, argvPtr, flags, optionPtr, statusPtr uintptr) uintptr {
+func libKernel_sceKernelLoadStartModule(namePtr Cstring, argc, argvPtr uintptr, flags uint32, optionPtr uintptr, resultPtr *int32) uintptr {
 	// TODO: this does a check, but not sure about the signature
-	return libKernel_sys_sceKernelLoadStartModule(namePtr, argc, argvPtr, flags, optionPtr, statusPtr)
+	return libKernel_sys_sceKernelLoadStartModule(namePtr, argc, argvPtr, flags, optionPtr, resultPtr)
 }
 
-func libKernel_sys_sceKernelLoadStartModule(namePtr Cstring, argc, argvPtr, flags, optionPtr, resultPtr uintptr) uintptr {
+func libKernel_sys_sceKernelLoadStartModule(namePtr Cstring, argc, argvPtr uintptr, flags uint32, optionPtr uintptr, resultPtr *int32) uintptr {
 	if namePtr == nil {
 		logger.Printf("%-132s %s failed due to invalid name pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
@@ -39,13 +37,13 @@ func libKernel_sys_sceKernelLoadStartModule(namePtr Cstring, argc, argvPtr, flag
 			moduleNameOrPath = hostPath
 		}
 	}
-	if emu.GlobalModuleManager.IsModuleLoaded(moduleNameOrPath) {
+	if module := emu.GlobalModuleManager.GetModule(moduleNameOrPath); module != nil {
 		logger.Printf("%-132s %s skipping already loaded module %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceKernelLoadStartModule"),
 			color.Blue.Sprint(moduleNameOrPath),
 		)
-		return 0
+		return uintptr(module.ModuleIndex)
 	}
 	logger.Printf("%-132s %s loading %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
@@ -72,10 +70,9 @@ func libKernel_sys_sceKernelLoadStartModule(namePtr Cstring, argc, argvPtr, flag
 	ret := emu.GlobalModuleManager.RunModuleInitializers(emu.GetCurrentThread(), mod, true, false, argc, argvPtr, param)
 
 	// Write back return value of init function.
-	if resultPtr != 0 {
-		WriteResult(resultPtr, uint32(ret))
+	if resultPtr != nil {
+		*resultPtr = int32(ret)
 	}
 
-	handle := ModuleHandle(mod.ModuleIndex)
-	return uintptr(handle)
+	return uintptr(mod.ModuleIndex)
 }

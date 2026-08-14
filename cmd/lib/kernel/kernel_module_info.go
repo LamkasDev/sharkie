@@ -19,7 +19,7 @@ func libKernel_sceKernelGetModuleInfoForUnwind(addr, flags uintptr, moduleInfoFo
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceKernelGetModuleInfoForUnwind"),
 		)
-		return SCE_KERNEL_ERROR_EINVAL
+		return SCE_KERNEL_ERROR_EFAULT
 	}
 
 	module := emu.GetModuleAtAddress(addr)
@@ -29,7 +29,7 @@ func libKernel_sceKernelGetModuleInfoForUnwind(addr, flags uintptr, moduleInfoFo
 			color.Magenta.Sprint("sceKernelGetModuleInfoForUnwind"),
 			color.Yellow.Sprintf("0x%X", addr),
 		)
-		return SCE_KERNEL_ERROR_ENOENT
+		return SCE_KERNEL_ERROR_ESRCH
 	}
 	textSection, _ := emu.GetModuleSections(module)
 
@@ -58,7 +58,7 @@ func libKernel_sceKernelGetModuleInfo(handle ModuleHandle, info *ModuleInfo) uin
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceKernelGetModuleInfo"),
 		)
-		return SCE_KERNEL_ERROR_EINVAL
+		return SCE_KERNEL_ERROR_EFAULT
 	}
 
 	emu.GlobalModuleManager.ModulesLock.RLock()
@@ -70,7 +70,7 @@ func libKernel_sceKernelGetModuleInfo(handle ModuleHandle, info *ModuleInfo) uin
 			color.Magenta.Sprint("sceKernelGetModuleInfo"),
 			color.Yellow.Sprintf("0x%X", handle),
 		)
-		return SCE_KERNEL_ERROR_ENOENT
+		return SCE_KERNEL_ERROR_ESRCH
 	}
 
 	info.Size = uint64(ModuleInfoSize)
@@ -108,18 +108,19 @@ func libKernel_sceKernelDlsym(handle ModuleHandle, symbolNamePtr Cstring, addres
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceKernelDlsym"),
 		)
-		return SCE_KERNEL_ERROR_EINVAL
+		return SCE_KERNEL_ERROR_EFAULT
 	}
+
 	emu.GlobalModuleManager.ModulesLock.RLock()
+	defer emu.GlobalModuleManager.ModulesLock.RUnlock() // GetSymbolAddress needs lock.
 	module := emu.GlobalModuleManager.Modules[handle]
-	emu.GlobalModuleManager.ModulesLock.RUnlock()
 	if module == nil {
 		logger.Printf("%-132s %s failed due to unknown module %s.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceKernelDlsym"),
 			color.Yellow.Sprintf("0x%X", handle),
 		)
-		return SCE_KERNEL_ERROR_ENOENT
+		return SCE_KERNEL_ERROR_ESRCH
 	}
 	symbolName := GoString(symbolNamePtr)
 	mangledSymbolName := ReadableToMangled(symbolName)

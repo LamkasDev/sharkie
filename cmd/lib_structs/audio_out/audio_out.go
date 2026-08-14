@@ -67,8 +67,8 @@ func (format AudioOutParamFormat) ToAudioOutFormatInfo() AudioOutFormatInfo {
 }
 
 type AudioOutOutputParam struct {
-	Handle int32
-	Ptr    uint64
+	Handle uint32
+	Ptr    uintptr
 }
 
 type AudioOutPortState struct {

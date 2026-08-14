@@ -26,3 +26,18 @@ func libSceSystemService_sceSystemServiceGetStatus(status *SystemServiceStatus) 
 
 	return 0
 }
+
+// 0x0000000000001FC0
+// __int64 __fastcall sceSystemServiceGetDisplaySafeAreaInfo(_DWORD *, __m128 _XMM0)
+func libSceSystemService_sceSystemServiceGetDisplaySafeAreaInfo(info *SystemServiceDisplaySafeAreaInfo) uintptr {
+	if info == nil {
+		logger.Printf("%-132s %s failed due to invalid info pointer.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("sceSystemServiceGetDisplaySafeAreaInfo"),
+		)
+		return 0x80A10003
+	}
+	info.Ratio = 1.0
+
+	return 0
+}

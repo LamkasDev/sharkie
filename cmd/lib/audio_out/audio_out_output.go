@@ -11,7 +11,7 @@ import (
 	"github.com/gookit/color"
 )
 
-func handleAudioOutput(handleId uint32, ptr uint64) (int32, int32) {
+func handleAudioOutput(handleId uint32, ptr uintptr) (int32, int32) {
 	handle := GlobalAudioOutputEngine.GetHandle(handleId)
 	if handle == nil {
 		logger.Printf("%-132s %s failed due to invalid handle.\n",
@@ -25,7 +25,7 @@ func handleAudioOutput(handleId uint32, ptr uint64) (int32, int32) {
 	}
 	info := handle.Format.ToAudioOutFormatInfo()
 	bytesToRead := handle.Length * info.Channels * info.SampleSize
-	pcmData := unsafe.Slice((*byte)(unsafe.Pointer(uintptr(ptr))), bytesToRead)
+	pcmData := unsafe.Slice((*byte)(unsafe.Pointer(ptr)), bytesToRead)
 
 	// Convert any format to S16Stereo for oto.
 	var outData []byte
@@ -104,7 +104,7 @@ func handleAudioOutput(handleId uint32, ptr uint64) (int32, int32) {
 
 // 0x0000000000000B80
 // __int64 __fastcall sceAudioOutOutput(int a1, __int64 a2)
-func libSceAudioOut_sceAudioOutOutput(handleId uint32, ptr uint64) uintptr {
+func libSceAudioOut_sceAudioOutOutput(handleId uint32, ptr uintptr) uintptr {
 	frames, channels := handleAudioOutput(handleId, ptr)
 	if frames < 0 {
 		return uintptr(frames)
@@ -115,14 +115,14 @@ func libSceAudioOut_sceAudioOutOutput(handleId uint32, ptr uint64) uintptr {
 
 // 0x00000000000016D0
 // __int64 __fastcall sceAudioOutOutputs(_DWORD *, unsigned int, double, double)
-func libSceAudioOut_sceAudioOutOutputs(paramPtr uint64, num uint32) uintptr {
+func libSceAudioOut_sceAudioOutOutputs(paramPtr uintptr, num uint32) uintptr {
 	if num == 0 || paramPtr == 0 {
 		return 0
 	}
-	params := unsafe.Slice((*AudioOutOutputParam)(unsafe.Pointer(uintptr(paramPtr))), num)
+	params := unsafe.Slice((*AudioOutOutputParam)(unsafe.Pointer(paramPtr)), num)
 	framesSent := int32(0)
 	for i := range num {
-		frames, _ := handleAudioOutput(uint32(params[i].Handle), params[i].Ptr)
+		frames, _ := handleAudioOutput(params[i].Handle, params[i].Ptr)
 		if frames > 0 && i == 0 {
 			framesSent = frames
 		}

@@ -442,6 +442,69 @@ func EmitMIMG(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext)
 				return 0
 			},
 		)
+	case gcnSpec.MimgOpAtomicAdd, gcnSpec.MimgOpAtomicUmin:
+		idStaticStorageTextures1D := ctx.GetId(BlockContextIdStaticStorageTextures1d)
+		idStaticStorageTextures2D := ctx.GetId(BlockContextIdStaticStorageTextures2d)
+		idStaticStorageTextures3D := ctx.GetId(BlockContextIdStaticStorageTextures3d)
+		idStaticStorageTextures2DArray := ctx.GetId(BlockContextIdStaticStorageTextures2dArray)
+
+		typeStorageImage1D := ctx.GetId(BlockContextIdTypeStorageImage1d)
+		typeStorageImage2D := ctx.GetId(BlockContextIdTypeStorageImage2d)
+		typeStorageImage3D := ctx.GetId(BlockContextIdTypeStorageImage3d)
+		typeStorageImage2DArray := ctx.GetId(BlockContextIdTypeStorageImage2dArray)
+
+		typePtrUniformStorageImage1D := ctx.GetId(BlockContextIdPtrUniformStorageImage1d)
+		typePtrUniformStorageImage2D := ctx.GetId(BlockContextIdPtrUniformStorageImage2d)
+		typePtrUniformStorageImage3D := ctx.GetId(BlockContextIdPtrUniformStorageImage3d)
+		typePtrUniformStorageImage2DArray := ctx.GetId(BlockContextIdPtrUniformStorageImage2dArray)
+
+		ptr1D := b.EmitAccessChain(typePtrUniformStorageImage1D, idStaticStorageTextures1D, bindingIndex)
+		storageImage1D := b.EmitLoad(typeStorageImage1D, ptr1D)
+		ptr2D := b.EmitAccessChain(typePtrUniformStorageImage2D, idStaticStorageTextures2D, bindingIndex)
+		storageImage2D := b.EmitLoad(typeStorageImage2D, ptr2D)
+		ptr3D := b.EmitAccessChain(typePtrUniformStorageImage3D, idStaticStorageTextures3D, bindingIndex)
+		storageImage3D := b.EmitLoad(typeStorageImage3D, ptr3D)
+		ptr2DArray := b.EmitAccessChain(typePtrUniformStorageImage2DArray, idStaticStorageTextures2DArray, bindingIndex)
+		storageImage2DArray := b.EmitLoad(typeStorageImage2DArray, ptr2DArray)
+
+		// Coordinates from VGPRs (X, Y).
+		coordX := b.EmitBitcast(typeInt, ctx.LoadRegisterPointer(b, gcnSpec.OpVgpr0+details.Vaddr))
+		coordY := b.EmitBitcast(typeInt, ctx.LoadRegisterPointer(b, gcnSpec.OpVgpr0+details.Vaddr+1))
+		coordZ := b.EmitBitcast(typeInt, ctx.LoadRegisterPointer(b, gcnSpec.OpVgpr0+details.Vaddr+2))
+
+		coord1D := coordX
+		coord2D := b.EmitCompositeConstruct(typeV2Int, coordX, coordY)
+		coord3D := b.EmitCompositeConstruct(typeV3Int, coordX, coordY, coordZ)
+		coord2DArray := coord3D
+
+		// Data to store from VGPRs (one uint for atomic add/umin).
+		data := ctx.LoadRegisterPointer(b, gcnSpec.OpVgpr0+details.Vdata)
+
+		// Image atomic.
+		scope := ctx.GetConstId(ConstIdScopeDevice)
+		semantics := ctx.GetConstId(ConstIdMemorySemanticsAtomicImage)
+		typePtrImageUint := ctx.GetId(BlockContextIdPtrImageUint)
+		sample := ctx.GetConstId(ConstIdUint0)
+
+		res := EmitResourceTypeSwitch(b, typeUint, is1D, is3D, isCubeOrArray,
+			storageImage1D, storageImage2D, storageImage3D, storageImage2DArray,
+			coord1D, coord2D, coord3D, coord2DArray,
+			func(imageId, coord SpirvId, resType int) SpirvId {
+				texelPtr := b.EmitImageTexelPointer(typePtrImageUint, imageId, coord, sample)
+				switch details.Op {
+				case gcnSpec.MimgOpAtomicAdd:
+					return b.EmitAtomicIAdd(typeUint, texelPtr, scope, semantics, data)
+				case gcnSpec.MimgOpAtomicUmin:
+					return b.EmitAtomicUMin(typeUint, texelPtr, scope, semantics, data)
+				}
+
+				panic("unknown op")
+			},
+		)
+
+		if details.Glc {
+			ctx.StoreRegisterPointer(b, gcnSpec.OpVgpr0+details.Vdata, res)
+		}
 	case gcnSpec.MimgOpGetLod:
 		idStaticTextures1D := ctx.GetId(BlockContextIdStaticTextures1d)
 		idStaticTextures2D := ctx.GetId(BlockContextIdStaticTextures2d)

@@ -48,9 +48,6 @@ func BuildStaticLayout(resources []SpirvShaderResource, shader *gcn.GcnShader) S
 			case MemoryAccessLoad:
 				isStorage = false
 				isValid = true
-			case MemoryAccessStore:
-				isStorage = true
-				isValid = true
 			}
 		}
 		if !isValid {

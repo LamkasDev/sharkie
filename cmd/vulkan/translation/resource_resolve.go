@@ -75,6 +75,8 @@ func (t *GpuTranslator) resolveResourcesIns(shader *gcn.GcnShader, instr *gcnSpe
 		applySOP2(instr, registers)
 	case gcnSpec.EncSOPC:
 		applySOPC(instr, registers)
+	case gcnSpec.EncSOPK:
+		applySOPK(instr, registers)
 	case gcnSpec.EncSMRD:
 		access := t.applyAndResolveSMRD(instr, registers)
 		memoryAccesses = append(memoryAccesses, access)
@@ -170,6 +172,19 @@ func applySOPC(instr *gcnSpec.Instruction, registers *gcnSpec.GcnRegisters) {
 	switch details.Op {
 	case gcnSpec.SopcOpCmpEqU32:
 		registers[gcnSpec.OpScc] = uint32(nstd.Btoi(src0 == src1))
+	}
+}
+
+func applySOPK(instr *gcnSpec.Instruction, registers *gcnSpec.GcnRegisters) {
+	details := instr.Details.(*gcnSpec.ScalarDetails)
+	if details.Dst >= uint32(len(registers)) {
+		return
+	}
+	dst := int(details.Dst - gcnSpec.OpSgpr0)
+
+	switch details.Op {
+	case gcnSpec.SopkOpMovkI32:
+		registers[dst] = uint32(int32(int16(instr.Literal)))
 	}
 }
 

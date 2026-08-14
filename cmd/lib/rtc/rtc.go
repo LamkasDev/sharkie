@@ -20,4 +20,5 @@ func RegisterRtcStubs() {
 	elf.RegisterStub("libSceRtc", "sceRtcTickAddHours", libSceRtc_sceRtcTickAddHours)
 	elf.RegisterStub("libSceRtc", "sceRtcTickAddMinutes", libSceRtc_sceRtcTickAddMinutes)
 	elf.RegisterStub("libSceRtc", "sceRtcTickAddSeconds", libSceRtc_sceRtcTickAddSeconds)
+	elf.RegisterStub("libSceRtc", "sceRtcGetTickResolution", libSceRtc_sceRtcGetTickResolution)
 }

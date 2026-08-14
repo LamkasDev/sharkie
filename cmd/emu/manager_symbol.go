@@ -1,10 +1,12 @@
 package emu
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/LamkasDev/sharkie/cmd/asm"
 	"github.com/LamkasDev/sharkie/cmd/elf"
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/module"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
 )
@@ -21,9 +23,22 @@ func GetSymbolAddress(s *elf.ElfSymbol) (uintptr, bool) {
 	}
 
 	// Let's use a generic stub for now, so we know which functions to patch.
-	if s.LibraryName == "libkernel" || s.LibraryName == "libScePosix" || s.LibraryName == "libSceCoredump" ||
-		strings.HasPrefix(s.LibraryName, "libSceNp") || s.LibraryName == "libSceNet" || strings.HasPrefix(s.LibraryName, "libSceHttp") ||
-		strings.HasPrefix(s.LibraryName, "libSceAudio") || strings.HasPrefix(s.LibraryName, "libSceAv") || s.LibraryName == "libSceAjm" || s.LibraryName == "libSceMouse" && s.Type == elf.STT_FUNC {
+	guestLibraries := []string{
+		"libc", "libSceLibcInternal", "libSceIpmi", "libSceFios2", "libSceGnmDriver",
+		"libScePngDec", "libSceAudiodec", "libSceVideodec", "libSceVideodec2", "libSceAvPlayer", "libSceAvPlayerStreaming",
+		"libSceVideoDecoderArbitration",
+	}
+	guestPrefixes := []string{ // Some games are naughty, don't give us library names.
+		"sceFios", "sceGnm", "sceAudiodec",
+	}
+	guestPrefix := false
+	for _, prefix := range guestPrefixes {
+		if strings.HasPrefix(s.ReadableName, prefix) {
+			guestPrefix = true
+			break
+		}
+	}
+	if module.IsBootModule(s.LibraryName) && !slices.Contains(guestLibraries, s.LibraryName) && !guestPrefix && s.Type == elf.STT_FUNC {
 		return asm.Stubs[elf.GetSymbolHashIndex("", "__sharkie_generic_stub")].Address, true
 	}
 
@@ -51,9 +66,6 @@ func GetSymbolAddress(s *elf.ElfSymbol) (uintptr, bool) {
 
 // GetDefiningModule returns the module that actually defines given symbol.
 func GetDefiningModule(s *elf.ElfSymbol) *elf.Elf {
-	GlobalModuleManager.ModulesLock.RLock()
-	defer GlobalModuleManager.ModulesLock.RUnlock()
-
 	if s.LibraryName != "" {
 		libraryBase := stripExtension(s.LibraryName)
 		if module, ok := GlobalModuleManager.ModulesMap[libraryBase]; ok {

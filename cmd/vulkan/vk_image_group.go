@@ -26,7 +26,7 @@ func NewVulkanImageGroup(address uintptr, guestSize uintptr) *VulkanImageGroup {
 	}
 }
 
-func (g *VulkanImageGroup) GetImage(handles *VulkanHandles, descriptor spirvStructs.ImageDescriptor, format vk.Format, isSurface bool, commandBuffer *VulkanCommandBuffer, frame uint64, getLinearBuffer func(uintptr) (vk.Buffer, uintptr, error)) (*VulkanImage, error, bool) {
+func (g *VulkanImageGroup) GetImage(handles *VulkanHandles, descriptor spirvStructs.ImageDescriptor, compSwap uint32, isSurface bool, commandBuffer *VulkanCommandBuffer, frame uint64, getLinearBuffer func(uintptr) (vk.Buffer, uintptr, error)) (*VulkanImage, error, bool) {
 	g.SyncLock.Lock()
 	defer g.SyncLock.Unlock()
 
@@ -47,7 +47,7 @@ func (g *VulkanImageGroup) GetImage(handles *VulkanHandles, descriptor spirvStru
 	var err error
 	image, err = CreateImage(handles, VulkanImageRequest{
 		Descriptor: descriptor,
-		Format:     format,
+		CompSwap:   compSwap,
 		IsSurface:  isSurface,
 	}, commandBuffer, frame)
 	if err != nil {
@@ -80,19 +80,23 @@ func (g *VulkanImageGroup) syncImageFromLeading(handles *VulkanHandles, image *V
 		return
 	}
 
-	// Fast GPU copy if compatible.
 	// Vulkan cmd copy rules (same block size, same extent, compatible features, etc.).
 	_, srcBpp := gcn.TranslateGcnFormat(g.LeadingImage.FirstDescriptor.DataFormat, g.LeadingImage.FirstDescriptor.NumFormat, 0)
 	_, dstBpp := gcn.TranslateGcnFormat(image.FirstDescriptor.DataFormat, image.FirstDescriptor.NumFormat, 0)
 	isCompatible := srcBpp == dstBpp
 	if isCompatible {
+		// Bring lead image in sync (could be made better).
+		if g.LeadingImage.ShouldUploadToVkImage(frame) {
+			if err := g.LeadingImage.UploadToVkImage(handles, commandBuffer, getLinearBuffer, frame); err != nil {
+				logger.Printf("failed to upload image: %v\n", err)
+			}
+		}
+
+		// Fast GPU copy.
 		err := g.LeadingImage.CopyToImage(handles, commandBuffer, image, frame)
 		if err != nil {
 			logger.Printf("failed to copy image on GPU: %v\n", err)
 		}
-
-		// Assume we successfully synced all state from leading image.
-		image.SyncFlags = g.LeadingImage.SyncFlags
 	} else {
 		// Incompatible formats/extents; do CPU roundtrip (evict basically).
 		if g.LeadingImage.ShouldDownloadFromVkImage() {

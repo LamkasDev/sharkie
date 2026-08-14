@@ -70,3 +70,30 @@ func libKernel_sceKernelConvertUtcToLocaltime(utcTime int64, localTimePtr *int64
 
 	return 0
 }
+
+func SceKernelConvertLocaltimeToUtc(localTime int64, param2 int64, utcTimePtr *int64, timezone *Timezone, dstSecPtr *int32) uintptr {
+	return libKernel_sceKernelConvertLocaltimeToUtc(localTime, param2, utcTimePtr, timezone, dstSecPtr)
+}
+
+// 0x0000000000015290
+// __int64 __fastcall sceKernelConvertLocaltimeToUtc(__int64, __int64, _QWORD *, __int64, _DWORD *)
+func libKernel_sceKernelConvertLocaltimeToUtc(localTime int64, param2 int64, utcTimePtr *int64, timezone *Timezone, dstSecPtr *int32) uintptr {
+	var tz Timezone
+	err := posix.Gettimeofday(nil, &tz)
+	if err != 0 {
+		return emu.GetErrno() - SonyErrorOffset
+	}
+
+	utcTime := localTime - 60*(int64(tz.MinutesWest)+int64(tz.DstTime))
+	if utcTimePtr != nil {
+		*utcTimePtr = utcTime
+	}
+	if timezone != nil {
+		*timezone = tz
+	}
+	if dstSecPtr != nil {
+		*dstSecPtr = tz.DstTime * 60
+	}
+
+	return 0
+}

@@ -1,6 +1,8 @@
 package kernel
 
 import (
+	"fmt"
+
 	"github.com/LamkasDev/sharkie/cmd/emu"
 	"github.com/LamkasDev/sharkie/cmd/lib/posix"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
@@ -13,17 +15,20 @@ import (
 // 0x000000000001AC00
 // __int64 __fastcall sceKernelCreateEqueue(__int64 *, __int64)
 func libKernel_sceKernelCreateEqueue(handlePtr *uintptr, namePtr Cstring) uintptr {
-	if handlePtr == nil {
-		logger.Printf("%-132s %s failed due to invalid handle pointer.\n",
+	if handlePtr == nil || namePtr == nil {
+		logger.Printf("%-132s %s failed due to invalid handle or name pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("sceKernelCreateEqueue"),
 		)
 		return SCE_KERNEL_ERROR_EINVAL
 	}
-	err := posix.Kqueue(handlePtr, namePtr)
-	if err == ERR_PTR {
+	handle := posix.Kqueue()
+	if handle == ERR_PTR {
 		return emu.GetErrno() - SonyErrorOffset
 	}
+	equeue := GetEqueue(handle)
+	equeue.Name = fmt.Sprintf("0x%X", equeue.Handle)
+	*handlePtr = handle
 
 	// TODO: emulate __sys_namedobj_create?
 

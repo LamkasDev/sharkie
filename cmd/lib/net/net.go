@@ -10,6 +10,7 @@ import (
 func RegisterNetStubs() {
 	// Setup functions.
 	elf.RegisterStub("libSceNet", "sceNetGetMacAddress", libSceNet_sceNetGetMacAddress)
+	elf.RegisterStub("libSceNet", "sceNetPoolCreate", libSceNet_sceNetPoolCreate)
 
 	// Epoll functions.
 	elf.RegisterStub("libSceNet", "sceNetEpollWait_0", libSceNet_stub2)
@@ -23,7 +24,6 @@ func RegisterNetStubs() {
 	elf.RegisterStub("libSceNet", "sceNetSetsockopt", libSceNet_stub)
 	elf.RegisterStub("libSceNet", "sceNetSocket", libSceNet_stub)
 	elf.RegisterStub("libSceNet", "sceNetHtons", libSceNet_stub)
-	elf.RegisterStub("libSceNet", "sceNetPoolCreate", libSceNet_stub)
 	elf.RegisterStub("libSceNet", "sceNetRecvfrom", libSceNet_stub2)
 }
 

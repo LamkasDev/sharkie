@@ -23,7 +23,7 @@ func getFileDescriptor(filePtr uintptr) FileDescriptor {
 		return 0 // stdin
 	case 0x10402:
 		return 1 // stdout
-	case 0x20402:
+	case 0x1A402, 0x20402:
 		return 2 // stderr
 	}
 
