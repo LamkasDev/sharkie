@@ -65,7 +65,7 @@ const uint lut_32bpp[][16] = {
         0xafaeabaa, 0xefeeebea,
         0xbdbcb9b8, 0xfdfcf9f8,
         0xbfbebbba, 0xfffefbfa,
-    }
+    },
 };
 
 #define MICRO_TILE_DIM      (8)

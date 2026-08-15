@@ -170,3 +170,33 @@ func libKernel_sceKernelDirectMemoryQuery(addr uintptr, flags int32, infoPtr uin
 	)
 	return 0
 }
+
+// 0x0000000000017EF0
+// __int64 __fastcall sceKernelQueryMemoryProtection(__int64, _QWORD *, _QWORD *, int *)
+func libKernel_sceKernelQueryMemoryProtection(addr, start, end uintptr, prot *int32) uintptr {
+	var startVal, endVal uint64
+	var protVal uint32
+	err := structs.GlobalMemoryManager.QueryProtection(addr, &startVal, &endVal, &protVal)
+	if err != 0 {
+		return err
+	}
+	if start != 0 {
+		WriteAddress(start, uintptr(startVal))
+	}
+	if end != 0 {
+		WriteAddress(end, uintptr(endVal))
+	}
+	if prot != nil {
+		*prot = int32(protVal)
+	}
+
+	/* logger.Printf("%-132s %s queried %s returning start=%s, end=%s, prot=%s.\n",
+		emu.GlobalModuleManager.GetCallSiteText(),
+		color.Magenta.Sprint("sceKernelQueryMemoryProtection"),
+		color.Yellow.Sprintf("0x%X", addr),
+		color.Yellow.Sprintf("0x%X", startVal),
+		color.Yellow.Sprintf("0x%X", endVal),
+		color.Blue.Sprint(MemoryProtName(int32(protVal))),
+	) */
+	return 0
+}

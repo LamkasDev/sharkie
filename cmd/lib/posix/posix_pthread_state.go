@@ -104,18 +104,44 @@ func libScePosix_pthread_setschedparam() uintptr {
 	return 0
 }
 
-func Pthread_setcancelstate() uintptr {
-	return libScePosix_pthread_setcancelstate()
+func Pthread_setcancelstate(state int32, oldstate *int32) uintptr {
+	return libScePosix_pthread_setcancelstate(state, oldstate)
 }
 
-// TODO: finish this.
-func libScePosix_pthread_setcancelstate() uintptr {
-	thread := emu.GetCurrentThread()
-	_ = thread
+const (
+	PTHREAD_CANCEL_ENABLE  = 0
+	PTHREAD_CANCEL_DISABLE = 1
+)
 
-	logger.Printf("%-132s %s tried setting cancel state.\n",
+func libScePosix_pthread_setcancelstate(state int32, oldstate *int32) uintptr {
+	thread := emu.GetCurrentThread()
+	thread.Lock.Lock()
+	old := thread.CancelEnable
+	if state == PTHREAD_CANCEL_ENABLE {
+		thread.CancelEnable = true
+	} else if state == PTHREAD_CANCEL_DISABLE {
+		thread.CancelEnable = false
+	} else {
+		thread.Lock.Unlock()
+		return EINVAL
+	}
+	thread.Lock.Unlock()
+
+	if oldstate != nil {
+		if old {
+			*oldstate = PTHREAD_CANCEL_ENABLE
+		} else {
+			*oldstate = PTHREAD_CANCEL_DISABLE
+		}
+	}
+
+	logger.Printf("%-132s %s set cancel state (state=%d).\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("pthread_setcancelstate"),
+		state,
 	)
+	if state == PTHREAD_CANCEL_ENABLE {
+		thread.TestCancel()
+	}
 	return 0
 }

@@ -106,6 +106,49 @@ func (m *MemoryManager) VirtualQuery(addr uintptr, flags int32, info *posix.Virt
 	return 0x8002000D
 }
 
+func (m *MemoryManager) QueryProtection(addr uintptr, start *uint64, end *uint64, prot *uint32) uintptr {
+	m.Lock.Lock()
+	defer m.Lock.Unlock()
+
+	for _, vma := range m.VMAs {
+		if addr >= vma.Start && addr < vma.End {
+			if !vma.Mapped {
+				return 0x8002000D // ORBIS_KERNEL_ERROR_EACCES
+			}
+			if start != nil {
+				*start = uint64(vma.Start)
+			}
+			if end != nil {
+				*end = uint64(vma.End)
+			}
+			if prot != nil {
+				*prot = vma.Prot
+			}
+			return 0
+		}
+	}
+
+	for _, vma := range m.DirectVMAs {
+		if addr >= vma.Start && addr < vma.End {
+			if !vma.Mapped {
+				return 0x8002000D // ORBIS_KERNEL_ERROR_EACCES
+			}
+			if start != nil {
+				*start = uint64(vma.Start)
+			}
+			if end != nil {
+				*end = uint64(vma.End)
+			}
+			if prot != nil {
+				*prot = vma.Prot
+			}
+			return 0
+		}
+	}
+
+	return 0x8002000D
+}
+
 func (m *MemoryManager) splitDirectVMA(addr uintptr) {
 	if addr == 0 || addr == ^uintptr(0) {
 		return

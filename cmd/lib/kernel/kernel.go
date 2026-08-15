@@ -70,6 +70,7 @@ func RegisterKernelStubs() {
 	elf.RegisterStub("libkernel", "sceKernelSetVirtualRangeName", libKernel_sceKernelSetVirtualRangeName)
 	elf.RegisterStub("libkernel", "sceKernelVirtualQuery", libKernel_sceKernelVirtualQuery)
 	elf.RegisterStub("libkernel", "sceKernelDirectMemoryQuery", libKernel_sceKernelDirectMemoryQuery)
+	elf.RegisterStub("libkernel", "sceKernelQueryMemoryProtection", libKernel_sceKernelQueryMemoryProtection)
 	elf.RegisterStub("libkernel", "sceKernelReserveVirtualRange", libKernel_sceKernelReserveVirtualRange)
 
 	// IO functions.
@@ -111,6 +112,7 @@ func RegisterKernelStubs() {
 	elf.RegisterStub("libkernel", "scePthreadSetaffinity", libKernel_scePthreadSetaffinity)
 	elf.RegisterStub("libkernel", "scePthreadGetschedparam", libKernel_scePthreadGetschedparam)
 	elf.RegisterStub("libkernel", "scePthreadSetschedparam", libKernel_scePthreadSetschedparam)
+	elf.RegisterStub("libkernel", "scePthreadSetcancelstate", libKernel_scePthreadSetcancelstate)
 	elf.RegisterStub("libkernel", "scePthreadExit", libKernel_scePthreadExit)
 	elf.RegisterStub("libkernel", "scePthreadJoin", libKernel_scePthreadJoin)
 	elf.RegisterStub("libkernel", "scePthreadOnce", libKernel_scePthreadOnce)

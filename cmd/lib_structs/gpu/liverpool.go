@@ -96,9 +96,9 @@ func (l *Liverpool) SubmitCommandBuffers(indirectBuffers []PM4IndirectBuffer) {
 
 // TODO: we'll need to sync multiple threads trying to submit at same time.
 func (l *Liverpool) WaitIdleStart() {
-	if l.UnfinishedSubmits >= 0 {
+	/* if l.UnfinishedSubmits >= 0 {
 		l.WaitOnFinishRingWork()
-	}
+	} */
 }
 
 func (l *Liverpool) WaitIdleFinish() {

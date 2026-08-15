@@ -12,6 +12,7 @@ import (
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/av_player"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/fs"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/http"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/ime"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/irq"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/module"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/mouse"
@@ -51,6 +52,18 @@ func CreateDispatcher(goFn any) asm.StubDispatcher {
 	case func(*HttpUriElement, Cstring, uintptr, *uint64, uint64) uintptr:
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn((*HttpUriElement)(unsafe.Pointer(ctx.DI)), Cstring(ctx.SI), ctx.DX, (*uint64)(unsafe.Pointer(ctx.CX)), uint64(ctx.R8)))
+		}
+	case func(*ImeDialogParam, uintptr) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn((*ImeDialogParam)(unsafe.Pointer(ctx.DI)), ctx.SI))
+		}
+	case func(*ImeDialogResult) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn((*ImeDialogResult)(unsafe.Pointer(ctx.DI))))
+		}
+	case func(*ImeParam) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn((*ImeParam)(unsafe.Pointer(ctx.DI))))
 		}
 	case func(*KernelEvent) uintptr:
 		return func(ctx *asm.RegContext) uintptr {
@@ -409,6 +422,18 @@ func CreateDispatcher(goFn any) asm.StubDispatcher {
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn(SysmoduleId(ctx.DI), ctx.SI, ctx.DX, uint64(ctx.CX), (*int32)(unsafe.Pointer(ctx.R8))))
 		}
+	case func(UserId) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(UserId(ctx.DI)))
+		}
+	case func(UserId, *ImeKeyboardParam) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(UserId(ctx.DI), (*ImeKeyboardParam)(unsafe.Pointer(ctx.SI))))
+		}
+	case func(UserId, *ImeKeyboardResourceIdArray) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(UserId(ctx.DI), (*ImeKeyboardResourceIdArray)(unsafe.Pointer(ctx.SI))))
+		}
 	case func(UserId, *NpId) uintptr:
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn(UserId(ctx.DI), (*NpId)(unsafe.Pointer(ctx.SI))))
@@ -460,6 +485,10 @@ func CreateDispatcher(goFn any) asm.StubDispatcher {
 	case func(int32, *AppInfo) uintptr:
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn(int32(ctx.DI), (*AppInfo)(unsafe.Pointer(ctx.SI))))
+		}
+	case func(int32, *int32) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(int32(ctx.DI), (*int32)(unsafe.Pointer(ctx.SI))))
 		}
 	case func(int32, AudioOutPortType, int32, uint32, uint32, uint32) uintptr:
 		return func(ctx *asm.RegContext) uintptr {
@@ -777,6 +806,10 @@ func CreateDispatcher(goFn any) asm.StubDispatcher {
 	case func(uintptr, uintptr, uintptr) uintptr:
 		return func(ctx *asm.RegContext) uintptr {
 			return uintptr(fn(ctx.DI, ctx.SI, ctx.DX))
+		}
+	case func(uintptr, uintptr, uintptr, *int32) uintptr:
+		return func(ctx *asm.RegContext) uintptr {
+			return uintptr(fn(ctx.DI, ctx.SI, ctx.DX, (*int32)(unsafe.Pointer(ctx.CX))))
 		}
 	case func(uintptr, uintptr, uintptr, *int32, *Timeout) uintptr:
 		return func(ctx *asm.RegContext) uintptr {

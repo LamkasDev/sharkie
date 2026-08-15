@@ -47,7 +47,7 @@ func (p *VulkanStagingBufferPool) Get(handles *VulkanHandles, minSize vk.DeviceS
 	logger.Printf("allocating staging buffer of %d bytes.\n", allocSize)
 	buffer, memory, err := AllocateBuffer(handles, allocSize,
 		vk.BufferUsageFlags(vk.BufferUsageTransferSrcBit|vk.BufferUsageTransferDstBit|vk.BufferUsageStorageBufferBit),
-		vk.MemoryPropertyFlags(vk.MemoryPropertyDeviceLocalBit|vk.MemoryPropertyHostVisibleBit|vk.MemoryPropertyHostCoherentBit))
+		vk.MemoryPropertyFlags(vk.MemoryPropertyHostVisibleBit|vk.MemoryPropertyHostCoherentBit))
 	if err != nil {
 		return nil, err
 	}

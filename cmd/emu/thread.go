@@ -69,14 +69,18 @@ type Thread struct {
 	SuspendedByGC bool
 	SuspendCond   *sync.Cond
 	InGuest       atomic.Bool
+
+	CancelEnable  bool
+	CancelPending bool
 }
 
 func NewThread(name string, stackSize uint64) *Thread {
 	thread := &Thread{
-		Id:        NextThreadId,
-		Stack:     NewStack(stackSize),
-		KeyValues: map[uint32]uintptr{},
-		Lock:      sync.RWMutex{},
+		Id:           NextThreadId,
+		Stack:        NewStack(stackSize),
+		KeyValues:    map[uint32]uintptr{},
+		Lock:         sync.RWMutex{},
+		CancelEnable: true,
 	}
 	if thread.Id == MainThreadId {
 		thread.IsMain = true
@@ -338,4 +342,15 @@ func (t *Thread) SafeReadUint64(address uintptr) (uint64, bool) {
 	}
 
 	return 0, false
+}
+
+func (t *Thread) TestCancel() {
+	t.Lock.RLock()
+	shouldCancel := t.CancelEnable && t.CancelPending
+	t.Lock.RUnlock()
+
+	if shouldCancel {
+		t.Exit(^uintptr(0))
+		runtime.Goexit()
+	}
 }

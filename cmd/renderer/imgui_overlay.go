@@ -96,6 +96,7 @@ func (overlay *ImguiOverlay) DrawOverlay(width, height uint32) {
 	} else {
 		overlay.DrawHud(frameCount)
 	}
+	overlay.DrawIme()
 }
 
 func (overlay *ImguiOverlay) DrawWelcomeSplash(width, height uint32) {

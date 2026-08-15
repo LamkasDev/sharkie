@@ -57,6 +57,7 @@ import (
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/av_player"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/mouse"
 	_ "github.com/LamkasDev/sharkie/cmd/lib_structs/np_trophy"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/ime"
 )
 
 func CreateDispatcher(goFn any) asm.StubDispatcher {

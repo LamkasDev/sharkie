@@ -53,3 +53,14 @@ func libKernel_scePthreadSetschedparam() uintptr {
 
 	return 0
 }
+
+// 0x0000000000014160
+// __int64 scePthreadSetcancelstate()
+func libKernel_scePthreadSetcancelstate(state int32, oldstate *int32) uintptr {
+	err := posix.Pthread_setcancelstate(state, oldstate)
+	if err != 0 {
+		return err - SonyErrorOffset
+	}
+
+	return 0
+}

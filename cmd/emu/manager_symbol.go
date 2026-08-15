@@ -26,7 +26,7 @@ func GetSymbolAddress(s *elf.ElfSymbol) (uintptr, bool) {
 	guestLibraries := []string{
 		"libc", "libSceLibcInternal", "libSceIpmi", "libSceFios2", "libSceGnmDriver",
 		"libScePngDec", "libSceAudiodec", "libSceVideodec", "libSceVideodec2", "libSceAvPlayer", "libSceAvPlayerStreaming",
-		"libSceVideoDecoderArbitration",
+		"libSceVideoDecoderArbitration", "libSceVdecCore",
 	}
 	guestPrefixes := []string{ // Some games are naughty, don't give us library names.
 		"sceFios", "sceGnm", "sceAudiodec",

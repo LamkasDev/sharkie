@@ -27,7 +27,7 @@ const (
 	LogGraphics = true
 
 	// Logs vulkan rendering.
-	LogRenderer = true
+	LogRenderer = false
 
 	// Logs vulkan pseudo commands (waits, writes, etc).
 	LogRendererInternal = false

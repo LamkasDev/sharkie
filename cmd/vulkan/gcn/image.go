@@ -375,7 +375,7 @@ func TranslateComponentMapping(dataFormat, numFormat, dstSelX, dstSelY, dstSelZ,
 
 	// Address LSB/MSB mismatch between Vulkan/GCN formats.
 	switch dataFormat {
-	case gcn.GcnDataFormat5_6_5, gcn.GcnDataFormat1_5_5_5, gcn.GcnDataFormat11_11_10:
+	case gcn.GcnDataFormat5_6_5, gcn.GcnDataFormat1_5_5_5, gcn.GcnDataFormat10_11_11:
 		components = vk.ComponentMapping{
 			R: components.B,
 			G: components.G,
@@ -419,13 +419,6 @@ func TranslateComponentMapping(dataFormat, numFormat, dstSelX, dstSelY, dstSelZ,
 			G: components.B,
 			B: components.G,
 			A: components.R,
-		}
-	// TODO: not sure about this one.
-	case gcn.GcnDataFormat11_11_10:
-		components = vk.ComponentMapping{
-			R: components.A,
-			G: components.G,
-			B: components.B,
 		}
 	}
 

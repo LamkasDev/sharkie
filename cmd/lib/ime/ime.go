@@ -5,11 +5,14 @@ import (
 )
 
 func RegisterImeStubs() {
-	elf.RegisterStub("libSceIme", "sceImeKeyboardOpen", libSceIme_stub)
-	elf.RegisterStub("libSceIme", "sceImeKeyboardClose", libSceIme_stub)
-	elf.RegisterStub("libSceIme", "sceImeUpdate", libSceIme_stub)
-}
+	// Setup funtions.
+	elf.RegisterStub("libSceIme", "sceImeOpen", libSceIme_sceImeOpen)
+	elf.RegisterStub("libSceIme", "sceImeClose", libSceIme_sceImeClose)
+	elf.RegisterStub("libSceIme", "sceImeUpdate", libSceIme_sceImeUpdate)
 
-func libSceIme_stub() uintptr {
-	return 0
+	// Keyboard functions.
+	elf.RegisterStub("libSceIme", "sceImeKeyboardOpen", libSceIme_sceImeKeyboardOpen)
+	elf.RegisterStub("libSceIme", "sceImeKeyboardClose", libSceIme_sceImeKeyboardClose)
+	elf.RegisterStub("libSceIme", "sceImeKeyboardUpdate", libSceIme_sceImeKeyboardUpdate)
+	elf.RegisterStub("libSceIme", "sceImeKeyboardGetResourceId", libSceIme_sceImeKeyboardGetResourceId)
 }

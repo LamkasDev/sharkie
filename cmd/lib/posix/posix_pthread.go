@@ -217,6 +217,10 @@ func libScePosix_pthread_cancel(threadPtr uintptr) uintptr {
 		return ENOENT
 	}
 
+	thread.Lock.Lock()
+	thread.CancelPending = true
+	thread.Lock.Unlock()
+
 	logger.Printf("%-132s %s tried cancelling thread %s.\n",
 		emu.GlobalModuleManager.GetCallSiteText(),
 		color.Magenta.Sprint("pthread_cancel"),
