@@ -19,11 +19,20 @@ func libScePosix_truncate(pathPtr Cstring, length int64) int32 {
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("truncate"),
 		)
+		emu.SetErrno(EFAULT)
+		return ERR_PTRI
+	}
+	rawPath := GoString(pathPtr)
+	if len(rawPath) == 0 {
+		logger.Printf("%-132s %s failed due to empty path.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("truncate"),
+		)
 		emu.SetErrno(ENOENT)
 		return ERR_PTRI
 	}
 
-	path := GlobalFilesystem.GetUsablePath(GoString(pathPtr))
+	path := GlobalFilesystem.GetUsablePath(rawPath)
 	err := GlobalFilesystem.Truncate(path, length)
 	if err != nil {
 		logger.Printf("%-132s %s failed due to truncate error on %s (%s).\n",

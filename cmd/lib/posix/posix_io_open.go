@@ -22,8 +22,17 @@ func libScePosix_open(pathPtr Cstring, flags FileFlags, mode FileMode) int32 {
 		emu.SetErrno(EFAULT)
 		return ERR_PTRI
 	}
+	rawPath := GoString(pathPtr)
+	if len(rawPath) == 0 {
+		logger.Printf("%-132s %s failed due to empty path.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("open"),
+		)
+		emu.SetErrno(ENOENT)
+		return ERR_PTRI
+	}
 
-	path := GlobalFilesystem.GetUsablePath(GoString(pathPtr))
+	path := GlobalFilesystem.GetUsablePath(rawPath)
 	fd, err := GlobalFilesystem.Open(path, flags, mode)
 	if err != nil {
 		logger.Printf("%-132s %s failed due to open error on %s (%s).\n",

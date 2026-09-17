@@ -1,5 +1,29 @@
 package lib_structs
 
+import (
+	"errors"
+)
+
+const EOF = ^uintptr(0)
+
+type LibcFileMode uint16
+
+const (
+	M_OPENR = LibcFileMode(0x0001) // Open for reading
+	M_OPENW = LibcFileMode(0x0002) // Open for writing
+	M_OPENA = LibcFileMode(0x0004) // Open for appending
+	M_TRUNC = LibcFileMode(0x0008) // Truncate file on open
+	M_CREAT = LibcFileMode(0x0010) // Create file if non-existent
+	M_BIN   = LibcFileMode(0x0020) // Binary mode
+	M_DYN   = LibcFileMode(0x0040) // Buffer dynamically allocated
+	M_ACT   = LibcFileMode(0x0080) // File is active
+	M_EOF   = LibcFileMode(0x0100) // End-of-file reached
+	M_ERR   = LibcFileMode(0x0200) // Error occurred
+	M_RDBUF = LibcFileMode(0x1000) // Read buffer active
+	M_WRBUF = LibcFileMode(0x2000) // Write buffer dirty
+	M_BACK  = LibcFileMode(0x4000) // Pushback character in Cbuf
+)
+
 type FileFlags int32
 
 const (
@@ -70,3 +94,40 @@ type FileOperation int32
 const (
 	F_GETFL = FileOperation(3)
 )
+
+func ParseFileMode(modeStr string) (FileFlags, FileMode, LibcFileMode, error) {
+	if len(modeStr) == 0 {
+		return 0, 0, 0, errors.New("empty mode string")
+	}
+	var flags FileFlags
+	libcMode := M_ACT
+	fileMode := FileMode(0666)
+	switch modeStr[0] {
+	case 'r':
+		flags = O_RDONLY
+		libcMode |= M_OPENR
+	case 'w':
+		flags = O_WRONLY | O_CREAT | O_TRUNC
+		libcMode |= M_OPENW | M_CREAT | M_TRUNC
+	case 'a':
+		flags = O_WRONLY | O_CREAT | O_APPEND
+		libcMode |= M_OPENW | M_CREAT | M_OPENA
+	default:
+		return 0, 0, 0, errors.New("invalid mode string")
+	}
+	for i := 1; i < len(modeStr); i++ {
+		switch modeStr[i] {
+		case '+':
+			flags = (flags & ^O_ACCMODE) | O_RDWR
+			libcMode |= M_OPENR | M_OPENW
+		case 'b':
+			libcMode |= M_BIN
+		case 'x':
+			flags |= O_EXCL
+		case 'e':
+			flags |= O_CLOEXEC
+		}
+	}
+
+	return flags, fileMode, libcMode, nil
+}

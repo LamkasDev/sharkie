@@ -23,6 +23,7 @@ const (
 	EDEADLK      = 45
 	ETIMEDOUT    = 60
 	ENAMETOOLONG = 63
+	ENOTEMPTY    = 66
 )
 
 const ERR_PTR = ^uintptr(0)

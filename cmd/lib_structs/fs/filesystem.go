@@ -88,11 +88,20 @@ func (shFs *SharkieFilesystem) Open(path string, flags FileFlags, mode FileMode)
 
 	// Parse basic flags for VFS creation.
 	create := (flags & O_CREAT) != 0
+	excl := (flags & O_EXCL) != 0
 
 	// Resolve or create the node in the VFS tree.
-	node, err := shFs.Fs.GetOrCreateNode(path, create, false, os.FileMode(mode))
+	node, err := shFs.Fs.GetOrCreateNode(path, create, excl, os.FileMode(mode))
 	if err != nil {
 		return -1, err
+	}
+	accMode := flags & O_ACCMODE
+	if node.isDir {
+		if accMode == O_WRONLY || accMode == O_RDWR || (flags&O_TRUNC) != 0 {
+			return -1, errors.New("is a directory")
+		}
+	} else if (flags & O_DIRECTORY) != 0 {
+		return -1, errors.New("not a directory")
 	}
 
 	// Handle TRUNC flag if it already existed and wasn't a device
@@ -436,6 +445,7 @@ func (shFs *SharkieFilesystem) Delete(path string) error {
 }
 
 func (shFs *SharkieFilesystem) GetUsablePath(rawPath string) string {
+	hadTrailingSlash := len(rawPath) > 1 && strings.HasSuffix(rawPath, "/")
 	if !strings.HasPrefix(rawPath, "/") {
 		rawPath = path.Join(shFs.Cwd, rawPath)
 	}
@@ -444,31 +454,39 @@ func (shFs *SharkieFilesystem) GetUsablePath(rawPath string) string {
 	if cleanPath == "" {
 		return "/"
 	}
+	if hadTrailingSlash {
+		return cleanPath + "/"
+	}
 
 	return cleanPath
 }
 
 func FsToPosixError(err error) uintptr {
-	switch err {
-	case fs.ErrPermission:
+	if errors.Is(err, fs.ErrPermission) {
 		return EACCES
-	case fs.ErrNotExist:
-		return ENOENT
-	case fs.ErrExist:
-		return EEXIST
-	case fs.ErrInvalid:
-		return EFAULT // maybe ENOTDIR?
 	}
-	switch err.Error() {
-	case "invalid file descriptor", "file not opened for reading", "file not opened for writing":
-		return EBADF
-	case "is a directory":
-		return EISDIR
-	case "negative offset", "negative size", "invalid whence", "negative seek offset",
-		"illegal seek", "inappropriate ioctl for device":
+	if errors.Is(err, fs.ErrNotExist) {
+		return ENOENT
+	}
+	if errors.Is(err, fs.ErrExist) {
+		return EEXIST
+	}
+	if errors.Is(err, fs.ErrInvalid) {
 		return EINVAL
-	case "not a directory":
+	}
+	msg := err.Error()
+	switch {
+	case strings.Contains(msg, "is a directory"):
+		return EISDIR
+	case strings.Contains(msg, "not a directory"):
 		return ENOTDIR
+	case strings.Contains(msg, "directory not empty") || strings.Contains(msg, "not empty"):
+		return ENOTEMPTY
+	case msg == "invalid file descriptor" || msg == "file not opened for reading" || msg == "file not opened for writing":
+		return EBADF
+	case msg == "negative offset" || msg == "negative size" || msg == "invalid whence" ||
+		msg == "negative seek offset" || msg == "illegal seek" || msg == "inappropriate ioctl for device":
+		return EINVAL
 	}
 
 	return EFAULT

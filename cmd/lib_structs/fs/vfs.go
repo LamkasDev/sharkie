@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -81,7 +82,7 @@ func (fsys *FS) resolveDir(path string) (*Node, error) {
 			return nil, fs.ErrNotExist
 		}
 		if !child.isDir {
-			return nil, fs.ErrInvalid
+			return nil, errors.New("not a directory")
 		}
 		curr = child
 	}
@@ -89,18 +90,36 @@ func (fsys *FS) resolveDir(path string) (*Node, error) {
 	return curr, nil
 }
 
+// splitPath cleans a virtual path and splits it into parent directory, base name,
+// and a boolean indicating whether the original path requested directory semantics via a trailing slash.
+func splitPath(rawPath string) (dirPath string, baseName string, hadTrailingSlash bool) {
+	if rawPath == "" {
+		return ".", "", false
+	}
+	trimmedRight := strings.TrimRight(rawPath, "/")
+	if trimmedRight == "" {
+		// Root directory.
+		return "", "", true
+	}
+	hadTrailingSlash = len(rawPath) > len(trimmedRight)
+	cleanPath := path.Clean(rawPath)
+	p := strings.TrimLeft(cleanPath, "/")
+	if p == "" || p == "." {
+		return "", "", true
+	}
+	if idx := strings.LastIndex(p, "/"); idx >= 0 {
+		return p[:idx], p[idx+1:], hadTrailingSlash
+	}
+
+	return ".", p, hadTrailingSlash
+}
+
 // GetHostPath returns the underlying host path for a given virtual path, if it exists.
 func (fsys *FS) GetHostPath(path string) (string, error) {
 	fsys.mu.RLock()
 	defer fsys.mu.RUnlock()
 
-	dirPath := path
-	baseName := ""
-	if idx := strings.LastIndex(path, "/"); idx >= 0 && idx < len(path)-1 {
-		dirPath = path[:idx]
-		baseName = path[idx+1:]
-	}
-
+	dirPath, baseName, _ := splitPath(path)
 	dir, err := fsys.resolveDir(dirPath)
 	if err != nil {
 		return "", err
@@ -157,7 +176,7 @@ func (fsys *FS) MkdirAll(path string, perm os.FileMode) error {
 			return err
 		}
 		if _, resolveErr := fsys.resolveDir(currentPath); resolveErr != nil {
-			if errors.Is(resolveErr, fs.ErrInvalid) {
+			if errors.Is(resolveErr, fs.ErrInvalid) || resolveErr.Error() == "not a directory" {
 				return fs.ErrExist
 			}
 			return resolveErr
@@ -172,19 +191,17 @@ func (fsys *FS) Mkdir(path string, perm os.FileMode) error {
 	fsys.mu.Lock()
 	defer fsys.mu.Unlock()
 
-	path = strings.TrimLeft(path, "/")
-	if path == "" || path == "." {
+	dirPath, baseName, _ := splitPath(path)
+	if baseName == "" {
+		if path == "" {
+			return fs.ErrNotExist
+		}
 		return fs.ErrExist
 	}
 
-	dirPath, baseName := ".", path
-	if idx := strings.LastIndex(path, "/"); idx >= 0 {
-		dirPath = path[:idx]
-		baseName = path[idx+1:]
-	}
 	dir, err := fsys.resolveDir(dirPath)
 	if err != nil {
-		return err // parent doesn't exist.
+		return err // parent doesn't exist or is not a directory.
 	}
 	if dir.ReadOnly {
 		return fs.ErrPermission
@@ -202,7 +219,10 @@ func (fsys *FS) Mkdir(path string, perm os.FileMode) error {
 		}
 		targetHostPath := filepath.Join(dir.hostPath, baseName)
 		errMk := os.Mkdir(targetHostPath, perm)
-		if errMk != nil && !os.IsExist(errMk) {
+		if errMk != nil {
+			if os.IsExist(errMk) {
+				return fs.ErrExist
+			}
 			return errMk
 		}
 		actualName = baseName
@@ -238,12 +258,16 @@ func (fsys *FS) GetOrCreateNode(name string, create bool, excl bool, perm os.Fil
 	fsys.mu.Lock()
 	defer fsys.mu.Unlock()
 
-	// Split path into directory and target filename.
-	name = strings.TrimLeft(name, "/")
-	dirPath, baseName := ".", name
-	if idx := strings.LastIndex(name, "/"); idx >= 0 {
-		dirPath = name[:idx]
-		baseName = name[idx+1:]
+	dirPath, baseName, hadTrailingSlash := splitPath(name)
+	if baseName == "" {
+		// Target is the root directory.
+		if create {
+			if excl {
+				return nil, fs.ErrExist
+			}
+			return nil, errors.New("is a directory")
+		}
+		return fsys.root, nil
 	}
 
 	// Find the parent directory.
@@ -282,6 +306,10 @@ func (fsys *FS) GetOrCreateNode(name string, create bool, excl bool, perm os.Fil
 		if !create {
 			return nil, fs.ErrNotExist
 		}
+		// In POSIX, open with O_CREAT on a pathname ending in '/' must fail with EISDIR.
+		if hadTrailingSlash {
+			return nil, errors.New("is a directory")
+		}
 		if dir.ReadOnly {
 			return nil, fs.ErrPermission
 		}
@@ -314,8 +342,14 @@ func (fsys *FS) GetOrCreateNode(name string, create bool, excl bool, perm os.Fil
 			}
 		}
 		dir.children[actualName] = node
-	} else if create && excl {
-		return nil, fs.ErrExist
+	} else {
+		if create && excl {
+			return nil, fs.ErrExist
+		}
+		// If a path has a trailing slash, POSIX requires that the resolved target is a directory.
+		if hadTrailingSlash && !node.isDir {
+			return nil, errors.New("not a directory")
+		}
 	}
 
 	return node, nil
@@ -326,16 +360,9 @@ func (fsys *FS) Remove(name string) error {
 	fsys.mu.Lock()
 	defer fsys.mu.Unlock()
 
-	name = strings.TrimLeft(name, "/")
-	if name == "" || name == "." {
+	dirPath, baseName, _ := splitPath(name)
+	if baseName == "" {
 		return errors.New("cannot remove root directory")
-	}
-
-	// Split path into directory and target filename.
-	dirPath, baseName := ".", name
-	if idx := strings.LastIndex(name, "/"); idx >= 0 {
-		dirPath = name[:idx]
-		baseName = name[idx+1:]
 	}
 
 	// Find the parent directory.
@@ -348,6 +375,7 @@ func (fsys *FS) Remove(name string) error {
 	}
 	dir.mu.Lock()
 	defer dir.mu.Unlock()
+
 	node, actualName := findVirtualChild(dir, baseName)
 	if node == nil {
 		return fs.ErrNotExist

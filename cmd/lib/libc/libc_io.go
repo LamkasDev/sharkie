@@ -3,6 +3,7 @@ package libc
 import (
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/fs"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/libc"
 )
 
 // 0x000000000000A390
@@ -13,8 +14,8 @@ func libc_fopen(pathPtr, modePtr Cstring) uintptr {
 
 // 0x0000000000000EF0
 // __int64 __fastcall fopen_s(__int64 *, __int64, _BYTE *)
-func libc_fopen_s(filePtr *uintptr, pathPtr, modePtr Cstring) uintptr {
-	return libSceLibcInternal_fopen_s(filePtr, pathPtr, modePtr)
+func libc_fopen_s(fileAddressPtr *uintptr, pathPtr, modePtr Cstring) uintptr {
+	return libSceLibcInternal_fopen_s(fileAddressPtr, pathPtr, modePtr)
 }
 
 // 0x0000000000027530
@@ -25,50 +26,50 @@ func libc_fdopen(fd FileDescriptor, modePtr Cstring) uintptr {
 
 // 0x000000000000AAF0
 // __int64 __fastcall freopen(__int64, _BYTE *, _WORD *)
-func libc_freopen() uintptr {
-	return libSceLibcInternal_freopen()
+func libc_freopen(pathPtr, modePtr Cstring, file *LibcFile) uintptr {
+	return libSceLibcInternal_freopen(pathPtr, modePtr, file)
 }
 
 // 0x0000000000001120
 // __int64 __fastcall freopen_s(__int64 *, __int64, _BYTE *, _WORD *)
-func libc_freopen_s() uintptr {
-	return libSceLibcInternal_freopen_s()
+func libc_freopen_s(fileAddressPtr *uintptr, pathPtr, modePtr Cstring, file *LibcFile) uintptr {
+	return libSceLibcInternal_freopen_s(fileAddressPtr, pathPtr, modePtr, file)
 }
 
 // 0x000000000000A9A0
 // unsigned __int64 __fastcall fread(_BYTE *, unsigned __int64, unsigned __int64, __int64)
-func libc_fread(ptr, size, n, filePtr uintptr) uintptr {
-	return libSceLibcInternal_fread(ptr, size, n, filePtr)
+func libc_fread(ptr, size, n uintptr, file *LibcFile) uintptr {
+	return libSceLibcInternal_fread(ptr, size, n, file)
 }
 
 // 0x0000000000009DD0
 // __int64 __fastcall fgetc(__int64)
-func libc_fgetc(filePtr uintptr) uintptr {
-	return libSceLibcInternal_fgetc(filePtr)
+func libc_fgetc(file *LibcFile) uintptr {
+	return libSceLibcInternal_fgetc(file)
 }
 
 // 0x0000000000012480
 // __int64 __fastcall ungetc(unsigned int, __int64)
-func libc_ungetc(c, filePtr uintptr) uintptr {
-	return libSceLibcInternal_ungetc(c, filePtr)
+func libc_ungetc(c uintptr, file *LibcFile) uintptr {
+	return libSceLibcInternal_ungetc(c, file)
 }
 
 // 0x000000000000AF90
 // unsigned __int64 __fastcall fwrite(__int64, unsigned __int64, unsigned __int64, __int64)
-func libc_fwrite(ptr, size, n, filePtr uintptr) uintptr {
-	return libSceLibcInternal_fwrite(ptr, size, n, filePtr)
+func libc_fwrite(ptr, size, n uintptr, file *LibcFile) uintptr {
+	return libSceLibcInternal_fwrite(ptr, size, n, file)
 }
 
 // 0x000000000000A510
 // __int64 __fastcall fputc(unsigned __int8, __int64)
-func libc_fputc(c, filePtr uintptr) uintptr {
-	return libSceLibcInternal_fputc(c, filePtr)
+func libc_fputc(c uintptr, file *LibcFile) uintptr {
+	return libSceLibcInternal_fputc(c, file)
 }
 
 // 0x000000000000A6B0
 // __int64 __fastcall fputs(_BYTE *, __int64)
-func libc_fputs(sPtr Cstring, filePtr uintptr) uintptr {
-	return libSceLibcInternal_fputs(sPtr, filePtr)
+func libc_fputs(stringPtr Cstring, file *LibcFile) uintptr {
+	return libSceLibcInternal_fputs(stringPtr, file)
 }
 
 // 0x000000000000C3D0
@@ -85,52 +86,52 @@ func libc_puts(sPtr Cstring) uintptr {
 
 // 0x0000000000009B80
 // __int64 __fastcall fflush(__int16 *)
-func libc_fflush(filePtr uintptr) uintptr {
-	return libSceLibcInternal_fflush(filePtr)
+func libc_fflush(file *LibcFile) uintptr {
+	return libSceLibcInternal_fflush(file)
 }
 
 // 0x000000000000ACA0
 // __int64 __fastcall fseek(__int64, __int64, unsigned int)
-func libc_fseek(filePtr, offset, whence uintptr) uintptr {
-	return libSceLibcInternal_fseek(filePtr, offset, whence)
+func libc_fseek(file *LibcFile, offset, whence uintptr) uintptr {
+	return libSceLibcInternal_fseek(file, offset, whence)
 }
 
 // 0x000000000000AD80
 // __int64 __fastcall ftell(__int64)
-func libc_ftell(filePtr uintptr) uintptr {
-	return libSceLibcInternal_ftell(filePtr)
+func libc_ftell(file *LibcFile) uintptr {
+	return libSceLibcInternal_ftell(file)
 }
 
 // 0x0000000000009F50
 // __int64 __fastcall fgetpos(__int64, __int64)
-func libc_fgetpos(filePtr, posPtr uintptr) uintptr {
-	return libSceLibcInternal_fgetpos(filePtr, posPtr)
+func libc_fgetpos(file *LibcFile, posPtr uintptr) uintptr {
+	return libSceLibcInternal_fgetpos(file, posPtr)
 }
 
 // 0x00000000000104C0
 // __int64 __fastcall setvbuf(__int16 *, __int64, int, unsigned __int64)
-func libc_setvbuf(filePtr, bufferPtr, mode, size uintptr) uintptr {
-	return libSceLibcInternal_setvbuf(filePtr, bufferPtr, mode, size)
+func libc_setvbuf(file *LibcFile, bufferPtr, mode, size uintptr) uintptr {
+	return libSceLibcInternal_setvbuf(file, bufferPtr, mode, size)
 }
 
 // 0x00000000000099F0
 // __int64 __fastcall fclose(__int64)
-func libc_fclose(filePtr uintptr) uintptr {
-	return libSceLibcInternal_fclose(filePtr)
+func libc_fclose(file *LibcFile) uintptr {
+	return libSceLibcInternal_fclose(file)
 }
 
 // 0x0000000000009AB0
 // __int64 __fastcall feof(_WORD *)
-func libc_feof(filePtr uintptr) uintptr {
-	return libSceLibcInternal_feof(filePtr)
+func libc_feof(file *LibcFile) uintptr {
+	return libSceLibcInternal_feof(file)
 }
 
-func libc__Lockfilelock(filePtr uintptr) uintptr {
-	return libSceLibcInternal__Lockfilelock(filePtr)
+func libc__Lockfilelock(file *LibcFile) uintptr {
+	return libSceLibcInternal__Lockfilelock(file)
 }
 
-func libc__Unlockfilelock(filePtr uintptr) uintptr {
-	return libSceLibcInternal__Unlockfilelock(filePtr)
+func libc__Unlockfilelock(file *LibcFile) uintptr {
+	return libSceLibcInternal__Unlockfilelock(file)
 }
 
 func libc__Locksyslock() uintptr {

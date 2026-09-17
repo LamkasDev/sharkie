@@ -14,16 +14,25 @@ func Stat(pathPtr Cstring, stat *FileStat) int32 {
 }
 
 func libScePosix_stat(pathPtr Cstring, stat *FileStat) int32 {
-	if pathPtr == nil {
-		logger.Printf("%-132s %s failed due to invalid path pointer.\n",
+	if pathPtr == nil || stat == nil {
+		logger.Printf("%-132s %s failed due to invalid pointer.\n",
 			emu.GlobalModuleManager.GetCallSiteText(),
 			color.Magenta.Sprint("stat"),
 		)
 		emu.SetErrno(EFAULT)
 		return ERR_PTRI
 	}
+	rawPath := GoString(pathPtr)
+	if len(rawPath) == 0 {
+		logger.Printf("%-132s %s failed due to empty path.\n",
+			emu.GlobalModuleManager.GetCallSiteText(),
+			color.Magenta.Sprint("stat"),
+		)
+		emu.SetErrno(ENOENT)
+		return ERR_PTRI
+	}
 
-	path := GlobalFilesystem.GetUsablePath(GoString(pathPtr))
+	path := GlobalFilesystem.GetUsablePath(rawPath)
 	fileStat, err := GlobalFilesystem.Stat(path)
 	if err != nil {
 		logger.Printf("%-132s %s failed due to stat error on %s (%s).\n",

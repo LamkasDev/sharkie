@@ -1,8 +1,11 @@
 package libc
 
 import (
+	"unsafe"
+
 	"github.com/LamkasDev/sharkie/cmd/elf"
 	"github.com/LamkasDev/sharkie/cmd/emu"
+	. "github.com/LamkasDev/sharkie/cmd/lib_structs/libc"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/posix"
 	"github.com/LamkasDev/sharkie/cmd/logger"
 	"github.com/gookit/color"
@@ -72,34 +75,39 @@ func RegisterSceLibcInternalStubs() {
 }
 
 func RegisterFileStubs(libraryName string) {
+	InitStandardFiles()
+
 	stdin := elf.RegisterVariableStub(libraryName, "_Stdin", 8)
 	stdin_0 := elf.RegisterVariableStub(libraryName, "_Stdin_0", 8)
 	stdin_1 := elf.RegisterVariableStub(libraryName, "_Stdin_1", 8)
 	stdin_2 := elf.RegisterVariableStub(libraryName, "_Stdin_2", 8)
-	stdin_3 := elf.RegisterVariableStub(libraryName, "_Stdin_2", 8)
-	WriteAddress(stdin.Address, 0)
-	WriteAddress(stdin_0.Address, 0)
-	WriteAddress(stdin_1.Address, 0)
-	WriteAddress(stdin_2.Address, 0)
-	WriteAddress(stdin_3.Address, 0)
+	stdin_3 := elf.RegisterVariableStub(libraryName, "_Stdin_3", 8)
+	stdinAddr := uintptr(unsafe.Pointer(LibcFiles[0]))
+	WriteAddress(stdin.Address, stdinAddr)
+	WriteAddress(stdin_0.Address, stdinAddr)
+	WriteAddress(stdin_1.Address, stdinAddr)
+	WriteAddress(stdin_2.Address, stdinAddr)
+	WriteAddress(stdin_3.Address, stdinAddr)
 
 	stdout := elf.RegisterVariableStub(libraryName, "_Stdout", 8)
 	stdout_0 := elf.RegisterVariableStub(libraryName, "_Stdout_0", 8)
 	stdout_1 := elf.RegisterVariableStub(libraryName, "_Stdout_1", 8)
 	stdout_2 := elf.RegisterVariableStub(libraryName, "_Stdout_2", 8)
-	WriteAddress(stdout.Address, 1)
-	WriteAddress(stdout_0.Address, 1)
-	WriteAddress(stdout_1.Address, 1)
-	WriteAddress(stdout_2.Address, 1)
+	stdoutAddr := uintptr(unsafe.Pointer(LibcFiles[1]))
+	WriteAddress(stdout.Address, stdoutAddr)
+	WriteAddress(stdout_0.Address, stdoutAddr)
+	WriteAddress(stdout_1.Address, stdoutAddr)
+	WriteAddress(stdout_2.Address, stdoutAddr)
 
 	stderr := elf.RegisterVariableStub(libraryName, "_Stderr", 8)
 	stderr_0 := elf.RegisterVariableStub(libraryName, "_Stderr_0", 8)
 	stderr_1 := elf.RegisterVariableStub(libraryName, "_Stderr_1", 8)
 	stderr_2 := elf.RegisterVariableStub(libraryName, "_Stderr_2", 8)
-	WriteAddress(stderr.Address, 2)
-	WriteAddress(stderr_0.Address, 2)
-	WriteAddress(stderr_1.Address, 2)
-	WriteAddress(stderr_2.Address, 2)
+	stderrAddr := uintptr(unsafe.Pointer(LibcFiles[2]))
+	WriteAddress(stderr.Address, stderrAddr)
+	WriteAddress(stderr_0.Address, stderrAddr)
+	WriteAddress(stderr_1.Address, stderrAddr)
+	WriteAddress(stderr_2.Address, stderrAddr)
 }
 
 func libSceLibcInternal_stub() uintptr {
