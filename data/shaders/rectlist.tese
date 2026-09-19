@@ -36,7 +36,9 @@ layout(location = 14) out vec4 param_out_14;
 layout(location = 15) out vec4 param_out_15;
 
 void main() {
-    int index = int(gl_TessCoord.y) * 2 + int(gl_TessCoord.x);
+    int u = clamp(int(round(gl_TessCoord.x)), 0, 1);
+    int v = clamp(int(round(gl_TessCoord.y)), 0, 1);
+    int index = v * 2 + u;
     gl_Position = gl_in[index].gl_Position;
     param_out_0 = param_in_0[index];
     param_out_1 = param_in_1[index];

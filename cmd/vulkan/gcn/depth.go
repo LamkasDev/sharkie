@@ -8,7 +8,7 @@ import (
 	"go101.org/nstd"
 )
 
-func TranslateDepthControl(depthControl reg.DbDepthControl, stencilControl reg.DbStencilControl, stencilRefMask reg.DbStencilrefmask, stencilRefMaskBf reg.DbStencilrefmaskBf) vk.PipelineDepthStencilStateCreateInfo {
+func TranslateDepthControl(depthControl reg.DbDepthControl, stencilControl reg.DbStencilControl, stencilRefMask reg.DbStencilrefmask, stencilRefMaskBf reg.DbStencilrefmaskBf, renderControl reg.DbRenderControl) vk.PipelineDepthStencilStateCreateInfo {
 	backfaceEnable := depthControl.BackfaceEnable()
 
 	frontState := vk.StencilOpState{
@@ -37,10 +37,7 @@ func TranslateDepthControl(depthControl reg.DbDepthControl, stencilControl reg.D
 	}
 
 	zfunc := depthControl.Zfunc()
-	depthWriteEnable := depthControl.ZWriteEnable()
-	if zfunc == 7 {
-		depthWriteEnable = false
-	}
+	depthWriteEnable := depthControl.ZWriteEnable() && !renderControl.DepthClearEnable()
 
 	return vk.PipelineDepthStencilStateCreateInfo{
 		SType:                 vk.StructureTypePipelineDepthStencilStateCreateInfo,
@@ -59,13 +56,13 @@ func TranslateCompareOp(op uint32) vk.CompareOp {
 	case 0: // FRAG_NEVER / REF_NEVER
 		return vk.CompareOpNever
 	case 1: // FRAG_LESS / REF_LESS
-		return vk.CompareOpLessOrEqual
+		return vk.CompareOpLess
 	case 2: // FRAG_EQUAL / REF_EQUAL
 		return vk.CompareOpEqual
 	case 3: // FRAG_LEQUAL / REF_LEQUAL
 		return vk.CompareOpLessOrEqual
 	case 4: // FRAG_GREATER / REF_GREATER
-		return vk.CompareOpGreaterOrEqual
+		return vk.CompareOpGreater
 	case 5: // FRAG_NOTEQUAL / REF_NOTEQUAL
 		return vk.CompareOpNotEqual
 	case 6: // FRAG_GEQUAL / REF_GEQUAL

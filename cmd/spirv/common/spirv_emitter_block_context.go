@@ -291,7 +291,7 @@ func (ctx *SpirvBlockContext) LoadPushConstantValue(b *SpvBuilder, i uint32) Spi
 	case PushConstantUserSgprCount, PushConstantShaderRsrc2, PushConstantVteControl, PushConstantClipControl:
 		valType = ctx.GetId(BlockContextIdTypeUint)
 		ptrType = ctx.GetId(BlockContextIdPtrPcUint)
-	case PushConstantGbHorzClipAdj, PushConstantGbVertClipAdj:
+	case PushConstantVpXScale, PushConstantVpXOffset, PushConstantVpYScale, PushConstantVpYOffset:
 		valType = ctx.GetId(BlockContextIdTypeFloat)
 		ptrType = ctx.GetId(BlockContextIdPtrPcFloat)
 	default:
@@ -309,7 +309,9 @@ func (ctx *SpirvBlockContext) LoadPsInputParameter(b *SpvBuilder, i uint32) Spir
 	offset := control & 0x3F
 	if match := offset&0x20 == 0; match {
 		ptr := ctx.GetId(BlockContextIdParamIn0 + SpirvId(i))
-		return b.EmitLoad(typeV4Float, ptr)
+		if ptr != 0 {
+			return b.EmitLoad(typeV4Float, ptr)
+		}
 	}
 
 	// No vertex shader match, use default value.

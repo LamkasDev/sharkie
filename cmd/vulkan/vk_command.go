@@ -9,42 +9,64 @@ import (
 
 type VulkanCommandBuffer struct {
 	CommandBuffer vk.CommandBuffer
+	Pool          vk.CommandPool
 	Dependencies  []*gpu.LiverpoolWaitRegMemory
 	Writes        []*gpu.LiverpoolWriteData
 	Submitted     bool
 }
 
 func CreateCommandBuffer(handles *VulkanHandles) (*VulkanCommandBuffer, error) {
+	return CreateCommandBufferFromPool(handles, handles.UploadPool)
+}
+
+func CreateCommandBufferFromPool(handles *VulkanHandles, pool vk.CommandPool) (*VulkanCommandBuffer, error) {
 	buffers := make([]vk.CommandBuffer, 1)
-	handles.UploadPoolMutex.Lock()
+	if pool == handles.UploadPool {
+		handles.UploadPoolMutex.Lock()
+	}
 	result := vk.AllocateCommandBuffers(handles.Device, &vk.CommandBufferAllocateInfo{
 		SType:              vk.StructureTypeCommandBufferAllocateInfo,
-		CommandPool:        handles.UploadPool,
+		CommandPool:        pool,
 		Level:              vk.CommandBufferLevelPrimary,
 		CommandBufferCount: 1,
 	}, buffers)
+	if pool == handles.UploadPool {
+		handles.UploadPoolMutex.Unlock()
+	}
 	if err := NewError(result); err != nil {
 		return nil, err
 	}
-	handles.UploadPoolMutex.Unlock()
 
 	return &VulkanCommandBuffer{
 		CommandBuffer: buffers[0],
+		Pool:          pool,
 		Dependencies:  []*gpu.LiverpoolWaitRegMemory{},
 		Writes:        []*gpu.LiverpoolWriteData{},
 	}, nil
 }
 
 func (commandBuffer *VulkanCommandBuffer) End(handles *VulkanHandles) {
-	handles.UploadPoolMutex.Lock()
+	if commandBuffer.Pool == handles.UploadPool {
+		handles.UploadPoolMutex.Lock()
+	}
 	vk.EndCommandBuffer(commandBuffer.CommandBuffer)
-	handles.UploadPoolMutex.Unlock()
+	if commandBuffer.Pool == handles.UploadPool {
+		handles.UploadPoolMutex.Unlock()
+	}
 }
 
 func (commandBuffer *VulkanCommandBuffer) Destroy(handles *VulkanHandles) {
-	handles.UploadPoolMutex.Lock()
-	vk.FreeCommandBuffers(handles.Device, handles.UploadPool, 1, []vk.CommandBuffer{commandBuffer.CommandBuffer})
-	handles.UploadPoolMutex.Unlock()
+	pool := commandBuffer.Pool
+	if pool == vk.NullCommandPool {
+		pool = handles.UploadPool
+	}
+	if pool == handles.UploadPool {
+		handles.UploadPoolMutex.Lock()
+	}
+	vk.FreeCommandBuffers(handles.Device, pool, 1, []vk.CommandBuffer{commandBuffer.CommandBuffer})
+	if pool == handles.UploadPool {
+		handles.UploadPoolMutex.Unlock()
+	}
 }
 
 func (commandBuffer *VulkanCommandBuffer) CanSubmit(frame uint64) bool {

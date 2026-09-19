@@ -283,7 +283,7 @@ func (l *Liverpool) recordDraw(stream *LiverpoolCommandStream, isIndexed bool) {
 
 	// Add to command stream.
 	drawHash := draw.Hash()
-	drawIndex, ok := stream.DrawsMap[bindHash]
+	drawIndex, ok := stream.DrawsMap[drawHash]
 	if !ok {
 		drawIndex = uint32(len(stream.Draws))
 		stream.Draws = append(stream.Draws, draw)

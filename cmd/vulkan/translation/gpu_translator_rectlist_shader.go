@@ -8,6 +8,7 @@ import (
 
 //go:generate glslc --target-env=vulkan1.2 ../../../data/shaders/rectlist.tesc -o ../../../data/shaders/rectlist_tesc.spv
 //go:generate glslc --target-env=vulkan1.2 ../../../data/shaders/rectlist.tese -o ../../../data/shaders/rectlist_tese.spv
+//go:generate glslc --target-env=vulkan1.2 ../../../data/shaders/quadlist.tesc -o ../../../data/shaders/quadlist_tesc.spv
 
 func (t *GpuTranslator) getAuxShaderModule(path, name string, cache *vk.ShaderModule) (vk.ShaderModule, error) {
 	t.shaderModulesMutex.Lock()
@@ -35,4 +36,8 @@ func (t *GpuTranslator) GetRectlistTescShader() (vk.ShaderModule, error) {
 
 func (t *GpuTranslator) GetRectlistTeseShader() (vk.ShaderModule, error) {
 	return t.getAuxShaderModule("data/shaders/rectlist_tese.spv", "Rectlist TESE", &t.rectlistTeseShaderModule)
+}
+
+func (t *GpuTranslator) GetQuadlistTescShader() (vk.ShaderModule, error) {
+	return t.getAuxShaderModule("data/shaders/quadlist_tesc.spv", "Quadlist TECS", &t.quadlistTescShaderModule)
 }

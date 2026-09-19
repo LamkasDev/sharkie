@@ -9,16 +9,16 @@ import (
 
 func TranslateBorderColorType(colorType uint8) vk.BorderColor {
 	switch colorType {
-	case 0: // opaque-black
-		return vk.BorderColorIntOpaqueBlack
-	case 1: // transparent-black
-		return vk.BorderColorIntTransparentBlack
+	case 0: // transparent-black
+		return vk.BorderColorFloatTransparentBlack
+	case 1: // opaque-black
+		return vk.BorderColorFloatOpaqueBlack
 	case 2: // white
-		return vk.BorderColorIntOpaqueWhite
-	case 3: // TODO: use border color ptr
-		return vk.BorderColorIntTransparentBlack
+		return vk.BorderColorFloatOpaqueWhite
+	case 3: // custom / border color ptr
+		return vk.BorderColorFloatTransparentBlack
 	default:
-		return vk.BorderColorIntTransparentBlack
+		return vk.BorderColorFloatTransparentBlack
 	}
 }
 
@@ -28,12 +28,18 @@ func TranslateClampMode(mode uint8) vk.SamplerAddressMode {
 		return vk.SamplerAddressModeRepeat
 	case 1: // mirror
 		return vk.SamplerAddressModeMirroredRepeat
-	case 2: // clamp to edge
+	case 2: // clamp last texel / clamp to edge
 		return vk.SamplerAddressModeClampToEdge
-	case 3: // mirror once
+	case 3: // mirror once last texel
 		return vk.SamplerAddressModeMirrorClampToEdge
-	case 4: // clamp to border
+	case 4: // clamp half border
 		return vk.SamplerAddressModeClampToBorder
+	case 5: // mirror once half border
+		return vk.SamplerAddressModeMirrorClampToEdge
+	case 6: // clamp border
+		return vk.SamplerAddressModeClampToBorder
+	case 7: // mirror once border
+		return vk.SamplerAddressModeMirrorClampToEdge
 	default:
 		return vk.SamplerAddressModeRepeat
 	}

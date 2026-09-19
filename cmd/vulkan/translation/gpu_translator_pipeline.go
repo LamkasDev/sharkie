@@ -82,14 +82,16 @@ func (t *GpuTranslator) BindPipeline(frame uint64, bind *gpu.LiverpoolBindPipeli
 			rtHeight = 480
 		}
 
+		pitch := vkGcn.ColorBufferPitch(reg.CbColorPitch(bind.RtPitch))
 		var err error
 		colorSurface, err = t.GetSurface(spirvStructs.ImageDescriptor{
 			BaseAddress: rtAddress,
 			Width:       uint16(rtWidth), Height: uint16(rtHeight),
 			DataFormat: uint8(bind.CbColorInfo0.Format()), NumFormat: uint8(bind.CbColorInfo0.NumberType()),
 			DstSelX: 4, DstSelY: 5, DstSelZ: 6, DstSelW: 7,
-			Depth: 1, Pitch: uint16(rtWidth),
+			Depth: 1, Pitch: uint16(pitch),
 			TilingIndex: uint8(bind.RtAttrib.TileModeIndex()),
+			Type:        gcn2.GcnImageTypeColor2D,
 		}, bind.CbColorInfo0.CompSwap())
 		if err != nil {
 			return
@@ -102,27 +104,8 @@ func (t *GpuTranslator) BindPipeline(frame uint64, bind *gpu.LiverpoolBindPipeli
 		rtHeight = dbHeight
 	}
 	t.activeSurface = colorSurface
-
-	// The game keeps one depth buffer (DB_Z_WRITE_BASE) while ping-ponging CB_COLOR0.
-	// Stale depth from a previous color target corrupts compositing on the next one.
-	if t.lastColorRtAddress != 0 && t.lastColorRtAddress != rtAddress {
-		t.surfacesMutex.Lock()
-		clearDepthSurface := t.surfaces[bind.DbZWriteBase.Address()]
-		t.surfacesMutex.Unlock()
-		if clearDepthSurface != nil {
-			clearDepthSurface.FrameUsed = 0
-		}
-	}
 	t.lastColorRtAddress = rtAddress
-
-	// Handle depth writes.
-	if bind.SpiShaderZFormat.ZExportFormat() == 0 {
-		depthWriteEnable = false // SPI_SHADER_ZERO (No depth export)
-	}
-	zfunc := bind.DbDepthControl.Zfunc()
-	if zfunc == 7 { // ALWAYS
-		depthWriteEnable = false
-	}
+	t.activePrimType = bind.PrimType
 
 	// Get or create framebuffer.
 	format := vk.FormatUndefined
@@ -171,6 +154,15 @@ func (t *GpuTranslator) BindPipeline(frame uint64, bind *gpu.LiverpoolBindPipeli
 	var tcsModule, tesModule, gsModule vk.ShaderModule
 	if bind.PrimType == 17 { // RECTLIST
 		tcsModule, err = t.GetRectlistTescShader()
+		if err != nil {
+			return
+		}
+		tesModule, err = t.GetRectlistTeseShader()
+		if err != nil {
+			return
+		}
+	} else if bind.PrimType == 19 { // QUADLIST
+		tcsModule, err = t.GetQuadlistTescShader()
 		if err != nil {
 			return
 		}
@@ -237,7 +229,7 @@ func (t *GpuTranslator) BindPipeline(frame uint64, bind *gpu.LiverpoolBindPipeli
 		DbRenderControl:           bind.DbRenderControl,
 
 		BlendAttachment:   vkGcn.TranslateBlendControl(bind.RtBlendControl, reg.CbTargetMask(colorWriteMask), bind.CbColorInfo0.BlendBypass()),
-		DepthStencilState: vkGcn.TranslateDepthControl(bind.DbDepthControl, bind.DbStencilControl, bind.DbStencilRefMask, bind.DbStencilRefMaskBf),
+		DepthStencilState: vkGcn.TranslateDepthControl(bind.DbDepthControl, bind.DbStencilControl, bind.DbStencilRefMask, bind.DbStencilRefMaskBf, bind.DbRenderControl),
 		LogicOpEnable:     logicOpEnable,
 		LogicOp:           logicOp,
 	}
@@ -304,7 +296,11 @@ func (t *GpuTranslator) BindPipeline(frame uint64, bind *gpu.LiverpoolBindPipeli
 		}
 
 		clearDepth := vk.ClearValue{}
-		clearDepth.SetDepthStencil(math.Float32frombits(bind.DbDepthClearValue), bind.DbStencilClearValue)
+		clearDepthVal := math.Float32frombits(bind.DbDepthClearValue)
+		if bind.DbDepthClearValue == 0 && bind.DbDepthControl.Zfunc() != 4 && bind.DbDepthControl.Zfunc() != 6 {
+			clearDepthVal = 1.0
+		}
+		clearDepth.SetDepthStencil(clearDepthVal, bind.DbStencilClearValue)
 
 		depthAttachments = append(depthAttachments, vk.RenderingAttachmentInfo{
 			SType:       vk.StructureTypeRenderingAttachmentInfo,

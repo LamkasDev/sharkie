@@ -1,6 +1,11 @@
 package renderer
 
 import (
+	"fmt"
+	"image"
+	"image/png"
+	"os"
+	"path/filepath"
 	"runtime"
 	"time"
 
@@ -119,6 +124,11 @@ func (r *Renderer) ConsumeRingWork(done chan struct{}) {
 
 		// Translate command streams.
 		r.GpuTranslator.ResetFrameState(ringWork.Number)
+		if IsDumpRequested() {
+			r.GpuTranslator.EnableDebugDump(ringWork.Number)
+			DumpPending.Store(true)
+			DumpRequested.Store(false)
+		}
 		r.GpuTranslator.StartCommandBuffer()
 		r.GpuTranslator.BeforeTranslate()
 		for _, stream := range streams {
@@ -167,6 +177,22 @@ func (r *Renderer) ConsumeFlips(done chan struct{}) {
 
 		// Transition surface and update texture ID for display.
 		if surface != nil {
+			var dumpedStaging *vulkan.VulkanStagingBuffer
+			var dumpSize vk.DeviceSize
+			var dumpWidth, dumpHeight int
+			var dumpFormat vk.Format
+
+			shouldDump := DumpPending.Load()
+			if shouldDump && surface.ImageView != nil && surface.ImageView.Image != nil {
+				dumpWidth = int(surface.ImageView.Image.FirstDescriptor.Width)
+				dumpHeight = int(surface.ImageView.Image.FirstDescriptor.Height)
+				dumpFormat = surface.ImageView.Image.ImageFormat
+				if dumpWidth > 0 && dumpHeight > 0 {
+					dumpSize = vk.DeviceSize(dumpWidth * dumpHeight * 4)
+					dumpedStaging, _ = r.Handles.StagingBufferPool.Get(r.Handles, dumpSize)
+				}
+			}
+
 			err = vulkan.RunWithCommandBuffer(r.Handles.GraphicsQueue, r.Handles, func(commandBuffer *vulkan.VulkanCommandBuffer) {
 				if surface.ImageView.Image.ShouldUploadToVkImage(frame.Number) {
 					err = surface.ImageView.Image.UploadToVkImage(r.Handles, commandBuffer, r.GpuTranslator.GetLinearBuffer, frame.Number)
@@ -174,12 +200,49 @@ func (r *Renderer) ConsumeFlips(done chan struct{}) {
 						panic(err)
 					}
 				}
+				if dumpedStaging != nil {
+					surface.ImageView.Image.BarrierTransferSrc(commandBuffer)
+					vk.CmdCopyImageToBuffer(commandBuffer.CommandBuffer, surface.ImageView.Image.Image, vk.ImageLayoutTransferSrcOptimal, dumpedStaging.Buffer, 1, []vk.BufferImageCopy{{
+						BufferOffset:      0,
+						BufferRowLength:   0,
+						BufferImageHeight: 0,
+						ImageSubresource: vk.ImageSubresourceLayers{
+							AspectMask:     vk.ImageAspectFlags(vk.ImageAspectColorBit),
+							MipLevel:       0,
+							BaseArrayLayer: 0,
+							LayerCount:     1,
+						},
+						ImageOffset: vk.Offset3D{X: 0, Y: 0, Z: 0},
+						ImageExtent: vk.Extent3D{Width: uint32(dumpWidth), Height: uint32(dumpHeight), Depth: 1},
+					}})
+					vk.CmdPipelineBarrier(commandBuffer.CommandBuffer,
+						vk.PipelineStageFlags(vk.PipelineStageTransferBit),
+						vk.PipelineStageFlags(vk.PipelineStageHostBit),
+						0, 1, []vk.MemoryBarrier{{
+							SType:         vk.StructureTypeMemoryBarrier,
+							SrcAccessMask: vk.AccessFlags(vk.AccessTransferWriteBit),
+							DstAccessMask: vk.AccessFlags(vk.AccessHostReadBit),
+						}}, 0, nil, 0, nil)
+				}
 				surface.ImageView.Image.BarrierGeneralShaderAccess(commandBuffer)
 			}, frame.Number)
 			if err != nil {
 				panic(err)
 			}
 			r.DisplayTextureId = r.GpuTranslator.GetSurfaceTexture(surface)
+
+			if dumpedStaging != nil {
+				r.saveDumpPNG(dumpedStaging, dumpSize, dumpWidth, dumpHeight, dumpFormat, frame.Number)
+				r.Handles.StagingBufferPool.Put(dumpedStaging)
+				report, _ := r.GpuTranslator.GetAndClearDebugDump()
+				if report != "" {
+					txtPath, err := SaveDebugText(report, frame.Number)
+					if err == nil {
+						logger.Printf("[F9] Saved frame %d debug info to %s\n", frame.Number, txtPath)
+					}
+				}
+				DumpPending.Store(false)
+			}
 		}
 
 		// Wait on next frame.
@@ -312,4 +375,40 @@ func (r *Renderer) prepareRenderPass() {
 		panic(err)
 	}
 	r.RenderPass = renderPass
+}
+
+func (r *Renderer) saveDumpPNG(staging *vulkan.VulkanStagingBuffer, size vk.DeviceSize, width, height int, format vk.Format, frameNumber uint64) {
+	data := r.Handles.MapMemory(staging.Memory, size)
+	defer vk.UnmapMemory(r.Handles.Device, staging.Memory)
+
+	rgbaImg := image.NewRGBA(image.Rect(0, 0, width, height))
+	isBGRA := (format == vk.FormatB8g8r8a8Unorm || format == vk.FormatB8g8r8a8Srgb)
+	for y := 0; y < height; y++ {
+		rowSrc := data[y*width*4 : (y+1)*width*4]
+		rowDst := rgbaImg.Pix[y*rgbaImg.Stride : y*rgbaImg.Stride+width*4]
+		if isBGRA {
+			for x := 0; x < width; x++ {
+				b := rowSrc[x*4+0]
+				g := rowSrc[x*4+1]
+				r := rowSrc[x*4+2]
+				a := rowSrc[x*4+3]
+				rowDst[x*4+0] = r
+				rowDst[x*4+1] = g
+				rowDst[x*4+2] = b
+				rowDst[x*4+3] = a
+			}
+		} else {
+			copy(rowDst, rowSrc)
+		}
+	}
+
+	dumpDir := "/home/cute-foxgirls/.cache/sharkie/dump"
+	os.MkdirAll(dumpDir, 0755)
+	filePath := filepath.Join(dumpDir, fmt.Sprintf("frame_%04d.png", frameNumber))
+	f, err := os.Create(filePath)
+	if err == nil {
+		defer f.Close()
+		png.Encode(f, rgbaImg)
+		logger.Printf("Dumped frame %d to %s\n", frameNumber, filePath)
+	}
 }

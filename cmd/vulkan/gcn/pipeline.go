@@ -76,7 +76,7 @@ func CreateRasterizationState(paSuScModeCntl reg.PaSuScModeCntl, paSuLineCntl re
 
 	raster := vk.PipelineRasterizationStateCreateInfo{
 		SType:                   vk.StructureTypePipelineRasterizationStateCreateInfo,
-		DepthClampEnable:        vk.False,
+		DepthClampEnable:        vk.True,
 		PolygonMode:             polygonMode,
 		CullMode:                vk.CullModeFlags(cullMode),
 		FrontFace:               frontFace,
@@ -103,7 +103,7 @@ func CreateMultisampleState(aaConfig reg.PaScAaConfig, modeCntl0 reg.PaScModeCnt
 		SampleShadingEnable:   vk.False,
 		MinSampleShading:      1.0,
 		PSampleMask:           pSampleMask,
-		AlphaToCoverageEnable: vk.Bool32(nstd.Btoi((dbShaderControl.KillEnable() || dbShaderControl.CoverageToMaskEnable()) && !dbShaderControl.AlphaToMaskDisable())),
+		AlphaToCoverageEnable: vk.False,
 		AlphaToOneEnable:      vk.False,
 	}
 }

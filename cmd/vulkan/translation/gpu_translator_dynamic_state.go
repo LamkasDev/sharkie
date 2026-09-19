@@ -25,22 +25,46 @@ func (t *GpuTranslator) SetDynamicState(dynamicState *gpu.LiverpoolSetDynamicSta
 }
 
 func (t *GpuTranslator) setViewport(dynamicState *gpu.LiverpoolSetDynamicState) {
-	// Derive viewport from GCN scale/offset/control registers.
-	vpxScale := dynamicState.VpXScale
-	if !dynamicState.PaClVteCntl.VpXScaleEnable() {
-		vpxScale = 1.0
-	}
-	vpxOffset := dynamicState.VpXOffset
-	if !dynamicState.PaClVteCntl.VpXOffsetEnable() {
-		vpxOffset = 0.0
-	}
-	vpyScale := dynamicState.VpYScale
-	if !dynamicState.PaClVteCntl.VpYScaleEnable() {
-		vpyScale = 1.0
-	}
-	vpyOffset := dynamicState.VpYOffset
-	if !dynamicState.PaClVteCntl.VpYOffsetEnable() {
-		vpyOffset = 0.0
+	isClipDisabled := dynamicState.ClipControl.ClipDisable() || t.activePrimType == 17
+	var vpX, vpY, vpWidth, vpHeight float32
+	if isClipDisabled {
+		vpX = 0.0
+		vpY = 0.0
+		vpWidth = 16384.0
+		vpHeight = 16384.0
+	} else {
+		// Derive viewport from GCN scale/offset/control registers.
+		vpxScale := dynamicState.VpXScale
+		if !dynamicState.PaClVteCntl.VpXScaleEnable() {
+			vpxScale = 1.0
+		}
+		vpxOffset := dynamicState.VpXOffset
+		if !dynamicState.PaClVteCntl.VpXOffsetEnable() {
+			vpxOffset = 0.0
+		}
+		vpyScale := dynamicState.VpYScale
+		if !dynamicState.PaClVteCntl.VpYScaleEnable() {
+			vpyScale = 1.0
+		}
+		vpyOffset := dynamicState.VpYOffset
+		if !dynamicState.PaClVteCntl.VpYOffsetEnable() {
+			vpyOffset = 0.0
+		}
+
+		// Process viewport transforms.
+		vpWidth = vpxScale * 2
+		vpHeight = vpyScale * 2
+		vpX, vpY = vpxOffset-vpxScale, vpyOffset-vpyScale
+
+		// Apply fallback if zero sized.
+		if vpWidth == 0 || vpHeight == 0 {
+			if t.activeSurface != nil {
+				vpWidth, vpHeight = float32(t.activeSurface.ImageView.Image.FirstDescriptor.Width), float32(t.activeSurface.ImageView.Image.FirstDescriptor.Height)
+			} else if t.activeDepthSurface != nil {
+				vpWidth, vpHeight = float32(t.activeDepthSurface.ImageView.Image.FirstDescriptor.Width), float32(t.activeDepthSurface.ImageView.Image.FirstDescriptor.Height)
+			}
+			vpX, vpY = 0, 0
+		}
 	}
 	vpzScale := dynamicState.VpZScale
 	if !dynamicState.PaClVteCntl.VpZScaleEnable() {
@@ -50,36 +74,18 @@ func (t *GpuTranslator) setViewport(dynamicState *gpu.LiverpoolSetDynamicState) 
 	if !dynamicState.PaClVteCntl.VpZOffsetEnable() {
 		vpzOffset = 0.0
 	}
-	windowOffsetX := int32(int16(dynamicState.WindowOffset.WindowXOffset()))
-	windowOffsetY := int32(int16(dynamicState.WindowOffset.WindowYOffset()))
-	// hwOffsetX := float32(int32(int16(dynamicState.HardwareScreenOffset & 0xFFFF)))
-	// hwOffsetY := float32(int32(int16((dynamicState.HardwareScreenOffset >> 16) & 0xFFFF)))
 
-	// Process viewport transforms.
-	vpWidth := vpxScale * 2
-	vpHeight := vpyScale * 2
-	vpX, vpY := vpxOffset-vpxScale, vpyOffset-vpyScale
-	if dynamicState.PaSuScModeCntl.WindowOffsetEnable() {
-		vpX += float32(windowOffsetX)
-		vpY += float32(windowOffsetY)
+	var minDepth, maxDepth float32
+	if !dynamicState.ClipControl.DxClipSpaceDef() {
+		// When clip space is [-W, W] (MinusWToW), zoffset is centered.
+		minDepth = vpzOffset - vpzScale
+		maxDepth = vpzOffset + vpzScale
+	} else {
+		minDepth = vpzOffset
+		maxDepth = vpzOffset + vpzScale
 	}
-	// vpX += hwOffsetX
-	// vpY += hwOffsetY
-
-	// Apply fallback if zero sized.
-	if vpWidth == 0 || vpHeight == 0 {
-		if t.activeSurface != nil {
-			vpWidth, vpHeight = float32(t.activeSurface.ImageView.Image.FirstDescriptor.Width), float32(t.activeSurface.ImageView.Image.FirstDescriptor.Height)
-		} else if t.activeDepthSurface != nil {
-			vpWidth, vpHeight = float32(t.activeDepthSurface.ImageView.Image.FirstDescriptor.Width), float32(t.activeDepthSurface.ImageView.Image.FirstDescriptor.Height)
-		}
-		vpX, vpY = 0, 0
-		if dynamicState.PaSuScModeCntl.WindowOffsetEnable() {
-			vpX, vpY = float32(windowOffsetX), float32(windowOffsetY)
-		}
-	}
-	minDepth := max(0.0, min(1.0, vpzOffset))
-	maxDepth := max(0.0, min(1.0, vpzOffset+vpzScale))
+	minDepth = max(0.0, min(1.0, minDepth))
+	maxDepth = max(0.0, min(1.0, maxDepth))
 
 	vk.CmdSetViewport(t.commandBuffer.CommandBuffer, 0, 1, []vk.Viewport{{
 		X: vpX, Y: vpY,
@@ -150,22 +156,31 @@ func (t *GpuTranslator) setScissor(dynamicState *gpu.LiverpoolSetDynamicState) {
 		finalScissor = finalScissor.Intersect(genericScissor)
 	}
 
-	// Calculate width and height.
-	width := uint32(max(0, finalScissor.X2-finalScissor.X1))
-	height := uint32(max(0, finalScissor.Y2-finalScissor.Y1))
+	// Clamp scissor coordinates to non-negative screen space, matching Vulkan requirements and shadps4.
+	var surfaceWidth, surfaceHeight int32 = 16384, 16384
+	if t.activeSurface != nil {
+		surfaceWidth = int32(t.activeSurface.ImageView.Image.FirstDescriptor.Width)
+		surfaceHeight = int32(t.activeSurface.ImageView.Image.FirstDescriptor.Height)
+	} else if t.activeDepthSurface != nil {
+		surfaceWidth = int32(t.activeDepthSurface.ImageView.Image.FirstDescriptor.Width)
+		surfaceHeight = int32(t.activeDepthSurface.ImageView.Image.FirstDescriptor.Height)
+	}
+
+	clampedX1 := max(0, finalScissor.X1)
+	clampedY1 := max(0, finalScissor.Y1)
+	clampedX2 := min(surfaceWidth, max(0, finalScissor.X2))
+	clampedY2 := min(surfaceHeight, max(0, finalScissor.Y2))
+
+	width := uint32(max(0, clampedX2-clampedX1))
+	height := uint32(max(0, clampedY2-clampedY1))
 	if width == 0 || height == 0 {
-		if t.activeSurface != nil {
-			width = uint32(t.activeSurface.ImageView.Image.FirstDescriptor.Width)
-			height = uint32(t.activeSurface.ImageView.Image.FirstDescriptor.Height)
-		} else if t.activeDepthSurface != nil {
-			width = uint32(t.activeDepthSurface.ImageView.Image.FirstDescriptor.Width)
-			height = uint32(t.activeDepthSurface.ImageView.Image.FirstDescriptor.Height)
-		}
-		finalScissor.X1 = 0
-		finalScissor.Y1 = 0
+		width = uint32(surfaceWidth)
+		height = uint32(surfaceHeight)
+		clampedX1 = 0
+		clampedY1 = 0
 	}
 	vk.CmdSetScissor(t.commandBuffer.CommandBuffer, 0, 1, []vk.Rect2D{{
-		Offset: vk.Offset2D{X: finalScissor.X1, Y: finalScissor.Y1},
+		Offset: vk.Offset2D{X: clampedX1, Y: clampedY1},
 		Extent: vk.Extent2D{Width: width, Height: height},
 	}})
 }

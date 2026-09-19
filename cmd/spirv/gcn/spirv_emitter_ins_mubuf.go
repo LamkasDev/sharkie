@@ -134,29 +134,43 @@ func EmitMUBUF(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext
 		compA := b.EmitCompositeExtract(typeFloat, fetchedVec4, 3)
 
 		// Put components in correct slots.
-		for i := uint32(0); i < count; i++ {
-			// Extract destination selector for current channel.
-			shiftAmount := ctx.GetConstId(ConstIdUint0 + SpirvId(i*3))
-			shiftedDword := b.EmitShiftRightLogical(typeUint, res.Dw3, shiftAmount)
-			dstSel := b.EmitBitwiseAnd(typeUint, shiftedDword, b.EmitConstantUint(typeUint, 7))
+		isTypedLoad := false
+		switch details.Op {
+		case gcnSpec.MubufOpLoadFormatX, gcnSpec.MubufOpLoadFormatXy, gcnSpec.MubufOpLoadFormatXyz, gcnSpec.MubufOpLoadFormatXyzw:
+			isTypedLoad = true
+		}
 
-			// Generate conditions for selectors.
-			is0 := b.EmitIEqual(typeBool, dstSel, ctx.GetConstId(ConstIdUint0))
-			is1 := b.EmitIEqual(typeBool, dstSel, ctx.GetConstId(ConstIdUint1))
-			isR := b.EmitIEqual(typeBool, dstSel, ctx.GetConstId(ConstIdUint4))
-			isG := b.EmitIEqual(typeBool, dstSel, ctx.GetConstId(ConstIdUint5))
-			isB := b.EmitIEqual(typeBool, dstSel, ctx.GetConstId(ConstIdUint6))
+		if isTypedLoad {
+			for i := uint32(0); i < count; i++ {
+				// Extract destination selector for current channel.
+				shiftAmount := ctx.GetConstId(ConstIdUint0 + SpirvId(i*3))
+				shiftedDword := b.EmitShiftRightLogical(typeUint, res.Dw3, shiftAmount)
+				dstSel := b.EmitBitwiseAnd(typeUint, shiftedDword, b.EmitConstantUint(typeUint, 7))
 
-			// Build selection chain (default to A).
-			compFloat := compA
-			compFloat = b.EmitSelect(typeFloat, isB, compB, compFloat)
-			compFloat = b.EmitSelect(typeFloat, isG, compG, compFloat)
-			compFloat = b.EmitSelect(typeFloat, isR, compR, compFloat)
-			compFloat = b.EmitSelect(typeFloat, is1, ctx.GetConstId(ConstIdFloat1), compFloat)
-			compFloat = b.EmitSelect(typeFloat, is0, ctx.GetConstId(ConstIdFloat0), compFloat)
+				// Generate conditions for selectors.
+				is0 := b.EmitIEqual(typeBool, dstSel, ctx.GetConstId(ConstIdUint0))
+				is1 := b.EmitIEqual(typeBool, dstSel, ctx.GetConstId(ConstIdUint1))
+				isR := b.EmitIEqual(typeBool, dstSel, ctx.GetConstId(ConstIdUint4))
+				isG := b.EmitIEqual(typeBool, dstSel, ctx.GetConstId(ConstIdUint5))
+				isB := b.EmitIEqual(typeBool, dstSel, ctx.GetConstId(ConstIdUint6))
 
-			// Store results back into VGPRs.
-			ctx.StoreRegisterPointerMasked(b, gcnSpec.OpVgpr0+details.Vdata+i, b.EmitBitcast(typeUint, compFloat))
+				// Build selection chain (default to A).
+				compFloat := compA
+				compFloat = b.EmitSelect(typeFloat, isB, compB, compFloat)
+				compFloat = b.EmitSelect(typeFloat, isG, compG, compFloat)
+				compFloat = b.EmitSelect(typeFloat, isR, compR, compFloat)
+				compFloat = b.EmitSelect(typeFloat, is1, ctx.GetConstId(ConstIdFloat1), compFloat)
+				compFloat = b.EmitSelect(typeFloat, is0, ctx.GetConstId(ConstIdFloat0), compFloat)
+
+				// Store results back into VGPRs.
+				ctx.StoreRegisterPointerMasked(b, gcnSpec.OpVgpr0+details.Vdata+i, b.EmitBitcast(typeUint, compFloat))
+			}
+		} else {
+			// Raw dword loads: no dst_sel swizzle, store directly.
+			for i := uint32(0); i < count; i++ {
+				val := b.EmitCompositeExtract(typeFloat, fetchedVec4, i)
+				ctx.StoreRegisterPointerMasked(b, gcnSpec.OpVgpr0+details.Vdata+i, b.EmitBitcast(typeUint, val))
+			}
 		}
 	}
 }

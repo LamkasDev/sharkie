@@ -13,11 +13,20 @@ type PushConstants struct {
 	VteControl    uint32
 	ClipControl   uint32
 
-	GbHorzClipAdj float32
-	GbVertClipAdj float32
+	VpXScale  float32
+	VpXOffset float32
+	VpYScale  float32
+	VpYOffset float32
 }
 
 const PushConstantsSize = uint32(unsafe.Sizeof(PushConstants{}))
+
+func init() {
+	// Vertex and fragment each get a copy; 128 bytes is the Vulkan spec minimum.
+	if PushConstantsSize*2 > 128 {
+		panic("PushConstants exceed the 128-byte Vulkan minimum")
+	}
+}
 
 const (
 	MaxCommandsPerFrame             = 6144

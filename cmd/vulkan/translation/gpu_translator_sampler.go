@@ -23,18 +23,27 @@ func (t *GpuTranslator) GetSampler(descriptor spirvStructs.SamplerDescriptor) (v
 		anisotropyEnable = vk.True
 	}
 
+	compareEnable := vk.Bool32(vk.False)
+	if descriptor.DepthCompareFunc != 0 {
+		compareEnable = vk.True
+	}
+
 	// Create the sampler.
 	var sampler vk.Sampler
 	result := vk.CreateSampler(t.handles.Device, &vk.SamplerCreateInfo{
 		SType:            vk.StructureTypeSamplerCreateInfo,
 		MagFilter:        vkGcn.TranslateFilter(descriptor.XyMagFilter),
 		MinFilter:        vkGcn.TranslateFilter(descriptor.XyMinFilter),
-		MipmapMode:       vkGcn.TranslateMipmapMode(descriptor.ZFilter),
+		MipmapMode:       vkGcn.TranslateMipmapMode(descriptor.MipFilter),
 		AddressModeU:     vkGcn.TranslateClampMode(descriptor.ClampX),
 		AddressModeV:     vkGcn.TranslateClampMode(descriptor.ClampY),
 		AddressModeW:     vkGcn.TranslateClampMode(descriptor.ClampZ),
+		MipLodBias:       descriptor.LodBias,
 		AnisotropyEnable: anisotropyEnable,
 		MaxAnisotropy:    float32(descriptor.MaxAnisoRatio),
+		CompareEnable:    compareEnable,
+		CompareOp:        vkGcn.TranslateCompareOp(uint32(descriptor.DepthCompareFunc)),
+		MinLod:           descriptor.MinLod,
 		MaxLod:           descriptor.MaxLod,
 		BorderColor:      vkGcn.TranslateBorderColorType(descriptor.BorderColorType),
 	}, nil, &sampler)

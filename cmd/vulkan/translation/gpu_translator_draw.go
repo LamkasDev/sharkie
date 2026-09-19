@@ -63,19 +63,42 @@ func (t *GpuTranslator) Draw(frame uint64, draw *gpu.LiverpoolDraw) {
 	}
 
 	// Push constants to vertex shader.
+	clipControl := t.activeClipControl
+	if draw.PrimType == 17 {
+		clipControl |= 1 << 16
+	}
 	pushDataVs := spirvStructs.PushConstants{
 		UserDataAddress:         t.userDataBufferAddress + uint64(userDataOffset),
 		OnionMemoryBaseAddress:  GlobalAllocator.DeviceAddress,
 		GarlicMemoryBaseAddress: GlobalGpuAllocator.DeviceAddress,
 		UserSgprCount:           gpu.DecodeUserSgprCount(draw.VertexShRsrc2),
 		VteControl:              t.activeVteControl,
-		ClipControl:             t.activeClipControl,
+		ClipControl:             clipControl,
+		VpXScale:                1.0,
+		VpXOffset:               0.0,
+		VpYScale:                1.0,
+		VpYOffset:               0.0,
+	}
+	if t.activeDynamicState != nil {
+		if t.activeDynamicState.PaClVteCntl.VpXScaleEnable() {
+			pushDataVs.VpXScale = t.activeDynamicState.VpXScale
+		}
+		if t.activeDynamicState.PaClVteCntl.VpXOffsetEnable() {
+			pushDataVs.VpXOffset = t.activeDynamicState.VpXOffset
+		}
+		if t.activeDynamicState.PaClVteCntl.VpYScaleEnable() {
+			pushDataVs.VpYScale = t.activeDynamicState.VpYScale
+		}
+		if t.activeDynamicState.PaClVteCntl.VpYOffsetEnable() {
+			pushDataVs.VpYOffset = t.activeDynamicState.VpYOffset
+		}
 	}
 	vk.CmdPushConstants(
 		t.commandBuffer.CommandBuffer, t.pipelineLayout,
 		vk.ShaderStageFlags(vk.ShaderStageVertexBit|vk.ShaderStageComputeBit), 0,
 		spirvStructs.PushConstantsSize, unsafe.Pointer(&pushDataVs),
 	)
+	t.RecordDrawDebug(frame, draw, pushDataVs)
 
 	// Push constants to fragment shader.
 	pushDataFs := spirvStructs.PushConstants{
@@ -85,7 +108,11 @@ func (t *GpuTranslator) Draw(frame uint64, draw *gpu.LiverpoolDraw) {
 		UserSgprCount:           gpu.DecodeUserSgprCount(draw.PixelShRsrc2),
 		ShaderRsrc2:             draw.PixelShRsrc2,
 		VteControl:              t.activeVteControl,
-		ClipControl:             t.activeClipControl,
+		ClipControl:             clipControl,
+		VpXScale:                pushDataVs.VpXScale,
+		VpXOffset:               pushDataVs.VpXOffset,
+		VpYScale:                pushDataVs.VpYScale,
+		VpYOffset:               pushDataVs.VpYOffset,
 	}
 	vk.CmdPushConstants(
 		t.commandBuffer.CommandBuffer, t.pipelineLayout,
@@ -104,9 +131,6 @@ func (t *GpuTranslator) Draw(frame uint64, draw *gpu.LiverpoolDraw) {
 		)
 	}
 	if draw.IsIndexed {
-		if draw.PrimType == 19 {
-			panic("Indexed QuadList drawing is not implemented")
-		}
 		targetBuffer, relativeOffset, err := t.GetLinearBuffer(draw.IndexBase)
 		if err != nil {
 			panic(err)
@@ -118,13 +142,7 @@ func (t *GpuTranslator) Draw(frame uint64, draw *gpu.LiverpoolDraw) {
 		vk.CmdBindIndexBuffer(t.commandBuffer.CommandBuffer, targetBuffer, vk.DeviceSize(relativeOffset), indexType)
 		vk.CmdDrawIndexed(t.commandBuffer.CommandBuffer, draw.IndexCount, draw.InstanceCount, draw.IndexOffset, 0, 0)
 	} else {
-		if draw.PrimType == 19 {
-			quadCount := draw.IndexCount / 4
-			vk.CmdBindIndexBuffer(t.commandBuffer.CommandBuffer, t.quadListIndexBuffer, 0, vk.IndexTypeUint16)
-			vk.CmdDrawIndexed(t.commandBuffer.CommandBuffer, quadCount*6, draw.InstanceCount, 0, 0, 0)
-		} else {
-			vk.CmdDraw(t.commandBuffer.CommandBuffer, draw.IndexCount, draw.InstanceCount, 0, 0)
-		}
+		vk.CmdDraw(t.commandBuffer.CommandBuffer, draw.IndexCount, draw.InstanceCount, 0, 0)
 	}
 
 	// Mark surface as modified.

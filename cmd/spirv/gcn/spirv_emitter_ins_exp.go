@@ -104,35 +104,33 @@ func EmitEXP(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContext) 
 			}
 		}
 		if details.Target >= 12 && details.Target <= 15 {
-			vteControl := ctx.LoadPushConstantValue(b, PushConstantVteControl)
-			vtxXyFmt := ctx.TestMask(b, vteControl, 1<<8)
-			vtxZFmt := ctx.TestMask(b, vteControl, 1<<9)
-			vtxW0Fmt := ctx.TestMask(b, vteControl, 1<<10)
-
-			// Prevent W=0.0 to avoid +Inf generation.
-			isZero := b.EmitFUnordEqual(typeBool, comps[3], idZeroF)
-			safeW := b.EmitSelect(typeFloat, isZero, idOneF, comps[3])
-
-			// For VTX_W0_FMT:
-			// 1 = Shader exported 1/W 	-> Vulkan needs W = 1.0 / shader_W.
-			// 0 = Shader exported W 	-> Vulkan needs W = shader_W.
-			wVulkan := b.EmitSelect(typeFloat, vtxW0Fmt, b.EmitFDiv(typeFloat, idOneF, safeW), safeW)
-
-			// If FMT is 1, X/Y/Z are already multiplied by 1/W, so multiply by W to undo Vulkan's divide.
-			comps[0] = b.EmitSelect(typeFloat, vtxXyFmt, b.EmitFMul(typeFloat, comps[0], wVulkan), comps[0])
-			comps[1] = b.EmitSelect(typeFloat, vtxXyFmt, b.EmitFMul(typeFloat, comps[1], wVulkan), comps[1])
-			comps[2] = b.EmitSelect(typeFloat, vtxZFmt, b.EmitFMul(typeFloat, comps[2], wVulkan), comps[2])
-			comps[3] = wVulkan
-
-			// Adjust Z based on DX_CLIP_SPACE_DEF.
+			// Adjust Z based on DX_CLIP_SPACE_DEF (Bit 19 of PA_CL_CLIP_CNTL: 0 = [-W, W], 1 = [0, W]).
+			// In Vulkan, clip space depth is [0, W]. If OpenGL [-W, W] is used, map to [0, W]:
+			// Z_vulkan = (Z_gl + W) / 2.0
 			clipControl := ctx.LoadPushConstantValue(b, PushConstantClipControl)
 			dxClipSpaceDef := ctx.TestMask(b, clipControl, 1<<19)
 
-			// OpenGL: Z_vul = (Z_gl + W) / 2.0
 			zGl := comps[2]
-			zGlPlusW := b.EmitFAdd(typeFloat, zGl, wVulkan)
+			zGlPlusW := b.EmitFAdd(typeFloat, zGl, comps[3])
 			halfW := b.EmitFDiv(typeFloat, zGlPlusW, ctx.GetConstId(ConstIdFloat2))
 			comps[2] = b.EmitSelect(typeFloat, dxClipSpaceDef, zGl, halfW)
+
+			// CLIP_DISABLE (bit 16): skip view-volume clipping. Hardware still applies the
+			// viewport transform, then rasterizes in a 16384x16384 window. Convert exported
+			// positions to NDC of that window so Vulkan's clip volume doesn't drop them.
+			// wnd = pos * scale + offset; ndc = wnd / 8192 - 1
+			clipDisable := ctx.TestMask(b, clipControl, 1<<16)
+			xScale := ctx.LoadPushConstantValue(b, PushConstantVpXScale)
+			xOffset := ctx.LoadPushConstantValue(b, PushConstantVpXOffset)
+			yScale := ctx.LoadPushConstantValue(b, PushConstantVpYScale)
+			yOffset := ctx.LoadPushConstantValue(b, PushConstantVpYOffset)
+			halfWindow := b.EmitConstantFloat(typeFloat, 8192.0)
+			wndX := b.EmitFAdd(typeFloat, b.EmitFMul(typeFloat, comps[0], xScale), xOffset)
+			wndY := b.EmitFAdd(typeFloat, b.EmitFMul(typeFloat, comps[1], yScale), yOffset)
+			ndcX := b.EmitFSub(typeFloat, b.EmitFDiv(typeFloat, wndX, halfWindow), idOneF)
+			ndcY := b.EmitFSub(typeFloat, b.EmitFDiv(typeFloat, wndY, halfWindow), idOneF)
+			comps[0] = b.EmitSelect(typeFloat, clipDisable, ndcX, comps[0])
+			comps[1] = b.EmitSelect(typeFloat, clipDisable, ndcY, comps[1])
 		}
 
 		vec := b.EmitCompositeConstruct(typeV4Float, comps[0], comps[1], comps[2], comps[3])

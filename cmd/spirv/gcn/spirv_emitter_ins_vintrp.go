@@ -16,14 +16,13 @@ func EmitVINTRP(b *SpvBuilder, instr *gcnSpec.Instruction, ctx *SpirvBlockContex
 
 	var res SpirvId
 	switch details.Op {
-	case gcnSpec.VintrpOpInterpP1F32, gcnSpec.VintrpOpInterpMovF32:
-		// For P1 and MOV, we just load the interpolated value.
-		// In SPIR-V, inputs are already interpolated at pixel center by default.
+	case gcnSpec.VintrpOpInterpP1F32:
+		// P1 only computes intermediate interpolation (P10 * I + P0) which P2 finishes.
+		// Since Vulkan inputs are already interpolated by hardware, P1 is a no-op to avoid
+		// clobbering registers (e.g. barycentrics) needed by subsequent instructions.
+		return
+	case gcnSpec.VintrpOpInterpP2F32, gcnSpec.VintrpOpInterpMovF32:
 		res = value
-	case gcnSpec.VintrpOpInterpP2F32:
-		// P2 usually accumulates the result of P1.
-		// Since we load the full interpolated value in P1, P2 is effectively a no-op / passthrough.
-		res = b.EmitBitcast(typeFloat, ctx.GetGcnVgprId(b, details.Vdst))
 	}
 
 	// Store result to destination VGPR.

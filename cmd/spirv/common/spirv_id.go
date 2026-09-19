@@ -100,6 +100,7 @@ const (
 	BlockContextIdVertexIndex
 	BlockContextIdInstanceIndex
 	BlockContextIdFragCoord
+	BlockContextIdFrontFacing
 	BlockContextIdIsValidPixel
 	BlockContextIdLdsArray
 	BlockContextIdWorkgroupId
@@ -302,6 +303,8 @@ const (
 	PushConstantShaderRsrc2             = 5
 	PushConstantVteControl              = 6
 	PushConstantClipControl             = 7
-	PushConstantGbHorzClipAdj           = 8
-	PushConstantGbVertClipAdj           = 9
+	PushConstantVpXScale                = 8
+	PushConstantVpXOffset               = 9
+	PushConstantVpYScale                = 10
+	PushConstantVpYOffset               = 11
 )

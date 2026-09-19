@@ -60,7 +60,7 @@ void main() {
 
     bvec2 point_coord_equal[3];
     for (int i = 0; i < 3; i++) {
-        point_coord_equal[i] = equal(pos[i].xy, pos[(i + 1) % 3].xy);
+        point_coord_equal[i] = lessThan(abs(pos[i].xy - pos[(i + 1) % 3].xy), vec2(0.0005));
     }
 
     float bary_coord[3];

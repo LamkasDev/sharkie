@@ -67,16 +67,161 @@ func emitBlock(b *SpvBuilder, cfg *GcnShaderCfg, block *GcnShaderCfgBlock, ctx *
 			}
 		}
 
-		// Initialize barycentrics for fragment shader.
+		// Initialize input VGPRs for fragment shader according to SPI_PS_INPUT_ADDR.
 		if ctx.Stage == GcnShaderStageFragment {
-			b.EmitString("initialize barycentrics")
+			b.EmitString("initialize fragment input vgprs")
+			typeUint := ctx.GetId(BlockContextIdTypeUint)
+			typeFloat := ctx.GetId(BlockContextIdTypeFloat)
 			idHalfF := ctx.GetConstId(ConstIdFloat05)
 			idOneF := ctx.GetConstId(ConstIdFloat1)
-			idHalfU := b.EmitBitcast(ctx.GetId(BlockContextIdTypeUint), idHalfF)
-			idOneU := b.EmitBitcast(ctx.GetId(BlockContextIdTypeUint), idOneF)
-			ctx.SetGcnVgprId(b, 0, idHalfU)
-			ctx.SetGcnVgprId(b, 1, idHalfU)
-			ctx.SetGcnVgprId(b, 2, idOneU)
+			idZeroU := ctx.GetConstId(ConstIdUint0)
+			idHalfU := b.EmitBitcast(typeUint, idHalfF)
+			idOneU := b.EmitBitcast(typeUint, idOneF)
+
+			ctxFs, ok := ctx.Context.(SpirvFragmentShaderContext)
+			dstVgpr := uint32(0)
+
+			if ok {
+				psAddr := ctxFs.PsInputAddress
+				// 0. persp_sample_ena (2 VGPRs)
+				if psAddr&(1<<0) != 0 {
+					ctx.SetGcnVgprId(b, dstVgpr, idHalfU)
+					dstVgpr++
+					ctx.SetGcnVgprId(b, dstVgpr, idHalfU)
+					dstVgpr++
+				}
+				// 1. persp_center_ena (2 VGPRs)
+				if psAddr&(1<<1) != 0 {
+					ctx.SetGcnVgprId(b, dstVgpr, idHalfU)
+					dstVgpr++
+					ctx.SetGcnVgprId(b, dstVgpr, idHalfU)
+					dstVgpr++
+				}
+				// 2. persp_centroid_ena (2 VGPRs)
+				if psAddr&(1<<2) != 0 {
+					ctx.SetGcnVgprId(b, dstVgpr, idHalfU)
+					dstVgpr++
+					ctx.SetGcnVgprId(b, dstVgpr, idHalfU)
+					dstVgpr++
+				}
+				// 3. persp_pull_model_ena (3 VGPRs: I/W, J/W, 1/W)
+				if psAddr&(1<<3) != 0 {
+					ctx.SetGcnVgprId(b, dstVgpr, idHalfU)
+					dstVgpr++
+					ctx.SetGcnVgprId(b, dstVgpr, idHalfU)
+					dstVgpr++
+					ctx.SetGcnVgprId(b, dstVgpr, idOneU)
+					dstVgpr++
+				}
+				// 4. linear_sample_ena (2 VGPRs)
+				if psAddr&(1<<4) != 0 {
+					ctx.SetGcnVgprId(b, dstVgpr, idHalfU)
+					dstVgpr++
+					ctx.SetGcnVgprId(b, dstVgpr, idHalfU)
+					dstVgpr++
+				}
+				// 5. linear_center_ena (2 VGPRs)
+				if psAddr&(1<<5) != 0 {
+					ctx.SetGcnVgprId(b, dstVgpr, idHalfU)
+					dstVgpr++
+					ctx.SetGcnVgprId(b, dstVgpr, idHalfU)
+					dstVgpr++
+				}
+				// 6. linear_centroid_ena (2 VGPRs)
+				if psAddr&(1<<6) != 0 {
+					ctx.SetGcnVgprId(b, dstVgpr, idHalfU)
+					dstVgpr++
+					ctx.SetGcnVgprId(b, dstVgpr, idHalfU)
+					dstVgpr++
+				}
+				// 7. line_stipple_tex_ena (1 VGPR)
+				if psAddr&(1<<7) != 0 {
+					ctx.SetGcnVgprId(b, dstVgpr, idZeroU)
+					dstVgpr++
+				}
+				// 8-11. pos_x/y/z/w_float_ena
+				hasFragCoord := (psAddr>>8)&0xF != 0
+				var fragX, fragY, fragZ, fragW SpirvId
+				if hasFragCoord {
+					fragCoordPtr := ctx.GetId(BlockContextIdFragCoord)
+					if fragCoordPtr != 0 {
+						fragCoordVal := b.EmitLoad(ctx.GetId(BlockContextIdTypeV4Float), fragCoordPtr)
+						fragX = b.EmitBitcast(typeUint, b.EmitCompositeExtract(typeFloat, fragCoordVal, 0))
+						fragY = b.EmitBitcast(typeUint, b.EmitCompositeExtract(typeFloat, fragCoordVal, 1))
+						fragZ = b.EmitBitcast(typeUint, b.EmitCompositeExtract(typeFloat, fragCoordVal, 2))
+						rawW := b.EmitCompositeExtract(typeFloat, fragCoordVal, 3)
+						recipW := b.EmitFDiv(typeFloat, idOneF, rawW)
+						fragW = b.EmitBitcast(typeUint, recipW)
+					}
+				}
+				if psAddr&(1<<8) != 0 {
+					val := idZeroU
+					if fragX != 0 {
+						val = fragX
+					}
+					ctx.SetGcnVgprId(b, dstVgpr, val)
+					dstVgpr++
+				}
+				if psAddr&(1<<9) != 0 {
+					val := idZeroU
+					if fragY != 0 {
+						val = fragY
+					}
+					ctx.SetGcnVgprId(b, dstVgpr, val)
+					dstVgpr++
+				}
+				if psAddr&(1<<10) != 0 {
+					val := idZeroU
+					if fragZ != 0 {
+						val = fragZ
+					}
+					ctx.SetGcnVgprId(b, dstVgpr, val)
+					dstVgpr++
+				}
+				if psAddr&(1<<11) != 0 {
+					val := idZeroU
+					if fragW != 0 {
+						val = fragW
+					}
+					ctx.SetGcnVgprId(b, dstVgpr, val)
+					dstVgpr++
+				}
+				// 12. front_face_ena (1 VGPR)
+				if psAddr&(1<<12) != 0 {
+					frontFacingPtr := ctx.GetId(BlockContextIdFrontFacing)
+					val := idZeroU
+					if frontFacingPtr != 0 {
+						frontFacingBool := b.EmitLoad(ctx.GetId(BlockContextIdTypeBool), frontFacingPtr)
+						val = b.EmitSelect(typeUint, frontFacingBool, ctx.GetConstId(ConstIdUint1), idZeroU)
+					}
+					ctx.SetGcnVgprId(b, dstVgpr, val)
+					dstVgpr++
+				}
+				// 13. ancillary_ena (1 VGPR)
+				if psAddr&(1<<13) != 0 {
+					ctx.SetGcnVgprId(b, dstVgpr, idZeroU)
+					dstVgpr++
+				}
+				// 14. sample_coverage_ena (1 VGPR)
+				if psAddr&(1<<14) != 0 {
+					ctx.SetGcnVgprId(b, dstVgpr, idZeroU)
+					dstVgpr++
+				}
+				// 15. pos_fixed_pt_ena (1 VGPR)
+				if psAddr&(1<<15) != 0 {
+					ctx.SetGcnVgprId(b, dstVgpr, idZeroU)
+					dstVgpr++
+				}
+			}
+
+			// Fallback: if no barycentrics or system inputs were allocated, provide default barycentrics
+			if dstVgpr == 0 {
+				ctx.SetGcnVgprId(b, 0, idHalfU)
+				ctx.SetGcnVgprId(b, 1, idHalfU)
+				ctx.SetGcnVgprId(b, 2, idOneU)
+			}
+
+			b.EmitStore(ctx.GetId(BlockContextIdIsValidPixel), ctx.GetId(BlockContextIdTrue))
 		}
 
 		// Initialize thread IDs for compute shader.

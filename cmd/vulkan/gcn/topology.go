@@ -18,7 +18,7 @@ func TranslateTopology(primType uint32) vk.PrimitiveTopology {
 		return vk.PrimitiveTopologyTriangleFan
 	case 6: // TRISTRIP
 		return vk.PrimitiveTopologyTriangleStrip
-	case 9, 17: // PATCH + RECTLIST - emulated via tessellation (3 patch verts -> quad)
+	case 9, 17, 19: // PATCH + RECTLIST + QUADLIST - emulated via tessellation
 		return vk.PrimitiveTopologyPatchList
 	case 10: // LINELIST_ADJ
 		return vk.PrimitiveTopologyLineListWithAdjacency
@@ -32,8 +32,6 @@ func TranslateTopology(primType uint32) vk.PrimitiveTopology {
 		return vk.PrimitiveTopologyTriangleList
 	case 18: // LINELOOP
 		panic("unsupported")
-	case 19: // QUADLIST
-		return vk.PrimitiveTopologyTriangleList
 	case 20: // QUADSTRIP
 		panic("unsupported")
 	case 21: // POLYGON

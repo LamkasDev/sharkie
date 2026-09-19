@@ -23,6 +23,9 @@ func (image *VulkanImage) UploadToVkImage(handles *VulkanHandles, commandBuffer 
 		width = linearDimensions.Width
 		height = linearDimensions.Height
 		pitch = linearDimensions.Pitch
+		if pitch < width {
+			pitch = 0
+		}
 
 		// Assign buffer.
 		texBuffer, texOffset, err := getLinearBuffer(image.Address)
@@ -126,12 +129,13 @@ func (image *VulkanImage) UploadToVkImage(handles *VulkanHandles, commandBuffer 
 		)
 
 		// Push detile options.
+		paddedHeight := (height + 7) & ^uint32(7)
 		c0 := width / 8
-		c1 := c0 * ((height + 7) / 8)
+		c1 := c0 * (paddedHeight / 8)
 		pushConstants := DetilePushConstants{
 			NumLevels: 0,
 			Pitch:     width,
-			Height:    height,
+			Height:    paddedHeight,
 			C0:        c0,
 			C1:        c1,
 			IsRetile:  0,
@@ -144,7 +148,7 @@ func (image *VulkanImage) UploadToVkImage(handles *VulkanHandles, commandBuffer 
 		)
 
 		// Dispatch detile shader.
-		texels := width * height
+		texels := width * paddedHeight
 		groups := (texels + 63) / 64
 		vk.CmdDispatch(commandBuffer.CommandBuffer, groups, 1, 1)
 

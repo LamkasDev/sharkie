@@ -33,8 +33,8 @@ func (l *Liverpool) handleSetContextReg(stream *LiverpoolCommandStream, payload 
 		gcn.GREG_MM_CB_COLOR4_BASE, gcn.GREG_MM_CB_COLOR5_BASE, gcn.GREG_MM_CB_COLOR6_BASE, gcn.GREG_MM_CB_COLOR7_BASE:
 		cbId := (baseOffset - gcn.GREG_MM_CB_COLOR0_BASE) / (gcn.GREG_MM_CB_COLOR1_BASE - gcn.GREG_MM_CB_COLOR0_BASE)
 		if count == 0x0E || count == 0x0D || count == 0x0B {
-			if payload[count] == 0xC0001000 && len(peek) > len(payload) {
-				l.Registers.CbColorExtent[cbId] = peek[len(payload)]
+			if len(peek) > len(payload)+1 && peek[len(payload)] == 0xC0001000 {
+				l.Registers.CbColorExtent[cbId] = peek[len(payload)+1]
 			} else {
 				l.Registers.CbColorExtent[cbId] = 0
 			}
@@ -45,13 +45,15 @@ func (l *Liverpool) handleSetContextReg(stream *LiverpoolCommandStream, payload 
 		gcn.GREG_MM_CB_COLOR4_CMASK, gcn.GREG_MM_CB_COLOR5_CMASK, gcn.GREG_MM_CB_COLOR6_CMASK, gcn.GREG_MM_CB_COLOR7_CMASK:
 		cbId := (baseOffset - gcn.GREG_MM_CB_COLOR0_CMASK) / (gcn.GREG_MM_CB_COLOR1_CMASK - gcn.GREG_MM_CB_COLOR0_CMASK)
 		if count == 0x04 {
-			if payload[count] == 0xC0001000 && len(peek) > len(payload) {
-				l.Registers.CbColorExtent[cbId] = peek[len(payload)]
+			if len(peek) > len(payload)+1 && peek[len(payload)] == 0xC0001000 {
+				l.Registers.CbColorExtent[cbId] = peek[len(payload)+1]
 			}
 		}
 	case gcn.GREG_MM_DB_Z_INFO:
 		if count == 8 {
-			if len(peek) > 21 && peek[20] == 0xC0001000 {
+			if len(peek) > 22 && peek[21] == 0xC0001000 {
+				l.Registers.DbDepthExtent = peek[22]
+			} else if len(peek) > 21 && peek[20] == 0xC0001000 {
 				l.Registers.DbDepthExtent = peek[21]
 			} else {
 				l.Registers.DbDepthExtent = 0

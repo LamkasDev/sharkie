@@ -146,25 +146,11 @@ func CalculateBufferOffset(b *SpvBuilder, ctx *SpirvBlockContext, res BufferReso
 }
 
 // CalculateBufferRangeCheck returns a boolean ID which is true if the access is out of range.
-func CalculateBufferRangeCheck(b *SpvBuilder, ctx *SpirvBlockContext, res BufferResource, index, offset, bufferOffset, sgprOffset, idxenOrAddTidEnable SpirvId) SpirvId {
-	typeUint := ctx.GetId(BlockContextIdTypeUint)
-	typeBool := ctx.GetId(BlockContextIdTypeBool)
-
-	strideIsZero := b.EmitIEqual(typeBool, res.Stride, ctx.GetConstId(ConstIdUint0))
-
-	// If ((const_stride == 0) && (buffer_offset >= (const_num_records – sgpr_offset))
-	// – If op is a write or atomic, drop the write.
-	// – If op is a read or atomic, return 0.
-	totalOffsetStrideZero := b.EmitIAdd(typeUint, bufferOffset, sgprOffset)
-	outOfRangeStrideZero := b.EmitUGreaterThanEqual(typeBool, totalOffsetStrideZero, res.NumRecords)
-
-	// If (const_stride != 0 && ((index >= const_num_records) || ((inst_idxen | const_add_tid_enable) && (offset >= const_stride)))
-	// – If op is a write or atomic, drop the write.
-	// – If op is a read or atomic, return 0.
-	indexOutOfRange := b.EmitUGreaterThanEqual(typeBool, index, res.NumRecords)
-	offsetOutOfRange := b.EmitUGreaterThanEqual(typeBool, offset, res.Stride)
-	offsetCheckWithFlags := b.EmitLogicalAnd(typeBool, idxenOrAddTidEnable, offsetOutOfRange)
-	outOfRangeStrideNotZero := b.EmitLogicalOr(typeBool, indexOutOfRange, offsetCheckWithFlags)
-
-	return b.EmitSelect(typeBool, strideIsZero, outOfRangeStrideZero, outOfRangeStrideNotZero)
+func CalculateBufferRangeCheck(_ *SpvBuilder, ctx *SpirvBlockContext, _ BufferResource, _, _, _, _, _ SpirvId) SpirvId {
+	// Software bounds checking in SPIR-V is intentionally disabled.
+	// Hardware/Vulkan handles buffer access safety. Software range checks against
+	// num_records/stride frequently produce false out-of-bounds results due to differences
+	// in GCN descriptor interpretation (e.g. linear buffers measuring num_records in bytes vs elements,
+	// or buffer wrapping), causing valid vertices to be zeroed and geometry to collapse.
+	return ctx.GetId(BlockContextIdFalse)
 }

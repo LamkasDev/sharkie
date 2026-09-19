@@ -231,7 +231,10 @@ func (t *GpuTranslator) GetBindDescriptorSet(shaders []*spirv.SpirvShader, userD
 			t.updateImageDescriptorBinding(activeImageSet, binding.BindingIndex, nil, view, sampler)
 		}
 		if logger.LogRenderer {
-			boundText += fmt.Sprintf(" %s %d (0x%X/%dx%d)", binding.Kind, binding.BindingIndex, access.Descriptor.BaseAddress, access.Descriptor.Width, access.Descriptor.Height)
+			boundText += fmt.Sprintf(" %s %d (0x%X/%dx%d fmt=%d numFmt=%d sel=%d,%d,%d,%d)",
+				binding.Kind, binding.BindingIndex, access.Descriptor.BaseAddress, access.Descriptor.Width, access.Descriptor.Height,
+				access.Descriptor.DataFormat, access.Descriptor.NumFormat,
+				access.Descriptor.DstSelX, access.Descriptor.DstSelY, access.Descriptor.DstSelZ, access.Descriptor.DstSelW)
 		}
 	}
 	if len(allLayouts) > 0 && logger.LogRenderer {

@@ -280,30 +280,37 @@ func (image *VulkanImage) BarrierColorAttachment(commandBuffer *VulkanCommandBuf
 	if IsDepthFormat(image.ImageFormat) {
 		return
 	}
-	if image.ImageLayout != vk.ImageLayoutGeneral {
+	expectedAccess := vk.AccessFlags(vk.AccessColorAttachmentReadBit | vk.AccessColorAttachmentWriteBit)
+	if image.ImageLayout != vk.ImageLayoutGeneral || image.ImageAccess != expectedAccess || image.HasSync(ImageSyncNeedsReadBarrier) {
+		image.ClearSync(ImageSyncNeedsReadBarrier)
 		ImageBarrier(commandBuffer, image,
 			vk.ImageLayoutGeneral,
-			vk.AccessFlags(vk.AccessColorAttachmentReadBit|vk.AccessColorAttachmentWriteBit),
+			expectedAccess,
 			vk.PipelineStageFlags(vk.PipelineStageColorAttachmentOutputBit),
 			vk.ImageAspectFlags(vk.ImageAspectColorBit),
 		)
 	}
-	if !image.HasSync(ImageSyncNeedsReadBarrier) {
-		return
-	}
-
-	ImageBarrier(commandBuffer, image,
-		vk.ImageLayoutGeneral,
-		vk.AccessFlags(vk.AccessColorAttachmentReadBit|vk.AccessColorAttachmentWriteBit),
-		vk.PipelineStageFlags(vk.PipelineStageColorAttachmentOutputBit),
-		vk.ImageAspectFlags(vk.ImageAspectColorBit),
-	)
 }
 
 func (image *VulkanImage) BarrierSampledRead(commandBuffer *VulkanCommandBuffer) {
-	if image.ImageLayout == vk.ImageLayoutGeneral {
+	if IsDepthFormat(image.ImageFormat) {
+		expectedAccess := vk.AccessFlags(vk.AccessShaderReadBit | vk.AccessDepthStencilAttachmentReadBit)
+		if image.ImageAccess == expectedAccess && !image.HasSync(ImageSyncNeedsReadBarrier) {
+			return
+		}
+		image.ClearSync(ImageSyncNeedsReadBarrier)
+		ImageBarrier(commandBuffer, image,
+			vk.ImageLayoutDepthStencilAttachmentOptimal,
+			expectedAccess,
+			vk.PipelineStageFlags(vk.PipelineStageFragmentShaderBit),
+			GetFormatAspectFlags(image.ImageFormat),
+		)
 		return
 	}
+	if image.ImageLayout == vk.ImageLayoutGeneral && image.ImageAccess == vk.AccessFlags(vk.AccessShaderReadBit) && !image.HasSync(ImageSyncNeedsReadBarrier) {
+		return
+	}
+	image.ClearSync(ImageSyncNeedsReadBarrier)
 	ImageBarrier(commandBuffer, image,
 		vk.ImageLayoutGeneral,
 		vk.AccessFlags(vk.AccessShaderReadBit),
@@ -313,12 +320,14 @@ func (image *VulkanImage) BarrierSampledRead(commandBuffer *VulkanCommandBuffer)
 }
 
 func (image *VulkanImage) BarrierComputeStorageWrite(commandBuffer *VulkanCommandBuffer) {
-	if image.ImageLayout == vk.ImageLayoutGeneral {
+	expectedAccess := vk.AccessFlags(vk.AccessShaderReadBit | vk.AccessShaderWriteBit)
+	if image.ImageLayout == vk.ImageLayoutGeneral && image.ImageAccess == expectedAccess && !image.HasSync(ImageSyncNeedsReadBarrier) {
 		return
 	}
+	image.ClearSync(ImageSyncNeedsReadBarrier)
 	ImageBarrier(commandBuffer, image,
 		vk.ImageLayoutGeneral,
-		vk.AccessFlags(vk.AccessShaderReadBit|vk.AccessShaderWriteBit),
+		expectedAccess,
 		vk.PipelineStageFlags(vk.PipelineStageComputeShaderBit),
 		GetFormatAspectFlags(image.ImageFormat),
 	)
@@ -448,7 +457,7 @@ func (image *VulkanImage) GetStagingBufferSize() vk.DeviceSize {
 	size := vk.DeviceSize(dims.Width * paddedHeight * dims.Bpp)
 
 	// Ensure the buffer is at least as large as the dispatched threads (groups * 64 texels).
-	texels := dims.Width * dims.Height
+	texels := dims.Width * paddedHeight
 	dispatchTexels := ((texels + 63) / 64) * 64
 	dispatchSize := vk.DeviceSize(dispatchTexels * dims.Bpp)
 	if dispatchSize > size {

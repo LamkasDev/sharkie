@@ -140,6 +140,12 @@ func CreateGraphicsPipeline(handles *VulkanHandles, request GraphicsPipelineRequ
 			SType:              vk.StructureTypePipelineTessellationStateCreateInfo,
 			PatchControlPoints: patchPoints,
 		}
+	} else if request.PrimType == 19 { // QUADLIST
+		patchPoints := uint32(4)
+		tessellationState = &vk.PipelineTessellationStateCreateInfo{
+			SType:              vk.StructureTypePipelineTessellationStateCreateInfo,
+			PatchControlPoints: patchPoints,
+		}
 	}
 
 	// Viewport and scissor are dynamic so they match each draw call without rebuilding the pipeline.

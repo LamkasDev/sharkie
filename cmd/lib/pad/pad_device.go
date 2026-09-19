@@ -1,6 +1,7 @@
 package pad
 
 import (
+	"github.com/LamkasDev/sharkie/cmd/lib_structs/gpu"
 	. "github.com/LamkasDev/sharkie/cmd/lib_structs/pad"
 	"github.com/elokore/glfw/v3.4/glfw"
 )
@@ -18,6 +19,11 @@ func (k *KeyboardDevice) Read(data *PadData) {
 	data.RightStick.Y = 128
 
 	buttons := uint32(0)
+	frame := gpu.GlobalLiverpool.FrameNumber
+	if false && (frame >= 90 && frame%30 < 15) {
+		buttons |= PadButtonCross
+	}
+
 	if k.Window != nil {
 		// Face Buttons.
 		if k.Window.GetKey(glfw.KeyEnter) == glfw.Press {

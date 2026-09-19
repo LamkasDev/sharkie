@@ -51,6 +51,7 @@ func NewLiverpool() *Liverpool {
 		DisplaySurfaces: map[uintptr]*LiverpoolDisplaySurface{},
 		PM4Handlers:     map[uint8]PM4Handler{},
 	}
+	l.Registers.SetDefaults()
 	l.SetupPM4Handlers()
 	irq.GlobalInterruptHandler.Register(irq.InterruptIdGpuIdle, func(id irq.InterruptId) {
 		l.UnfinishedSubmits--

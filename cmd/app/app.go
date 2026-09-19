@@ -140,6 +140,7 @@ func RunApplication() error {
 	frameDelay, _ := getRefreshRate(GlobalApplication.Monitor)
 	fpsTicker := time.NewTicker(frameDelay)
 	defer fpsTicker.Stop()
+	wasF9Down := false
 	for {
 		select {
 		case <-exitC:
@@ -157,6 +158,18 @@ func RunApplication() error {
 				continue
 			}
 			glfw.PollEvents()
+
+			// Check for F9 debug screenshot & state dump.
+			if GlobalApplication.Window != nil {
+				if GlobalApplication.Window.GetKey(glfw.KeyF9) == glfw.Press {
+					if !wasF9Down {
+						renderer.RequestFrameDump()
+					}
+					wasF9Down = true
+				} else {
+					wasF9Down = false
+				}
+			}
 
 			// Stall until we're ready for next frame.
 			if config.GlobalConfig != nil && config.GlobalConfig.SyncGuestFlips && config.GameName != "" {

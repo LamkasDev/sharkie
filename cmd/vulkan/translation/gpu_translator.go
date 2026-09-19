@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"runtime"
 	"runtime/pprof"
+	"strings"
 	"sync"
 	"unsafe"
 
@@ -48,6 +49,7 @@ type GpuTranslator struct {
 	shaderModules            map[common.SpirvShaderKey]vk.ShaderModule
 	rectlistTescShaderModule vk.ShaderModule
 	rectlistTeseShaderModule vk.ShaderModule
+	quadlistTescShaderModule vk.ShaderModule
 
 	// Per-draw compiled pipelines.
 	pipelinesMutex sync.Mutex
@@ -80,10 +82,6 @@ type GpuTranslator struct {
 	userDataBufferAddress uint64
 	userDataOffsets       map[uint32]uint32
 
-	// Static index buffer for QuadList drawing.
-	quadListIndexBuffer    vk.Buffer
-	quadListIndexBufferMem vk.DeviceMemory
-
 	// Command pool/buffer for this frame's GPU work.
 	pool                       vk.CommandPool
 	commandBuffer              *vulkan.VulkanCommandBuffer
@@ -109,6 +107,13 @@ type GpuTranslator struct {
 	activeVertexShader              *spirv.SpirvShader
 	activeVteControl                uint32
 	activeClipControl               uint32
+	activePrimType                  uint32
+	activeCbMode                    uint32
+	activeClearWord0                uint32
+	activeClearWord1                uint32
+	activeCbFormat                  uint32
+	activeCbNumFormat               uint32
+	activeCbCompSwap                uint32
 	activeDynamicState              *gpu.LiverpoolSetDynamicState
 
 	activeVertexShaderKey   common.SpirvShaderKey
@@ -125,6 +130,12 @@ type GpuTranslator struct {
 	// lastProcessedFrame tracks which guest frame surface lifetime state belongs to.
 	lastProcessedFrame uint64
 	currentGuestFrame  uint64
+
+	// Debug dump state.
+	debugDumpEnabled bool
+	debugDumpFrame   uint64
+	debugDumpLog     strings.Builder
+	debugDumpMutex   sync.Mutex
 }
 
 // NewGpuTranslator creates a GpuTranslator, loads stub shaders and builds the stub pipeline layout.
@@ -171,6 +182,12 @@ func NewGpuTranslator(handles *vulkan.VulkanHandles, bknd backend.Backend[glfwvu
 		fenceMutex: sync.Mutex{},
 	}
 	close(t.fenceChan)
+
+	var err error
+	t.pool, err = vulkan.CreateCommandPool(t.handles)
+	if err != nil {
+		return nil, fmt.Errorf("GpuTranslator: command pool: %w", err)
+	}
 
 	// Allocate user data buffer.
 	userDataBuffer, userDataBufferMem, err := vulkan.AllocateBuffer(t.handles, vk.DeviceSize(spirvStructs.UserDataBufferSize),
@@ -346,40 +363,6 @@ func NewGpuTranslator(handles *vulkan.VulkanHandles, bknd backend.Backend[glfwvu
 
 	t.activePipeline = vk.NullPipeline
 
-	// Allocate quad list index buffer.
-	const maxQuads = spirvStructs.MaxCommandsPerFrame
-	const quadListIndexCount = maxQuads * 6
-	quadListIndexBuffer, quadListIndexBufferMem, err := vulkan.AllocateBuffer(t.handles, vk.DeviceSize(quadListIndexCount*2),
-		vk.BufferUsageFlags(vk.BufferUsageIndexBufferBit),
-		vk.MemoryPropertyFlags(vk.MemoryPropertyHostVisibleBit|vk.MemoryPropertyHostCoherentBit))
-	if err != nil {
-		return nil, fmt.Errorf("GpuTranslator: allocate quad list index buffer: %w", err)
-	}
-
-	// Map and fill quad list index buffer.
-	var indexData unsafe.Pointer
-	result := vk.MapMemory(handles.Device, quadListIndexBufferMem, 0, vk.DeviceSize(quadListIndexCount*2), 0, &indexData)
-	if err := vulkan.NewError(result); err != nil {
-		vk.DestroyBuffer(handles.Device, quadListIndexBuffer, nil)
-		vk.FreeMemory(handles.Device, quadListIndexBufferMem, nil)
-		return nil, fmt.Errorf("GpuTranslator: map quad list index buffer: %w", err)
-	}
-
-	indices := (*[quadListIndexCount]uint16)(indexData)
-	for i := 0; i < maxQuads; i++ {
-		baseVertex := uint16(i * 4)
-		indices[i*6+0] = baseVertex + 0
-		indices[i*6+1] = baseVertex + 1
-		indices[i*6+2] = baseVertex + 2
-		indices[i*6+3] = baseVertex + 0
-		indices[i*6+4] = baseVertex + 2
-		indices[i*6+5] = baseVertex + 3
-	}
-	vk.UnmapMemory(handles.Device, quadListIndexBufferMem)
-
-	t.quadListIndexBuffer = quadListIndexBuffer
-	t.quadListIndexBufferMem = quadListIndexBufferMem
-
 	go pprof.Do(context.Background(), pprof.Labels("name", "MemorySyncWorker"), func(ctx context.Context) {
 		t.memorySyncWorker()
 	})
@@ -414,9 +397,17 @@ func (t *GpuTranslator) Destroy() {
 		vk.FreeMemory(t.handles.Device, t.userDataBufferMem, nil)
 	}
 	t.userDataBuffersMutex.Unlock()
-	if t.quadListIndexBuffer != vk.NullBuffer {
-		vk.DestroyBuffer(t.handles.Device, t.quadListIndexBuffer, nil)
-		vk.FreeMemory(t.handles.Device, t.quadListIndexBufferMem, nil)
+	if t.rectlistTescShaderModule != vk.NullShaderModule {
+		vk.DestroyShaderModule(t.handles.Device, t.rectlistTescShaderModule, nil)
+		t.rectlistTescShaderModule = vk.NullShaderModule
+	}
+	if t.rectlistTeseShaderModule != vk.NullShaderModule {
+		vk.DestroyShaderModule(t.handles.Device, t.rectlistTeseShaderModule, nil)
+		t.rectlistTeseShaderModule = vk.NullShaderModule
+	}
+	if t.quadlistTescShaderModule != vk.NullShaderModule {
+		vk.DestroyShaderModule(t.handles.Device, t.quadlistTescShaderModule, nil)
+		t.quadlistTescShaderModule = vk.NullShaderModule
 	}
 	t.shaderModulesMutex.Lock()
 	for _, m := range t.shaderModules {
@@ -451,6 +442,8 @@ func (t *GpuTranslator) ResetFrameState(frame uint64) {
 	t.activePipeline = vk.NullPipeline
 	t.activeVteControl = 0
 	t.activeClipControl = 0
+	t.activePrimType = 0
+	t.activeCbMode = 0
 	t.activeDynamicState = nil
 	t.activeVertexShader = nil
 	t.activeFragmentShader = nil
@@ -492,12 +485,14 @@ func (t *GpuTranslator) Translate(frame uint64, stream *gpu.LiverpoolCommandStre
 		case gpu.LiverpoolCommandTypeDmaCopy:
 			t.DmaCopy(frame, &stream.DmaCopies[command.Index])
 		case gpu.LiverpoolCommandTypeBindPipeline:
+			t.RecordBindPipelineDebug(&stream.Pipelines[command.Index])
 			t.BindPipeline(frame, &stream.Pipelines[command.Index])
 		case gpu.LiverpoolCommandTypeBindResources:
 			t.BindResources(frame, &stream.BindResources[command.Index])
 		case gpu.LiverpoolCommandTypeBindComputePipeline:
 			t.BindComputePipeline(frame, &stream.ComputePipelines[command.Index])
 		case gpu.LiverpoolCommandTypeSetDynamicState:
+			t.RecordDynamicStateDebug(&stream.DynamicStates[command.Index])
 			t.SetDynamicState(&stream.DynamicStates[command.Index])
 		case gpu.LiverpoolCommandTypeWriteData:
 			t.WriteData(&stream.WriteDatas[command.Index])
@@ -522,7 +517,7 @@ func (t *GpuTranslator) BeforeTranslate() {
 
 func (t *GpuTranslator) StartCommandBuffer() {
 	var err error
-	t.commandBuffer, err = vulkan.CreateCommandBuffer(t.handles)
+	t.commandBuffer, err = vulkan.CreateCommandBufferFromPool(t.handles, t.pool)
 	if err != nil {
 		panic(err)
 	}

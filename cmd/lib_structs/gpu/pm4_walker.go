@@ -162,12 +162,7 @@ func (l *Liverpool) handleContextControl(stream *LiverpoolCommandStream, payload
 
 func (l *Liverpool) handleClearState(stream *LiverpoolCommandStream, payload []uint32) {
 	l.StateMutex.Lock()
-	for i := range l.Registers.Context {
-		l.Registers.Context[i] = 0
-	}
-	for i := range l.Registers.Shader {
-		l.Registers.Shader[i] = 0
-	}
+	l.Registers.SetDefaults()
 	l.DrawState = LiverpoolDrawState{}
 	l.StateMutex.Unlock()
 	if LogPM4Packets {
